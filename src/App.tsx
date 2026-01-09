@@ -15,6 +15,7 @@ import Lancamentos from "./pages/Lancamentos";
 import RelatoriosCliente from "./pages/RelatoriosCliente";
 import RelatorioFinanceiro from "./pages/RelatorioFinanceiro";
 import DashboardFinanceiro from "./pages/DashboardFinanceiro";
+import HistoricoCaixas from "./pages/HistoricoCaixas";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
 import DashboardCobrancas from "./pages/DashboardCobrancas";
@@ -44,7 +45,7 @@ const App = () => (
           <Route path="/receber" element={<ContasReceber />} />
           <Route path="/pagar" element={<ContasPagar />} />
           <Route path="/asaas" element={<DashboardCobrancas />} />
-          <Route path="/relatorios/caixa" element={<Dashboard />} />
+          <Route path="/relatorios/caixa" element={<HistoricoCaixas />} />
           <Route path="/relatorios/financeiro" element={<RelatorioFinanceiro />} />
           <Route path="/configuracoes" element={<Dashboard />} />
           <Route path="*" element={<NotFound />} />
