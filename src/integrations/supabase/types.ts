@@ -246,6 +246,41 @@ export type Database = {
         }
         Relationships: []
       }
+      modulo_permissoes: {
+        Row: {
+          created_at: string
+          funcionario_id: string
+          id: string
+          modulo_key: string
+          tem_acesso: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          funcionario_id: string
+          id?: string
+          modulo_key: string
+          tem_acesso?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          funcionario_id?: string
+          id?: string
+          modulo_key?: string
+          tem_acesso?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modulo_permissoes_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
