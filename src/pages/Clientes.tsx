@@ -13,6 +13,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Plus, Eye, Pencil, Ban, Trash2, Building2, Home } from "lucide-react";
+import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
+import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
+import { ClientePagamento } from "@/components/clientes/ClientePagamento";
+import { ClienteConfiguracao } from "@/components/clientes/ClienteConfiguracao";
+import { ClienteTabelaPrecos } from "@/components/clientes/ClienteTabelaPrecos";
+import { toast } from "sonner";
 
 interface Cliente {
   id: string;
@@ -57,6 +63,7 @@ const mockClientes: Cliente[] = [
 const Clientes = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<"todos" | "industrial" | "residencial">("todos");
+  const [activeTab, setActiveTab] = useState("lista");
 
   const filteredClientes = mockClientes.filter((cliente) => {
     const matchesSearch =
@@ -66,14 +73,22 @@ const Clientes = () => {
     return matchesSearch && matchesFilter;
   });
 
+  const handleSaveCliente = () => {
+    toast.success("Cliente salvo com sucesso!");
+  };
+
+  const handleNovoCliente = () => {
+    setActiveTab("dados");
+  };
+
   return (
-    <AppLayout title="Dashboard">
+    <AppLayout title="Clientes">
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Cadastro de Clientes</h1>
         </div>
 
-        <Tabs defaultValue="lista" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="bg-muted/50 p-1 rounded-lg">
             <TabsTrigger value="lista">Lista de Clientes</TabsTrigger>
             <TabsTrigger value="dados">Dados Básicos</TabsTrigger>
@@ -125,7 +140,7 @@ const Clientes = () => {
                 </div>
               </div>
 
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={handleNovoCliente}>
                 <Plus className="w-4 h-4" />
                 Novo Cliente
               </Button>
@@ -162,7 +177,12 @@ const Clientes = () => {
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <Eye className="w-4 h-4 text-muted-foreground" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => setActiveTab("dados")}
+                          >
                             <Pencil className="w-4 h-4 text-muted-foreground" />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -181,33 +201,32 @@ const Clientes = () => {
           </TabsContent>
 
           <TabsContent value="dados">
-            <div className="text-center py-12 text-muted-foreground">
-              Selecione um cliente para editar os dados básicos
-            </div>
+            <ClienteDadosBasicos 
+              onNext={() => setActiveTab("endereco")} 
+              onSave={handleSaveCliente}
+            />
           </TabsContent>
 
           <TabsContent value="endereco">
-            <div className="text-center py-12 text-muted-foreground">
-              Selecione um cliente para editar o endereço
-            </div>
+            <ClienteEndereco 
+              onNext={() => setActiveTab("pagamento")} 
+              onSave={handleSaveCliente}
+            />
           </TabsContent>
 
           <TabsContent value="pagamento">
-            <div className="text-center py-12 text-muted-foreground">
-              Selecione um cliente para configurar pagamento
-            </div>
+            <ClientePagamento 
+              onBack={() => setActiveTab("endereco")} 
+              onSave={handleSaveCliente}
+            />
           </TabsContent>
 
           <TabsContent value="configuracao">
-            <div className="text-center py-12 text-muted-foreground">
-              Selecione um cliente para editar configurações
-            </div>
+            <ClienteConfiguracao onSave={handleSaveCliente} />
           </TabsContent>
 
           <TabsContent value="precos">
-            <div className="text-center py-12 text-muted-foreground">
-              Selecione um cliente para ver a tabela de preços
-            </div>
+            <ClienteTabelaPrecos />
           </TabsContent>
         </Tabs>
       </div>
