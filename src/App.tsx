@@ -13,6 +13,7 @@ import CaixaPDV from "./pages/CaixaPDV";
 import Faturamento from "./pages/Faturamento";
 import Lancamentos from "./pages/Lancamentos";
 import RelatoriosCliente from "./pages/RelatoriosCliente";
+import RelatorioFinanceiro from "./pages/RelatorioFinanceiro";
 import DashboardFinanceiro from "./pages/DashboardFinanceiro";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
@@ -44,7 +45,7 @@ const App = () => (
           <Route path="/pagar" element={<ContasPagar />} />
           <Route path="/asaas" element={<DashboardCobrancas />} />
           <Route path="/relatorios/caixa" element={<Dashboard />} />
-          <Route path="/relatorios/financeiro" element={<Dashboard />} />
+          <Route path="/relatorios/financeiro" element={<RelatorioFinanceiro />} />
           <Route path="/configuracoes" element={<Dashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
