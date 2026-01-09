@@ -201,6 +201,51 @@ export type Database = {
         }
         Relationships: []
       }
+      funcionarios: {
+        Row: {
+          ativo: boolean
+          cargo: string
+          cpf: string | null
+          created_at: string
+          departamento: string | null
+          email: string | null
+          id: string
+          login: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cargo: string
+          cpf?: string | null
+          created_at?: string
+          departamento?: string | null
+          email?: string | null
+          id?: string
+          login: string
+          nome: string
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cargo?: string
+          cpf?: string | null
+          created_at?: string
+          departamento?: string | null
+          email?: string | null
+          id?: string
+          login?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
