@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Clientes from "./pages/Clientes";
 import Produtos from "./pages/Produtos";
 import FluxoProducao from "./pages/FluxoProducao";
+import OrdensServico from "./pages/OrdensServico";
 import CaixaPDV from "./pages/CaixaPDV";
 import Faturamento from "./pages/Faturamento";
 import Lancamentos from "./pages/Lancamentos";
@@ -31,7 +32,7 @@ const App = () => (
           <Route path="/lancamentos" element={<Lancamentos />} />
           <Route path="/relatorios/clientes" element={<RelatoriosCliente />} />
           {/* Placeholder routes */}
-          <Route path="/ordens" element={<Dashboard />} />
+          <Route path="/ordens" element={<OrdensServico />} />
           <Route path="/agenda" element={<Dashboard />} />
           <Route path="/financeiro" element={<Dashboard />} />
           <Route path="/receber" element={<Dashboard />} />
