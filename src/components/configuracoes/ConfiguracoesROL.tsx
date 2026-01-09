@@ -36,7 +36,7 @@ import {
   X
 } from "lucide-react";
 import { useROLConfig, useUpdateROLConfig, useUploadLogo } from "@/hooks/useROLConfig";
-import { ROLPreview } from "./ROLPreview";
+import { ROLPreview, printROL } from "./ROLPreview";
 import { useToast } from "@/hooks/use-toast";
 
 interface LocalROLConfig {
@@ -641,6 +641,21 @@ export function ConfiguracoesROL() {
             <div className="py-4 bg-gray-100 rounded-lg flex justify-center">
               <ROLPreview config={config} />
             </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button 
+                variant="outline"
+                onClick={() => setPreviewOpen(false)}
+              >
+                Fechar
+              </Button>
+              <Button 
+                onClick={() => printROL(config)}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Imprimir
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
@@ -649,7 +664,7 @@ export function ConfiguracoesROL() {
             <RotateCcw className="w-4 h-4 mr-2" />
             Restaurar Padrão
           </Button>
-          <Button 
+          <Button
             onClick={handleSave}
             disabled={!hasChanges || updateConfig.isPending}
             className="bg-blue-600 hover:bg-blue-700"
