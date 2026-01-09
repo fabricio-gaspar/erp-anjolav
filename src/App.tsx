@@ -16,6 +16,7 @@ import RelatoriosCliente from "./pages/RelatoriosCliente";
 import DashboardFinanceiro from "./pages/DashboardFinanceiro";
 import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
+import DashboardCobrancas from "./pages/DashboardCobrancas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,7 +42,7 @@ const App = () => (
           <Route path="/financeiro" element={<DashboardFinanceiro />} />
           <Route path="/receber" element={<ContasReceber />} />
           <Route path="/pagar" element={<ContasPagar />} />
-          <Route path="/asaas" element={<Dashboard />} />
+          <Route path="/asaas" element={<DashboardCobrancas />} />
           <Route path="/relatorios/caixa" element={<Dashboard />} />
           <Route path="/relatorios/financeiro" element={<Dashboard />} />
           <Route path="/configuracoes" element={<Dashboard />} />
