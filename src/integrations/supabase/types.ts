@@ -281,6 +281,102 @@ export type Database = {
           },
         ]
       }
+      rol_configuracoes: {
+        Row: {
+          assinatura_cliente: boolean | null
+          bloco: boolean | null
+          cnpj: string | null
+          cor_primaria: string | null
+          cor_secundaria: string | null
+          created_at: string
+          email: string | null
+          endereco: string | null
+          exibir_logo: boolean | null
+          fonte_principal: string | null
+          id: string
+          largura_papel: string | null
+          linha_desconto: boolean | null
+          logo_url: string | null
+          margem_lateral: number | null
+          margem_superior: number | null
+          nome_completo: string | null
+          nome_curto: string
+          observacoes: boolean | null
+          previsao_entrega: boolean | null
+          slogan: string | null
+          tamanho_item: number | null
+          tamanho_nome: number | null
+          tamanho_total: number | null
+          telefone: string | null
+          texto_rodape: string | null
+          tipo_impressora: string | null
+          tipo_preco: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          assinatura_cliente?: boolean | null
+          bloco?: boolean | null
+          cnpj?: string | null
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          exibir_logo?: boolean | null
+          fonte_principal?: string | null
+          id?: string
+          largura_papel?: string | null
+          linha_desconto?: boolean | null
+          logo_url?: string | null
+          margem_lateral?: number | null
+          margem_superior?: number | null
+          nome_completo?: string | null
+          nome_curto?: string
+          observacoes?: boolean | null
+          previsao_entrega?: boolean | null
+          slogan?: string | null
+          tamanho_item?: number | null
+          tamanho_nome?: number | null
+          tamanho_total?: number | null
+          telefone?: string | null
+          texto_rodape?: string | null
+          tipo_impressora?: string | null
+          tipo_preco?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          assinatura_cliente?: boolean | null
+          bloco?: boolean | null
+          cnpj?: string | null
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          exibir_logo?: boolean | null
+          fonte_principal?: string | null
+          id?: string
+          largura_papel?: string | null
+          linha_desconto?: boolean | null
+          logo_url?: string | null
+          margem_lateral?: number | null
+          margem_superior?: number | null
+          nome_completo?: string | null
+          nome_curto?: string
+          observacoes?: boolean | null
+          previsao_entrega?: boolean | null
+          slogan?: string | null
+          tamanho_item?: number | null
+          tamanho_nome?: number | null
+          tamanho_total?: number | null
+          telefone?: string | null
+          texto_rodape?: string | null
+          tipo_impressora?: string | null
+          tipo_preco?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
