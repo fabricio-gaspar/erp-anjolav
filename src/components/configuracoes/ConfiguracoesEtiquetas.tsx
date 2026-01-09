@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -10,13 +11,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { 
   Printer, 
   Tag, 
   Save,
   RotateCcw,
-  Settings2
+  Settings2,
+  Eye
 } from "lucide-react";
+import { useEtiquetasConfig, useUpdateEtiquetasConfig } from "@/hooks/useEtiquetasConfig";
+import { EtiquetaPreview, printEtiqueta } from "./EtiquetaPreview";
 import { useToast } from "@/hooks/use-toast";
 
 interface PrinterSpec {
@@ -88,7 +99,7 @@ const TAMANHOS_ETIQUETA = [
   { value: "3x2", label: "3cm × 2cm (Preço)" },
 ];
 
-interface EtiquetaConfig {
+interface LocalEtiquetaConfig {
   modeloImpressora: string;
   tipoImpressora: string;
   tamanhoEtiqueta: string;
@@ -98,7 +109,7 @@ interface EtiquetaConfig {
   alturaCodigoBarras: number;
 }
 
-const defaultConfig: EtiquetaConfig = {
+const defaultConfig: LocalEtiquetaConfig = {
   modeloImpressora: "elgin-l42-pro",
   tipoImpressora: "termica-etiquetas",
   tamanhoEtiqueta: "10x15",
@@ -110,19 +121,47 @@ const defaultConfig: EtiquetaConfig = {
 
 export function ConfiguracoesEtiquetas() {
   const { toast } = useToast();
-  const [config, setConfig] = useState<EtiquetaConfig>(defaultConfig);
+  const { data: dbConfig, isLoading } = useEtiquetasConfig();
+  const updateDbConfig = useUpdateEtiquetasConfig();
+  
+  const [config, setConfig] = useState<LocalEtiquetaConfig>(defaultConfig);
   const [hasChanges, setHasChanges] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
-  const updateConfig = <K extends keyof EtiquetaConfig>(key: K, value: EtiquetaConfig[K]) => {
+  // Sync from DB
+  useEffect(() => {
+    if (dbConfig) {
+      setConfig({
+        modeloImpressora: dbConfig.modelo_impressora || defaultConfig.modeloImpressora,
+        tipoImpressora: dbConfig.tipo_impressora || defaultConfig.tipoImpressora,
+        tamanhoEtiqueta: dbConfig.tamanho_etiqueta || defaultConfig.tamanhoEtiqueta,
+        margemSuperior: dbConfig.margem_superior ?? defaultConfig.margemSuperior,
+        margemLateral: dbConfig.margem_lateral ?? defaultConfig.margemLateral,
+        tamanhoFonte: dbConfig.tamanho_fonte ?? defaultConfig.tamanhoFonte,
+        alturaCodigoBarras: dbConfig.altura_codigo_barras ?? defaultConfig.alturaCodigoBarras,
+      });
+    }
+  }, [dbConfig]);
+
+  const updateConfig = <K extends keyof LocalEtiquetaConfig>(key: K, value: LocalEtiquetaConfig[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    // TODO: Implement save to database
-    toast({
-      title: "Sucesso",
-      description: "Configurações de etiquetas salvas com sucesso!",
+  const handleSave = async () => {
+    if (!dbConfig) return;
+    
+    await updateDbConfig.mutateAsync({
+      id: dbConfig.id,
+      updates: {
+        modelo_impressora: config.modeloImpressora,
+        tipo_impressora: config.tipoImpressora,
+        tamanho_etiqueta: config.tamanhoEtiqueta,
+        margem_superior: config.margemSuperior,
+        margem_lateral: config.margemLateral,
+        tamanho_fonte: config.tamanhoFonte,
+        altura_codigo_barras: config.alturaCodigoBarras,
+      }
     });
     setHasChanges(false);
   };
@@ -137,6 +176,18 @@ export function ConfiguracoesEtiquetas() {
   };
 
   const selectedPrinter = IMPRESSORAS.find(p => p.id === config.modeloImpressora);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-[280px]" />
+          <Skeleton className="h-[280px]" />
+        </div>
+        <Skeleton className="h-[180px]" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -317,19 +368,53 @@ export function ConfiguracoesEtiquetas() {
       )}
 
       {/* Footer Actions */}
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={handleReset}>
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Restaurar Padrão
-        </Button>
-        <Button 
-          onClick={handleSave}
-          disabled={!hasChanges}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          Salvar Configurações
-        </Button>
+      <div className="flex justify-between">
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              <Eye className="w-4 h-4 mr-2" />
+              Visualizar Etiqueta
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Preview da Etiqueta</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 bg-gray-100 rounded-lg flex justify-center">
+              <EtiquetaPreview config={config} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button 
+                variant="outline"
+                onClick={() => setPreviewOpen(false)}
+              >
+                Fechar
+              </Button>
+              <Button 
+                onClick={() => printEtiqueta(config)}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Imprimir
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={handleReset}>
+            <RotateCcw className="w-4 h-4 mr-2" />
+            Restaurar Padrão
+          </Button>
+          <Button 
+            onClick={handleSave}
+            disabled={!hasChanges || updateDbConfig.isPending}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {updateDbConfig.isPending ? "Salvando..." : "Salvar Configurações"}
+          </Button>
+        </div>
       </div>
     </div>
   );

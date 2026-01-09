@@ -201,6 +201,45 @@ export type Database = {
         }
         Relationships: []
       }
+      etiquetas_configuracoes: {
+        Row: {
+          altura_codigo_barras: number | null
+          created_at: string
+          id: string
+          margem_lateral: number | null
+          margem_superior: number | null
+          modelo_impressora: string | null
+          tamanho_etiqueta: string | null
+          tamanho_fonte: number | null
+          tipo_impressora: string | null
+          updated_at: string
+        }
+        Insert: {
+          altura_codigo_barras?: number | null
+          created_at?: string
+          id?: string
+          margem_lateral?: number | null
+          margem_superior?: number | null
+          modelo_impressora?: string | null
+          tamanho_etiqueta?: string | null
+          tamanho_fonte?: number | null
+          tipo_impressora?: string | null
+          updated_at?: string
+        }
+        Update: {
+          altura_codigo_barras?: number | null
+          created_at?: string
+          id?: string
+          margem_lateral?: number | null
+          margem_superior?: number | null
+          modelo_impressora?: string | null
+          tamanho_etiqueta?: string | null
+          tamanho_fonte?: number | null
+          tipo_impressora?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       funcionarios: {
         Row: {
           ativo: boolean
