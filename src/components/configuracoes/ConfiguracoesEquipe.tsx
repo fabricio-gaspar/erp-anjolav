@@ -18,27 +18,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Plus, Pencil, Trash2, Mail, Key } from "lucide-react";
-import { toast } from "sonner";
-
-interface Funcionario {
-  id: string;
-  nome: string;
-  cargo: string;
-  departamento: string;
-  telefone: string;
-  cpf: string;
-  login: string;
-}
-
-const mockFuncionarios: Funcionario[] = [
-  { id: "1", nome: "Flavio", cargo: "motorista", departamento: "Logística", telefone: "", cpf: "", login: "flavio" },
-  { id: "2", nome: "Jussara", cargo: "Balconista", departamento: "lavanderia", telefone: "", cpf: "", login: "jussara" },
-  { id: "3", nome: "ADMIR", cargo: "AUXILIAR", departamento: "lavanderia", telefone: "", cpf: "", login: "admir" },
-  { id: "4", nome: "MARCOS", cargo: "motorista", departamento: "Produção", telefone: "", cpf: "", login: "marcos" },
-  { id: "5", nome: "JULIA", cargo: "AUXILIAR", departamento: "lavanderia", telefone: "", cpf: "", login: "julia" },
-  { id: "6", nome: "ANA", cargo: "COORDENADORA", departamento: "lavanderia", telefone: "", cpf: "", login: "ana" },
-];
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Users, Plus, Pencil, Trash2, Mail, Key, Loader2 } from "lucide-react";
+import { 
+  useFuncionarios, 
+  useCreateFuncionario, 
+  useDeleteFuncionario 
+} from "@/hooks/useFuncionarios";
 
 const cargos = [
   "Operador de Produção",
@@ -60,51 +55,58 @@ const departamentos = [
 ];
 
 export function ConfiguracoesEquipe() {
-  const [funcionarios, setFuncionarios] = useState<Funcionario[]>(mockFuncionarios);
+  const { data: funcionarios = [], isLoading } = useFuncionarios();
+  const createFuncionario = useCreateFuncionario();
+  const deleteFuncionario = useDeleteFuncionario();
+
   const [formData, setFormData] = useState({
     nome: "",
     cargo: "Operador de Produção",
     departamento: "Produção",
     telefone: "",
     cpf: "",
+    email: "",
     login: "",
     senha: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.nome.trim() || !formData.login.trim()) {
-      toast.error("Preencha os campos obrigatórios");
+    if (!formData.nome.trim() || !formData.login.trim() || !formData.senha.trim()) {
       return;
     }
 
-    const novoFuncionario: Funcionario = {
-      id: Date.now().toString(),
+    await createFuncionario.mutateAsync({
       nome: formData.nome,
       cargo: formData.cargo,
       departamento: formData.departamento,
-      telefone: formData.telefone,
-      cpf: formData.cpf,
+      telefone: formData.telefone || undefined,
+      cpf: formData.cpf || undefined,
+      email: formData.email || undefined,
       login: formData.login,
-    };
+      senha: formData.senha,
+    });
 
-    setFuncionarios([...funcionarios, novoFuncionario]);
     setFormData({
       nome: "",
       cargo: "Operador de Produção",
       departamento: "Produção",
       telefone: "",
       cpf: "",
+      email: "",
       login: "",
       senha: "",
     });
-    toast.success("Funcionário cadastrado com sucesso!");
   };
 
-  const handleDelete = (id: string) => {
-    setFuncionarios(funcionarios.filter((f) => f.id !== id));
-    toast.success("Funcionário removido com sucesso!");
+  const handleDelete = async () => {
+    if (deleteId) {
+      await deleteFuncionario.mutateAsync(deleteId);
+      setDeleteId(null);
+    }
   };
 
   const formatTelefone = (value: string) => {
@@ -151,6 +153,7 @@ export function ConfiguracoesEquipe() {
                   value={formData.nome}
                   onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
                   placeholder=""
+                  required
                 />
               </div>
               <div className="space-y-2">
@@ -220,17 +223,27 @@ export function ConfiguracoesEquipe() {
               O funcionário poderá fazer login usando email OU nome de usuário
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Email ou Nome de Usuário *</Label>
+                <Label>Email (opcional)</Label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="usuario@empresa.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Nome de Usuário *</Label>
                 <Input
                   value={formData.login}
                   onChange={(e) => setFormData({ ...formData, login: e.target.value })}
-                  placeholder="usuario@empresa.com ou nome.usuario"
+                  placeholder="nome.usuario"
+                  required
                 />
                 <p className="text-xs text-primary flex items-center gap-1">
                   <Mail className="w-3 h-3" />
-                  Email ou nome de usuário para login (ex: joao.silva)
+                  Nome de usuário para login (ex: joao.silva)
                 </p>
               </div>
               <div className="space-y-2">
@@ -240,10 +253,12 @@ export function ConfiguracoesEquipe() {
                   value={formData.senha}
                   onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
                   placeholder="Senha inicial"
+                  required
+                  minLength={6}
                 />
                 <p className="text-xs text-orange-600 flex items-center gap-1">
                   <Key className="w-3 h-3" />
-                  Senha para primeiro acesso
+                  Senha para primeiro acesso (mínimo 6 caracteres)
                 </p>
               </div>
             </div>
@@ -251,8 +266,16 @@ export function ConfiguracoesEquipe() {
 
           {/* Submit Button */}
           <div className="flex justify-end">
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 gap-2">
-              <Plus className="w-4 h-4" />
+            <Button 
+              type="submit" 
+              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+              disabled={createFuncionario.isPending}
+            >
+              {createFuncionario.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
               Cadastrar Funcionário
             </Button>
           </div>
@@ -261,43 +284,80 @@ export function ConfiguracoesEquipe() {
 
       {/* Table */}
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-xs uppercase text-muted-foreground">Nome</TableHead>
-              <TableHead className="text-xs uppercase text-muted-foreground">Cargo/Depto</TableHead>
-              <TableHead className="text-xs uppercase text-muted-foreground">Login (Email/Usuário)</TableHead>
-              <TableHead className="text-xs uppercase text-muted-foreground text-center">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {funcionarios.map((funcionario) => (
-              <TableRow key={funcionario.id}>
-                <TableCell className="font-medium">{funcionario.nome}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {funcionario.cargo} / {funcionario.departamento}
-                </TableCell>
-                <TableCell className="text-primary">{funcionario.login}</TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Pencil className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8"
-                      onClick={() => handleDelete(funcionario.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </Button>
-                  </div>
-                </TableCell>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : funcionarios.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Users className="w-16 h-16 text-muted-foreground/30 mb-4" />
+            <p className="text-muted-foreground">
+              Nenhum funcionário cadastrado
+            </p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs uppercase text-muted-foreground">Nome</TableHead>
+                <TableHead className="text-xs uppercase text-muted-foreground">Cargo/Depto</TableHead>
+                <TableHead className="text-xs uppercase text-muted-foreground">Login (Email/Usuário)</TableHead>
+                <TableHead className="text-xs uppercase text-muted-foreground text-center">Ações</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {funcionarios.map((funcionario) => (
+                <TableRow key={funcionario.id}>
+                  <TableCell className="font-medium">{funcionario.nome}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {funcionario.cargo} / {funcionario.departamento || "-"}
+                  </TableCell>
+                  <TableCell className="text-primary">{funcionario.login}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Pencil className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => setDeleteId(funcionario.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover este funcionário? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteFuncionario.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : null}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
