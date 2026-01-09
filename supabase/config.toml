@@ -1,1 +1,7 @@
 project_id = "lbrsblimephbjyjlrefv"
+
+[functions.create-asaas-charge]
+verify_jwt = false
+
+[functions.asaas-webhook]
+verify_jwt = false

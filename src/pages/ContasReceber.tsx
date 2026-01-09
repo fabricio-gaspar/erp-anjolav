@@ -28,51 +28,114 @@ import {
   Pencil,
   Trash2,
   Check,
+  ExternalLink,
+  Copy,
+  Loader2,
 } from "lucide-react";
-
-interface ContaReceber {
-  id: string;
-  descricao: string;
-  cliente: string;
-  valor: number;
-  vencimento: string;
-  status: "pendente" | "recebido" | "vencido";
-}
-
-const mockContas: ContaReceber[] = [
-  {
-    id: "1",
-    descricao: "Fatura NFS-e 1-202500000001488 - FABRICIO GASPAR",
-    cliente: "FABRICIO GASPAR",
-    valor: 5.0,
-    vencimento: "03/01/2026",
-    status: "pendente",
-  },
-];
+import { useAsaasCharges, useDeleteAsaasCharge, useUpdateChargeStatus } from "@/hooks/useAsaas";
+import { NovaCobrancaModal } from "@/components/cobrancas/NovaCobrancaModal";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const ContasReceber = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [showNovaCobranca, setShowNovaCobranca] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const totalAReceber = mockContas
-    .filter((c) => c.status === "pendente" || c.status === "vencido")
-    .reduce((sum, c) => sum + c.valor, 0);
+  const { data: charges = [], isLoading } = useAsaasCharges();
+  const deleteCharge = useDeleteAsaasCharge();
+  const updateStatus = useUpdateChargeStatus();
 
-  const totalRecebido = mockContas
-    .filter((c) => c.status === "recebido")
-    .reduce((sum, c) => sum + c.valor, 0);
+  const totalAReceber = charges
+    .filter((c) => c.status === "PENDING" || c.status === "OVERDUE")
+    .reduce((sum, c) => sum + Number(c.value), 0);
 
-  const filteredContas = mockContas.filter((conta) => {
+  const totalRecebido = charges
+    .filter((c) => c.status === "RECEIVED" || c.status === "CONFIRMED")
+    .reduce((sum, c) => sum + Number(c.value), 0);
+
+  const filteredCharges = charges.filter((charge) => {
     const matchesSearch =
-      conta.descricao.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conta.cliente.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === "todos" || conta.status === statusFilter;
+      charge.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      charge.customer_name.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    let matchesStatus = statusFilter === "todos";
+    if (statusFilter === "pendente") matchesStatus = charge.status === "PENDING";
+    if (statusFilter === "recebido") matchesStatus = charge.status === "RECEIVED" || charge.status === "CONFIRMED";
+    if (statusFilter === "vencido") matchesStatus = charge.status === "OVERDUE";
+    
     return matchesSearch && matchesStatus;
   });
 
   const formatCurrency = (value: number) => {
     return `R$ ${value.toFixed(2).replace(".", ",")}`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("pt-BR");
+  };
+
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case "RECEIVED":
+      case "CONFIRMED":
+        return "success";
+      case "OVERDUE":
+        return "danger";
+      default:
+        return "warning";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "RECEIVED":
+      case "CONFIRMED":
+        return "Recebido";
+      case "OVERDUE":
+        return "Vencido";
+      case "PENDING":
+        return "Pendente";
+      default:
+        return status;
+    }
+  };
+
+  const handleBaixar = async (chargeId: string) => {
+    await updateStatus.mutateAsync({
+      chargeId,
+      status: "RECEIVED",
+      paidAt: new Date().toISOString(),
+    });
+  };
+
+  const handleDelete = async () => {
+    if (deleteConfirm) {
+      await deleteCharge.mutateAsync(deleteConfirm);
+      setDeleteConfirm(null);
+    }
+  };
+
+  const copyPixCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast.success("Código PIX copiado!");
   };
 
   return (
@@ -82,13 +145,12 @@ const ContasReceber = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Contas a Receber</h1>
           <p className="text-sm text-muted-foreground">
-            Gerencie suas receitas e pagamentos
+            Gerencie suas receitas e cobranças via Asaas
           </p>
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* A Receber */}
           <Card className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -103,7 +165,6 @@ const ContasReceber = () => {
             </div>
           </Card>
 
-          {/* Recebido */}
           <Card className="p-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -121,15 +182,17 @@ const ContasReceber = () => {
 
         {/* Table Section */}
         <Card className="overflow-hidden">
-          {/* Section Header */}
           <div className="p-4 border-b flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold text-lg">Contas a Receber</h3>
+              <h3 className="font-semibold text-lg">Cobranças</h3>
             </div>
-            <Button className="gap-2 bg-success hover:bg-success/90">
+            <Button 
+              className="gap-2 bg-success hover:bg-success/90"
+              onClick={() => setShowNovaCobranca(true)}
+            >
               <Plus className="w-4 h-4" />
-              Nova Receita
+              Nova Cobrança
             </Button>
           </div>
 
@@ -170,61 +233,94 @@ const ContasReceber = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredContas.length === 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ) : filteredCharges.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6}
                     className="text-center py-12 text-muted-foreground"
                   >
-                    Nenhuma conta encontrada
+                    Nenhuma cobrança encontrada
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredContas.map((conta) => (
-                  <TableRow key={conta.id} className="hover:bg-muted/30">
-                    <TableCell className="font-medium">{conta.descricao}</TableCell>
+                filteredCharges.map((charge) => (
+                  <TableRow key={charge.id} className="hover:bg-muted/30">
+                    <TableCell className="font-medium">{charge.description}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {conta.cliente}
+                      {charge.customer_name}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
-                      {formatCurrency(conta.valor)}
+                      {formatCurrency(Number(charge.value))}
                     </TableCell>
-                    <TableCell>{conta.vencimento}</TableCell>
+                    <TableCell>{formatDate(charge.due_date)}</TableCell>
                     <TableCell>
-                      <StatusBadge
-                        variant={
-                          conta.status === "recebido"
-                            ? "success"
-                            : conta.status === "vencido"
-                            ? "danger"
-                            : "warning"
-                        }
-                      >
-                        {conta.status === "recebido"
-                          ? "Recebido"
-                          : conta.status === "vencido"
-                          ? "Vencido"
-                          : "Pendente"}
+                      <StatusBadge variant={getStatusVariant(charge.status)}>
+                        {getStatusLabel(charge.status)}
                       </StatusBadge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {conta.status !== "recebido" && (
+                      <TooltipProvider>
+                        <div className="flex items-center justify-end gap-1">
+                          {charge.status === "PENDING" && (
+                            <Button
+                              size="sm"
+                              className="gap-1 bg-success hover:bg-success/90 h-8"
+                              onClick={() => handleBaixar(charge.id)}
+                              disabled={updateStatus.isPending}
+                            >
+                              <Check className="w-3 h-3" />
+                              Baixar
+                            </Button>
+                          )}
+                          
+                          {charge.pix_copy_paste && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => copyPixCode(charge.pix_copy_paste!)}
+                                >
+                                  <Copy className="w-4 h-4 text-muted-foreground" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Copiar código PIX</TooltipContent>
+                            </Tooltip>
+                          )}
+
+                          {charge.invoice_url && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => window.open(charge.invoice_url!, "_blank")}
+                                >
+                                  <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Abrir fatura</TooltipContent>
+                            </Tooltip>
+                          )}
+
                           <Button
-                            size="sm"
-                            className="gap-1 bg-success hover:bg-success/90 h-8"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setDeleteConfirm(charge.id)}
                           >
-                            <Check className="w-3 h-3" />
-                            Baixar
+                            <Trash2 className="w-4 h-4 text-muted-foreground" />
                           </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Pencil className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Trash2 className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                      </div>
+                        </div>
+                      </TooltipProvider>
                     </TableCell>
                   </TableRow>
                 ))
@@ -233,6 +329,28 @@ const ContasReceber = () => {
           </Table>
         </Card>
       </div>
+
+      <NovaCobrancaModal 
+        open={showNovaCobranca} 
+        onOpenChange={setShowNovaCobranca} 
+      />
+
+      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir cobrança?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. A cobrança será removida permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };

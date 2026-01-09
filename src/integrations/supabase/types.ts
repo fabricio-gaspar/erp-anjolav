@@ -14,7 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      asaas_charges: {
+        Row: {
+          asaas_id: string | null
+          bank_slip_url: string | null
+          billing_type: string
+          created_at: string
+          customer_cpf_cnpj: string | null
+          customer_email: string | null
+          customer_name: string
+          description: string
+          due_date: string
+          id: string
+          invoice_url: string | null
+          paid_at: string | null
+          pix_copy_paste: string | null
+          pix_qr_code: string | null
+          status: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          asaas_id?: string | null
+          bank_slip_url?: string | null
+          billing_type: string
+          created_at?: string
+          customer_cpf_cnpj?: string | null
+          customer_email?: string | null
+          customer_name: string
+          description: string
+          due_date: string
+          id?: string
+          invoice_url?: string | null
+          paid_at?: string | null
+          pix_copy_paste?: string | null
+          pix_qr_code?: string | null
+          status?: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          asaas_id?: string | null
+          bank_slip_url?: string | null
+          billing_type?: string
+          created_at?: string
+          customer_cpf_cnpj?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          description?: string
+          due_date?: string
+          id?: string
+          invoice_url?: string | null
+          paid_at?: string | null
+          pix_copy_paste?: string | null
+          pix_qr_code?: string | null
+          status?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      asaas_webhook_events: {
+        Row: {
+          charge_id: string | null
+          event_type: string
+          id: string
+          payload: Json
+          payment_id: string | null
+          processed_at: string
+        }
+        Insert: {
+          charge_id?: string | null
+          event_type: string
+          id?: string
+          payload: Json
+          payment_id?: string | null
+          processed_at?: string
+        }
+        Update: {
+          charge_id?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          payment_id?: string | null
+          processed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asaas_webhook_events_charge_id_fkey"
+            columns: ["charge_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_charges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
