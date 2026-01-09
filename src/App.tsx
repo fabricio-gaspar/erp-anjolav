@@ -8,6 +8,7 @@ import Clientes from "./pages/Clientes";
 import Produtos from "./pages/Produtos";
 import FluxoProducao from "./pages/FluxoProducao";
 import OrdensServico from "./pages/OrdensServico";
+import Agenda from "./pages/Agenda";
 import CaixaPDV from "./pages/CaixaPDV";
 import Faturamento from "./pages/Faturamento";
 import Lancamentos from "./pages/Lancamentos";
@@ -33,7 +34,7 @@ const App = () => (
           <Route path="/relatorios/clientes" element={<RelatoriosCliente />} />
           {/* Placeholder routes */}
           <Route path="/ordens" element={<OrdensServico />} />
-          <Route path="/agenda" element={<Dashboard />} />
+          <Route path="/agenda" element={<Agenda />} />
           <Route path="/financeiro" element={<Dashboard />} />
           <Route path="/receber" element={<Dashboard />} />
           <Route path="/pagar" element={<Dashboard />} />
