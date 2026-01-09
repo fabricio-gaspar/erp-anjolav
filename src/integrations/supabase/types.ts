@@ -109,6 +109,98 @@ export type Database = {
           },
         ]
       }
+      caixa_movimentacoes: {
+        Row: {
+          caixa_id: string
+          created_at: string
+          descricao: string | null
+          forma_pagamento: string | null
+          id: string
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          caixa_id: string
+          created_at?: string
+          descricao?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          tipo: string
+          valor: number
+        }
+        Update: {
+          caixa_id?: string
+          created_at?: string
+          descricao?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caixa_movimentacoes_caixa_id_fkey"
+            columns: ["caixa_id"]
+            isOneToOne: false
+            referencedRelation: "caixas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      caixas: {
+        Row: {
+          created_at: string
+          data_abertura: string
+          data_fechamento: string | null
+          diferenca: number | null
+          id: string
+          observacoes: string | null
+          operador: string
+          status: string
+          updated_at: string
+          valor_abertura: number
+          valor_contado: number | null
+          valor_esperado: number
+          valor_reforcos: number
+          valor_sangrias: number
+          valor_vendas: number
+        }
+        Insert: {
+          created_at?: string
+          data_abertura?: string
+          data_fechamento?: string | null
+          diferenca?: number | null
+          id?: string
+          observacoes?: string | null
+          operador: string
+          status?: string
+          updated_at?: string
+          valor_abertura?: number
+          valor_contado?: number | null
+          valor_esperado?: number
+          valor_reforcos?: number
+          valor_sangrias?: number
+          valor_vendas?: number
+        }
+        Update: {
+          created_at?: string
+          data_abertura?: string
+          data_fechamento?: string | null
+          diferenca?: number | null
+          id?: string
+          observacoes?: string | null
+          operador?: string
+          status?: string
+          updated_at?: string
+          valor_abertura?: number
+          valor_contado?: number | null
+          valor_esperado?: number
+          valor_reforcos?: number
+          valor_sangrias?: number
+          valor_vendas?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
