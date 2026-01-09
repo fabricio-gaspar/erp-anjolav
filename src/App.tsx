@@ -13,6 +13,7 @@ import CaixaPDV from "./pages/CaixaPDV";
 import Faturamento from "./pages/Faturamento";
 import Lancamentos from "./pages/Lancamentos";
 import RelatoriosCliente from "./pages/RelatoriosCliente";
+import DashboardFinanceiro from "./pages/DashboardFinanceiro";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,7 +36,7 @@ const App = () => (
           {/* Placeholder routes */}
           <Route path="/ordens" element={<OrdensServico />} />
           <Route path="/agenda" element={<Agenda />} />
-          <Route path="/financeiro" element={<Dashboard />} />
+          <Route path="/financeiro" element={<DashboardFinanceiro />} />
           <Route path="/receber" element={<Dashboard />} />
           <Route path="/pagar" element={<Dashboard />} />
           <Route path="/asaas" element={<Dashboard />} />
