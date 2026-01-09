@@ -6,8 +6,23 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
-  Calendar,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Plus,
   ShoppingCart,
   ArrowRight,
@@ -19,6 +34,14 @@ import {
   Pencil,
   Trash2,
   FileText,
+  Eye,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
 } from "lucide-react";
 
 interface LancamentoItem {
@@ -35,6 +58,59 @@ interface ClienteSelecionado {
   documento: string;
   telefone: string;
 }
+
+interface LancamentoConferencia {
+  id: string;
+  cliente: string;
+  dataEmissao: string;
+  dataEntrega: string;
+  itensCount: number;
+  valorTotal: number;
+  status: "pendente" | "conferido" | "divergencia";
+  observacao?: string;
+}
+
+const mockConferencias: LancamentoConferencia[] = [
+  {
+    id: "1",
+    cliente: "FABRICIO GASPAR",
+    dataEmissao: "09/01/2026",
+    dataEntrega: "09/01/2026",
+    itensCount: 3,
+    valorTotal: 125.50,
+    status: "pendente",
+  },
+  {
+    id: "2",
+    cliente: "HOTEL CENTRAL",
+    dataEmissao: "08/01/2026",
+    dataEntrega: "09/01/2026",
+    itensCount: 15,
+    valorTotal: 850.00,
+    status: "conferido",
+  },
+  {
+    id: "3",
+    cliente: "POUSADA SOL NASCENTE",
+    dataEmissao: "07/01/2026",
+    dataEntrega: "08/01/2026",
+    itensCount: 8,
+    valorTotal: 320.00,
+    status: "divergencia",
+    observacao: "Quantidade divergente em 2 itens",
+  },
+  {
+    id: "4",
+    cliente: "RESTAURANTE BOM SABOR",
+    dataEmissao: "06/01/2026",
+    dataEntrega: "07/01/2026",
+    itensCount: 5,
+    valorTotal: 180.00,
+    status: "pendente",
+  },
+];
+
+const periodOptions = ["Hoje", "Semana", "Quinzena", "Mês", "Personalizado"];
 
 const Lancamentos = () => {
   const [items, setItems] = useState<LancamentoItem[]>([
@@ -56,8 +132,20 @@ const Lancamentos = () => {
 
   const [dataEmissao, setDataEmissao] = useState("2026-01-09");
   const [dataEntrega, setDataEntrega] = useState("2026-01-09");
+  
+  // Conferência state
+  const [selectedPeriod, setSelectedPeriod] = useState("Semana");
+  const [statusFilter, setStatusFilter] = useState("todos");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const totalValue = items.reduce((sum, item) => sum + item.valorTotal, 0);
+
+  // Filter conferencias
+  const filteredConferencias = mockConferencias.filter((conf) => {
+    const matchesStatus = statusFilter === "todos" || conf.status === statusFilter;
+    const matchesSearch = conf.cliente.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
 
   const formatCurrency = (value: number) => {
     return `R$ ${value.toFixed(2).replace(".", ",")}`;
@@ -338,15 +426,214 @@ const Lancamentos = () => {
           </TabsContent>
 
           <TabsContent value="conferencia" className="mt-6">
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <ClipboardList className="w-5 h-5 text-primary" />
-                <h2 className="font-semibold text-lg">Conferência & Divergências</h2>
+            <div className="space-y-6">
+              {/* Filters Section */}
+              <Card className="p-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* Period Filter */}
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Período:</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {periodOptions.map((period) => (
+                      <Button
+                        key={period}
+                        variant={selectedPeriod === period ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedPeriod(period)}
+                      >
+                        {period}
+                      </Button>
+                    ))}
+                  </div>
+
+                  {/* Date Navigation */}
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <div className="flex items-center gap-2 px-3 py-1.5 border rounded-lg">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm">janeiro de 2026</span>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Second Row Filters */}
+                <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t">
+                  {/* Status Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Status:</span>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[180px] h-9">
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todos</SelectItem>
+                        <SelectItem value="pendente">Pendente</SelectItem>
+                        <SelectItem value="conferido">Conferido</SelectItem>
+                        <SelectItem value="divergencia">Divergência</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Search */}
+                  <div className="relative flex-1 max-w-sm">
+                    <Input
+                      placeholder="Buscar por cliente..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {mockConferencias.filter((c) => c.status === "pendente").length}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Pendentes de Conferência</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5 text-success" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {mockConferencias.filter((c) => c.status === "conferido").length}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Conferidos</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                      <AlertTriangle className="w-5 h-5 text-destructive" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {mockConferencias.filter((c) => c.status === "divergencia").length}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Com Divergências</p>
+                    </div>
+                  </div>
+                </Card>
               </div>
-              <p className="text-center text-muted-foreground py-12">
-                Nenhuma divergência encontrada no período selecionado
-              </p>
-            </Card>
+
+              {/* Table */}
+              <Card className="overflow-hidden">
+                <div className="p-4 border-b flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold">Lançamentos para Conferência</h3>
+                  <Badge variant="secondary" className="ml-auto">
+                    {filteredConferencias.length} registros
+                  </Badge>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">CLIENTE</TableHead>
+                      <TableHead className="font-semibold">DATA EMISSÃO</TableHead>
+                      <TableHead className="font-semibold">DATA ENTREGA</TableHead>
+                      <TableHead className="font-semibold text-center">ITENS</TableHead>
+                      <TableHead className="font-semibold text-right">VALOR</TableHead>
+                      <TableHead className="font-semibold">STATUS</TableHead>
+                      <TableHead className="font-semibold text-right">AÇÕES</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredConferencias.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                          Nenhum lançamento encontrado para o período selecionado
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredConferencias.map((conf) => (
+                        <TableRow key={conf.id} className="hover:bg-muted/30">
+                          <TableCell>
+                            <p className="font-medium text-foreground">{conf.cliente}</p>
+                            {conf.observacao && (
+                              <p className="text-xs text-destructive mt-0.5">{conf.observacao}</p>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">{conf.dataEmissao}</TableCell>
+                          <TableCell className="text-sm">{conf.dataEntrega}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="secondary">{conf.itensCount}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatCurrency(conf.valorTotal)}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge
+                              variant={
+                                conf.status === "conferido"
+                                  ? "success"
+                                  : conf.status === "divergencia"
+                                  ? "danger"
+                                  : "warning"
+                              }
+                            >
+                              {conf.status === "conferido"
+                                ? "Conferido"
+                                : conf.status === "divergencia"
+                                ? "Divergência"
+                                : "Pendente"}
+                            </StatusBadge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Eye className="w-4 h-4 text-muted-foreground" />
+                              </Button>
+                              {conf.status === "pendente" && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-success hover:text-success"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                  >
+                                    <AlertTriangle className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
