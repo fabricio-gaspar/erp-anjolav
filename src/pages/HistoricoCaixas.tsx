@@ -8,39 +8,32 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Lock, DollarSign, TrendingUp, Calendar as CalendarIcon } from "lucide-react";
+import { 
+  Lock, 
+  LockOpen, 
+  DollarSign, 
+  TrendingUp, 
+  Calendar as CalendarIcon,
+  Plus
+} from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
-interface CaixaFechado {
-  id: string;
-  dataAbertura: Date;
-  dataFechamento: Date;
-  operador: string;
-  totalVendas: number;
-  diferenca: number;
-}
-
-interface CaixaAberto {
-  id: string;
-  operador: string;
-  dataAbertura: Date;
-}
-
-// Mock data
-const mockCaixaAberto: CaixaAberto | null = {
-  id: "1",
-  operador: "Fabricio Gaspar",
-  dataAbertura: new Date(2026, 0, 9, 14, 37),
-};
-
-const mockCaixasFechados: CaixaFechado[] = [];
+import { useCaixaAberto, useCaixasFechados } from "@/hooks/useCaixa";
+import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
+import { AbrirCaixaModal } from "@/components/caixa/AbrirCaixaModal";
 
 const HistoricoCaixas = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
-  const [caixaAberto] = useState<CaixaAberto | null>(mockCaixaAberto);
-  const [caixasFechados] = useState<CaixaFechado[]>(mockCaixasFechados);
+  const [showFecharCaixa, setShowFecharCaixa] = useState(false);
+  const [showAbrirCaixa, setShowAbrirCaixa] = useState(false);
+
+  const { data: caixaAberto, isLoading: isLoadingAberto } = useCaixaAberto();
+  
+  const startDate = startOfMonth(selectedMonth);
+  const endDate = endOfMonth(selectedMonth);
+  
+  const { data: caixasFechados = [], isLoading: isLoadingFechados } = useCaixasFechados(startDate, endDate);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -53,28 +46,20 @@ const HistoricoCaixas = () => {
     return format(date, "MMMM 'de' yyyy", { locale: ptBR });
   };
 
-  const filteredCaixas = useMemo(() => {
-    const start = startOfMonth(selectedMonth);
-    const end = endOfMonth(selectedMonth);
-    return caixasFechados.filter(
-      (caixa) => caixa.dataFechamento >= start && caixa.dataFechamento <= end
-    );
-  }, [caixasFechados, selectedMonth]);
-
   const totals = useMemo(() => {
-    const totalVendas = filteredCaixas.reduce((acc, c) => acc + c.totalVendas, 0);
-    const mediaPorDia = filteredCaixas.length > 0 
-      ? totalVendas / filteredCaixas.length 
+    const totalVendas = caixasFechados.reduce((acc, c) => acc + Number(c.valor_vendas || 0), 0);
+    const mediaPorDia = caixasFechados.length > 0 
+      ? totalVendas / caixasFechados.length 
       : 0;
-    const diferencasAcumuladas = filteredCaixas.reduce((acc, c) => acc + c.diferenca, 0);
+    const diferencasAcumuladas = caixasFechados.reduce((acc, c) => acc + Number(c.diferenca || 0), 0);
     
     return {
       totalVendas,
       mediaPorDia,
       diferencasAcumuladas,
-      qtdCaixas: filteredCaixas.length,
+      qtdCaixas: caixasFechados.length,
     };
-  }, [filteredCaixas]);
+  }, [caixasFechados]);
 
   // Get previous month for the "Caixas Fechados" section title
   const previousMonth = useMemo(() => {
@@ -117,25 +102,54 @@ const HistoricoCaixas = () => {
           </Popover>
         </div>
 
-        {/* Current Open Register */}
-        {caixaAberto && (
+        {/* Current Open Register or Open Button */}
+        {caixaAberto ? (
           <Card className="p-4 border-l-4 border-l-emerald-500 bg-emerald-50/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                  <Lock className="w-5 h-5 text-emerald-600" />
+                  <LockOpen className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
                   <p className="font-semibold text-foreground">Caixa Atualmente Aberto</p>
                   <p className="text-sm text-muted-foreground">
-                    {caixaAberto.operador} • Aberto em {format(caixaAberto.dataAbertura, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    {caixaAberto.operador} • Aberto em {format(new Date(caixaAberto.data_abertura), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100 rounded-md border border-emerald-200">
-                <Lock className="w-4 h-4 text-emerald-600" />
-                <span className="text-sm font-medium text-emerald-600">ABERTO</span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100 rounded-md border border-emerald-200">
+                  <LockOpen className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm font-medium text-emerald-600">ABERTO</span>
+                </div>
+                <Button 
+                  onClick={() => setShowFecharCaixa(true)}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  <Lock className="w-4 h-4 mr-2" />
+                  Fechar Caixa
+                </Button>
               </div>
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-4 border-l-4 border-l-muted">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">Nenhum caixa aberto</p>
+                  <p className="text-sm text-muted-foreground">
+                    Abra um caixa para começar a registrar vendas
+                  </p>
+                </div>
+              </div>
+              <Button onClick={() => setShowAbrirCaixa(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Abrir Caixa
+              </Button>
             </div>
           </Card>
         )}
@@ -206,11 +220,15 @@ const HistoricoCaixas = () => {
           <div className="flex items-center gap-2 mb-6">
             <Lock className="w-5 h-5 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">
-              Caixas Fechados - {format(previousMonth, "MMMM yyyy", { locale: ptBR })}
+              Caixas Fechados - {format(selectedMonth, "MMMM yyyy", { locale: ptBR })}
             </h2>
           </div>
 
-          {filteredCaixas.length === 0 ? (
+          {isLoadingFechados ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : caixasFechados.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
                 <Lock className="w-8 h-8 text-muted-foreground/50" />
@@ -221,7 +239,7 @@ const HistoricoCaixas = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredCaixas.map((caixa) => (
+              {caixasFechados.map((caixa) => (
                 <Card key={caixa.id} className="p-4 border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -230,23 +248,27 @@ const HistoricoCaixas = () => {
                       </div>
                       <div>
                         <p className="font-medium text-foreground">
-                          {format(caixa.dataFechamento, "dd/MM/yyyy", { locale: ptBR })}
+                          {caixa.data_fechamento 
+                            ? format(new Date(caixa.data_fechamento), "dd/MM/yyyy", { locale: ptBR })
+                            : "-"}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {caixa.operador} • Fechado às {format(caixa.dataFechamento, "HH:mm")}
+                          {caixa.operador} • Fechado às {caixa.data_fechamento 
+                            ? format(new Date(caixa.data_fechamento), "HH:mm")
+                            : "-"}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-foreground">
-                        {formatCurrency(caixa.totalVendas)}
+                        {formatCurrency(Number(caixa.valor_vendas) || 0)}
                       </p>
                       <p className={cn(
                         "text-sm",
-                        caixa.diferenca >= 0 ? "text-emerald-600" : "text-red-600"
+                        Number(caixa.diferenca) >= 0 ? "text-emerald-600" : "text-red-600"
                       )}>
-                        {caixa.diferenca >= 0 ? "+" : ""}
-                        {formatCurrency(caixa.diferenca)}
+                        {Number(caixa.diferenca) >= 0 ? "+" : ""}
+                        {formatCurrency(Number(caixa.diferenca) || 0)}
                       </p>
                     </div>
                   </div>
@@ -256,6 +278,20 @@ const HistoricoCaixas = () => {
           )}
         </Card>
       </div>
+
+      {/* Modals */}
+      {caixaAberto && (
+        <FecharCaixaModal
+          open={showFecharCaixa}
+          onOpenChange={setShowFecharCaixa}
+          caixa={caixaAberto}
+        />
+      )}
+      
+      <AbrirCaixaModal
+        open={showAbrirCaixa}
+        onOpenChange={setShowAbrirCaixa}
+      />
     </AppLayout>
   );
 };
