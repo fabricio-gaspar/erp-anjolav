@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { 
   Palette, 
   Phone, 
@@ -22,41 +30,35 @@ import {
   Save,
   RotateCcw,
   Mail,
-  MapPin
+  MapPin,
+  Eye,
+  Upload,
+  X
 } from "lucide-react";
+import { useROLConfig, useUpdateROLConfig, useUploadLogo } from "@/hooks/useROLConfig";
+import { ROLPreview } from "./ROLPreview";
 import { useToast } from "@/hooks/use-toast";
 
-interface ROLConfig {
-  // Identidade Visual
+interface LocalROLConfig {
   nomeCurto: string;
   slogan: string;
   nomeCompleto: string;
   corPrimaria: string;
   corSecundaria: string;
-  
-  // Dados de Contato
   telefone: string;
   email: string;
   cnpj: string;
   endereco: string;
-  
-  // Logomarca
   exibirLogo: boolean;
   logoUrl: string;
-  
-  // Impressão
   larguraPapel: string;
   tipoImpressora: string;
   margemSuperior: number;
   margemLateral: number;
-  
-  // Tipografia
   fontePrincipal: string;
   tamanhoNome: number;
   tamanhoItem: number;
   tamanhoTotal: number;
-  
-  // Elementos do ROL
   previsaoEntrega: boolean;
   bloco: boolean;
   observacoes: boolean;
@@ -66,7 +68,7 @@ interface ROLConfig {
   textoRodape: string;
 }
 
-const defaultConfig: ROLConfig = {
+const defaultConfig: LocalROLConfig = {
   nomeCurto: "AnjoLav",
   slogan: "Sistema de Gestão de Lavanderia",
   nomeCompleto: "ANJOLAV SERVIÇOS DE LAVANDERIA",
@@ -97,19 +99,87 @@ const defaultConfig: ROLConfig = {
 
 export function ConfiguracoesROL() {
   const { toast } = useToast();
-  const [config, setConfig] = useState<ROLConfig>(defaultConfig);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: dbConfig, isLoading } = useROLConfig();
+  const updateConfig = useUpdateROLConfig();
+  const uploadLogo = useUploadLogo();
+  
+  const [config, setConfig] = useState<LocalROLConfig>(defaultConfig);
   const [hasChanges, setHasChanges] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
-  const updateConfig = <K extends keyof ROLConfig>(key: K, value: ROLConfig[K]) => {
+  // Sync from DB
+  useEffect(() => {
+    if (dbConfig) {
+      setConfig({
+        nomeCurto: dbConfig.nome_curto || defaultConfig.nomeCurto,
+        slogan: dbConfig.slogan || defaultConfig.slogan,
+        nomeCompleto: dbConfig.nome_completo || defaultConfig.nomeCompleto,
+        corPrimaria: dbConfig.cor_primaria || defaultConfig.corPrimaria,
+        corSecundaria: dbConfig.cor_secundaria || defaultConfig.corSecundaria,
+        telefone: dbConfig.telefone || defaultConfig.telefone,
+        email: dbConfig.email || defaultConfig.email,
+        cnpj: dbConfig.cnpj || defaultConfig.cnpj,
+        endereco: dbConfig.endereco || defaultConfig.endereco,
+        exibirLogo: dbConfig.exibir_logo ?? defaultConfig.exibirLogo,
+        logoUrl: dbConfig.logo_url || defaultConfig.logoUrl,
+        larguraPapel: dbConfig.largura_papel || defaultConfig.larguraPapel,
+        tipoImpressora: dbConfig.tipo_impressora || defaultConfig.tipoImpressora,
+        margemSuperior: dbConfig.margem_superior ?? defaultConfig.margemSuperior,
+        margemLateral: dbConfig.margem_lateral ?? defaultConfig.margemLateral,
+        fontePrincipal: dbConfig.fonte_principal || defaultConfig.fontePrincipal,
+        tamanhoNome: dbConfig.tamanho_nome ?? defaultConfig.tamanhoNome,
+        tamanhoItem: dbConfig.tamanho_item ?? defaultConfig.tamanhoItem,
+        tamanhoTotal: dbConfig.tamanho_total ?? defaultConfig.tamanhoTotal,
+        previsaoEntrega: dbConfig.previsao_entrega ?? defaultConfig.previsaoEntrega,
+        bloco: dbConfig.bloco ?? defaultConfig.bloco,
+        observacoes: dbConfig.observacoes ?? defaultConfig.observacoes,
+        assinaturaCliente: dbConfig.assinatura_cliente ?? defaultConfig.assinaturaCliente,
+        tipoPreco: dbConfig.tipo_preco ?? defaultConfig.tipoPreco,
+        linhaDesconto: dbConfig.linha_desconto ?? defaultConfig.linhaDesconto,
+        textoRodape: dbConfig.texto_rodape || defaultConfig.textoRodape,
+      });
+    }
+  }, [dbConfig]);
+
+  const updateLocalConfig = <K extends keyof LocalROLConfig>(key: K, value: LocalROLConfig[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    // TODO: Implement save to database
-    toast({
-      title: "Sucesso",
-      description: "Configurações de ROL salvas com sucesso!",
+  const handleSave = async () => {
+    if (!dbConfig) return;
+    
+    await updateConfig.mutateAsync({
+      id: dbConfig.id,
+      updates: {
+        nome_curto: config.nomeCurto,
+        slogan: config.slogan,
+        nome_completo: config.nomeCompleto,
+        cor_primaria: config.corPrimaria,
+        cor_secundaria: config.corSecundaria,
+        telefone: config.telefone,
+        email: config.email,
+        cnpj: config.cnpj,
+        endereco: config.endereco,
+        exibir_logo: config.exibirLogo,
+        logo_url: config.logoUrl,
+        largura_papel: config.larguraPapel,
+        tipo_impressora: config.tipoImpressora,
+        margem_superior: config.margemSuperior,
+        margem_lateral: config.margemLateral,
+        fonte_principal: config.fontePrincipal,
+        tamanho_nome: config.tamanhoNome,
+        tamanho_item: config.tamanhoItem,
+        tamanho_total: config.tamanhoTotal,
+        previsao_entrega: config.previsaoEntrega,
+        bloco: config.bloco,
+        observacoes: config.observacoes,
+        assinatura_cliente: config.assinaturaCliente,
+        tipo_preco: config.tipoPreco,
+        linha_desconto: config.linhaDesconto,
+        texto_rodape: config.textoRodape,
+      }
     });
     setHasChanges(false);
   };
@@ -123,6 +193,33 @@ export function ConfiguracoesROL() {
     });
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = await uploadLogo.mutateAsync(file);
+    updateLocalConfig("logoUrl", url);
+  };
+
+  const handleRemoveLogo = () => {
+    updateLocalConfig("logoUrl", "");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-[350px]" />
+          <Skeleton className="h-[350px]" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-[150px]" />
+          <Skeleton className="h-[200px]" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Row 1: Identidade Visual + Dados de Contato */}
@@ -135,13 +232,12 @@ export function ConfiguracoesROL() {
           </div>
 
           <div className="space-y-4">
-            {/* Nome Curto + Slogan */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs text-amber-600 font-medium">Nome Curto (Menu/Login)</Label>
                 <Input 
                   value={config.nomeCurto}
-                  onChange={(e) => updateConfig("nomeCurto", e.target.value)}
+                  onChange={(e) => updateLocalConfig("nomeCurto", e.target.value)}
                   placeholder="AnjoLav"
                 />
               </div>
@@ -149,41 +245,39 @@ export function ConfiguracoesROL() {
                 <Label className="text-xs text-muted-foreground">Slogan</Label>
                 <Input 
                   value={config.slogan}
-                  onChange={(e) => updateConfig("slogan", e.target.value)}
+                  onChange={(e) => updateLocalConfig("slogan", e.target.value)}
                   placeholder="Sistema de Gestão de Lavanderia"
                 />
               </div>
             </div>
 
-            {/* Nome Completo */}
             <div className="space-y-1.5">
               <Label className="text-xs text-amber-600 font-medium">Nome Completo (ROL/Notas)</Label>
               <Input 
                 value={config.nomeCompleto}
-                onChange={(e) => updateConfig("nomeCompleto", e.target.value)}
+                onChange={(e) => updateLocalConfig("nomeCompleto", e.target.value)}
                 placeholder="ANJOLAV SERVIÇOS DE LAVANDERIA"
               />
             </div>
 
-            {/* Cores */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Cor Primária</Label>
                 <div className="flex gap-2">
                   <div 
-                    className="w-10 h-10 rounded-md border flex-shrink-0 cursor-pointer"
+                    className="w-10 h-10 rounded-md border flex-shrink-0 cursor-pointer relative overflow-hidden"
                     style={{ backgroundColor: config.corPrimaria }}
                   >
                     <input
                       type="color"
                       value={config.corPrimaria}
-                      onChange={(e) => updateConfig("corPrimaria", e.target.value)}
-                      className="w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => updateLocalConfig("corPrimaria", e.target.value)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                   </div>
                   <Input 
                     value={config.corPrimaria}
-                    onChange={(e) => updateConfig("corPrimaria", e.target.value)}
+                    onChange={(e) => updateLocalConfig("corPrimaria", e.target.value)}
                     placeholder="#3c62f6"
                   />
                 </div>
@@ -192,28 +286,27 @@ export function ConfiguracoesROL() {
                 <Label className="text-xs text-muted-foreground">Cor Secundária</Label>
                 <div className="flex gap-2">
                   <div 
-                    className="w-10 h-10 rounded-md border flex-shrink-0 cursor-pointer"
+                    className="w-10 h-10 rounded-md border flex-shrink-0 cursor-pointer relative overflow-hidden"
                     style={{ backgroundColor: config.corSecundaria }}
                   >
                     <input
                       type="color"
                       value={config.corSecundaria}
-                      onChange={(e) => updateConfig("corSecundaria", e.target.value)}
-                      className="w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => updateLocalConfig("corSecundaria", e.target.value)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                   </div>
                   <Input 
                     value={config.corSecundaria}
-                    onChange={(e) => updateConfig("corSecundaria", e.target.value)}
+                    onChange={(e) => updateLocalConfig("corSecundaria", e.target.value)}
                     placeholder="#2583eb"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Preview Button */}
             <Button 
-              className="w-full"
+              className="w-full text-white"
               style={{ 
                 background: `linear-gradient(135deg, ${config.corPrimaria} 0%, ${config.corSecundaria} 100%)` 
               }}
@@ -231,7 +324,6 @@ export function ConfiguracoesROL() {
           </div>
 
           <div className="space-y-4">
-            {/* Telefone + E-mail */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs text-amber-600 font-medium flex items-center gap-1">
@@ -240,7 +332,7 @@ export function ConfiguracoesROL() {
                 </Label>
                 <Input 
                   value={config.telefone}
-                  onChange={(e) => updateConfig("telefone", e.target.value)}
+                  onChange={(e) => updateLocalConfig("telefone", e.target.value)}
                   placeholder="(11) 99520 3236"
                 />
               </div>
@@ -251,23 +343,21 @@ export function ConfiguracoesROL() {
                 </Label>
                 <Input 
                   value={config.email}
-                  onChange={(e) => updateConfig("email", e.target.value)}
+                  onChange={(e) => updateLocalConfig("email", e.target.value)}
                   placeholder="anjolav@anjolav.com.br"
                 />
               </div>
             </div>
 
-            {/* CNPJ */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">CNPJ</Label>
               <Input 
                 value={config.cnpj}
-                onChange={(e) => updateConfig("cnpj", e.target.value)}
+                onChange={(e) => updateLocalConfig("cnpj", e.target.value)}
                 placeholder="00.000.000/0000-00"
               />
             </div>
 
-            {/* Endereço */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
@@ -275,7 +365,7 @@ export function ConfiguracoesROL() {
               </Label>
               <Textarea 
                 value={config.endereco}
-                onChange={(e) => updateConfig("endereco", e.target.value)}
+                onChange={(e) => updateLocalConfig("endereco", e.target.value)}
                 placeholder="Endereço completo da empresa"
                 rows={3}
               />
@@ -294,26 +384,54 @@ export function ConfiguracoesROL() {
           </div>
 
           <div className="space-y-4">
-            {/* Switch Exibir Logo */}
             <div className="flex items-center justify-between">
               <Label className="text-sm">Exibir logo no ROL</Label>
               <Switch 
                 checked={config.exibirLogo}
-                onCheckedChange={(checked) => updateConfig("exibirLogo", checked)}
+                onCheckedChange={(checked) => updateLocalConfig("exibirLogo", checked)}
               />
             </div>
 
-            {/* Upload Logo */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Upload da Logo</Label>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="text-xs">
-                  Escolher arquivo
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              
+              {config.logoUrl ? (
+                <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                  <img 
+                    src={config.logoUrl} 
+                    alt="Logo" 
+                    className="h-12 w-auto object-contain"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground truncate">Logo carregada</p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={handleRemoveLogo}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadLogo.isPending}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {uploadLogo.isPending ? "Enviando..." : "Escolher arquivo"}
                 </Button>
-                <span className="text-xs text-muted-foreground">
-                  Nenhum arquivo escolhido
-                </span>
-              </div>
+              )}
             </div>
           </div>
         </Card>
@@ -326,13 +444,12 @@ export function ConfiguracoesROL() {
           </div>
 
           <div className="space-y-4">
-            {/* Largura + Tipo */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Largura do Papel</Label>
                 <Select 
                   value={config.larguraPapel}
-                  onValueChange={(value) => updateConfig("larguraPapel", value)}
+                  onValueChange={(value) => updateLocalConfig("larguraPapel", value)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -347,7 +464,7 @@ export function ConfiguracoesROL() {
                 <Label className="text-xs text-muted-foreground">Tipo de Impressora</Label>
                 <Select 
                   value={config.tipoImpressora}
-                  onValueChange={(value) => updateConfig("tipoImpressora", value)}
+                  onValueChange={(value) => updateLocalConfig("tipoImpressora", value)}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -361,14 +478,13 @@ export function ConfiguracoesROL() {
               </div>
             </div>
 
-            {/* Margens */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs text-amber-600 font-medium">% Margem Superior (px)</Label>
                 <Input 
                   type="number"
                   value={config.margemSuperior}
-                  onChange={(e) => updateConfig("margemSuperior", Number(e.target.value))}
+                  onChange={(e) => updateLocalConfig("margemSuperior", Number(e.target.value))}
                   placeholder="10"
                 />
               </div>
@@ -377,7 +493,7 @@ export function ConfiguracoesROL() {
                 <Input 
                   type="number"
                   value={config.margemLateral}
-                  onChange={(e) => updateConfig("margemLateral", Number(e.target.value))}
+                  onChange={(e) => updateLocalConfig("margemLateral", Number(e.target.value))}
                   placeholder="8"
                 />
               </div>
@@ -394,12 +510,11 @@ export function ConfiguracoesROL() {
         </div>
 
         <div className="space-y-4">
-          {/* Fonte Principal */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Fonte Principal</Label>
             <Select 
               value={config.fontePrincipal}
-              onValueChange={(value) => updateConfig("fontePrincipal", value)}
+              onValueChange={(value) => updateLocalConfig("fontePrincipal", value)}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -413,14 +528,13 @@ export function ConfiguracoesROL() {
             </Select>
           </div>
 
-          {/* Tamanhos */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs text-amber-600 font-medium">Nome (px)</Label>
               <Input 
                 type="number"
                 value={config.tamanhoNome}
-                onChange={(e) => updateConfig("tamanhoNome", Number(e.target.value))}
+                onChange={(e) => updateLocalConfig("tamanhoNome", Number(e.target.value))}
                 placeholder="14"
               />
             </div>
@@ -429,7 +543,7 @@ export function ConfiguracoesROL() {
               <Input 
                 type="number"
                 value={config.tamanhoItem}
-                onChange={(e) => updateConfig("tamanhoItem", Number(e.target.value))}
+                onChange={(e) => updateLocalConfig("tamanhoItem", Number(e.target.value))}
                 placeholder="11"
               />
             </div>
@@ -438,7 +552,7 @@ export function ConfiguracoesROL() {
               <Input 
                 type="number"
                 value={config.tamanhoTotal}
-                onChange={(e) => updateConfig("tamanhoTotal", Number(e.target.value))}
+                onChange={(e) => updateLocalConfig("tamanhoTotal", Number(e.target.value))}
                 placeholder="14"
               />
             </div>
@@ -454,27 +568,26 @@ export function ConfiguracoesROL() {
         </div>
 
         <div className="space-y-4">
-          {/* Switches Grid */}
           <div className="grid grid-cols-3 gap-x-8 gap-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm text-amber-600">Previsão de Entrega</Label>
               <Switch 
                 checked={config.previsaoEntrega}
-                onCheckedChange={(checked) => updateConfig("previsaoEntrega", checked)}
+                onCheckedChange={(checked) => updateLocalConfig("previsaoEntrega", checked)}
               />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm">Bloco</Label>
               <Switch 
                 checked={config.bloco}
-                onCheckedChange={(checked) => updateConfig("bloco", checked)}
+                onCheckedChange={(checked) => updateLocalConfig("bloco", checked)}
               />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm text-blue-600">Observações</Label>
               <Switch 
                 checked={config.observacoes}
-                onCheckedChange={(checked) => updateConfig("observacoes", checked)}
+                onCheckedChange={(checked) => updateLocalConfig("observacoes", checked)}
               />
             </div>
 
@@ -482,31 +595,30 @@ export function ConfiguracoesROL() {
               <Label className="text-sm text-amber-600">Assinatura do Cliente</Label>
               <Switch 
                 checked={config.assinaturaCliente}
-                onCheckedChange={(checked) => updateConfig("assinaturaCliente", checked)}
+                onCheckedChange={(checked) => updateLocalConfig("assinaturaCliente", checked)}
               />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm">Tipo de Preço</Label>
               <Switch 
                 checked={config.tipoPreco}
-                onCheckedChange={(checked) => updateConfig("tipoPreco", checked)}
+                onCheckedChange={(checked) => updateLocalConfig("tipoPreco", checked)}
               />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm text-blue-600">Linha de Desconto</Label>
               <Switch 
                 checked={config.linhaDesconto}
-                onCheckedChange={(checked) => updateConfig("linhaDesconto", checked)}
+                onCheckedChange={(checked) => updateLocalConfig("linhaDesconto", checked)}
               />
             </div>
           </div>
 
-          {/* Texto do Rodapé */}
           <div className="space-y-1.5 pt-2">
             <Label className="text-xs text-amber-600 font-medium">Texto do Rodapé (opcional)</Label>
             <Input 
               value={config.textoRodape}
-              onChange={(e) => updateConfig("textoRodape", e.target.value)}
+              onChange={(e) => updateLocalConfig("textoRodape", e.target.value)}
               placeholder="Ex: Obrigado pela preferência!"
             />
           </div>
@@ -514,19 +626,38 @@ export function ConfiguracoesROL() {
       </Card>
 
       {/* Footer Actions */}
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={handleReset}>
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Restaurar Padrão
-        </Button>
-        <Button 
-          onClick={handleSave}
-          disabled={!hasChanges}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          Salvar Configurações
-        </Button>
+      <div className="flex justify-between">
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              <Eye className="w-4 h-4 mr-2" />
+              Visualizar ROL
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Preview do ROL</DialogTitle>
+            </DialogHeader>
+            <div className="py-4 bg-gray-100 rounded-lg flex justify-center">
+              <ROLPreview config={config} />
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={handleReset}>
+            <RotateCcw className="w-4 h-4 mr-2" />
+            Restaurar Padrão
+          </Button>
+          <Button 
+            onClick={handleSave}
+            disabled={!hasChanges || updateConfig.isPending}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {updateConfig.isPending ? "Salvando..." : "Salvar Configurações"}
+          </Button>
+        </div>
       </div>
     </div>
   );
