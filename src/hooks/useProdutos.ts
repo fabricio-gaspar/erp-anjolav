@@ -7,10 +7,10 @@ export interface Produto {
   nome: string;
   descricao: string | null;
   preco: number;
-  unidade: "kg" | "peca" | "metro" | "unidade";
-  unidade_negocio: "ID1" | "ID2" | "ambos";
+  unidade: string | null;
+  unidade_negocio: string | null;
   categoria: string | null;
-  status: "ativo" | "inativo";
+  status: string;
   created_at: string;
   updated_at: string;
 }
