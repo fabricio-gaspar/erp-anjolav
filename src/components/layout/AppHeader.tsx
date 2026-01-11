@@ -83,13 +83,13 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
   ];
 
   return (
-    <header className="h-14 bg-card/80 backdrop-blur-sm border-b border-border flex items-center justify-between px-6 sticky top-0 z-30">
+    <header className="h-16 bg-white border-b-2 border-slate-200 shadow-sm flex items-center justify-between px-6 sticky top-0 z-30">
       <div className="flex flex-col justify-center">
         {title ? (
           <>
-            <h1 className="text-base font-semibold text-foreground leading-tight">{title}</h1>
+            <h1 className="text-lg font-bold text-slate-800 leading-tight">{title}</h1>
             {subtitle && (
-              <p className="text-xs text-muted-foreground leading-tight">{subtitle}</p>
+              <p className="text-xs text-slate-500 leading-tight">{subtitle}</p>
             )}
           </>
         ) : (

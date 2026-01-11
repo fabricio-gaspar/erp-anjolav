@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { LucideIcon, Eye, Clock } from "lucide-react";
+import { LucideIcon, Eye, Clock, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface FinanceItem {
@@ -23,38 +23,34 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
   const isReceivable = variant === "receivable";
 
   return (
-    <div
-      className={cn(
-        "rounded-lg p-4",
-        isReceivable ? "bg-success-light" : "bg-muted"
-      )}
-    >
-      <div className="flex items-start justify-between mb-3">
+    <div className="finance-card">
+      {/* Header */}
+      <div className="finance-card-header">
         <div className="flex items-center gap-3">
           <div
             className={cn(
-              "w-10 h-10 rounded-lg flex items-center justify-center",
-              isReceivable ? "bg-success/20" : "bg-muted-foreground/10"
+              "w-12 h-12 rounded-xl flex items-center justify-center",
+              isReceivable ? "bg-success/10" : "bg-slate-100"
             )}
           >
             <Icon
               className={cn(
-                "w-5 h-5",
-                isReceivable ? "text-success" : "text-muted-foreground"
+                "w-6 h-6",
+                isReceivable ? "text-success" : "text-slate-500"
               )}
             />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground">{title}</h3>
-            <p className="text-xs text-muted-foreground">{subtitle}</p>
+            <h3 className="font-bold text-slate-800">{title}</h3>
+            <p className="text-xs text-slate-500">{subtitle}</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Total</p>
           <p
             className={cn(
-              "text-xl font-bold currency",
-              isReceivable ? "text-success" : "text-foreground"
+              "text-2xl font-bold",
+              isReceivable ? "text-success" : "text-slate-800"
             )}
           >
             R$ {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
@@ -62,52 +58,67 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
         </div>
       </div>
 
+      {/* Items List */}
       {items.length > 0 && (
-        <div className="space-y-2 mb-3">
+        <div className="mt-4 space-y-0 divide-y divide-slate-100">
           {items.slice(0, 3).map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between py-2 border-t border-border/50"
+              className="flex items-center justify-between py-3 first:pt-0"
             >
-              <div className="flex items-center gap-2">
-                <Clock
+              <div className="flex items-center gap-3">
+                <div
                   className={cn(
-                    "w-4 h-4",
-                    item.status === "vencida" ? "text-destructive" : "text-warning"
+                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                    item.status === "vencida" ? "bg-destructive/10" : "bg-warning/10"
                   )}
-                />
+                >
+                  <Clock
+                    className={cn(
+                      "w-4 h-4",
+                      item.status === "vencida" ? "text-destructive" : "text-warning"
+                    )}
+                  />
+                </div>
                 <div>
                   <p
                     className={cn(
-                      "text-xs font-medium",
+                      "text-[10px] font-bold uppercase tracking-wider",
                       item.status === "vencida" ? "text-destructive" : "text-warning"
                     )}
                   >
-                    {item.status === "vencida" ? "Vencida" : "1 Vencida"}
+                    {item.status === "vencida" ? "Vencida" : "A Vencer"}
                   </p>
-                  <p className="text-sm font-medium text-foreground">{item.clientName}</p>
+                  <p className="text-sm font-medium text-slate-700">{item.clientName}</p>
                 </div>
               </div>
               <div className="text-right">
                 <p
                   className={cn(
-                    "font-semibold currency",
+                    "font-bold",
                     item.status === "vencida" ? "text-destructive" : "text-warning"
                   )}
                 >
                   R$ {item.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-muted-foreground">{item.dueDate}</p>
+                <p className="text-xs text-slate-400">{item.dueDate}</p>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground">
-        <Eye className="w-4 h-4 mr-2" />
-        Ver Todas
-      </Button>
+      {/* Footer */}
+      <div className="mt-4 pt-4 border-t border-slate-100">
+        <Button 
+          variant="outline" 
+          className="w-full text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800"
+        >
+          <Eye className="w-4 h-4 mr-2" />
+          Ver Todas
+          <ChevronRight className="w-4 h-4 ml-auto" />
+        </Button>
+      </div>
     </div>
   );
 }
