@@ -286,38 +286,47 @@ const CollapseButton = () => {
   );
 };
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  isMobile?: boolean;
+  onItemClick?: () => void;
+}
+
+export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   const { isCollapsed } = useSidebarContext();
+  
+  // In mobile, always show expanded
+  const effectiveCollapsed = isMobile ? false : isCollapsed;
 
   return (
     <TooltipProvider>
       <aside className={cn(
-        "h-screen bg-sidebar flex flex-col fixed left-0 top-0 z-40 transition-all duration-300 relative",
-        isCollapsed ? "w-16" : "w-56"
+        "h-screen bg-sidebar flex flex-col transition-all duration-300",
+        isMobile ? "w-full" : "fixed left-0 top-0 z-40 relative",
+        !isMobile && (effectiveCollapsed ? "w-16" : "w-56")
       )}>
-        {/* Collapse Button */}
-        <CollapseButton />
+        {/* Collapse Button - hide on mobile */}
+        {!isMobile && <CollapseButton />}
 
         {/* Logo */}
         <div className={cn(
           "h-14 flex items-center transition-all",
-          isCollapsed ? "px-2 justify-center" : "px-4"
+          effectiveCollapsed ? "px-2 justify-center" : "px-4"
         )}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center">
               <span className="text-white font-bold text-lg">A</span>
             </div>
-            {!isCollapsed && (
+            {!effectiveCollapsed && (
               <span className="font-bold text-base text-white">AnjoLav</span>
             )}
           </div>
         </div>
 
         {/* Search */}
-        <SearchBar />
+        {!isMobile && <SearchBar />}
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto pb-4 space-y-1">
+        <nav className="flex-1 overflow-y-auto pb-4 space-y-1" onClick={onItemClick}>
           <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end />
 
           <NavGroup title="Comercial" icon={Users} defaultOpen>
@@ -354,7 +363,7 @@ export function AppSidebar() {
             <div className="mx-2">
               <button className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200">
                 <Bell className="w-5 h-5 flex-shrink-0" />
-                {!isCollapsed && <span className="flex-1 text-left">Notificações</span>}
+                {!effectiveCollapsed && <span className="flex-1 text-left">Notificações</span>}
               </button>
             </div>
           </div>

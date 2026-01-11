@@ -142,45 +142,45 @@ const ContasReceber = () => {
     <AppLayout title="Contas a Receber" subtitle="Gerencie suas receitas e cobranças">
       <div className="space-y-4">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <Card className="p-3 sm:p-4 flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 A RECEBER
               </p>
-              <p className="text-2xl font-bold text-amber-600 mt-1">
+              <p className="text-lg sm:text-2xl font-bold text-amber-600 mt-1 truncate">
                 {formatCurrency(totalAReceber)}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-lg bg-amber-500 flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
+              <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
           </Card>
 
-          <Card className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <Card className="p-3 sm:p-4 flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 RECEBIDO
               </p>
-              <p className="text-2xl font-bold text-success mt-1">
+              <p className="text-lg sm:text-2xl font-bold text-success mt-1 truncate">
                 {formatCurrency(totalRecebido)}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-lg bg-success flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-success flex items-center justify-center shrink-0">
+              <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
           </Card>
         </div>
 
         {/* Table Section */}
         <Card className="overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
+          <div className="p-3 sm:p-4 border-b flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold text-lg">Cobranças</h3>
+              <h3 className="font-semibold text-base sm:text-lg">Cobranças</h3>
             </div>
             <Button 
-              className="gap-2 bg-success hover:bg-success/90"
+              className="gap-2 bg-success hover:bg-success/90 w-full sm:w-auto"
               onClick={() => setShowNovaCobranca(true)}
             >
               <Plus className="w-4 h-4" />
@@ -189,10 +189,10 @@ const ContasReceber = () => {
           </div>
 
           {/* Filters */}
-          <div className="p-4 border-b flex flex-wrap items-center gap-4">
-            <div className="relative flex-1 max-w-xl">
+          <div className="p-3 sm:p-4 border-b flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1">
               <Input
-                placeholder="Buscar por descrição ou cliente..."
+                placeholder="Buscar..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -200,7 +200,7 @@ const ContasReceber = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px]">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
@@ -213,7 +213,8 @@ const ContasReceber = () => {
           </div>
 
           {/* Table */}
-          <Table>
+          <div className="overflow-x-auto">
+          <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">DESCRIÇÃO</TableHead>
@@ -319,6 +320,7 @@ const ContasReceber = () => {
               )}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
 

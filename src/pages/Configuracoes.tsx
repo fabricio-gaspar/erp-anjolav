@@ -28,64 +28,66 @@ const Configuracoes = () => {
       <div className="space-y-4">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full justify-start bg-transparent border-b rounded-none h-auto p-0 gap-0">
-            <TabsTrigger
-              value="equipe"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 gap-2"
-            >
-              <Users className="w-4 h-4" />
-              Equipe & Motoristas
-            </TabsTrigger>
-            <TabsTrigger
-              value="permissoes"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 gap-2"
-            >
-              <Shield className="w-4 h-4" />
-              Permissões
-            </TabsTrigger>
-            <TabsTrigger
-              value="rol"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 gap-2"
-            >
-              <FileText className="w-4 h-4" />
-              ROL
-            </TabsTrigger>
-            <TabsTrigger
-              value="etiquetas"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 gap-2"
-            >
-              <Tag className="w-4 h-4" />
-              Etiquetas
-            </TabsTrigger>
-            <TabsTrigger
-              value="fiscal"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 gap-2"
-            >
-              <Receipt className="w-4 h-4" />
-              Fiscal
-            </TabsTrigger>
-            <TabsTrigger
-              value="dados"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 gap-2"
-            >
-              <Database className="w-4 h-4" />
-              Dados
-            </TabsTrigger>
-            <TabsTrigger
-              value="sistema"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 gap-2"
-            >
-              <Wrench className="w-4 h-4" />
-              Sistema
-            </TabsTrigger>
-            <TabsTrigger
-              value="geral"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 gap-2"
-            >
-              <SettingsIcon className="w-4 h-4" />
-              Geral
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+            <TabsList className="justify-start bg-transparent border-b rounded-none h-auto p-0 gap-0 inline-flex min-w-max w-full sm:w-auto">
+              <TabsTrigger
+                value="equipe"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2"
+              >
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">Equipe</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="permissoes"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2"
+              >
+                <Shield className="w-4 h-4" />
+                <span className="hidden sm:inline">Permissões</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="rol"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">ROL</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="etiquetas"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2"
+              >
+                <Tag className="w-4 h-4" />
+                <span className="hidden sm:inline">Etiquetas</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="fiscal"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2"
+              >
+                <Receipt className="w-4 h-4" />
+                <span className="hidden sm:inline">Fiscal</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="dados"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2"
+              >
+                <Database className="w-4 h-4" />
+                <span className="hidden sm:inline">Dados</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="sistema"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2"
+              >
+                <Wrench className="w-4 h-4" />
+                <span className="hidden sm:inline">Sistema</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="geral"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2"
+              >
+                <SettingsIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Geral</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="equipe" className="mt-4">
             <ConfiguracoesEquipe />

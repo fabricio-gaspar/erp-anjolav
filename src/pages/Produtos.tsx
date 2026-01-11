@@ -211,26 +211,26 @@ const Produtos = () => {
     <AppLayout title="Produtos & Serviços" subtitle="Cadastro de produtos e serviços de lavanderia">
       <div className="space-y-3">
         {/* Header */}
-        <div className="flex items-center justify-end -mt-1">
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportCSV}>
-              <Download className="w-4 h-4 mr-1" />
-              Exportar CSV
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                if (showForm) {
-                  resetForm();
-                } else {
-                  setShowForm(true);
-                }
-              }}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Novo Produto
-            </Button>
-          </div>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 -mt-1">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="w-full sm:w-auto">
+            <Download className="w-4 h-4 mr-1" />
+            <span className="sm:hidden">Exportar</span>
+            <span className="hidden sm:inline">Exportar CSV</span>
+          </Button>
+          <Button
+            size="sm"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              if (showForm) {
+                resetForm();
+              } else {
+                setShowForm(true);
+              }
+            }}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Novo Produto
+          </Button>
         </div>
 
         {/* Stats */}

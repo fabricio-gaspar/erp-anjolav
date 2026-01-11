@@ -112,8 +112,8 @@ const FluxoProducao = () => {
     >
       <div className="space-y-3">
         {/* Filters */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Buscar cliente ou OS..."
@@ -124,13 +124,13 @@ const FluxoProducao = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2 h-9">
+            <Button variant="outline" size="sm" className="gap-2 h-9 hidden sm:flex">
               <Calendar className="w-4 h-4" />
-              Data Previsão
+              <span className="hidden md:inline">Data Previsão</span>
             </Button>
-            <Button variant="outline" size="sm" className="gap-2 h-9">
+            <Button variant="outline" size="sm" className="gap-2 h-9 hidden sm:flex">
               <Filter className="w-4 h-4" />
-              Prioridade
+              <span className="hidden md:inline">Prioridade</span>
             </Button>
             <Button
               variant="outline"
@@ -154,11 +154,12 @@ const FluxoProducao = () => {
             Erro ao carregar ordens de serviço
           </div>
         ) : (
-          <div className="grid grid-cols-8 gap-3">
+          <div className="overflow-x-auto pb-4 -mx-3 px-3 sm:mx-0 sm:px-0">
+            <div className="flex gap-3 min-w-max lg:grid lg:grid-cols-8 lg:min-w-0">
             {columns.map((column) => {
               const columnItems = osByStatus[column.id] || [];
               return (
-                <div key={column.id} className="min-w-0">
+                <div key={column.id} className="min-w-[260px] lg:min-w-0">
                   {/* Column Header */}
                   <div className="flex items-center gap-2 mb-3 px-2">
                     <column.icon className={cn("w-4 h-4", column.iconColor)} />
@@ -280,9 +281,10 @@ const FluxoProducao = () => {
                       </div>
                     )}
                   </div>
-                </div>
-              );
-            })}
+              </div>
+            );
+          })}
+            </div>
           </div>
         )}
       </div>
