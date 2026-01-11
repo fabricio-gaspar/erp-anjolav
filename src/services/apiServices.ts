@@ -145,41 +145,76 @@ export const buscarCnpj = async (cnpj: string): Promise<BrasilApiCnpjResponse | 
 };
 
 // OpenStreetMap Nominatim - Geocoding (endereço para coordenadas)
+// Estratégia avançada: tenta primeiro endereço completo, depois simplificado
 export const geocodeEndereco = async (endereco: string): Promise<GeocodingResult | null> => {
   if (!endereco.trim()) {
     return null;
   }
 
-  const params = new URLSearchParams({
-    q: endereco,
-    format: "json",
-    limit: "1",
-    countrycodes: "br",
-  });
+  // Tenta primeiro com o endereço completo
+  const result = await tentarGeocode(endereco);
+  if (result) return result;
 
-  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-    headers: {
-      "User-Agent": "AnjoLav-ERP/1.0",
-      "Accept-Language": "pt-BR,pt;q=0.9",
-    },
-    signal: AbortSignal.timeout(10000),
-  });
-
-  if (!response.ok) {
-    throw new Error("Erro ao geocodificar endereço");
+  // Se falhar, tenta com endereço simplificado (remove número e complemento)
+  const enderecoSimplificado = simplificarEndereco(endereco);
+  if (enderecoSimplificado !== endereco) {
+    const resultSimples = await tentarGeocode(enderecoSimplificado);
+    if (resultSimples) return resultSimples;
   }
 
-  const data: NominatimResponse[] = await response.json();
+  return null;
+};
 
-  if (data.length === 0) {
+// Função auxiliar para simplificar endereço removendo número
+const simplificarEndereco = (endereco: string): string => {
+  // Remove números de endereço (ex: "123," ou ", 123,")
+  return endereco
+    .replace(/,\s*\d+\s*,/g, ',') // Remove ", 123,"
+    .replace(/,\s*,/g, ',') // Remove dupla vírgula
+    .replace(/\s+/g, ' ') // Normaliza espaços
+    .trim();
+};
+
+// Função de geocoding com Nominatim
+const tentarGeocode = async (endereco: string): Promise<GeocodingResult | null> => {
+  try {
+    const params = new URLSearchParams({
+      q: endereco,
+      format: "json",
+      limit: "1",
+      countrycodes: "br",
+      addressdetails: "1",
+    });
+
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+      headers: {
+        "User-Agent": "AnjoLav-ERP/1.0",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      console.error("Erro HTTP ao geocodificar:", response.status);
+      return null;
+    }
+
+    const data: NominatimResponse[] = await response.json();
+
+    if (data.length === 0) {
+      console.log("Nominatim não encontrou resultados para:", endereco);
+      return null;
+    }
+
+    return {
+      latitude: parseFloat(data[0].lat),
+      longitude: parseFloat(data[0].lon),
+      displayName: data[0].display_name,
+    };
+  } catch (error) {
+    console.error("Erro ao geocodificar:", error);
     return null;
   }
-
-  return {
-    latitude: parseFloat(data[0].lat),
-    longitude: parseFloat(data[0].lon),
-    displayName: data[0].display_name,
-  };
 };
 
 // OpenStreetMap Nominatim - Reverse Geocoding (coordenadas para endereço)
@@ -207,7 +242,7 @@ export const reverseGeocode = async (lat: number, lng: number): Promise<string |
   return data.display_name || null;
 };
 
-// Montar endereço completo para geocoding
+// Montar endereço completo para geocoding - formato otimizado para Nominatim
 export const montarEnderecoCompleto = (dados: {
   logradouro?: string;
   numero?: string;
@@ -216,15 +251,51 @@ export const montarEnderecoCompleto = (dados: {
   uf?: string;
   cep?: string;
 }): string => {
-  const partes = [
-    dados.logradouro,
-    dados.numero,
-    dados.bairro,
-    dados.cidade,
-    dados.uf,
-    dados.cep,
-    "Brasil",
-  ].filter(Boolean);
+  // Prioriza cidade e estado que são mais precisos para geocoding
+  // Nominatim funciona melhor com: "Logradouro, Numero, Bairro, Cidade, Estado, Brasil"
+  const partes: string[] = [];
+
+  // Logradouro com número
+  if (dados.logradouro) {
+    partes.push(dados.numero ? `${dados.logradouro}, ${dados.numero}` : dados.logradouro);
+  }
+
+  // Bairro
+  if (dados.bairro) {
+    partes.push(dados.bairro);
+  }
+
+  // Cidade e UF são os mais importantes
+  if (dados.cidade) {
+    partes.push(dados.cidade);
+  }
+
+  if (dados.uf) {
+    partes.push(dados.uf);
+  }
+
+  // Sempre adiciona Brasil para contexto
+  partes.push("Brasil");
+
+  return partes.join(", ");
+};
+
+// Montar endereço simplificado (apenas cidade/estado) para fallback
+export const montarEnderecoSimplificado = (dados: {
+  cidade?: string;
+  uf?: string;
+}): string => {
+  const partes: string[] = [];
+
+  if (dados.cidade) {
+    partes.push(dados.cidade);
+  }
+
+  if (dados.uf) {
+    partes.push(dados.uf);
+  }
+
+  partes.push("Brasil");
 
   return partes.join(", ");
 };
