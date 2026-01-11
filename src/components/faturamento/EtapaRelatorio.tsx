@@ -14,6 +14,7 @@ import { FileText, Download, ChevronRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFaturas } from "@/hooks/useFaturas";
+import { useLinkLancamentosToFatura } from "@/hooks/useLancamentos";
 import type { DadosFaturamento } from "./FaturamentoModal";
 
 interface EtapaRelatorioProps {
@@ -30,6 +31,7 @@ export function EtapaRelatorio({
   const [revisado, setRevisado] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const { createFatura } = useFaturas();
+  const linkLancamentos = useLinkLancamentosToFatura();
 
   const formatCurrency = (value: number) => {
     return `R$ ${value.toFixed(2).replace(".", ",")}`;
@@ -110,6 +112,14 @@ export function EtapaRelatorio({
         status: "pendente",
       });
 
+      // Link lancamentos to fatura if we have lancamentoIds
+      if (dados.lancamentoIds && dados.lancamentoIds.length > 0) {
+        await linkLancamentos.mutateAsync({
+          lancamentoIds: dados.lancamentoIds,
+          faturaId: result.id,
+        });
+      }
+
       onFaturaCreated(result.id);
       onNext();
     } catch (error) {
@@ -124,7 +134,7 @@ export function EtapaRelatorio({
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold">Resumo do Lançamento</h3>
+          <h3 className="font-semibold">Resumo do Faturamento</h3>
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -147,8 +157,10 @@ export function EtapaRelatorio({
             </p>
           </div>
           <div>
-            <span className="text-sm text-muted-foreground">Itens</span>
-            <p className="font-medium">{dados.itens.length} produto(s)</p>
+            <span className="text-sm text-muted-foreground">Lançamentos</span>
+            <p className="font-medium">
+              {dados.lancamentoIds?.length || 1} lançamento(s) • {dados.itens.length} item(ns)
+            </p>
           </div>
         </div>
 
