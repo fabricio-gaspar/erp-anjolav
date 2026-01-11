@@ -18,6 +18,7 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  Route,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -117,6 +118,7 @@ export function AppSidebar() {
 
         <NavGroup title="Relatórios">
           <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Relatórios de Cliente" />
+          <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" />
           <NavItem to="/relatorios/caixa" icon={Receipt} label="Relatório de Caixa" />
           <NavItem to="/relatorios/financeiro" icon={PieChart} label="Relatório Financeiro" />
         </NavGroup>
