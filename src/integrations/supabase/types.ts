@@ -607,6 +607,53 @@ export type Database = {
         }
         Relationships: []
       }
+      contratos_aluguel: {
+        Row: {
+          ativo: boolean
+          cliente_id: string
+          created_at: string
+          data_fim: string | null
+          data_inicio: string
+          descricao: string
+          id: string
+          observacoes: string | null
+          updated_at: string
+          valor_servico: number
+        }
+        Insert: {
+          ativo?: boolean
+          cliente_id: string
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          descricao?: string
+          id?: string
+          observacoes?: string | null
+          updated_at?: string
+          valor_servico?: number
+        }
+        Update: {
+          ativo?: boolean
+          cliente_id?: string
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string
+          descricao?: string
+          id?: string
+          observacoes?: string | null
+          updated_at?: string
+          valor_servico?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_aluguel_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       descricoes_servicos_fiscais: {
         Row: {
           ativo: boolean
@@ -982,6 +1029,51 @@ export type Database = {
             columns: ["ordem_servico_id"]
             isOneToOne: false
             referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      itens_contrato_aluguel: {
+        Row: {
+          contrato_id: string
+          created_at: string
+          descricao_item: string | null
+          id: string
+          produto_id: string | null
+          quantidade: number
+          valor_unitario: number
+        }
+        Insert: {
+          contrato_id: string
+          created_at?: string
+          descricao_item?: string | null
+          id?: string
+          produto_id?: string | null
+          quantidade?: number
+          valor_unitario?: number
+        }
+        Update: {
+          contrato_id?: string
+          created_at?: string
+          descricao_item?: string | null
+          id?: string
+          produto_id?: string | null
+          quantidade?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_contrato_aluguel_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_aluguel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_contrato_aluguel_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
             referencedColumns: ["id"]
           },
         ]
