@@ -3,12 +3,18 @@ import { Button } from "@/components/ui/button";
 
 interface AppHeaderProps {
   title?: string;
+  subtitle?: string;
 }
 
-export function AppHeader({ title = "Dashboard" }: AppHeaderProps) {
+export function AppHeader({ title = "Dashboard", subtitle }: AppHeaderProps) {
   return (
-    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 sticky top-0 z-30">
-      <h1 className="text-lg font-semibold text-foreground">{title}</h1>
+    <header className="h-14 bg-card border-b border-border flex items-center justify-between px-6 sticky top-0 z-30">
+      <div className="flex flex-col justify-center">
+        <h1 className="text-base font-semibold text-foreground leading-tight">{title}</h1>
+        {subtitle && (
+          <p className="text-xs text-muted-foreground leading-tight">{subtitle}</p>
+        )}
+      </div>
 
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" className="relative">

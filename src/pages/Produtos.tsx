@@ -208,14 +208,10 @@ const Produtos = () => {
   const isSaving = createProduto.isPending || updateProduto.isPending;
 
   return (
-    <AppLayout title="Dashboard">
-      <div className="space-y-6">
+    <AppLayout title="Produtos & Serviços" subtitle="Cadastro de produtos e serviços de lavanderia">
+      <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Produtos & Serviços</h1>
-            <p className="text-sm text-muted-foreground">Cadastro de produtos e serviços de lavanderia</p>
-          </div>
+        <div className="flex items-center justify-end">
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleExportCSV}>
               <Download className="w-4 h-4 mr-1" />

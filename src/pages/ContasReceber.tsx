@@ -139,16 +139,8 @@ const ContasReceber = () => {
   };
 
   return (
-    <AppLayout title="Contas a Receber">
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Contas a Receber</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie suas receitas e cobranças via Asaas
-          </p>
-        </div>
-
+    <AppLayout title="Contas a Receber" subtitle="Gerencie suas receitas e cobranças">
+      <div className="space-y-4">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="p-4 flex items-center justify-between">

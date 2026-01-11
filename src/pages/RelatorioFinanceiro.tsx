@@ -149,18 +149,8 @@ const RelatorioFinanceiro = () => {
   };
 
   return (
-    <AppLayout title="Relatório Financeiro">
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Relatório Financeiro
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Análises e relatórios financeiros detalhados
-          </p>
-        </div>
-
+    <AppLayout title="Relatório Financeiro" subtitle="Análises e relatórios financeiros detalhados">
+      <div className="space-y-4">
         {/* Filters Card */}
         <Card className="p-6">
           <div className="flex items-center gap-2 mb-6">

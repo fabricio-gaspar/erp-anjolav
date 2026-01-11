@@ -112,8 +112,8 @@ export default function Agenda() {
   const isFriday = (date: Date) => date.getDay() === 5;
 
   return (
-    <AppLayout title="Agenda">
-      <div className="space-y-4">
+    <AppLayout title="Agenda" subtitle="Programação de retiradas e entregas">
+      <div className="space-y-3">
         {/* Header with filters and navigation */}
         <div className="flex items-center justify-between">
           {/* Left side - Filters */}

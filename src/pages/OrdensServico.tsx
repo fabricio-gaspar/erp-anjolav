@@ -17,16 +17,9 @@ export default function OrdensServico() {
   };
 
   return (
-    <AppLayout title="Ordens de Serviço">
+    <AppLayout title="Ordens de Serviço" subtitle="Criação e gerenciamento de pedidos">
       <Card>
-        <CardContent className="p-6">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold">Abrir Retirada</h2>
-            <p className="text-sm text-muted-foreground">
-              Criação e gerenciamento de pedidos
-            </p>
-          </div>
-
+        <CardContent className="p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-auto p-0 mb-6">
               <TabsTrigger

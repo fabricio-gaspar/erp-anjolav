@@ -24,16 +24,8 @@ const Configuracoes = () => {
   const [activeTab, setActiveTab] = useState("equipe");
 
   return (
-    <AppLayout title="Configurações">
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie as configurações do sistema
-          </p>
-        </div>
-
+    <AppLayout title="Configurações" subtitle="Gerencie as configurações do sistema">
+      <div className="space-y-4">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full justify-start bg-transparent border-b rounded-none h-auto p-0 gap-0">

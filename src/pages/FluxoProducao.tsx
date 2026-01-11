@@ -106,15 +106,11 @@ const FluxoProducao = () => {
   };
 
   return (
-    <AppLayout title="Dashboard">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Fluxo de Produção</h1>
-          <p className="text-sm text-muted-foreground">
-            {totalEmProcessamento} {totalEmProcessamento === 1 ? "ordem" : "ordens"} em processamento
-          </p>
-        </div>
-
+    <AppLayout 
+      title="Fluxo de Produção" 
+      subtitle={`${totalEmProcessamento} ${totalEmProcessamento === 1 ? "ordem" : "ordens"} em processamento`}
+    >
+      <div className="space-y-4">
         {/* Filters */}
         <div className="flex items-center justify-between gap-4">
           <div className="relative flex-1 max-w-lg">
