@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -44,7 +45,7 @@ const Faturamento = () => {
 
   const { faturas, summary, isLoading: isLoadingFaturas } = useFaturas(periodoInicio, periodoFim);
   const { lancamentos, isLoading: isLoadingLancamentos } = useLancamentosPendentes();
-  const { data: lancamentosComItens } = useLancamentosComItens(selectedLancamentos);
+  const { data: lancamentosComItens, isLoading: isLoadingItens } = useLancamentosComItens(selectedLancamentos);
 
   const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
@@ -99,6 +100,14 @@ const Faturamento = () => {
 
   const handleGerarFatura = () => {
     if (!clienteSelecionado || selectedLancamentos.length === 0) return;
+    if (isLoadingItens) {
+      toast.info("Carregando dados dos lançamentos...");
+      return;
+    }
+    if (!dadosFaturamento || dadosFaturamento.itens.length === 0) {
+      toast.error("Aguarde, carregando itens dos lançamentos...");
+      return;
+    }
     setFaturamentoModalOpen(true);
   };
 

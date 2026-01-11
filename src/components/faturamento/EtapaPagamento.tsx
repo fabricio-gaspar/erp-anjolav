@@ -382,17 +382,31 @@ export function EtapaPagamento({
           Voltar
         </Button>
 
-        <Button
-          onClick={handleNext}
-          disabled={
-            (formaPagamento === "boleto" && !boletoUrl) ||
-            (formaPagamento === "pix" && !pixData && !configGeral?.pix_chave)
-          }
-          className="gap-2"
-        >
-          Próxima Etapa
-          <ChevronRight className="w-4 h-4" />
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              onPaymentConfigured("sem_cobranca", {});
+              onNext();
+            }}
+            className="gap-2 text-muted-foreground"
+          >
+            Pular
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+
+          <Button
+            onClick={handleNext}
+            disabled={
+              (formaPagamento === "boleto" && !boletoUrl) ||
+              (formaPagamento === "pix" && !pixData && !configGeral?.pix_chave)
+            }
+            className="gap-2"
+          >
+            Próxima Etapa
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
