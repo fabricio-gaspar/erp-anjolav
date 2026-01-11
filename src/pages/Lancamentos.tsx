@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Plus,
   ShoppingCart,
   ArrowRight,
@@ -44,8 +57,13 @@ import {
   Calendar,
   Tag,
   Loader2,
+  ChevronsUpDown,
+  Package,
+  AlertCircle,
 } from "lucide-react";
 import { usePrintLancamento, type LancamentosPrintData } from "@/hooks/usePrintOS";
+import { useClientes } from "@/hooks/useClientes";
+import { usePrecosEspeciais } from "@/hooks/useProdutos";
 
 interface LancamentoItem {
   id: string;
@@ -116,22 +134,17 @@ const mockConferencias: LancamentoConferencia[] = [
 const periodOptions = ["Hoje", "Semana", "Quinzena", "Mês", "Personalizado"];
 
 const Lancamentos = () => {
-  const [items, setItems] = useState<LancamentoItem[]>([
-    {
-      id: "1",
-      produto: "FRONHA",
-      quantidade: 10,
-      unidade: "peça",
-      valorUnitario: 3.5,
-      valorTotal: 35.0,
-    },
-  ]);
+  const [items, setItems] = useState<LancamentoItem[]>([]);
 
-  const [clienteSelecionado] = useState<ClienteSelecionado | null>({
-    nome: "FABRICIO GASPAR",
-    documento: "276.343.258-13",
-    telefone: "(11) 99744-1875",
-  });
+  // Cliente selection state
+  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
+  const [clienteSearchOpen, setClienteSearchOpen] = useState(false);
+  const [clienteSearch, setClienteSearch] = useState("");
+
+  // Produto selection state
+  const [selectedProdutoId, setSelectedProdutoId] = useState<string | null>(null);
+  const [produtoSearchOpen, setProdutoSearchOpen] = useState(false);
+  const [quantidade, setQuantidade] = useState<number>(1);
 
   const [dataEmissao, setDataEmissao] = useState("2026-01-09");
   const [dataEntrega, setDataEntrega] = useState("2026-01-09");
@@ -142,10 +155,81 @@ const Lancamentos = () => {
   const [statusFilter, setStatusFilter] = useState("todos");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Hooks for real data
+  const { clientes, isLoading: isLoadingClientes } = useClientes();
+  const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(selectedClienteId);
+
   // Print hook
   const { printROLFromData, isLoading: isPrinting } = usePrintLancamento();
 
   const totalValue = items.reduce((sum, item) => sum + item.valorTotal, 0);
+
+  // Get selected cliente info
+  const clienteSelecionado = useMemo(() => {
+    if (!selectedClienteId) return null;
+    const cliente = clientes.find(c => c.id === selectedClienteId);
+    if (!cliente) return null;
+    return {
+      nome: cliente.razao_social,
+      documento: cliente.cpf_cnpj || "",
+      telefone: cliente.telefone || "",
+    };
+  }, [selectedClienteId, clientes]);
+
+  // Filter clientes by search
+  const clientesFiltrados = useMemo(() => {
+    if (!clienteSearch) return clientes.slice(0, 20);
+    const searchLower = clienteSearch.toLowerCase();
+    return clientes.filter((c) =>
+      c.razao_social.toLowerCase().includes(searchLower) ||
+      c.nome_fantasia?.toLowerCase().includes(searchLower) ||
+      c.cpf_cnpj?.includes(clienteSearch) ||
+      c.telefone?.includes(clienteSearch)
+    ).slice(0, 20);
+  }, [clientes, clienteSearch]);
+
+  // Transform precos especiais to produto options
+  const produtosDoCliente = useMemo(() => {
+    return precosEspeciais.map((pe: any) => ({
+      id: pe.produto_id,
+      nome: pe.produto?.nome || "Produto",
+      unidade: pe.produto?.unidade || "un",
+      precoEspecial: pe.preco_especial,
+      precoPadrao: pe.produto?.preco || 0,
+      tipo: pe.tipo,
+    }));
+  }, [precosEspeciais]);
+
+  // Get selected produto info
+  const produtoSelecionado = useMemo(() => {
+    if (!selectedProdutoId) return null;
+    return produtosDoCliente.find(p => p.id === selectedProdutoId) || null;
+  }, [selectedProdutoId, produtosDoCliente]);
+
+  // Reset items when cliente changes
+  useEffect(() => {
+    setItems([]);
+    setSelectedProdutoId(null);
+    setQuantidade(1);
+  }, [selectedClienteId]);
+
+  // Handle add item
+  const handleAdicionarItem = () => {
+    if (!produtoSelecionado || quantidade <= 0) return;
+
+    const novoItem: LancamentoItem = {
+      id: crypto.randomUUID(),
+      produto: produtoSelecionado.nome,
+      quantidade: quantidade,
+      unidade: produtoSelecionado.unidade,
+      valorUnitario: produtoSelecionado.precoEspecial,
+      valorTotal: produtoSelecionado.precoEspecial * quantidade,
+    };
+
+    setItems([...items, novoItem]);
+    setSelectedProdutoId(null);
+    setQuantidade(1);
+  };
 
   // Filter conferencias
   const filteredConferencias = mockConferencias.filter((conf) => {
@@ -274,27 +358,77 @@ const Lancamentos = () => {
                     <Label className="text-sm font-medium text-foreground">
                       Cliente
                     </Label>
-                    <div className="relative mt-1.5">
-                      {clienteSelecionado ? (
-                        <div className="flex items-center justify-between border rounded-md px-3 py-2.5 bg-background">
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {clienteSelecionado.nome}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {clienteSelecionado.documento} •{" "}
-                              {clienteSelecionado.telefone}
-                            </p>
-                          </div>
-                          <Search className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <Input placeholder="Buscar por nome, CNPJ, telefone, cidade..." />
-                          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
+                    <Popover open={clienteSearchOpen} onOpenChange={setClienteSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={clienteSearchOpen}
+                          className="w-full justify-between mt-1.5 h-auto min-h-[42px] py-2"
+                        >
+                          {clienteSelecionado ? (
+                            <div className="text-left">
+                              <p className="font-medium text-foreground">
+                                {clienteSelecionado.nome}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {clienteSelecionado.documento && `${clienteSelecionado.documento} • `}
+                                {clienteSelecionado.telefone}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              Buscar por nome, CNPJ, telefone...
+                            </span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command>
+                          <CommandInput
+                            placeholder="Buscar cliente..."
+                            value={clienteSearch}
+                            onValueChange={setClienteSearch}
+                          />
+                          <CommandList>
+                            {isLoadingClientes ? (
+                              <div className="flex items-center justify-center py-6">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            ) : (
+                              <>
+                                <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                  {clientesFiltrados.map((cliente) => (
+                                    <CommandItem
+                                      key={cliente.id}
+                                      value={cliente.id}
+                                      onSelect={() => {
+                                        setSelectedClienteId(cliente.id);
+                                        setClienteSearchOpen(false);
+                                        setClienteSearch("");
+                                      }}
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{cliente.razao_social}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {cliente.cpf_cnpj && `${cliente.cpf_cnpj} • `}
+                                          {cliente.telefone || "Sem telefone"}
+                                        </span>
+                                      </div>
+                                      {selectedClienteId === cliente.id && (
+                                        <Check className="ml-auto h-4 w-4" />
+                                      )}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   {/* Produto/Serviço */}
@@ -302,27 +436,117 @@ const Lancamentos = () => {
                     <Label className="text-sm font-medium text-foreground">
                       Produto/Serviço
                     </Label>
-                    <div className="relative mt-1.5">
-                      <Input placeholder="Selecione o produto" />
-                      <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    </div>
+                    {!selectedClienteId ? (
+                      <div className="flex items-center gap-2 mt-1.5 p-3 bg-muted/50 rounded-md text-sm text-muted-foreground">
+                        <AlertCircle className="h-4 w-4" />
+                        Selecione um cliente primeiro
+                      </div>
+                    ) : isLoadingPrecos ? (
+                      <div className="flex items-center gap-2 mt-1.5 p-3 bg-muted/50 rounded-md text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Carregando produtos...
+                      </div>
+                    ) : produtosDoCliente.length === 0 ? (
+                      <div className="flex items-center gap-2 mt-1.5 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md text-sm text-amber-700 dark:text-amber-400">
+                        <AlertTriangle className="h-4 w-4" />
+                        Cliente sem produtos cadastrados na tabela de preços
+                      </div>
+                    ) : (
+                      <Popover open={produtoSearchOpen} onOpenChange={setProdutoSearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={produtoSearchOpen}
+                            className="w-full justify-between mt-1.5 h-auto min-h-[42px] py-2"
+                          >
+                            {produtoSelecionado ? (
+                              <div className="text-left">
+                                <p className="font-medium text-foreground">
+                                  {produtoSelecionado.nome}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatCurrency(produtoSelecionado.precoEspecial)} / {produtoSelecionado.unidade}
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                Selecione o produto
+                              </span>
+                            )}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Buscar produto..." />
+                            <CommandList>
+                              <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                {produtosDoCliente.map((produto) => (
+                                  <CommandItem
+                                    key={produto.id}
+                                    value={produto.id}
+                                    onSelect={() => {
+                                      setSelectedProdutoId(produto.id);
+                                      setProdutoSearchOpen(false);
+                                    }}
+                                  >
+                                    <Package className="mr-2 h-4 w-4 text-muted-foreground" />
+                                    <div className="flex flex-col flex-1">
+                                      <span className="font-medium">{produto.nome}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {formatCurrency(produto.precoEspecial)} / {produto.unidade}
+                                        {produto.tipo === "desconto" && (
+                                          <Badge variant="secondary" className="ml-2 text-xs">Desconto</Badge>
+                                        )}
+                                        {produto.tipo === "acrescido" && (
+                                          <Badge variant="secondary" className="ml-2 text-xs bg-amber-100 text-amber-700">Acréscimo</Badge>
+                                        )}
+                                      </span>
+                                    </div>
+                                    {selectedProdutoId === produto.id && (
+                                      <Check className="ml-auto h-4 w-4" />
+                                    )}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
 
                   {/* Quantidade */}
                   <div>
                     <Label className="text-sm font-medium text-foreground">
-                      Quantidade (un)
+                      Quantidade ({produtoSelecionado?.unidade || "un"})
                     </Label>
                     <Input
                       type="number"
                       placeholder="0"
                       className="mt-1.5"
-                      min={0}
+                      min={1}
+                      value={quantidade}
+                      onChange={(e) => setQuantidade(Number(e.target.value))}
+                      disabled={!produtoSelecionado}
                     />
+                    {produtoSelecionado && quantidade > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Subtotal: <span className="font-medium text-foreground">
+                          {formatCurrency(produtoSelecionado.precoEspecial * quantidade)}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   {/* Adicionar Item Button */}
-                  <Button className="w-full gap-2 mt-2">
+                  <Button
+                    className="w-full gap-2 mt-2"
+                    onClick={handleAdicionarItem}
+                    disabled={!produtoSelecionado || quantidade <= 0}
+                  >
                     <Plus className="w-4 h-4" />
                     Adicionar Item
                   </Button>
