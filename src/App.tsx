@@ -14,6 +14,7 @@ import Faturamento from "./pages/Faturamento";
 import Lancamentos from "./pages/Lancamentos";
 import RelatoriosCliente from "./pages/RelatoriosCliente";
 import RelatorioFinanceiro from "./pages/RelatorioFinanceiro";
+import RelatorioProximidade from "./pages/RelatorioProximidade";
 import DashboardFinanceiro from "./pages/DashboardFinanceiro";
 import HistoricoCaixas from "./pages/HistoricoCaixas";
 import ContasReceber from "./pages/ContasReceber";
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/faturamento" element={<Faturamento />} />
           <Route path="/lancamentos" element={<Lancamentos />} />
           <Route path="/relatorios/clientes" element={<RelatoriosCliente />} />
+          <Route path="/relatorios/proximidade" element={<RelatorioProximidade />} />
           {/* Placeholder routes */}
           <Route path="/ordens" element={<OrdensServico />} />
           <Route path="/agenda" element={<Agenda />} />
