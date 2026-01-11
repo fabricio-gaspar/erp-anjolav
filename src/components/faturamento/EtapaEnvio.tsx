@@ -164,6 +164,11 @@ export function EtapaEnvio({
     }
   };
 
+  const handleFinalizarSemEnvio = () => {
+    toast.success("Faturamento finalizado!");
+    onClose();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
@@ -284,7 +289,15 @@ export function EtapaEnvio({
 
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose}>
-            Fechar
+            Cancelar
+          </Button>
+          <Button 
+            variant="secondary" 
+            onClick={handleFinalizarSemEnvio}
+            className="gap-2"
+          >
+            <Check className="w-4 h-4" />
+            Finalizar sem Enviar
           </Button>
           <Button
             onClick={handleSend}
@@ -295,7 +308,7 @@ export function EtapaEnvio({
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                <Check className="w-4 h-4" />
+                <Send className="w-4 h-4" />
                 Finalizar e Enviar
               </>
             )}
