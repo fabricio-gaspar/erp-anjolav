@@ -22,6 +22,7 @@ import { useClientes, useConfiguracaoCliente } from "@/hooks/useClientes";
 import { useRelatorioCliente } from "@/hooks/useRelatorioCliente";
 import { MapaPecasCliente } from "@/components/relatorios/MapaPecasCliente";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 type ReportType = "detalhado" | "mapa_pecas" | "mapa_mensal";
 
@@ -33,7 +34,7 @@ const generateMonths = () => {
     const date = subMonths(today, i);
     months.push({
       value: format(date, "yyyy-MM"),
-      label: format(date, "MMMM yyyy", { locale: require("date-fns/locale/pt-BR").ptBR }),
+      label: format(date, "MMMM yyyy", { locale: ptBR }),
     });
   }
   return months;
