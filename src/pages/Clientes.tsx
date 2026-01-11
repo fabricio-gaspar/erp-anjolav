@@ -12,73 +12,73 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, Eye, Pencil, Ban, Trash2, Building2, Home } from "lucide-react";
+import { Search, Plus, Eye, Pencil, Ban, Trash2, Building2, Home, Loader2 } from "lucide-react";
 import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
 import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
 import { ClientePagamento } from "@/components/clientes/ClientePagamento";
 import { ClienteConfiguracao } from "@/components/clientes/ClienteConfiguracao";
 import { ClienteTabelaPrecos } from "@/components/clientes/ClienteTabelaPrecos";
-import { toast } from "sonner";
-
-interface Cliente {
-  id: string;
-  tipo: "industrial" | "residencial";
-  nome: string;
-  cpfCnpj: string;
-  telefone: string;
-  cidade: string;
-  status: "ativo" | "inativo" | "inadimplente";
-}
-
-const mockClientes: Cliente[] = [
-  {
-    id: "ID1",
-    tipo: "industrial",
-    nome: "FABRICIO GASPAR",
-    cpfCnpj: "276.343.258-13",
-    telefone: "(11) 99744-1875",
-    cidade: "São Roque",
-    status: "ativo",
-  },
-  {
-    id: "ID2",
-    tipo: "industrial",
-    nome: "GARDEN HOUSE- POUSADA BOUTIQUE & SPA LTDA",
-    cpfCnpj: "41.371.209/0001-49",
-    telefone: "(11) 3019-4884",
-    cidade: "SAO ROQUE",
-    status: "ativo",
-  },
-  {
-    id: "ID1",
-    tipo: "industrial",
-    nome: "Anjolav Servicos de Lavanderia LTDA",
-    cpfCnpj: "07.528.955/0001-65",
-    telefone: "(11) 4784-1281",
-    cidade: "São Roque",
-    status: "ativo",
-  },
-];
+import { useClientes, type Cliente } from "@/hooks/useClientes";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Clientes = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<"todos" | "industrial" | "residencial">("todos");
   const [activeTab, setActiveTab] = useState("lista");
+  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clienteToDelete, setClienteToDelete] = useState<string | null>(null);
 
-  const filteredClientes = mockClientes.filter((cliente) => {
+  const { clientes, isLoading, deleteCliente, updateCliente } = useClientes();
+
+  const filteredClientes = clientes.filter((cliente) => {
     const matchesSearch =
-      cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.cpfCnpj.includes(searchTerm);
-    const matchesFilter = filter === "todos" || cliente.tipo === filter;
+      cliente.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (cliente.cpf_cnpj && cliente.cpf_cnpj.includes(searchTerm));
+    const matchesFilter = filter === "todos" || cliente.classificacao === filter;
     return matchesSearch && matchesFilter;
   });
 
-  const handleSaveCliente = () => {
-    toast.success("Cliente salvo com sucesso!");
+  const handleNovoCliente = () => {
+    setSelectedClienteId(null);
+    setActiveTab("dados");
   };
 
-  const handleNovoCliente = () => {
+  const handleEditCliente = (clienteId: string) => {
+    setSelectedClienteId(clienteId);
     setActiveTab("dados");
+  };
+
+  const handleClienteSaved = (clienteId: string) => {
+    setSelectedClienteId(clienteId);
+  };
+
+  const handleDeleteCliente = () => {
+    if (clienteToDelete) {
+      deleteCliente.mutate(clienteToDelete);
+      setDeleteDialogOpen(false);
+      setClienteToDelete(null);
+    }
+  };
+
+  const handleToggleAtivo = (cliente: Cliente) => {
+    updateCliente.mutate({
+      id: cliente.id,
+      ativo: !cliente.ativo,
+    });
+  };
+
+  const getUnidadeNegocioBadge = (classificacao: string) => {
+    return classificacao === "industrial" ? "ID1" : "ID2";
   };
 
   return (
@@ -92,10 +92,10 @@ const Clientes = () => {
           <TabsList className="bg-muted/50 p-1 rounded-lg">
             <TabsTrigger value="lista">Lista de Clientes</TabsTrigger>
             <TabsTrigger value="dados">Dados Básicos</TabsTrigger>
-            <TabsTrigger value="endereco">Endereço</TabsTrigger>
-            <TabsTrigger value="pagamento">Pagamento</TabsTrigger>
-            <TabsTrigger value="configuracao">Configuração</TabsTrigger>
-            <TabsTrigger value="precos">Tabela de Preços</TabsTrigger>
+            <TabsTrigger value="endereco" disabled={!selectedClienteId}>Endereço</TabsTrigger>
+            <TabsTrigger value="pagamento" disabled={!selectedClienteId}>Pagamento</TabsTrigger>
+            <TabsTrigger value="configuracao" disabled={!selectedClienteId}>Configuração</TabsTrigger>
+            <TabsTrigger value="precos" disabled={!selectedClienteId}>Tabela de Preços</TabsTrigger>
           </TabsList>
 
           <TabsContent value="lista" className="mt-6">
@@ -147,82 +147,121 @@ const Clientes = () => {
             </div>
 
             <div className="bg-card border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">ID</TableHead>
-                    <TableHead className="font-semibold">NOME / RAZÃO SOCIAL</TableHead>
-                    <TableHead className="font-semibold">CNPJ</TableHead>
-                    <TableHead className="font-semibold">TELEFONE</TableHead>
-                    <TableHead className="font-semibold">CIDADE</TableHead>
-                    <TableHead className="font-semibold text-right">AÇÕES</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredClientes.map((cliente, index) => (
-                    <TableRow key={index} className="hover:bg-muted/30">
-                      <TableCell>
-                        <StatusBadge
-                          variant={cliente.tipo === "industrial" ? "warning" : "info"}
-                        >
-                          {cliente.id}
-                        </StatusBadge>
-                      </TableCell>
-                      <TableCell className="font-medium">{cliente.nome}</TableCell>
-                      <TableCell className="text-muted-foreground">{cliente.cpfCnpj}</TableCell>
-                      <TableCell className="text-muted-foreground">{cliente.telefone}</TableCell>
-                      <TableCell className="text-muted-foreground">{cliente.cidade}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Eye className="w-4 h-4 text-muted-foreground" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8"
-                            onClick={() => setActiveTab("dados")}
-                          >
-                            <Pencil className="w-4 h-4 text-muted-foreground" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Ban className="w-4 h-4 text-warning" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">Carregando clientes...</span>
+                </div>
+              ) : filteredClientes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Building2 className="w-12 h-12 mb-4 opacity-50" />
+                  <p>Nenhum cliente encontrado</p>
+                  <Button variant="link" onClick={handleNovoCliente}>
+                    Cadastrar primeiro cliente
+                  </Button>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">ID</TableHead>
+                      <TableHead className="font-semibold">NOME / RAZÃO SOCIAL</TableHead>
+                      <TableHead className="font-semibold">CPF/CNPJ</TableHead>
+                      <TableHead className="font-semibold">TELEFONE</TableHead>
+                      <TableHead className="font-semibold">STATUS</TableHead>
+                      <TableHead className="font-semibold text-right">AÇÕES</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClientes.map((cliente) => (
+                      <TableRow key={cliente.id} className="hover:bg-muted/30">
+                        <TableCell>
+                          <StatusBadge
+                            variant={cliente.classificacao === "industrial" ? "warning" : "info"}
+                          >
+                            {getUnidadeNegocioBadge(cliente.classificacao)}
+                          </StatusBadge>
+                        </TableCell>
+                        <TableCell className="font-medium">{cliente.razao_social}</TableCell>
+                        <TableCell className="text-muted-foreground">{cliente.cpf_cnpj || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{cliente.telefone || "-"}</TableCell>
+                        <TableCell>
+                          <StatusBadge variant={cliente.ativo ? "success" : "warning"}>
+                            {cliente.ativo ? "Ativo" : "Inativo"}
+                          </StatusBadge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => handleEditCliente(cliente.id)}
+                            >
+                              <Eye className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => handleEditCliente(cliente.id)}
+                            >
+                              <Pencil className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => handleToggleAtivo(cliente)}
+                            >
+                              <Ban className={`w-4 h-4 ${cliente.ativo ? "text-warning" : "text-success"}`} />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setClienteToDelete(cliente.id);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </div>
           </TabsContent>
 
           <TabsContent value="dados">
             <ClienteDadosBasicos 
               onNext={() => setActiveTab("endereco")} 
-              onSave={handleSaveCliente}
+              onSave={() => {}}
             />
           </TabsContent>
 
           <TabsContent value="endereco">
             <ClienteEndereco 
               onNext={() => setActiveTab("pagamento")} 
-              onSave={handleSaveCliente}
+              onSave={() => setActiveTab("pagamento")}
             />
           </TabsContent>
 
           <TabsContent value="pagamento">
             <ClientePagamento 
               onBack={() => setActiveTab("endereco")} 
-              onSave={handleSaveCliente}
+              onSave={() => setActiveTab("configuracao")}
             />
           </TabsContent>
 
           <TabsContent value="configuracao">
-            <ClienteConfiguracao onSave={handleSaveCliente} />
+            <ClienteConfiguracao 
+              onSave={() => setActiveTab("precos")} 
+            />
           </TabsContent>
 
           <TabsContent value="precos">
@@ -230,6 +269,23 @@ const Clientes = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Cliente</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCliente} className="bg-destructive text-destructive-foreground">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };

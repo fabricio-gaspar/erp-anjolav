@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      agendamentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          data: string
+          frequencia: string | null
+          horario: string | null
+          id: string
+          motorista_id: string | null
+          observacoes: string | null
+          recorrente: boolean | null
+          status: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          data: string
+          frequencia?: string | null
+          horario?: string | null
+          id?: string
+          motorista_id?: string | null
+          observacoes?: string | null
+          recorrente?: boolean | null
+          status?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          data?: string
+          frequencia?: string | null
+          horario?: string | null
+          id?: string
+          motorista_id?: string | null
+          observacoes?: string | null
+          recorrente?: boolean | null
+          status?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "motoristas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asaas_charges: {
         Row: {
           asaas_id: string | null
@@ -201,6 +261,402 @@ export type Database = {
         }
         Relationships: []
       }
+      clientes: {
+        Row: {
+          ativo: boolean
+          classificacao: string
+          contato: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          email: string | null
+          id: string
+          inscricao_estadual: string | null
+          inscricao_municipal: string | null
+          nome_fantasia: string | null
+          observacoes: string | null
+          razao_social: string
+          regime_tributario: string | null
+          telefone: string | null
+          telefone2: string | null
+          tipo_pessoa: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          classificacao?: string
+          contato?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          razao_social: string
+          regime_tributario?: string | null
+          telefone?: string | null
+          telefone2?: string | null
+          tipo_pessoa?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          classificacao?: string
+          contato?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          nome_fantasia?: string | null
+          observacoes?: string | null
+          razao_social?: string
+          regime_tributario?: string | null
+          telefone?: string | null
+          telefone2?: string | null
+          tipo_pessoa?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      configuracoes_cliente: {
+        Row: {
+          cliente_id: string
+          codigo_acesso: string | null
+          created_at: string
+          dias_entrega: string[] | null
+          dias_retirada: string[] | null
+          frequencia: string | null
+          horario_entrega: string | null
+          horario_retirada: string | null
+          id: string
+          link_acesso: string | null
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          codigo_acesso?: string | null
+          created_at?: string
+          dias_entrega?: string[] | null
+          dias_retirada?: string[] | null
+          frequencia?: string | null
+          horario_entrega?: string | null
+          horario_retirada?: string | null
+          id?: string
+          link_acesso?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          codigo_acesso?: string | null
+          created_at?: string
+          dias_entrega?: string[] | null
+          dias_retirada?: string[] | null
+          frequencia?: string | null
+          horario_entrega?: string | null
+          horario_retirada?: string | null
+          id?: string
+          link_acesso?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "configuracoes_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      configuracoes_fiscais: {
+        Row: {
+          aliquota_iss: number | null
+          ambiente: string | null
+          ativo: boolean
+          certificado_url: string | null
+          cnpj: string | null
+          codigo_servico: string | null
+          created_at: string
+          csc_dados: Json | null
+          endereco: Json | null
+          id: string
+          inscricao_estadual: string | null
+          inscricao_municipal: string | null
+          nome: string
+          razao_social: string | null
+          regime_tributario: string | null
+          series_numeracao: Json | null
+          updated_at: string
+          urls_webservice: Json | null
+          validade_certificado: string | null
+        }
+        Insert: {
+          aliquota_iss?: number | null
+          ambiente?: string | null
+          ativo?: boolean
+          certificado_url?: string | null
+          cnpj?: string | null
+          codigo_servico?: string | null
+          created_at?: string
+          csc_dados?: Json | null
+          endereco?: Json | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          nome: string
+          razao_social?: string | null
+          regime_tributario?: string | null
+          series_numeracao?: Json | null
+          updated_at?: string
+          urls_webservice?: Json | null
+          validade_certificado?: string | null
+        }
+        Update: {
+          aliquota_iss?: number | null
+          ambiente?: string | null
+          ativo?: boolean
+          certificado_url?: string | null
+          cnpj?: string | null
+          codigo_servico?: string | null
+          created_at?: string
+          csc_dados?: Json | null
+          endereco?: Json | null
+          id?: string
+          inscricao_estadual?: string | null
+          inscricao_municipal?: string | null
+          nome?: string
+          razao_social?: string | null
+          regime_tributario?: string | null
+          series_numeracao?: Json | null
+          updated_at?: string
+          urls_webservice?: Json | null
+          validade_certificado?: string | null
+        }
+        Relationships: []
+      }
+      configuracoes_gerais: {
+        Row: {
+          banco_agencia: string | null
+          banco_conta: string | null
+          banco_nome: string | null
+          banco_titular: string | null
+          cor_primaria: string | null
+          created_at: string
+          id: string
+          logo_url: string | null
+          nome_empresa: string | null
+          pix_chave: string | null
+          pix_tipo_chave: string | null
+          template_boleto: string | null
+          template_pix: string | null
+          template_transferencia: string | null
+          updated_at: string
+          whatsapp_numero: string | null
+        }
+        Insert: {
+          banco_agencia?: string | null
+          banco_conta?: string | null
+          banco_nome?: string | null
+          banco_titular?: string | null
+          cor_primaria?: string | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          nome_empresa?: string | null
+          pix_chave?: string | null
+          pix_tipo_chave?: string | null
+          template_boleto?: string | null
+          template_pix?: string | null
+          template_transferencia?: string | null
+          updated_at?: string
+          whatsapp_numero?: string | null
+        }
+        Update: {
+          banco_agencia?: string | null
+          banco_conta?: string | null
+          banco_nome?: string | null
+          banco_titular?: string | null
+          cor_primaria?: string | null
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          nome_empresa?: string | null
+          pix_chave?: string | null
+          pix_tipo_chave?: string | null
+          template_boleto?: string | null
+          template_pix?: string | null
+          template_transferencia?: string | null
+          updated_at?: string
+          whatsapp_numero?: string | null
+        }
+        Relationships: []
+      }
+      configuracoes_pagamento_cliente: {
+        Row: {
+          cliente_id: string
+          condicao_pagamento: string | null
+          created_at: string
+          dia_vencimento: number | null
+          forma_pagamento: string | null
+          id: string
+          tipo_faturamento: string | null
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          condicao_pagamento?: string | null
+          created_at?: string
+          dia_vencimento?: number | null
+          forma_pagamento?: string | null
+          id?: string
+          tipo_faturamento?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          condicao_pagamento?: string | null
+          created_at?: string
+          dia_vencimento?: number | null
+          forma_pagamento?: string | null
+          id?: string
+          tipo_faturamento?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "configuracoes_pagamento_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contas_pagar: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          data_pagamento: string | null
+          descricao: string
+          fornecedor: string | null
+          id: string
+          observacoes: string | null
+          status: string
+          updated_at: string
+          valor: number
+          vencimento: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          descricao: string
+          fornecedor?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          valor: number
+          vencimento: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          data_pagamento?: string | null
+          descricao?: string
+          fornecedor?: string | null
+          id?: string
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          valor?: number
+          vencimento?: string
+        }
+        Relationships: []
+      }
+      descricoes_servicos_fiscais: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string
+          id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao: string
+          id?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      enderecos_clientes: {
+        Row: {
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          cliente_id: string
+          complemento: string | null
+          created_at: string
+          id: string
+          latitude: number | null
+          logradouro: string | null
+          longitude: number | null
+          numero: string | null
+          pais: string | null
+          uf: string | null
+          updated_at: string
+        }
+        Insert: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cliente_id: string
+          complemento?: string | null
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          logradouro?: string | null
+          longitude?: number | null
+          numero?: string | null
+          pais?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cliente_id?: string
+          complemento?: string | null
+          created_at?: string
+          id?: string
+          latitude?: number | null
+          logradouro?: string | null
+          longitude?: number | null
+          numero?: string | null
+          pais?: string | null
+          uf?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enderecos_clientes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       etiquetas_configuracoes: {
         Row: {
           altura_codigo_barras: number | null
@@ -239,6 +695,60 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      faturas: {
+        Row: {
+          asaas_charge_id: string | null
+          cliente_id: string
+          created_at: string
+          id: string
+          numero_nf: string | null
+          periodo_fim: string
+          periodo_inicio: string
+          status: string
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          asaas_charge_id?: string | null
+          cliente_id: string
+          created_at?: string
+          id?: string
+          numero_nf?: string | null
+          periodo_fim: string
+          periodo_inicio: string
+          status?: string
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          asaas_charge_id?: string | null
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          numero_nf?: string | null
+          periodo_fim?: string
+          periodo_inicio?: string
+          status?: string
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faturas_asaas_charge_id_fkey"
+            columns: ["asaas_charge_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_charges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faturas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       funcionarios: {
         Row: {
@@ -285,6 +795,54 @@ export type Database = {
         }
         Relationships: []
       }
+      itens_ordem_servico: {
+        Row: {
+          created_at: string
+          id: string
+          observacoes: string | null
+          ordem_servico_id: string
+          preco_unitario: number
+          produto_id: string
+          quantidade: number
+          subtotal: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id: string
+          preco_unitario: number
+          produto_id: string
+          quantidade?: number
+          subtotal: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id?: string
+          preco_unitario?: number
+          produto_id?: string
+          quantidade?: number
+          subtotal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_ordem_servico_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_ordem_servico_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modulo_permissoes: {
         Row: {
           created_at: string
@@ -319,6 +877,207 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      motoristas: {
+        Row: {
+          ativo: boolean
+          cnh: string | null
+          cnh_validade: string | null
+          created_at: string
+          email: string | null
+          funcionario_id: string | null
+          id: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cnh?: string | null
+          cnh_validade?: string | null
+          created_at?: string
+          email?: string | null
+          funcionario_id?: string | null
+          id?: string
+          nome: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cnh?: string | null
+          cnh_validade?: string | null
+          created_at?: string
+          email?: string | null
+          funcionario_id?: string | null
+          id?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "motoristas_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ordens_servico: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          data_entrega: string | null
+          data_previsao_entrega: string | null
+          data_retirada: string
+          id: string
+          motorista_id: string | null
+          numero: string
+          observacoes: string | null
+          prioridade: string | null
+          status: string
+          updated_at: string
+          veiculo_id: string | null
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          data_entrega?: string | null
+          data_previsao_entrega?: string | null
+          data_retirada?: string
+          id?: string
+          motorista_id?: string | null
+          numero: string
+          observacoes?: string | null
+          prioridade?: string | null
+          status?: string
+          updated_at?: string
+          veiculo_id?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          data_entrega?: string | null
+          data_previsao_entrega?: string | null
+          data_retirada?: string
+          id?: string
+          motorista_id?: string | null
+          numero?: string
+          observacoes?: string | null
+          prioridade?: string | null
+          status?: string
+          updated_at?: string
+          veiculo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordens_servico_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_servico_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "motoristas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordens_servico_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      precos_especiais: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          preco_especial: number
+          produto_id: string
+          tipo: string | null
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          preco_especial: number
+          produto_id: string
+          tipo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          preco_especial?: number
+          produto_id?: string
+          tipo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "precos_especiais_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "precos_especiais_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produtos: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          preco: number
+          status: string
+          unidade: string | null
+          unidade_negocio: string | null
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          preco?: number
+          status?: string
+          unidade?: string | null
+          unidade_negocio?: string | null
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          preco?: number
+          status?: string
+          unidade?: string | null
+          unidade_negocio?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       rol_configuracoes: {
         Row: {
@@ -412,6 +1171,42 @@ export type Database = {
           texto_rodape?: string | null
           tipo_impressora?: string | null
           tipo_preco?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      veiculos: {
+        Row: {
+          ano: number | null
+          ativo: boolean
+          cor: string | null
+          created_at: string
+          id: string
+          modelo: string
+          placa: string
+          tipo: string | null
+          updated_at: string
+        }
+        Insert: {
+          ano?: number | null
+          ativo?: boolean
+          cor?: string | null
+          created_at?: string
+          id?: string
+          modelo: string
+          placa: string
+          tipo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ano?: number | null
+          ativo?: boolean
+          cor?: string | null
+          created_at?: string
+          id?: string
+          modelo?: string
+          placa?: string
+          tipo?: string | null
           updated_at?: string
         }
         Relationships: []
