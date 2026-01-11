@@ -12,6 +12,10 @@ export default function OrdensServico() {
     setActiveTab("nova");
   };
 
+  const handleOSCreated = () => {
+    setActiveTab("lista");
+  };
+
   return (
     <AppLayout title="Ordens de Serviço">
       <Card>
@@ -44,7 +48,7 @@ export default function OrdensServico() {
             </TabsContent>
 
             <TabsContent value="nova" className="mt-0">
-              <NovaOS />
+              <NovaOS onSuccess={handleOSCreated} />
             </TabsContent>
           </Tabs>
         </CardContent>
