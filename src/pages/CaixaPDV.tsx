@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,58 +14,92 @@ import {
   Plus,
   Minus,
   CreditCard,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProdutos, Produto } from "@/hooks/useProdutos";
+import { usePrecosEspeciais } from "@/hooks/useProdutos";
+import { useClientes } from "@/hooks/useClientes";
 
-interface Produto {
+interface CartItem {
   id: string;
   nome: string;
   preco: number;
   unidade: string;
-}
-
-interface CartItem extends Produto {
   quantidade: number;
+  precoOriginal: number;
 }
-
-const mockProdutos: Produto[] = [
-  { id: "1", nome: "CAPA DE ALMOFADA", preco: 5.0, unidade: "Pç" },
-  { id: "2", nome: "COBERTOR", preco: 25.0, unidade: "Pç" },
-  { id: "3", nome: "COBERTOR / EDREDON", preco: 25.0, unidade: "Pç" },
-  { id: "4", nome: "EDREDON", preco: 25.0, unidade: "Pç" },
-  { id: "5", nome: "FRONHA", preco: 3.5, unidade: "Pç" },
-  { id: "6", nome: "FRONHA COM DEFEITO", preco: 0.0, unidade: "Pç" },
-  { id: "7", nome: "LENÇOL", preco: 4.8, unidade: "Pç" },
-  { id: "8", nome: "LENÇOL - DEFEITO", preco: 0.0, unidade: "Pç" },
-  { id: "9", nome: "PISO - DEFEITO", preco: 0.0, unidade: "Pç" },
-  { id: "10", nome: "ROUPÃO", preco: 4.5, unidade: "Pç" },
-  { id: "11", nome: "ROUPÃO - DEFEITO", preco: 0.0, unidade: "Pç" },
-  { id: "12", nome: "TAPETE", preco: 25.0, unidade: "Metro" },
-  { id: "13", nome: "TOALHA", preco: 10.0, unidade: "Pç" },
-  { id: "14", nome: "TOALHA BANHO", preco: 4.5, unidade: "Pç" },
-  { id: "15", nome: "TOALHA DE BANHO - DEFEITO", preco: 0.0, unidade: "Pç" },
-  { id: "16", nome: "TOALHA DE PISCINA", preco: 4.5, unidade: "Pç" },
-  { id: "17", nome: "TOALHA DE PISCINA - DEFEITO", preco: 0.0, unidade: "Pç" },
-  { id: "18", nome: "TOALHA DE PISO", preco: 3.5, unidade: "Pç" },
-  { id: "19", nome: "TOALHA DE ROSTO", preco: 3.5, unidade: "Pç" },
-  { id: "20", nome: "TOALHA DE ROSTO - DEFEITO", preco: 0.0, unidade: "Pç" },
-];
 
 const alphabet = ["TODOS", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 
 const CaixaPDV = () => {
+  const { produtos, isLoading: isLoadingProdutos } = useProdutos();
+  const { clientes, isLoading: isLoadingClientes } = useClientes();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLetter, setSelectedLetter] = useState("TODOS");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [clientSearch, setClientSearch] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [showClientList, setShowClientList] = useState(false);
 
-  const filteredProdutos = mockProdutos.filter((produto) => {
-    const matchesSearch = produto.nome.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesLetter = selectedLetter === "TODOS" || produto.nome.startsWith(selectedLetter);
-    return matchesSearch && matchesLetter;
-  });
+  const { precos: precosEspeciais } = usePrecosEspeciais(selectedClientId);
+
+  const selectedClient = useMemo(() => {
+    return clientes.find(c => c.id === selectedClientId);
+  }, [clientes, selectedClientId]);
+
+  // Filter only active products
+  const produtosAtivos = useMemo(() => {
+    return produtos.filter(p => p.status === "ativo");
+  }, [produtos]);
+
+  // Get price for product (special price or default)
+  const getPrecoForProduto = (produto: Produto): number => {
+    if (selectedClientId && precosEspeciais.length > 0) {
+      const precoEspecial = precosEspeciais.find(
+        (pe: any) => pe.produto_id === produto.id
+      );
+      if (precoEspecial) {
+        return precoEspecial.preco_especial;
+      }
+    }
+    return produto.preco;
+  };
+
+  const filteredProdutos = useMemo(() => {
+    return produtosAtivos.filter((produto) => {
+      const matchesSearch = 
+        produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        produto.codigo?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesLetter = selectedLetter === "TODOS" || produto.nome.toUpperCase().startsWith(selectedLetter);
+      return matchesSearch && matchesLetter;
+    });
+  }, [produtosAtivos, searchTerm, selectedLetter]);
+
+  const filteredClientes = useMemo(() => {
+    if (!clientSearch) return clientes.slice(0, 10);
+    const term = clientSearch.toLowerCase();
+    return clientes.filter(c => 
+      c.razao_social.toLowerCase().includes(term) ||
+      c.nome_fantasia?.toLowerCase().includes(term) ||
+      c.cpf_cnpj?.includes(term) ||
+      c.telefone?.includes(term)
+    ).slice(0, 10);
+  }, [clientes, clientSearch]);
+
+  const getUnidadeLabel = (unidade: string | null) => {
+    switch (unidade) {
+      case "kg": return "Kg";
+      case "peca": return "Pç";
+      case "metro": return "Mt";
+      case "unidade": return "Un";
+      default: return "Pç";
+    }
+  };
 
   const addToCart = (produto: Produto) => {
+    const preco = getPrecoForProduto(produto);
     setCart((prev) => {
       const existing = prev.find((item) => item.id === produto.id);
       if (existing) {
@@ -75,7 +109,14 @@ const CaixaPDV = () => {
             : item
         );
       }
-      return [...prev, { ...produto, quantidade: 1 }];
+      return [...prev, { 
+        id: produto.id,
+        nome: produto.nome,
+        preco,
+        precoOriginal: produto.preco,
+        unidade: getUnidadeLabel(produto.unidade),
+        quantidade: 1 
+      }];
     });
   };
 
@@ -93,6 +134,35 @@ const CaixaPDV = () => {
 
   const removeFromCart = (id: string) => {
     setCart((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const clearCart = () => {
+    setCart([]);
+  };
+
+  const selectClient = (clientId: string) => {
+    setSelectedClientId(clientId);
+    setShowClientList(false);
+    setClientSearch("");
+    // Recalculate cart prices when client changes
+    setCart(prev => prev.map(item => {
+      const produto = produtos.find(p => p.id === item.id);
+      if (produto) {
+        const newPrice = getPrecoForProduto(produto);
+        return { ...item, preco: newPrice };
+      }
+      return item;
+    }));
+  };
+
+  const clearClient = () => {
+    setSelectedClientId(null);
+    setClientSearch("");
+    // Reset to original prices
+    setCart(prev => prev.map(item => ({
+      ...item,
+      preco: item.precoOriginal
+    })));
   };
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantidade, 0);
@@ -157,7 +227,7 @@ const CaixaPDV = () => {
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar produto..."
+              placeholder="Buscar produto por nome ou código..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -184,41 +254,120 @@ const CaixaPDV = () => {
 
           {/* Products Grid */}
           <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-3 gap-3">
-              {filteredProdutos.map((produto) => (
-                <button
-                  key={produto.id}
-                  onClick={() => addToCart(produto)}
-                  className="bg-card border rounded-lg p-3 text-left hover:shadow-md hover:border-primary transition-all"
-                >
-                  <h3 className="font-semibold text-sm text-foreground mb-1 line-clamp-2">
-                    {produto.nome}
-                  </h3>
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-lg font-bold text-primary currency">
-                      R$ {produto.preco.toFixed(2).replace(".", ",")}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{produto.unidade}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+            {isLoadingProdutos ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">Carregando produtos...</span>
+              </div>
+            ) : filteredProdutos.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Nenhum produto encontrado
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {filteredProdutos.map((produto) => {
+                  const preco = getPrecoForProduto(produto);
+                  const hasSpecialPrice = preco !== produto.preco;
+                  
+                  return (
+                    <button
+                      key={produto.id}
+                      onClick={() => addToCart(produto)}
+                      className="bg-card border rounded-lg p-3 text-left hover:shadow-md hover:border-primary transition-all relative"
+                    >
+                      {produto.codigo && (
+                        <span className="absolute top-2 right-2 text-[10px] font-mono bg-muted px-1 rounded text-muted-foreground">
+                          {produto.codigo}
+                        </span>
+                      )}
+                      <h3 className="font-semibold text-sm text-foreground mb-1 line-clamp-2 pr-12">
+                        {produto.nome}
+                      </h3>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <span className={cn(
+                            "text-lg font-bold",
+                            hasSpecialPrice ? "text-success" : "text-primary"
+                          )}>
+                            R$ {preco.toFixed(2).replace(".", ",")}
+                          </span>
+                          {hasSpecialPrice && (
+                            <span className="text-xs text-muted-foreground line-through ml-1">
+                              R$ {produto.preco.toFixed(2).replace(".", ",")}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground">{getUnidadeLabel(produto.unidade)}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Right Panel - Cart */}
         <div className="w-80 flex flex-col bg-card border rounded-lg overflow-hidden">
           {/* Client Search */}
-          <div className="p-4 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
-                value={clientSearch}
-                onChange={(e) => setClientSearch(e.target.value)}
-                className="pl-9 text-sm"
-              />
-            </div>
+          <div className="p-4 border-b relative">
+            {selectedClient ? (
+              <div className="flex items-center justify-between bg-primary/10 rounded-lg p-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-primary truncate">
+                    {selectedClient.nome_fantasia || selectedClient.razao_social}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{selectedClient.cpf_cnpj}</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={clearClient}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
+                  value={clientSearch}
+                  onChange={(e) => {
+                    setClientSearch(e.target.value);
+                    setShowClientList(true);
+                  }}
+                  onFocus={() => setShowClientList(true)}
+                  className="pl-9 text-sm"
+                />
+                
+                {/* Client Dropdown */}
+                {showClientList && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                    {isLoadingClientes ? (
+                      <div className="p-3 text-center text-muted-foreground text-sm">
+                        Carregando...
+                      </div>
+                    ) : filteredClientes.length === 0 ? (
+                      <div className="p-3 text-center text-muted-foreground text-sm">
+                        Nenhum cliente encontrado
+                      </div>
+                    ) : (
+                      filteredClientes.map(cliente => (
+                        <button
+                          key={cliente.id}
+                          onClick={() => selectClient(cliente.id)}
+                          className="w-full p-2 text-left hover:bg-muted transition-colors border-b last:border-b-0"
+                        >
+                          <p className="text-sm font-medium truncate">
+                            {cliente.nome_fantasia || cliente.razao_social}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {cliente.cpf_cnpj} • {cliente.telefone}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Cart Items */}
@@ -287,7 +436,7 @@ const CaixaPDV = () => {
             </div>
             <div className="flex justify-between items-baseline mb-4">
               <span className="text-lg font-semibold">TOTAL:</span>
-              <span className="text-2xl font-bold text-success currency">
+              <span className="text-2xl font-bold text-success">
                 R$ {totalValue.toFixed(2).replace(".", ",")}
               </span>
             </div>
@@ -297,6 +446,7 @@ const CaixaPDV = () => {
                 variant="outline"
                 className="flex-1 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
                 disabled={cart.length === 0}
+                onClick={clearCart}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Cancelar

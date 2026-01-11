@@ -1070,36 +1070,63 @@ export type Database = {
       produtos: {
         Row: {
           categoria: string | null
+          codigo: string | null
+          composicao: string | null
+          cor: string | null
           created_at: string
           descricao: string | null
           id: string
+          instrucoes_especiais: string | null
           nome: string
+          peso_medio_kg: number | null
           preco: number
+          processo_lavagem: string | null
+          requer_secadora: boolean | null
           status: string
+          temperatura_maxima: number | null
+          tempo_processo_min: number | null
           unidade: string | null
           unidade_negocio: string | null
           updated_at: string
         }
         Insert: {
           categoria?: string | null
+          codigo?: string | null
+          composicao?: string | null
+          cor?: string | null
           created_at?: string
           descricao?: string | null
           id?: string
+          instrucoes_especiais?: string | null
           nome: string
+          peso_medio_kg?: number | null
           preco?: number
+          processo_lavagem?: string | null
+          requer_secadora?: boolean | null
           status?: string
+          temperatura_maxima?: number | null
+          tempo_processo_min?: number | null
           unidade?: string | null
           unidade_negocio?: string | null
           updated_at?: string
         }
         Update: {
           categoria?: string | null
+          codigo?: string | null
+          composicao?: string | null
+          cor?: string | null
           created_at?: string
           descricao?: string | null
           id?: string
+          instrucoes_especiais?: string | null
           nome?: string
+          peso_medio_kg?: number | null
           preco?: number
+          processo_lavagem?: string | null
+          requer_secadora?: boolean | null
           status?: string
+          temperatura_maxima?: number | null
+          tempo_processo_min?: number | null
           unidade?: string | null
           unidade_negocio?: string | null
           updated_at?: string
