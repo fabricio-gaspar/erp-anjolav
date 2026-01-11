@@ -447,6 +447,9 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
           onPositionChange={handleMapPositionChange}
           draggable={true}
           height="400px"
+          clientName="Cliente"
+          companyName="Empresa"
+          distanceKm={distancia}
         />
       </div>
 

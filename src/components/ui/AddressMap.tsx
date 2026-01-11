@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline, Popup, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -45,6 +45,9 @@ interface AddressMapProps {
   onPositionChange?: (lat: number, lng: number) => void;
   draggable?: boolean;
   height?: string;
+  clientName?: string;
+  companyName?: string;
+  distanceKm?: number | null;
 }
 
 // Componente para centralizar o mapa quando as coordenadas mudam
@@ -93,11 +96,17 @@ const DraggableMarker = ({
   onPositionChange,
   draggable = true,
   icon,
+  altText,
+  tooltipText,
+  popupContent,
 }: {
   position: [number, number];
   onPositionChange?: (lat: number, lng: number) => void;
   draggable?: boolean;
   icon?: L.Icon;
+  altText?: string;
+  tooltipText?: string;
+  popupContent?: React.ReactNode;
 }) => {
   const markerRef = useRef<L.Marker>(null);
 
@@ -121,7 +130,16 @@ const DraggableMarker = ({
       position={position}
       ref={markerRef}
       icon={icon || clientIcon}
-    />
+      alt={altText}
+      title={altText}
+    >
+      {tooltipText && (
+        <Tooltip direction="top" offset={[0, -35]} permanent={false}>
+          {tooltipText}
+        </Tooltip>
+      )}
+      {popupContent && <Popup>{popupContent}</Popup>}
+    </Marker>
   );
 };
 
@@ -150,6 +168,9 @@ export const AddressMap = ({
   onPositionChange,
   draggable = true,
   height = "400px",
+  clientName = "Cliente",
+  companyName = "Empresa",
+  distanceKm,
 }: AddressMapProps) => {
   // Centro padrão: Brasil
   const defaultCenter: [number, number] = [-15.7801, -47.9292];
@@ -166,8 +187,20 @@ export const AddressMap = ({
     : defaultCenter;
   const zoom = hasCoordinates || (hasCompanyCoordinates && showCompanyMarker) ? 16 : defaultZoom;
 
+  // Formatar distância para exibição
+  const formatDistance = (km: number | null | undefined): string => {
+    if (km === null || km === undefined) return "";
+    if (km < 1) return `${(km * 1000).toFixed(0)} metros`;
+    return `${km.toFixed(1)} km`;
+  };
+
   return (
-    <div className="relative rounded-lg overflow-hidden border" style={{ height }}>
+    <div 
+      className="relative rounded-lg overflow-hidden border" 
+      style={{ height }}
+      role="application"
+      aria-label="Mapa de localização"
+    >
       <MapContainer
         center={center}
         zoom={zoom}
@@ -180,15 +213,27 @@ export const AddressMap = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
-        {/* Marcador da empresa (azul) */}
+        {/* Marcador da empresa (azul) - Acessível */}
         {showCompanyMarker && hasCompanyCoordinates && (
           <Marker 
             position={[companyLatitude, companyLongitude]} 
             icon={companyIcon}
-          />
+            alt={companyName}
+            title={companyName}
+          >
+            <Tooltip direction="top" offset={[0, -35]} permanent={false}>
+              🏢 {companyName}
+            </Tooltip>
+            <Popup>
+              <div className="text-center">
+                <strong className="text-blue-600">🏢 {companyName}</strong>
+                <p className="text-xs text-gray-600 mt-1">Ponto de referência</p>
+              </div>
+            </Popup>
+          </Marker>
         )}
         
-        {/* Marcador do cliente (vermelho, arrastável) */}
+        {/* Marcador do cliente (vermelho, arrastável) - Acessível */}
         {hasCoordinates && (
           <>
             {!showBothMarkers && <MapCenterUpdater lat={latitude} lng={longitude} />}
@@ -197,6 +242,23 @@ export const AddressMap = ({
               onPositionChange={onPositionChange}
               draggable={draggable}
               icon={showCompanyMarker ? clientIcon : defaultIcon}
+              altText={clientName}
+              tooltipText={`📍 ${clientName}`}
+              popupContent={
+                <div className="text-center min-w-[150px]">
+                  <strong className="text-red-600">📍 {clientName}</strong>
+                  {distanceKm !== null && distanceKm !== undefined && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      <strong>Distância:</strong> {formatDistance(distanceKm)} da empresa
+                    </p>
+                  )}
+                  {draggable && (
+                    <p className="text-xs text-gray-500 mt-2 italic">
+                      Arraste para ajustar posição
+                    </p>
+                  )}
+                </div>
+              }
             />
           </>
         )}
@@ -219,14 +281,43 @@ export const AddressMap = ({
               [latitude, longitude],
             ]}
             color="#3b82f6"
-            weight={2}
-            dashArray="5, 10"
-            opacity={0.7}
-          />
+            weight={3}
+            dashArray="8, 12"
+            opacity={0.8}
+          >
+            <Tooltip sticky>
+              {distanceKm !== null && distanceKm !== undefined 
+                ? `📏 Distância: ${formatDistance(distanceKm)}`
+                : "Rota empresa → cliente"
+              }
+            </Tooltip>
+          </Polyline>
         )}
         
         {onPositionChange && <MapClickHandler onPositionChange={onPositionChange} />}
       </MapContainer>
+      
+      {/* Legenda sobreposta no mapa */}
+      {showBothMarkers && (
+        <div className="absolute bottom-3 left-3 bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-lg p-3 z-[1000] text-xs">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500 shadow" />
+              <span className="font-medium">{companyName}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500 shadow" />
+              <span className="font-medium">{clientName}</span>
+            </div>
+            {distanceKm !== null && distanceKm !== undefined && (
+              <div className="flex items-center gap-2 pt-1 border-t border-gray-200 dark:border-gray-700">
+                <span className="text-gray-500">📏</span>
+                <span className="font-semibold text-primary">{formatDistance(distanceKm)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       
       {/* Overlay quando não há coordenadas */}
       {!hasCoordinates && !showCompanyMarker && (
