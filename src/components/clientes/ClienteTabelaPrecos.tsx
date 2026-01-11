@@ -86,12 +86,13 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleAdicionarProduto = () => {
-    if (!produtoSelecionado || !novoPreco || !clienteId) return;
+    if (!produtoSelecionado || !clienteId) return;
 
     const produto = produtos.find((p) => p.id === produtoSelecionado);
     if (!produto) return;
 
-    const precoNum = parseFloat(novoPreco);
+    // Usar preço padrão se o campo estiver vazio
+    const precoNum = novoPreco ? parseFloat(novoPreco) : produto.preco;
     if (isNaN(precoNum) || precoNum < 0) {
       toast.error("Digite um preço válido.");
       return;
@@ -183,7 +184,17 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
 
         {/* Adicionar produto */}
         <div className="flex gap-2 items-center p-3 border rounded-lg bg-muted/20">
-          <Select value={produtoSelecionado} onValueChange={setProdutoSelecionado}>
+          <Select 
+            value={produtoSelecionado} 
+            onValueChange={(value) => {
+              setProdutoSelecionado(value);
+              // Preencher automaticamente com o preço padrão do produto
+              const produto = produtos.find((p) => p.id === value);
+              if (produto) {
+                setNovoPreco(produto.preco.toFixed(2));
+              }
+            }}
+          >
             <SelectTrigger className="w-[250px] bg-background">
               <SelectValue placeholder="Selecione um produto..." />
             </SelectTrigger>
@@ -207,7 +218,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
           <Button 
             size="icon" 
             onClick={handleAdicionarProduto} 
-            disabled={!produtoSelecionado || !novoPreco || upsertPrecoEspecial.isPending}
+            disabled={!produtoSelecionado || upsertPrecoEspecial.isPending}
           >
             {upsertPrecoEspecial.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
