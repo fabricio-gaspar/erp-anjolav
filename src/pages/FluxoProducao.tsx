@@ -110,25 +110,25 @@ const FluxoProducao = () => {
       title="Fluxo de Produção" 
       subtitle={`${totalEmProcessamento} ${totalEmProcessamento === 1 ? "ordem" : "ordens"} em processamento`}
     >
-      <div className="space-y-4">
+      <div className="space-y-3 px-4">
         {/* Filters */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-lg">
+        <div className="flex items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Buscar cliente ou OS..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
+              className="pl-9 h-9"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2 h-9">
               <Calendar className="w-4 h-4" />
               Data Previsão
             </Button>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2 h-9">
               <Filter className="w-4 h-4" />
               Prioridade
             </Button>
@@ -154,11 +154,11 @@ const FluxoProducao = () => {
             Erro ao carregar ordens de serviço
           </div>
         ) : (
-          <div className="flex gap-4 overflow-x-auto pb-4">
+          <div className="grid grid-cols-8 gap-3">
             {columns.map((column) => {
               const columnItems = osByStatus[column.id] || [];
               return (
-                <div key={column.id} className="flex-shrink-0 w-[260px]">
+                <div key={column.id} className="min-w-0">
                   {/* Column Header */}
                   <div className="flex items-center gap-2 mb-3 px-2">
                     <column.icon className={cn("w-4 h-4", column.iconColor)} />
@@ -177,7 +177,7 @@ const FluxoProducao = () => {
                   </div>
 
                   {/* Column Content */}
-                  <div className="bg-muted/30 rounded-lg p-2 min-h-[500px]">
+                  <div className="bg-muted/30 rounded-lg p-2 min-h-[400px] max-h-[calc(100vh-220px)] overflow-y-auto">
                     {columnItems.length === 0 ? (
                       <p className="text-xs text-muted-foreground text-center py-8">
                         Nenhuma OS
