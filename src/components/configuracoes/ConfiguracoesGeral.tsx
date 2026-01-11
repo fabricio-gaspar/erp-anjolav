@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
-import { buscarCepComFallback, geocodeEndereco, montarEnderecoCompleto } from "@/services/apiServices";
+import { buscarCepComFallback, geocodeEndereco, montarEnderecoCompleto, montarEnderecoSimplificado } from "@/services/apiServices";
 import { AddressMap } from "@/components/ui/AddressMap";
 
 const templateVariables = [
@@ -257,36 +257,50 @@ export function ConfiguracoesGeral() {
 
   const handleGeocode = async (data?: typeof enderecoData) => {
     const addressData = data || enderecoData;
-    const enderecoCompleto = montarEnderecoCompleto({
-      logradouro: addressData.logradouro,
-      numero: addressData.numero,
-      bairro: addressData.bairro,
-      cidade: addressData.cidade,
-      uf: addressData.uf,
-      cep: addressData.cep,
-    });
-
-    if (!enderecoCompleto || enderecoCompleto === "Brasil") {
-      toast.error("Preencha o endereço para localizar no mapa.");
+    
+    // Verifica se tem pelo menos cidade preenchida
+    if (!addressData.cidade) {
+      toast.error("Preencha pelo menos a cidade para localizar no mapa.");
       return;
     }
 
     setIsGeocoding(true);
     try {
-      const result = await geocodeEndereco(enderecoCompleto);
+      // Primeira tentativa: endereço completo
+      const enderecoCompleto = montarEnderecoCompleto({
+        logradouro: addressData.logradouro,
+        numero: addressData.numero,
+        bairro: addressData.bairro,
+        cidade: addressData.cidade,
+        uf: addressData.uf,
+      });
+
+      console.log("Tentando geocodificar:", enderecoCompleto);
+      let result = await geocodeEndereco(enderecoCompleto);
+      
+      // Se não encontrar, tenta com endereço simplificado (só cidade/estado)
+      if (!result && addressData.cidade) {
+        const enderecoSimples = montarEnderecoSimplificado({
+          cidade: addressData.cidade,
+          uf: addressData.uf,
+        });
+        console.log("Tentando endereço simplificado:", enderecoSimples);
+        result = await geocodeEndereco(enderecoSimples);
+      }
+
       if (result) {
         setEnderecoData((prev) => ({
           ...prev,
           latitude: result.latitude,
           longitude: result.longitude,
         }));
-        toast.success("Localização encontrada no mapa!");
+        toast.success(`Localização encontrada: ${result.displayName?.split(",").slice(0, 3).join(",") || "Endereço localizado"}`);
       } else {
-        toast.error("Não foi possível encontrar o endereço no mapa.");
+        toast.error("Não foi possível encontrar o endereço. Verifique se o endereço está correto ou ajuste manualmente no mapa.");
       }
     } catch (error) {
       console.error("Erro ao geocodificar:", error);
-      toast.error("Erro ao localizar endereço.");
+      toast.error("Erro ao localizar endereço. Tente novamente.");
     } finally {
       setIsGeocoding(false);
     }
