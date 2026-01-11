@@ -729,37 +729,100 @@ export type Database = {
       faturas: {
         Row: {
           asaas_charge_id: string | null
+          boleto_linha_digitavel: string | null
+          boleto_url: string | null
+          canais_envio: string[] | null
+          chave_acesso: string | null
           cliente_id: string
           created_at: string
+          dados_transferencia: Json | null
+          data_emissao_nf: string | null
+          data_envio: string | null
+          data_vencimento: string | null
+          descricao_servico: string | null
+          destinatario_envio: string | null
+          forma_pagamento: string | null
           id: string
+          itens_snapshot: Json | null
+          link_pdf_nf: string | null
+          mensagem_enviada: string | null
           numero_nf: string | null
           periodo_fim: string
           periodo_inicio: string
+          pix_copia_cola: string | null
+          pix_qr_code: string | null
+          relatorio_data: string | null
+          relatorio_gerado: boolean | null
+          snapshot_cliente: Json | null
+          snapshot_emitente: Json | null
           status: string
+          tipo_relatorio: string | null
           updated_at: string
           valor_total: number
         }
         Insert: {
           asaas_charge_id?: string | null
+          boleto_linha_digitavel?: string | null
+          boleto_url?: string | null
+          canais_envio?: string[] | null
+          chave_acesso?: string | null
           cliente_id: string
           created_at?: string
+          dados_transferencia?: Json | null
+          data_emissao_nf?: string | null
+          data_envio?: string | null
+          data_vencimento?: string | null
+          descricao_servico?: string | null
+          destinatario_envio?: string | null
+          forma_pagamento?: string | null
           id?: string
+          itens_snapshot?: Json | null
+          link_pdf_nf?: string | null
+          mensagem_enviada?: string | null
           numero_nf?: string | null
           periodo_fim: string
           periodo_inicio: string
+          pix_copia_cola?: string | null
+          pix_qr_code?: string | null
+          relatorio_data?: string | null
+          relatorio_gerado?: boolean | null
+          snapshot_cliente?: Json | null
+          snapshot_emitente?: Json | null
           status?: string
+          tipo_relatorio?: string | null
           updated_at?: string
           valor_total?: number
         }
         Update: {
           asaas_charge_id?: string | null
+          boleto_linha_digitavel?: string | null
+          boleto_url?: string | null
+          canais_envio?: string[] | null
+          chave_acesso?: string | null
           cliente_id?: string
           created_at?: string
+          dados_transferencia?: Json | null
+          data_emissao_nf?: string | null
+          data_envio?: string | null
+          data_vencimento?: string | null
+          descricao_servico?: string | null
+          destinatario_envio?: string | null
+          forma_pagamento?: string | null
           id?: string
+          itens_snapshot?: Json | null
+          link_pdf_nf?: string | null
+          mensagem_enviada?: string | null
           numero_nf?: string | null
           periodo_fim?: string
           periodo_inicio?: string
+          pix_copia_cola?: string | null
+          pix_qr_code?: string | null
+          relatorio_data?: string | null
+          relatorio_gerado?: boolean | null
+          snapshot_cliente?: Json | null
+          snapshot_emitente?: Json | null
           status?: string
+          tipo_relatorio?: string | null
           updated_at?: string
           valor_total?: number
         }
@@ -824,6 +887,53 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      historico_envios: {
+        Row: {
+          canal: string
+          created_at: string
+          destinatario: string
+          documentos_enviados: string[] | null
+          erro_mensagem: string | null
+          fatura_id: string
+          id: string
+          mensagem: string | null
+          status: string
+          usuario: string | null
+        }
+        Insert: {
+          canal: string
+          created_at?: string
+          destinatario: string
+          documentos_enviados?: string[] | null
+          erro_mensagem?: string | null
+          fatura_id: string
+          id?: string
+          mensagem?: string | null
+          status?: string
+          usuario?: string | null
+        }
+        Update: {
+          canal?: string
+          created_at?: string
+          destinatario?: string
+          documentos_enviados?: string[] | null
+          erro_mensagem?: string | null
+          fatura_id?: string
+          id?: string
+          mensagem?: string | null
+          status?: string
+          usuario?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_envios_fatura_id_fkey"
+            columns: ["fatura_id"]
+            isOneToOne: false
+            referencedRelation: "faturas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       historico_producao: {
         Row: {
@@ -971,6 +1081,7 @@ export type Database = {
           created_at: string
           data_entrega: string | null
           data_lancamento: string
+          fatura_id: string | null
           id: string
           observacao: string | null
           status: string
@@ -982,6 +1093,7 @@ export type Database = {
           created_at?: string
           data_entrega?: string | null
           data_lancamento?: string
+          fatura_id?: string | null
           id?: string
           observacao?: string | null
           status?: string
@@ -993,6 +1105,7 @@ export type Database = {
           created_at?: string
           data_entrega?: string | null
           data_lancamento?: string
+          fatura_id?: string | null
           id?: string
           observacao?: string | null
           status?: string
@@ -1005,6 +1118,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_fatura_id_fkey"
+            columns: ["fatura_id"]
+            isOneToOne: false
+            referencedRelation: "faturas"
             referencedColumns: ["id"]
           },
         ]

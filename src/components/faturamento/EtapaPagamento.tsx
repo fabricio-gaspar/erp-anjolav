@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +13,16 @@ import {
   Loader2,
   Check,
   AlertCircle,
+  Calendar,
 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { useCreateAsaasCharge } from "@/hooks/useAsaas";
-import { useFaturas } from "@/hooks/useFaturas";
+import { useFaturas, calcularVencimento } from "@/hooks/useFaturas";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/faturamentoUtils";
 import type { DadosFaturamento } from "./FaturamentoModal";
 
 interface EtapaPagamentoProps {
@@ -38,7 +42,10 @@ export function EtapaPagamento({
 }: EtapaPagamentoProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
-  const [boletoUrl, setBoletoUrl] = useState<string | null>(null);
+  const [boletoData, setBoletoData] = useState<{
+    url: string;
+    linhaDigitavel: string;
+  } | null>(null);
   const [pixData, setPixData] = useState<{
     qrCode: string | null;
     copyPaste: string | null;
@@ -52,44 +59,48 @@ export function EtapaPagamento({
   const { updateFatura } = useFaturas();
 
   const formaPagamento = configPagamento?.forma_pagamento || "boleto";
+  const diaVencimento = configPagamento?.dia_vencimento || 10;
   const isLoading = isLoadingPagamento || isLoadingGeral;
 
-  const formatCurrency = (value: number) => {
-    return `R$ ${value.toFixed(2).replace(".", ",")}`;
-  };
+  // Calcular data de vencimento inteligente
+  const dataVencimento = calcularVencimento(diaVencimento);
 
   const handleGenerateBoleto = async () => {
     if (!faturaId) return;
 
     setIsGenerating(true);
     try {
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + (configPagamento?.dia_vencimento || 10));
-
       const result = await createCharge({
         customer_name: dados.clienteNome,
         customer_cpf_cnpj: dados.clienteDocumento,
         customer_email: dados.clienteEmail || undefined,
         value: dados.valorTotal,
-        due_date: dueDate.toISOString().split("T")[0],
+        due_date: format(dataVencimento, "yyyy-MM-dd"),
         description: `Faturamento - ${dados.clienteNome}`,
         billing_type: "BOLETO",
       });
 
       if (result?.bankSlipUrl) {
-        setBoletoUrl(result.bankSlipUrl);
-        
-        // Update fatura with asaas charge
-        if (result.id) {
-          await updateFatura.mutateAsync({
-            id: faturaId,
-            asaas_charge_id: result.id,
-          });
-        }
+        setBoletoData({
+          url: result.bankSlipUrl,
+          linhaDigitavel: result.nossoNumero || "",
+        });
+
+        // Atualizar fatura com todos os dados de pagamento
+        await updateFatura.mutateAsync({
+          id: faturaId,
+          asaas_charge_id: result.id,
+          forma_pagamento: "boleto",
+          data_vencimento: format(dataVencimento, "yyyy-MM-dd"),
+          boleto_url: result.bankSlipUrl,
+          boleto_linha_digitavel: result.nossoNumero || null,
+        });
 
         onPaymentConfigured("boleto", {
           url: result.bankSlipUrl,
+          linhaDigitavel: result.nossoNumero,
           asaasId: result.asaasId,
+          dataVencimento: format(dataVencimento, "yyyy-MM-dd"),
         });
       }
     } catch (error) {
@@ -112,7 +123,7 @@ export function EtapaPagamento({
         customer_cpf_cnpj: dados.clienteDocumento,
         customer_email: dados.clienteEmail || undefined,
         value: dados.valorTotal,
-        due_date: dueDate.toISOString().split("T")[0],
+        due_date: format(dueDate, "yyyy-MM-dd"),
         description: `Faturamento - ${dados.clienteNome}`,
         billing_type: "PIX",
       });
@@ -123,13 +134,15 @@ export function EtapaPagamento({
           copyPaste: result.pixCopyPaste || null,
         });
 
-        // Update fatura with asaas charge
-        if (result.id) {
-          await updateFatura.mutateAsync({
-            id: faturaId,
-            asaas_charge_id: result.id,
-          });
-        }
+        // Atualizar fatura com dados de PIX
+        await updateFatura.mutateAsync({
+          id: faturaId,
+          asaas_charge_id: result.id,
+          forma_pagamento: "pix",
+          data_vencimento: format(dueDate, "yyyy-MM-dd"),
+          pix_qr_code: result.pixQrCode || null,
+          pix_copia_cola: result.pixCopyPaste || null,
+        });
 
         onPaymentConfigured("pix", {
           qrCode: result.pixQrCode,
@@ -145,40 +158,61 @@ export function EtapaPagamento({
   };
 
   const handleCopyPix = () => {
-    if (pixData?.copyPaste) {
-      navigator.clipboard.writeText(pixData.copyPaste);
+    const textToCopy = pixData?.copyPaste || configGeral?.pix_chave;
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
       setPixCopied(true);
-      toast.success("Código PIX copiado!");
-      setTimeout(() => setPixCopied(false), 3000);
-    } else if (configGeral?.pix_chave) {
-      navigator.clipboard.writeText(configGeral.pix_chave);
-      setPixCopied(true);
-      toast.success("Chave PIX copiada!");
+      toast.success(pixData?.copyPaste ? "Código PIX copiado!" : "Chave PIX copiada!");
       setTimeout(() => setPixCopied(false), 3000);
     }
   };
 
-  const handleUseTransferencia = () => {
+  const handleUseTransferencia = async () => {
+    if (!faturaId) return;
+
+    // Salvar dados de transferência na fatura
+    await updateFatura.mutateAsync({
+      id: faturaId,
+      forma_pagamento: "transferencia",
+      data_vencimento: format(dataVencimento, "yyyy-MM-dd"),
+      dados_transferencia: {
+        banco: configGeral?.banco_nome,
+        agencia: configGeral?.banco_agencia,
+        conta: configGeral?.banco_conta,
+        titular: configGeral?.banco_titular,
+      },
+    });
+
     onPaymentConfigured("transferencia", {
       banco: configGeral?.banco_nome,
       agencia: configGeral?.banco_agencia,
       conta: configGeral?.banco_conta,
       titular: configGeral?.banco_titular,
+      dataVencimento: format(dataVencimento, "yyyy-MM-dd"),
     });
     onNext();
   };
 
-  const handleNext = () => {
-    if (formaPagamento === "boleto" && boletoUrl) {
+  const handleNext = async () => {
+    if (formaPagamento === "boleto" && boletoData) {
       onNext();
-    } else if (formaPagamento === "pix" && (pixData || configGeral?.pix_chave)) {
-      if (!pixData) {
-        onPaymentConfigured("pix_manual", {
-          tipoChave: configGeral?.pix_tipo_chave,
-          chave: configGeral?.pix_chave,
+    } else if (formaPagamento === "pix") {
+      if (pixData) {
+        onNext();
+      } else if (configGeral?.pix_chave && faturaId) {
+        // Usar chave PIX manual
+        await updateFatura.mutateAsync({
+          id: faturaId,
+          forma_pagamento: "pix_manual",
+          data_vencimento: format(dataVencimento, "yyyy-MM-dd"),
+          pix_copia_cola: configGeral.pix_chave,
         });
+        onPaymentConfigured("pix_manual", {
+          tipoChave: configGeral.pix_tipo_chave,
+          chave: configGeral.pix_chave,
+        });
+        onNext();
       }
-      onNext();
     } else if (formaPagamento === "transferencia") {
       handleUseTransferencia();
     }
@@ -203,10 +237,18 @@ export function EtapaPagamento({
       </div>
 
       <Card className="p-6">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <span className="text-muted-foreground">Valor a Cobrar</span>
           <span className="text-2xl font-bold text-primary">
             {formatCurrency(dados.valorTotal)}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+          <Calendar className="w-4 h-4" />
+          <span>
+            Vencimento: {format(dataVencimento, "dd/MM/yyyy", { locale: ptBR })}
+            <span className="text-xs ml-2">(Dia {diaVencimento} do cliente)</span>
           </span>
         </div>
 
@@ -299,7 +341,7 @@ export function EtapaPagamento({
               <span className="font-medium">Pagamento via Boleto</span>
             </div>
 
-            {boletoUrl ? (
+            {boletoData ? (
               <div className="space-y-3">
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center gap-2">
                   <Check className="w-5 h-5 text-green-600" />
@@ -307,8 +349,14 @@ export function EtapaPagamento({
                     Boleto gerado com sucesso!
                   </span>
                 </div>
+                {boletoData.linhaDigitavel && (
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Linha Digitável:</p>
+                    <p className="font-mono text-sm break-all">{boletoData.linhaDigitavel}</p>
+                  </div>
+                )}
                 <Button asChild variant="outline" className="w-full gap-2">
-                  <a href={boletoUrl} target="_blank" rel="noopener noreferrer">
+                  <a href={boletoData.url} target="_blank" rel="noopener noreferrer">
                     Visualizar Boleto
                   </a>
                 </Button>
@@ -398,7 +446,7 @@ export function EtapaPagamento({
           <Button
             onClick={handleNext}
             disabled={
-              (formaPagamento === "boleto" && !boletoUrl) ||
+              (formaPagamento === "boleto" && !boletoData) ||
               (formaPagamento === "pix" && !pixData && !configGeral?.pix_chave)
             }
             className="gap-2"

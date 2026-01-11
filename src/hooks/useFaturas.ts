@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface Fatura {
   id: string;
@@ -8,11 +9,36 @@ export interface Fatura {
   periodo_inicio: string;
   periodo_fim: string;
   valor_total: number;
-  status: "pendente" | "nota_emitida" | "pago";
+  status: "pendente" | "nota_emitida" | "pago" | "enviado";
   numero_nf: string | null;
   asaas_charge_id: string | null;
   created_at: string;
   updated_at: string;
+  // Etapa 1 - Relatório
+  relatorio_gerado: boolean;
+  relatorio_data: string | null;
+  tipo_relatorio: string | null;
+  itens_snapshot: Json | null;
+  // Etapa 2 - Nota Fiscal
+  chave_acesso: string | null;
+  link_pdf_nf: string | null;
+  data_emissao_nf: string | null;
+  snapshot_cliente: Json | null;
+  snapshot_emitente: Json | null;
+  descricao_servico: string | null;
+  // Etapa 3 - Pagamento
+  forma_pagamento: string | null;
+  data_vencimento: string | null;
+  boleto_url: string | null;
+  boleto_linha_digitavel: string | null;
+  pix_qr_code: string | null;
+  pix_copia_cola: string | null;
+  dados_transferencia: Json | null;
+  // Etapa 4 - Envio
+  data_envio: string | null;
+  canais_envio: string[] | null;
+  destinatario_envio: string | null;
+  mensagem_enviada: string | null;
   // Join fields
   cliente?: {
     razao_social: string;
@@ -30,6 +56,31 @@ export interface FaturaInsert {
   status?: string;
   numero_nf?: string | null;
   asaas_charge_id?: string | null;
+  // Etapa 1
+  relatorio_gerado?: boolean;
+  relatorio_data?: string | null;
+  tipo_relatorio?: string | null;
+  itens_snapshot?: Json | null;
+  // Etapa 2
+  chave_acesso?: string | null;
+  link_pdf_nf?: string | null;
+  data_emissao_nf?: string | null;
+  snapshot_cliente?: Json | null;
+  snapshot_emitente?: Json | null;
+  descricao_servico?: string | null;
+  // Etapa 3
+  forma_pagamento?: string | null;
+  data_vencimento?: string | null;
+  boleto_url?: string | null;
+  boleto_linha_digitavel?: string | null;
+  pix_qr_code?: string | null;
+  pix_copia_cola?: string | null;
+  dados_transferencia?: Json | null;
+  // Etapa 4
+  data_envio?: string | null;
+  canais_envio?: string[] | null;
+  destinatario_envio?: string | null;
+  mensagem_enviada?: string | null;
 }
 
 export interface FaturaUpdate {
@@ -37,6 +88,31 @@ export interface FaturaUpdate {
   numero_nf?: string | null;
   asaas_charge_id?: string | null;
   valor_total?: number;
+  // Etapa 1
+  relatorio_gerado?: boolean;
+  relatorio_data?: string | null;
+  tipo_relatorio?: string | null;
+  itens_snapshot?: Json | null;
+  // Etapa 2
+  chave_acesso?: string | null;
+  link_pdf_nf?: string | null;
+  data_emissao_nf?: string | null;
+  snapshot_cliente?: Json | null;
+  snapshot_emitente?: Json | null;
+  descricao_servico?: string | null;
+  // Etapa 3
+  forma_pagamento?: string | null;
+  data_vencimento?: string | null;
+  boleto_url?: string | null;
+  boleto_linha_digitavel?: string | null;
+  pix_qr_code?: string | null;
+  pix_copia_cola?: string | null;
+  dados_transferencia?: Json | null;
+  // Etapa 4
+  data_envio?: string | null;
+  canais_envio?: string[] | null;
+  destinatario_envio?: string | null;
+  mensagem_enviada?: string | null;
 }
 
 export function useFaturas(periodoInicio?: string, periodoFim?: string) {
@@ -137,6 +213,9 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
     pago: faturas
       .filter((f) => f.status === "pago")
       .reduce((sum, f) => sum + Number(f.valor_total), 0),
+    enviado: faturas
+      .filter((f) => f.status === "enviado")
+      .reduce((sum, f) => sum + Number(f.valor_total), 0),
     totalClientes: new Set(faturas.map((f) => f.cliente_id)).size,
   };
 
@@ -169,4 +248,42 @@ export function useFaturaById(faturaId: string | null) {
     },
     enabled: !!faturaId,
   });
+}
+
+// Hook para verificar se lançamentos já estão vinculados a outra fatura
+export function useValidateLancamentosForFatura() {
+  return useMutation({
+    mutationFn: async (lancamentoIds: string[]) => {
+      const { data, error } = await supabase
+        .from("lancamentos_fatura")
+        .select("lancamento_id, fatura_id")
+        .in("lancamento_id", lancamentoIds);
+
+      if (error) throw error;
+
+      const jaVinculados = data || [];
+      if (jaVinculados.length > 0) {
+        return {
+          valid: false,
+          message: `${jaVinculados.length} lançamento(s) já estão vinculados a outra fatura.`,
+          conflitos: jaVinculados,
+        };
+      }
+
+      return { valid: true, message: "", conflitos: [] };
+    },
+  });
+}
+
+// Hook para calcular vencimento inteligente
+export function calcularVencimento(diaVencimento: number): Date {
+  const hoje = new Date();
+  let vencimento = new Date(hoje.getFullYear(), hoje.getMonth(), diaVencimento);
+  
+  // Se o dia já passou no mês atual, usa próximo mês
+  if (vencimento <= hoje) {
+    vencimento = new Date(hoje.getFullYear(), hoje.getMonth() + 1, diaVencimento);
+  }
+  
+  return vencimento;
 }
