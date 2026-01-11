@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,106 +11,151 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Copy, Plus, Save, Trash2 } from "lucide-react";
+import { Copy, Plus, Trash2, Loader2 } from "lucide-react";
+import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
+import { useClientes } from "@/hooks/useClientes";
+import { toast } from "sonner";
 
-interface PrecoEspecial {
-  id: string;
-  produto: string;
-  unidade: string;
-  precoPadrao: number;
-  precoEspecial: number;
-  tipo: "acrescido" | "desconto" | "normal";
+interface ClienteTabelaPrecosProps {
+  clienteId: string | null;
 }
 
-const mockPrecos: PrecoEspecial[] = [
-  {
-    id: "1",
-    produto: "CAPA DE ALMOFADA",
-    unidade: "peça",
-    precoPadrao: 5.0,
-    precoEspecial: 5,
-    tipo: "acrescido",
-  },
-  {
-    id: "2",
-    produto: "TOALHA DE PISO",
-    unidade: "peça",
-    precoPadrao: 3.5,
-    precoEspecial: 3.5,
-    tipo: "acrescido",
-  },
-  {
-    id: "3",
-    produto: "FRONHA",
-    unidade: "peça",
-    precoPadrao: 3.5,
-    precoEspecial: 3.5,
-    tipo: "acrescido",
-  },
-];
+interface PrecoEspecialLocal {
+  id: string;
+  produto_id: string;
+  produto_nome: string;
+  unidade: string;
+  preco_padrao: number;
+  preco_especial: number;
+  tipo: "acrescido" | "desconto" | "normal";
+  isNew?: boolean;
+}
 
-const mockProdutosDisponiveis = [
-  { id: "4", nome: "LENÇOL SOLTEIRO", unidade: "peça", preco: 8.0 },
-  { id: "5", nome: "LENÇOL CASAL", unidade: "peça", preco: 12.0 },
-  { id: "6", nome: "EDREDOM", unidade: "peça", preco: 25.0 },
-  { id: "7", nome: "TOALHA DE BANHO", unidade: "peça", preco: 4.5 },
-];
+export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => {
+  const { produtos, isLoading: isLoadingProdutos } = useProdutos();
+  const { clientes } = useClientes();
+  const { precos: precosEspeciais, isLoading: isLoadingPrecos, upsertPrecoEspecial, deletePrecoEspecial } = usePrecosEspeciais(clienteId);
 
-const mockClientes = [
-  { id: "1", nome: "HOTEL FAZENDA SOL" },
-  { id: "2", nome: "POUSADA RECANTO" },
-  { id: "3", nome: "RESTAURANTE SABOR" },
-];
-
-export const ClienteTabelaPrecos = () => {
-  const [precos, setPrecos] = useState<PrecoEspecial[]>(mockPrecos);
+  const [precosLocais, setPrecosLocais] = useState<PrecoEspecialLocal[]>([]);
   const [clienteImportar, setClienteImportar] = useState("");
   const [produtoSelecionado, setProdutoSelecionado] = useState("");
   const [novoPreco, setNovoPreco] = useState("");
 
-  const handleImportar = () => {
-    // Lógica de importação
-    console.log("Importar de:", clienteImportar);
+  // Sincronizar preços do banco com estado local
+  useEffect(() => {
+    if (precosEspeciais && produtos) {
+      const precosFormatados: PrecoEspecialLocal[] = precosEspeciais.map((pe) => {
+        const produto = produtos.find((p) => p.id === pe.produto_id);
+        const precoNum = pe.preco_especial;
+        const precoPadrao = produto?.preco || 0;
+        return {
+          id: pe.id,
+          produto_id: pe.produto_id,
+          produto_nome: produto?.nome || "Produto não encontrado",
+          unidade: produto?.unidade || "un",
+          preco_padrao: precoPadrao,
+          preco_especial: precoNum,
+          tipo: precoNum > precoPadrao ? "acrescido" : precoNum < precoPadrao ? "desconto" : "normal",
+        };
+      });
+      setPrecosLocais(precosFormatados);
+    }
+  }, [precosEspeciais, produtos]);
+
+  // Reset when clienteId changes
+  useEffect(() => {
+    if (!clienteId) {
+      setPrecosLocais([]);
+    }
+  }, [clienteId]);
+
+  // Produtos disponíveis (não cadastrados ainda)
+  const produtosDisponiveis = produtos.filter(
+    (p) => !precosLocais.some((pl) => pl.produto_id === p.id)
+  );
+
+  // Outros clientes para importação
+  const outrosClientes = clientes.filter((c) => c.id !== clienteId);
+
+  const handleImportar = async () => {
+    if (!clienteImportar || !clienteId) return;
+    
+    // Buscar preços do cliente selecionado (isso precisaria de uma query adicional)
+    toast.info("Funcionalidade de importação será implementada em breve.");
+    setClienteImportar("");
   };
 
   const handleAdicionarProduto = () => {
-    if (!produtoSelecionado || !novoPreco) return;
-    
-    const produto = mockProdutosDisponiveis.find(p => p.id === produtoSelecionado);
+    if (!produtoSelecionado || !novoPreco || !clienteId) return;
+
+    const produto = produtos.find((p) => p.id === produtoSelecionado);
     if (!produto) return;
 
     const precoNum = parseFloat(novoPreco);
-    const novoItem: PrecoEspecial = {
-      id: Date.now().toString(),
-      produto: produto.nome,
-      unidade: produto.unidade,
-      precoPadrao: produto.preco,
-      precoEspecial: precoNum,
-      tipo: precoNum > produto.preco ? "acrescido" : precoNum < produto.preco ? "desconto" : "normal",
-    };
+    if (isNaN(precoNum) || precoNum < 0) {
+      toast.error("Digite um preço válido.");
+      return;
+    }
 
-    setPrecos([...precos, novoItem]);
-    setProdutoSelecionado("");
-    setNovoPreco("");
+    upsertPrecoEspecial.mutate(
+      {
+        cliente_id: clienteId,
+        produto_id: produto.id,
+        preco_especial: precoNum,
+        tipo: precoNum > produto.preco ? "acrescido" : precoNum < produto.preco ? "desconto" : "normal",
+      },
+      {
+        onSuccess: () => {
+          setProdutoSelecionado("");
+          setNovoPreco("");
+        },
+      }
+    );
   };
 
-  const handleUpdatePreco = (id: string, valor: string) => {
-    setPrecos(prev => prev.map(p => {
-      if (p.id === id) {
-        const precoNum = parseFloat(valor) || 0;
-        return {
-          ...p,
-          precoEspecial: precoNum,
-          tipo: precoNum > p.precoPadrao ? "acrescido" : precoNum < p.precoPadrao ? "desconto" : "normal",
-        };
-      }
-      return p;
-    }));
+  const handleUpdatePreco = (id: string, produtoId: string, valor: string) => {
+    const precoNum = parseFloat(valor);
+    if (isNaN(precoNum)) return;
+
+    const produto = produtos.find((p) => p.id === produtoId);
+    if (!produto || !clienteId) return;
+
+    upsertPrecoEspecial.mutate({
+      cliente_id: clienteId,
+      produto_id: produtoId,
+      preco_especial: precoNum,
+      tipo: precoNum > produto.preco ? "acrescido" : precoNum < produto.preco ? "desconto" : "normal",
+    });
   };
 
   const handleRemover = (id: string) => {
-    setPrecos(prev => prev.filter(p => p.id !== id));
+    deletePrecoEspecial.mutate(id);
   };
+
+  const getTipoFromPrecos = (precoEspecial: number, precoPadrao: number): "acrescido" | "desconto" | "normal" => {
+    if (precoEspecial > precoPadrao) return "acrescido";
+    if (precoEspecial < precoPadrao) return "desconto";
+    return "normal";
+  };
+
+  const isLoading = isLoadingProdutos || isLoadingPrecos;
+
+  if (!clienteId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>Salve os dados básicos do cliente primeiro para continuar.</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Carregando produtos...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 mt-6">
@@ -124,9 +169,9 @@ export const ClienteTabelaPrecos = () => {
               <SelectValue placeholder="Copiar de outro cliente..." />
             </SelectTrigger>
             <SelectContent className="bg-background">
-              {mockClientes.map((cliente) => (
+              {outrosClientes.map((cliente) => (
                 <SelectItem key={cliente.id} value={cliente.id}>
-                  {cliente.nome}
+                  {cliente.razao_social}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -143,9 +188,9 @@ export const ClienteTabelaPrecos = () => {
               <SelectValue placeholder="Selecione um produto..." />
             </SelectTrigger>
             <SelectContent className="bg-background">
-              {mockProdutosDisponiveis.map((produto) => (
+              {produtosDisponiveis.map((produto) => (
                 <SelectItem key={produto.id} value={produto.id}>
-                  {produto.nome}
+                  {produto.nome} (R$ {produto.preco.toFixed(2)})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -155,9 +200,20 @@ export const ClienteTabelaPrecos = () => {
             className="w-24"
             value={novoPreco}
             onChange={(e) => setNovoPreco(e.target.value)}
+            type="number"
+            step="0.01"
+            min="0"
           />
-          <Button size="icon" onClick={handleAdicionarProduto} disabled={!produtoSelecionado}>
-            <Plus className="w-4 h-4" />
+          <Button 
+            size="icon" 
+            onClick={handleAdicionarProduto} 
+            disabled={!produtoSelecionado || !novoPreco || upsertPrecoEspecial.isPending}
+          >
+            {upsertPrecoEspecial.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
           </Button>
         </div>
       </div>
@@ -174,54 +230,68 @@ export const ClienteTabelaPrecos = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {precos.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>
-                  <span className="font-medium">{item.produto}</span>
-                  <span className="text-muted-foreground ml-2">({item.unidade})</span>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  R$ {item.precoPadrao.toFixed(2)}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      value={item.precoEspecial}
-                      onChange={(e) => handleUpdatePreco(item.id, e.target.value)}
-                      className="w-24"
-                    />
-                    <StatusBadge
-                      variant={
-                        item.tipo === "acrescido"
-                          ? "success"
-                          : item.tipo === "desconto"
-                          ? "danger"
-                          : "default"
-                      }
-                    >
-                      {item.tipo === "acrescido" && "Acrescido"}
-                      {item.tipo === "desconto" && "Desconto"}
-                      {item.tipo === "normal" && "Normal"}
-                    </StatusBadge>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Save className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleRemover(item.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
+            {precosLocais.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                  Nenhum preço especial cadastrado para este cliente.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              precosLocais.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <span className="font-medium">{item.produto_nome}</span>
+                    <span className="text-muted-foreground ml-2">({item.unidade})</span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    R$ {item.preco_padrao.toFixed(2)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        value={item.preco_especial}
+                        onChange={(e) => handleUpdatePreco(item.id, item.produto_id, e.target.value)}
+                        onBlur={(e) => handleUpdatePreco(item.id, item.produto_id, e.target.value)}
+                        className="w-24"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                      />
+                      <StatusBadge
+                        variant={
+                          getTipoFromPrecos(item.preco_especial, item.preco_padrao) === "acrescido"
+                            ? "success"
+                            : getTipoFromPrecos(item.preco_especial, item.preco_padrao) === "desconto"
+                            ? "danger"
+                            : "default"
+                        }
+                      >
+                        {getTipoFromPrecos(item.preco_especial, item.preco_padrao) === "acrescido" && "Acrescido"}
+                        {getTipoFromPrecos(item.preco_especial, item.preco_padrao) === "desconto" && "Desconto"}
+                        {getTipoFromPrecos(item.preco_especial, item.preco_padrao) === "normal" && "Normal"}
+                      </StatusBadge>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleRemover(item.id)}
+                        disabled={deletePrecoEspecial.isPending}
+                      >
+                        {deletePrecoEspecial.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

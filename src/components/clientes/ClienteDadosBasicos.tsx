@@ -1,38 +1,135 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Building2, Home, Check } from "lucide-react";
+import { Building2, Home, Check, Loader2 } from "lucide-react";
+import { useClientes, useClienteById } from "@/hooks/useClientes";
 
 interface ClienteDadosBasicosProps {
+  clienteId: string | null;
   onNext: () => void;
-  onSave: () => void;
+  onClienteSaved: (clienteId: string) => void;
 }
 
 type TipoPessoa = "cnpj" | "cpf";
 type Classificacao = "residencial" | "industrial";
-type RegimeTributario = "simples" | "simples_excesso" | "normal" | "mei" | "nao_contribuinte";
+type RegimeTributario = "simples_nacional" | "simples_excesso" | "normal" | "mei" | "nao_contribuinte";
 
-export const ClienteDadosBasicos = ({ onNext, onSave }: ClienteDadosBasicosProps) => {
+export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: ClienteDadosBasicosProps) => {
+  const { createCliente, updateCliente } = useClientes();
+  const { data: clienteExistente, isLoading: isLoadingCliente } = useClienteById(clienteId);
+
   const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>("cnpj");
-  const [classificacao, setClassificacao] = useState<Classificacao>("residencial");
+  const [classificacao, setClassificacao] = useState<Classificacao>("industrial");
   const [regimeTributario, setRegimeTributario] = useState<RegimeTributario>("nao_contribuinte");
 
   const [formData, setFormData] = useState({
-    cnpj: "",
-    razaoSocial: "",
+    cpf_cnpj: "",
+    razao_social: "",
     email: "",
     telefone: "",
-    inscricaoEstadual: "",
-    inscricaoMunicipal: "",
+    inscricao_estadual: "",
+    inscricao_municipal: "",
     telefone2: "",
     contato: "",
     observacoes: "",
   });
 
+  // Carregar dados do cliente existente
+  useEffect(() => {
+    if (clienteExistente) {
+      setTipoPessoa(clienteExistente.tipo_pessoa as TipoPessoa);
+      setClassificacao(clienteExistente.classificacao as Classificacao);
+      setRegimeTributario((clienteExistente.regime_tributario as RegimeTributario) || "nao_contribuinte");
+      setFormData({
+        cpf_cnpj: clienteExistente.cpf_cnpj || "",
+        razao_social: clienteExistente.razao_social || "",
+        email: clienteExistente.email || "",
+        telefone: clienteExistente.telefone || "",
+        inscricao_estadual: clienteExistente.inscricao_estadual || "",
+        inscricao_municipal: clienteExistente.inscricao_municipal || "",
+        telefone2: clienteExistente.telefone2 || "",
+        contato: clienteExistente.contato || "",
+        observacoes: clienteExistente.observacoes || "",
+      });
+    }
+  }, [clienteExistente]);
+
+  // Reset form when creating new client
+  useEffect(() => {
+    if (!clienteId) {
+      setTipoPessoa("cnpj");
+      setClassificacao("industrial");
+      setRegimeTributario("nao_contribuinte");
+      setFormData({
+        cpf_cnpj: "",
+        razao_social: "",
+        email: "",
+        telefone: "",
+        inscricao_estadual: "",
+        inscricao_municipal: "",
+        telefone2: "",
+        contato: "",
+        observacoes: "",
+      });
+    }
+  }, [clienteId]);
+
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handleSave = async (goNext: boolean = false) => {
+    if (!formData.razao_social.trim()) {
+      return;
+    }
+
+    const clienteData = {
+      tipo_pessoa: tipoPessoa,
+      classificacao: classificacao,
+      regime_tributario: regimeTributario,
+      cpf_cnpj: formData.cpf_cnpj || null,
+      razao_social: formData.razao_social,
+      email: formData.email || null,
+      telefone: formData.telefone || null,
+      telefone2: formData.telefone2 || null,
+      contato: formData.contato || null,
+      inscricao_estadual: formData.inscricao_estadual || null,
+      inscricao_municipal: formData.inscricao_municipal || null,
+      observacoes: formData.observacoes || null,
+      ativo: true,
+      nome_fantasia: null,
+    };
+
+    if (clienteId) {
+      updateCliente.mutate(
+        { id: clienteId, ...clienteData },
+        {
+          onSuccess: () => {
+            if (goNext) onNext();
+          },
+        }
+      );
+    } else {
+      createCliente.mutate(clienteData, {
+        onSuccess: (data) => {
+          onClienteSaved(data.id);
+          if (goNext) onNext();
+        },
+      });
+    }
+  };
+
+  const isSaving = createCliente.isPending || updateCliente.isPending;
+
+  if (isLoadingCliente && clienteId) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Carregando dados do cliente...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 mt-6">
@@ -89,15 +186,15 @@ export const ClienteDadosBasicos = ({ onNext, onSave }: ClienteDadosBasicosProps
         <div className="space-y-1">
           <Input
             placeholder={tipoPessoa === "cnpj" ? "* Número do CNPJ" : "* Número do CPF"}
-            value={formData.cnpj}
-            onChange={(e) => handleChange("cnpj", e.target.value)}
+            value={formData.cpf_cnpj}
+            onChange={(e) => handleChange("cpf_cnpj", e.target.value)}
           />
         </div>
         <div className="space-y-1">
           <Input
             placeholder="* RAZÃO SOCIAL"
-            value={formData.razaoSocial}
-            onChange={(e) => handleChange("razaoSocial", e.target.value)}
+            value={formData.razao_social}
+            onChange={(e) => handleChange("razao_social", e.target.value)}
           />
         </div>
       </div>
@@ -126,15 +223,15 @@ export const ClienteDadosBasicos = ({ onNext, onSave }: ClienteDadosBasicosProps
         <div className="space-y-1">
           <Input
             placeholder="INSCRIÇÃO ESTADUAL (IE OU ISENTO)"
-            value={formData.inscricaoEstadual}
-            onChange={(e) => handleChange("inscricaoEstadual", e.target.value)}
+            value={formData.inscricao_estadual}
+            onChange={(e) => handleChange("inscricao_estadual", e.target.value)}
           />
         </div>
         <div className="space-y-1">
           <Input
             placeholder="INSCRIÇÃO MUNICIPAL (IM)"
-            value={formData.inscricaoMunicipal}
-            onChange={(e) => handleChange("inscricaoMunicipal", e.target.value)}
+            value={formData.inscricao_municipal}
+            onChange={(e) => handleChange("inscricao_municipal", e.target.value)}
           />
         </div>
       </div>
@@ -145,10 +242,10 @@ export const ClienteDadosBasicos = ({ onNext, onSave }: ClienteDadosBasicosProps
         <div className="flex flex-wrap gap-0">
           <Button
             type="button"
-            variant={regimeTributario === "simples" ? "default" : "outline"}
+            variant={regimeTributario === "simples_nacional" ? "default" : "outline"}
             className="rounded-r-none border-r-0"
             size="sm"
-            onClick={() => setRegimeTributario("simples")}
+            onClick={() => setRegimeTributario("simples_nacional")}
           >
             Simples Nacional
           </Button>
@@ -221,12 +318,21 @@ export const ClienteDadosBasicos = ({ onNext, onSave }: ClienteDadosBasicosProps
 
       {/* Footer Buttons */}
       <div className="flex items-center justify-between pt-4">
-        <Button variant="outline" onClick={onNext}>
+        <Button 
+          variant="outline" 
+          onClick={() => handleSave(true)}
+          disabled={isSaving || !formData.razao_social.trim()}
+        >
+          {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
           Próximo: Endereço
         </Button>
-        <Button onClick={onSave} className="gap-2">
-          <Check className="w-4 h-4" />
-          Salvar Cliente
+        <Button 
+          onClick={() => handleSave(false)} 
+          className="gap-2"
+          disabled={isSaving || !formData.razao_social.trim()}
+        >
+          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          {clienteId ? "Atualizar Cliente" : "Salvar Cliente"}
         </Button>
       </div>
     </div>

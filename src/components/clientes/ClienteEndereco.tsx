@@ -1,15 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Check, Lightbulb } from "lucide-react";
+import { Check, Lightbulb, Loader2, Search } from "lucide-react";
+import { useEnderecoCliente } from "@/hooks/useClientes";
+import { toast } from "sonner";
 
 interface ClienteEnderecoProps {
+  clienteId: string | null;
   onNext: () => void;
   onSave: () => void;
 }
 
-export const ClienteEndereco = ({ onNext, onSave }: ClienteEnderecoProps) => {
+export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoProps) => {
+  const { endereco, isLoading, upsertEndereco } = useEnderecoCliente(clienteId);
+  const [isSearchingCep, setIsSearchingCep] = useState(false);
+
   const [formData, setFormData] = useState({
     cep: "",
     logradouro: "",
@@ -21,9 +27,124 @@ export const ClienteEndereco = ({ onNext, onSave }: ClienteEnderecoProps) => {
     pais: "Brasil",
   });
 
+  // Carregar dados existentes
+  useEffect(() => {
+    if (endereco) {
+      setFormData({
+        cep: endereco.cep || "",
+        logradouro: endereco.logradouro || "",
+        numero: endereco.numero || "",
+        complemento: endereco.complemento || "",
+        bairro: endereco.bairro || "",
+        cidade: endereco.cidade || "",
+        uf: endereco.uf || "",
+        pais: endereco.pais || "Brasil",
+      });
+    }
+  }, [endereco]);
+
+  // Reset when clienteId changes to null
+  useEffect(() => {
+    if (!clienteId) {
+      setFormData({
+        cep: "",
+        logradouro: "",
+        numero: "",
+        complemento: "",
+        bairro: "",
+        cidade: "",
+        uf: "",
+        pais: "Brasil",
+      });
+    }
+  }, [clienteId]);
+
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handleCepSearch = async () => {
+    const cepLimpo = formData.cep.replace(/\D/g, "");
+    if (cepLimpo.length !== 8) {
+      toast.error("CEP inválido. Digite 8 dígitos.");
+      return;
+    }
+
+    setIsSearchingCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+
+      if (data.erro) {
+        toast.error("CEP não encontrado.");
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        logradouro: data.logradouro || "",
+        bairro: data.bairro || "",
+        cidade: data.localidade || "",
+        uf: data.uf || "",
+      }));
+      toast.success("Endereço encontrado!");
+    } catch {
+      toast.error("Erro ao buscar CEP.");
+    } finally {
+      setIsSearchingCep(false);
+    }
+  };
+
+  const handleSave = async (goNext: boolean = false) => {
+    if (!clienteId) {
+      toast.error("Salve os dados básicos do cliente primeiro.");
+      return;
+    }
+
+    upsertEndereco.mutate(
+      {
+        cliente_id: clienteId,
+        cep: formData.cep || null,
+        logradouro: formData.logradouro || null,
+        numero: formData.numero || null,
+        complemento: formData.complemento || null,
+        bairro: formData.bairro || null,
+        cidade: formData.cidade || null,
+        uf: formData.uf || null,
+        pais: formData.pais || "Brasil",
+        latitude: null,
+        longitude: null,
+      },
+      {
+        onSuccess: () => {
+          if (goNext) {
+            onNext();
+          } else {
+            onSave();
+          }
+        },
+      }
+    );
+  };
+
+  const isSaving = upsertEndereco.isPending;
+
+  if (isLoading && clienteId) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Carregando endereço...</span>
+      </div>
+    );
+  }
+
+  if (!clienteId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>Salve os dados básicos do cliente primeiro para continuar.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6">
@@ -31,11 +152,26 @@ export const ClienteEndereco = ({ onNext, onSave }: ClienteEnderecoProps) => {
         {/* Form Fields */}
         <div className="space-y-4">
           {/* CEP */}
-          <Input
-            placeholder="CEP (digite para buscar)"
-            value={formData.cep}
-            onChange={(e) => handleChange("cep", e.target.value)}
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="CEP (digite para buscar)"
+              value={formData.cep}
+              onChange={(e) => handleChange("cep", e.target.value)}
+              className="flex-1"
+            />
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleCepSearch}
+              disabled={isSearchingCep}
+            >
+              {isSearchingCep ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
 
           {/* Logradouro */}
           <Input
@@ -133,12 +269,21 @@ export const ClienteEndereco = ({ onNext, onSave }: ClienteEnderecoProps) => {
 
       {/* Footer Buttons */}
       <div className="flex items-center justify-between pt-6">
-        <Button variant="outline" onClick={onNext}>
+        <Button 
+          variant="outline" 
+          onClick={() => handleSave(true)}
+          disabled={isSaving}
+        >
+          {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
           Próximo: Pagamento
         </Button>
-        <Button onClick={onSave} className="gap-2">
-          <Check className="w-4 h-4" />
-          Salvar Cliente
+        <Button 
+          onClick={() => handleSave(false)} 
+          className="gap-2"
+          disabled={isSaving}
+        >
+          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          Salvar Endereço
         </Button>
       </div>
     </div>

@@ -77,6 +77,11 @@ const Clientes = () => {
     });
   };
 
+  const handleBackToList = () => {
+    setActiveTab("lista");
+    setSelectedClienteId(null);
+  };
+
   const getUnidadeNegocioBadge = (classificacao: string) => {
     return classificacao === "industrial" ? "ID1" : "ID2";
   };
@@ -84,8 +89,13 @@ const Clientes = () => {
   return (
     <AppLayout title="Clientes">
       <div className="space-y-6">
-        <div>
+        <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">Cadastro de Clientes</h1>
+          {activeTab !== "lista" && (
+            <Button variant="outline" onClick={handleBackToList}>
+              Voltar para Lista
+            </Button>
+          )}
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -239,13 +249,15 @@ const Clientes = () => {
 
           <TabsContent value="dados">
             <ClienteDadosBasicos 
+              clienteId={selectedClienteId}
               onNext={() => setActiveTab("endereco")} 
-              onSave={() => {}}
+              onClienteSaved={handleClienteSaved}
             />
           </TabsContent>
 
           <TabsContent value="endereco">
             <ClienteEndereco 
+              clienteId={selectedClienteId}
               onNext={() => setActiveTab("pagamento")} 
               onSave={() => setActiveTab("pagamento")}
             />
@@ -253,6 +265,7 @@ const Clientes = () => {
 
           <TabsContent value="pagamento">
             <ClientePagamento 
+              clienteId={selectedClienteId}
               onBack={() => setActiveTab("endereco")} 
               onSave={() => setActiveTab("configuracao")}
             />
@@ -260,12 +273,13 @@ const Clientes = () => {
 
           <TabsContent value="configuracao">
             <ClienteConfiguracao 
+              clienteId={selectedClienteId}
               onSave={() => setActiveTab("precos")} 
             />
           </TabsContent>
 
           <TabsContent value="precos">
-            <ClienteTabelaPrecos />
+            <ClienteTabelaPrecos clienteId={selectedClienteId} />
           </TabsContent>
         </Tabs>
       </div>
