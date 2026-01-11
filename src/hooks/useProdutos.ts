@@ -11,11 +11,20 @@ export interface Produto {
   unidade_negocio: string | null;
   categoria: string | null;
   status: string;
+  codigo: string | null;
+  peso_medio_kg: number | null;
+  tempo_processo_min: number | null;
+  processo_lavagem: string | null;
+  temperatura_maxima: number | null;
+  requer_secadora: boolean | null;
+  cor: string | null;
+  composicao: string | null;
+  instrucoes_especiais: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export type ProdutoInsert = Omit<Produto, "id" | "created_at" | "updated_at">;
+export type ProdutoInsert = Partial<Omit<Produto, "id" | "created_at" | "updated_at">> & { nome: string };
 export type ProdutoUpdate = Partial<ProdutoInsert>;
 
 export function useProdutos() {
