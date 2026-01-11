@@ -51,13 +51,31 @@ const RelatoriosCliente = () => {
   const { configuracao } = useConfiguracaoCliente(selectedClient || null);
 
   // Calcular período baseado na seleção
-  const periodoInicio = selectedMonths.length > 0
-    ? format(startOfMonth(new Date(Math.min(...selectedMonths.map(m => new Date(m).getTime())))), "yyyy-MM-dd")
-    : format(startOfMonth(new Date(selectedMonth)), "yyyy-MM-dd");
-  
-  const periodoFim = selectedMonths.length > 0
-    ? format(endOfMonth(new Date(Math.max(...selectedMonths.map(m => new Date(m).getTime())))), "yyyy-MM-dd")
-    : format(endOfMonth(new Date(selectedMonth)), "yyyy-MM-dd");
+  const getSelectedPeriodo = () => {
+    if (selectedMonths.length > 0) {
+      // Para múltiplos meses, precisamos parsear corretamente como YYYY-MM
+      const dates = selectedMonths.map(m => {
+        const [year, month] = m.split("-").map(Number);
+        return new Date(year, month - 1, 1);
+      });
+      const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+      const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+      return {
+        inicio: format(startOfMonth(minDate), "yyyy-MM-dd"),
+        fim: format(endOfMonth(maxDate), "yyyy-MM-dd"),
+      };
+    } else {
+      // Para mês único, parsear YYYY-MM corretamente
+      const [year, month] = selectedMonth.split("-").map(Number);
+      const date = new Date(year, month - 1, 1);
+      return {
+        inicio: format(startOfMonth(date), "yyyy-MM-dd"),
+        fim: format(endOfMonth(date), "yyyy-MM-dd"),
+      };
+    }
+  };
+
+  const { inicio: periodoInicio, fim: periodoFim } = getSelectedPeriodo();
 
   const { data: lancamentos, isLoading: isLoadingRelatorio } = useRelatorioCliente(
     selectedClient || null,
