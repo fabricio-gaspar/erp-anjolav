@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Copy, Clock } from "lucide-react";
+import { Check, Copy, Clock, Loader2 } from "lucide-react";
+import { useConfiguracaoCliente } from "@/hooks/useClientes";
+import { toast } from "sonner";
 
 interface ClienteConfiguracaoProps {
+  clienteId: string | null;
   onSave: () => void;
 }
 
@@ -20,7 +23,9 @@ const diasSemana = [
   { key: "dom", label: "Dom" },
 ];
 
-export const ClienteConfiguracao = ({ onSave }: ClienteConfiguracaoProps) => {
+export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoProps) => {
+  const { configuracao, isLoading, upsertConfiguracao } = useConfiguracaoCliente(clienteId);
+
   const [codigoAcesso, setCodigoAcesso] = useState("Não gerado");
   const [linkAcesso, setLinkAcesso] = useState("");
   const [frequencia, setFrequencia] = useState<Frequencia>("semanal");
@@ -28,6 +33,32 @@ export const ClienteConfiguracao = ({ onSave }: ClienteConfiguracaoProps) => {
   const [diasEntrega, setDiasEntrega] = useState<string[]>([]);
   const [horarioRetirada, setHorarioRetirada] = useState("");
   const [horarioEntrega, setHorarioEntrega] = useState("");
+
+  // Carregar dados existentes
+  useEffect(() => {
+    if (configuracao) {
+      setCodigoAcesso(configuracao.codigo_acesso || "Não gerado");
+      setLinkAcesso(configuracao.link_acesso || "");
+      setFrequencia((configuracao.frequencia as Frequencia) || "semanal");
+      setDiasRetirada(configuracao.dias_retirada || []);
+      setDiasEntrega(configuracao.dias_entrega || []);
+      setHorarioRetirada(configuracao.horario_retirada || "");
+      setHorarioEntrega(configuracao.horario_entrega || "");
+    }
+  }, [configuracao]);
+
+  // Reset when clienteId changes to null
+  useEffect(() => {
+    if (!clienteId) {
+      setCodigoAcesso("Não gerado");
+      setLinkAcesso("");
+      setFrequencia("semanal");
+      setDiasRetirada([]);
+      setDiasEntrega([]);
+      setHorarioRetirada("");
+      setHorarioEntrega("");
+    }
+  }, [clienteId]);
 
   const handleGerarCodigo = () => {
     const codigo = Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -37,6 +68,7 @@ export const ClienteConfiguracao = ({ onSave }: ClienteConfiguracaoProps) => {
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(linkAcesso);
+    toast.success("Link copiado para a área de transferência!");
   };
 
   const toggleDiaRetirada = (dia: string) => {
@@ -50,6 +82,50 @@ export const ClienteConfiguracao = ({ onSave }: ClienteConfiguracaoProps) => {
       prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]
     );
   };
+
+  const handleSave = async () => {
+    if (!clienteId) {
+      toast.error("Salve os dados básicos do cliente primeiro.");
+      return;
+    }
+
+    upsertConfiguracao.mutate(
+      {
+        cliente_id: clienteId,
+        codigo_acesso: codigoAcesso !== "Não gerado" ? codigoAcesso : null,
+        link_acesso: linkAcesso || null,
+        frequencia: frequencia,
+        dias_retirada: diasRetirada,
+        dias_entrega: diasEntrega,
+        horario_retirada: horarioRetirada || null,
+        horario_entrega: horarioEntrega || null,
+      },
+      {
+        onSuccess: () => {
+          onSave();
+        },
+      }
+    );
+  };
+
+  const isSaving = upsertConfiguracao.isPending;
+
+  if (isLoading && clienteId) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Carregando configurações...</span>
+      </div>
+    );
+  }
+
+  if (!clienteId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>Salve os dados básicos do cliente primeiro para continuar.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 mt-6">
@@ -217,9 +293,9 @@ export const ClienteConfiguracao = ({ onSave }: ClienteConfiguracaoProps) => {
 
       {/* Footer Buttons */}
       <div className="flex items-center justify-end pt-4">
-        <Button onClick={onSave} className="gap-2">
-          <Check className="w-4 h-4" />
-          Salvar Cliente
+        <Button onClick={handleSave} className="gap-2" disabled={isSaving}>
+          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          Salvar e Continuar
         </Button>
       </div>
     </div>

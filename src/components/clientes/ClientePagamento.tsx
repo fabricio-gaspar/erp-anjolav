@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Info } from "lucide-react";
+import { Check, Info, Loader2 } from "lucide-react";
+import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
+import { toast } from "sonner";
 
 interface ClientePagamentoProps {
+  clienteId: string | null;
   onBack: () => void;
   onSave: () => void;
 }
@@ -13,11 +16,74 @@ interface ClientePagamentoProps {
 type TipoFaturamento = "mensal" | "avulso";
 type FormaPagamento = "boleto" | "pix" | "transferencia";
 
-export const ClientePagamento = ({ onBack, onSave }: ClientePagamentoProps) => {
+export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamentoProps) => {
+  const { configuracao, isLoading, upsertConfiguracao } = useConfiguracaoPagamentoCliente(clienteId);
+
   const [tipoFaturamento, setTipoFaturamento] = useState<TipoFaturamento>("avulso");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null);
   const [diaVencimento, setDiaVencimento] = useState("");
   const [condicaoPagamento, setCondicaoPagamento] = useState("mensal_30");
+
+  // Carregar dados existentes
+  useEffect(() => {
+    if (configuracao) {
+      setTipoFaturamento((configuracao.tipo_faturamento as TipoFaturamento) || "avulso");
+      setFormaPagamento((configuracao.forma_pagamento as FormaPagamento) || null);
+      setDiaVencimento(configuracao.dia_vencimento?.toString() || "");
+      setCondicaoPagamento(configuracao.condicao_pagamento || "mensal_30");
+    }
+  }, [configuracao]);
+
+  // Reset when clienteId changes to null
+  useEffect(() => {
+    if (!clienteId) {
+      setTipoFaturamento("avulso");
+      setFormaPagamento(null);
+      setDiaVencimento("");
+      setCondicaoPagamento("mensal_30");
+    }
+  }, [clienteId]);
+
+  const handleSave = async () => {
+    if (!clienteId) {
+      toast.error("Salve os dados básicos do cliente primeiro.");
+      return;
+    }
+
+    upsertConfiguracao.mutate(
+      {
+        cliente_id: clienteId,
+        tipo_faturamento: tipoFaturamento,
+        forma_pagamento: formaPagamento,
+        dia_vencimento: diaVencimento ? parseInt(diaVencimento) : null,
+        condicao_pagamento: condicaoPagamento,
+      },
+      {
+        onSuccess: () => {
+          onSave();
+        },
+      }
+    );
+  };
+
+  const isSaving = upsertConfiguracao.isPending;
+
+  if (isLoading && clienteId) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Carregando configurações...</span>
+      </div>
+    );
+  }
+
+  if (!clienteId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <p>Salve os dados básicos do cliente primeiro para continuar.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 mt-6">
@@ -112,7 +178,7 @@ export const ClientePagamento = ({ onBack, onSave }: ClientePagamentoProps) => {
               <SelectItem value="mensal_30">Mensal (30 dias)</SelectItem>
               <SelectItem value="mensal_15">Quinzenal (15 dias)</SelectItem>
               <SelectItem value="semanal">Semanal (7 dias)</SelectItem>
-              <SelectItem value="avista">À Vista</SelectItem>
+              <SelectItem value="a_vista">À Vista</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -144,7 +210,7 @@ export const ClientePagamento = ({ onBack, onSave }: ClientePagamentoProps) => {
               {condicaoPagamento === "mensal_30" && "Mensal (30 dias)"}
               {condicaoPagamento === "mensal_15" && "Quinzenal (15 dias)"}
               {condicaoPagamento === "semanal" && "Semanal (7 dias)"}
-              {condicaoPagamento === "avista" && "À Vista"}
+              {condicaoPagamento === "a_vista" && "À Vista"}
             </span>
           </div>
         </CardContent>
@@ -155,9 +221,9 @@ export const ClientePagamento = ({ onBack, onSave }: ClientePagamentoProps) => {
         <Button variant="outline" onClick={onBack}>
           Voltar
         </Button>
-        <Button onClick={onSave} className="gap-2">
-          <Check className="w-4 h-4" />
-          Salvar Cliente
+        <Button onClick={handleSave} className="gap-2" disabled={isSaving}>
+          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          Salvar e Continuar
         </Button>
       </div>
     </div>
