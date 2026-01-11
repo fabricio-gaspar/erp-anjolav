@@ -13,6 +13,7 @@ interface MapaPecasClienteProps {
   numeroCobranca?: number;
   empresaNome?: string;
   empresaSubtitulo?: string;
+  logoUrl?: string | null;
   onPrint?: () => void;
 }
 
@@ -25,6 +26,7 @@ export function MapaPecasCliente({
   numeroCobranca = 1,
   empresaNome = "ANJOLAV",
   empresaSubtitulo = "ANJOLAV SERVIÇOS DE LAVANDERIA",
+  logoUrl,
   onPrint,
 }: MapaPecasClienteProps) {
   const formatCurrency = (value: number) => {
@@ -51,7 +53,7 @@ export function MapaPecasCliente({
       const lancTotais = lanc.itens.reduce(
         (itemAcc, item) => ({
           quantidade: itemAcc.quantidade + item.quantidade,
-          valor: acc.valor + item.subtotal,
+          valor: itemAcc.valor + item.subtotal,
         }),
         { quantidade: 0, valor: 0 }
       );
@@ -79,13 +81,11 @@ export function MapaPecasCliente({
         <head>
           <title>Mapa de Peças - ${clienteNome}</title>
           <style>
-            @page { size: A4 landscape; margin: 8mm; }
-            * { box-sizing: border-box; }
+            @page { size: A4 landscape; margin: 10mm; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
             body { 
-              font-family: Arial, sans-serif; 
-              font-size: 11px; 
-              margin: 0; 
-              padding: 10px;
+              font-family: Arial, Helvetica, sans-serif; 
+              font-size: 10px; 
               color: #000;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
@@ -93,79 +93,120 @@ export function MapaPecasCliente({
             table { 
               width: 100%; 
               border-collapse: collapse; 
-              margin-bottom: 4px;
             }
             th, td { 
               border: 1px solid #000; 
-              padding: 4px 6px; 
-            }
-            .header-table td { border: 1px solid #000; }
-            .logo-cell { 
-              width: 100px; 
-              text-align: center;
+              padding: 3px 6px; 
               vertical-align: middle;
+            }
+            .header-table { margin-bottom: 0; }
+            .header-table td { height: 50px; }
+            .logo-cell { 
+              width: 120px; 
+              text-align: center;
               padding: 8px;
             }
             .logo-icon { 
-              color: #2563eb;
-              font-size: 24px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+            }
+            .logo-icon svg {
+              width: 32px;
+              height: 32px;
+              fill: #0066cc;
+            }
+            .logo-text {
               font-weight: bold;
+              font-size: 11px;
+              margin-top: 2px;
             }
             .title-cell { 
               text-align: center; 
-              vertical-align: middle;
             }
             .title-main { 
               font-size: 16px; 
-              font-weight: bold; 
+              font-weight: bold;
+              margin-bottom: 2px;
             }
             .title-sub { 
-              font-size: 11px; 
+              font-size: 10px; 
             }
             .date-cell { 
-              width: 160px; 
+              width: 140px; 
               font-size: 10px;
               text-align: right;
-              vertical-align: middle;
+              padding-right: 10px;
             }
-            .cliente-row td { 
-              background: #fef9c3; 
+            .cliente-destaque { 
+              background: #FEF9C3 !important; 
               text-align: center; 
               font-weight: bold; 
-              font-size: 13px;
-              padding: 8px;
+              font-size: 14px;
+              padding: 8px !important;
             }
-            .info-row td { padding: 6px 8px; }
+            .info-section { margin-bottom: 0; }
+            .info-section td { 
+              padding: 5px 8px; 
+              font-size: 10px;
+            }
+            .info-left { text-align: left; width: 50%; }
+            .info-right { text-align: right; width: 50%; }
+            .cliente-info td {
+              padding: 5px 8px;
+              font-size: 10px;
+            }
+            .rol-section { margin-top: 8px; }
             .rol-header td {
-              background: #fef9c3;
+              background: #FEF9C3 !important;
               font-weight: bold;
               font-size: 10px;
-              padding: 4px 8px;
+              padding: 4px 8px !important;
             }
-            .items-table th { 
-              background: #fef9c3;
+            .items-header th { 
+              background: #FEF9C3 !important;
               font-weight: bold;
-              font-size: 10px;
+              font-size: 9px;
               text-align: center;
+              padding: 4px 6px !important;
             }
-            .items-table td { 
+            .items-header th:first-child {
+              text-align: left;
+            }
+            .item-row td { 
               font-size: 10px;
+              padding: 3px 6px !important;
             }
-            .text-right { text-align: right; }
-            .text-center { text-align: center; }
-            .text-left { text-align: left; }
-            .totais-row td { 
+            .item-row td:first-child {
+              text-align: left;
+            }
+            .text-right { text-align: right !important; }
+            .text-center { text-align: center !important; }
+            .text-left { text-align: left !important; }
+            .totais-rol td { 
               font-weight: bold;
               font-size: 10px;
+              padding: 4px 6px !important;
+            }
+            .total-geral-section {
+              margin-top: 12px;
             }
             .total-geral td {
-              background: #e5e7eb;
+              background: #E5E7EB !important;
               font-weight: bold;
               font-size: 11px;
-              padding: 6px 8px;
+              padding: 8px !important;
             }
-            .spacer { height: 8px; border: none; }
-            .no-border { border: none !important; }
+            .spacer { height: 4px; }
+            .no-border { border: none !important; background: transparent !important; }
+            .col-descricao { width: 28%; }
+            .col-complemento { width: 18%; }
+            .col-peso { width: 8%; }
+            .col-quant { width: 8%; }
+            .col-unit { width: 8%; }
+            .col-total { width: 10%; }
+            .col-obs { width: 20%; }
           </style>
         </head>
         <body>
@@ -174,7 +215,9 @@ export function MapaPecasCliente({
         </html>
       `);
       printWindow.document.close();
-      printWindow.print();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
     }
 
     onPrint?.();
@@ -205,69 +248,74 @@ export function MapaPecasCliente({
       {/* Conteúdo do relatório */}
       <div
         id="mapa-pecas-print"
-        className="bg-white border rounded-lg p-4 text-[11px] overflow-x-auto"
+        className="bg-white border rounded-lg p-4 text-[10px] overflow-x-auto"
         style={{ fontFamily: "Arial, sans-serif" }}
       >
-        {/* Header Table */}
-        <table className="w-full border-collapse mb-1" style={{ borderColor: "#000" }}>
+        {/* ============ CABEÇALHO PRINCIPAL ============ */}
+        <table className="w-full border-collapse header-table" style={{ marginBottom: 0 }}>
           <tbody>
             <tr>
-              <td className="border border-black w-[100px] text-center align-middle p-2">
-                <div className="flex flex-col items-center">
-                  <span className="text-blue-600 text-2xl">💧</span>
-                  <span className="font-bold text-xs">{empresaNome}</span>
+              {/* Logo / Nome da Empresa */}
+              <td className="border border-black w-[120px] text-center align-middle p-2">
+                <div className="flex flex-col items-center justify-center">
+                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-blue-600 fill-current">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                  <span className="font-bold text-[11px] mt-1">{empresaNome}</span>
                 </div>
               </td>
+              {/* Título */}
               <td className="border border-black text-center align-middle p-2">
-                <div className="font-bold text-base">Mapa de Peças por Cliente</div>
-                <div className="text-[11px]">{empresaSubtitulo}</div>
+                <div className="font-bold text-[16px]">Mapa de Peças por Cliente</div>
+                <div className="text-[10px]">{empresaSubtitulo}</div>
               </td>
-              <td className="border border-black w-[160px] text-right align-middle p-2 text-[10px]">
-                <div>Dt.Emissão: {dataEmissao}</div>
-                <div>Hr.Emissão: {horaEmissao}</div>
+              {/* Data/Hora Emissão */}
+              <td className="border border-black w-[140px] text-right align-middle p-2 pr-3">
+                <div className="text-[10px]">Dt.Emissão: {dataEmissao}</div>
+                <div className="text-[10px]">Hr.Emissão: {horaEmissao}</div>
               </td>
             </tr>
           </tbody>
         </table>
 
-        {/* Cliente Nome Row */}
-        <table className="w-full border-collapse mb-1">
+        {/* ============ NOME DO CLIENTE EM DESTAQUE ============ */}
+        <table className="w-full border-collapse" style={{ marginBottom: 0 }}>
           <tbody>
             <tr>
-              <td className="border border-black bg-yellow-100 text-center font-bold text-[13px] p-2">
+              <td className="border border-black bg-yellow-100 text-center font-bold text-[14px] py-2">
                 {clienteNome.toUpperCase()}
               </td>
             </tr>
           </tbody>
         </table>
 
-        {/* Info Row */}
-        <table className="w-full border-collapse mb-1">
+        {/* ============ INFORMAÇÕES DE COBRANÇA ============ */}
+        <table className="w-full border-collapse info-section" style={{ marginBottom: 0 }}>
           <tbody>
             <tr>
-              <td className="border border-black p-2 align-top" style={{ width: "50%" }}>
+              <td className="border border-black p-2 align-top text-[10px]" style={{ width: "60%" }}>
                 <div>Cobrança: {numeroCobranca}</div>
                 <div>Dt.Emissão: {dataEmissao}</div>
               </td>
-              <td className="border border-black p-2 text-right align-top" style={{ width: "50%" }}>
+              <td className="border border-black p-2 text-right align-top text-[10px]" style={{ width: "40%" }}>
                 <div>Ref. Mês/Ano: {getMesAno()}</div>
               </td>
             </tr>
           </tbody>
         </table>
 
-        {/* Cliente Info Row */}
-        <table className="w-full border-collapse mb-2">
+        {/* ============ CLIENTE INFO ============ */}
+        <table className="w-full border-collapse" style={{ marginBottom: "8px" }}>
           <tbody>
             <tr>
-              <td className="border border-black p-2">
+              <td className="border border-black p-2 text-[10px]">
                 Cliente: {clienteNome.toUpperCase()}
               </td>
             </tr>
           </tbody>
         </table>
 
-        {/* Lançamentos (ROLs) */}
+        {/* ============ LANÇAMENTOS (ROLs) ============ */}
         {lancamentos.map((lancamento, index) => {
           const rolNumber = 5000 + index;
           const totaisRol = lancamento.itens.reduce(
@@ -279,22 +327,34 @@ export function MapaPecasCliente({
           );
 
           return (
-            <div key={lancamento.id} className="mb-3">
+            <div key={lancamento.id} className="mb-2 rol-section">
               {/* ROL Header */}
               <table className="w-full border-collapse">
                 <tbody>
                   <tr>
-                    <td className="border border-black bg-yellow-100 font-bold text-[10px] p-1" style={{ width: "35%" }}>
-                      ROL: {rolNumber}
+                    <td 
+                      className="border border-black bg-yellow-100 font-bold text-[10px] p-1"
+                      style={{ width: "15%" }}
+                    >
+                      <span className="font-bold">ROL: </span>{rolNumber}
                     </td>
-                    <td className="border border-black bg-yellow-100 font-bold text-[10px] p-1" style={{ width: "25%" }}>
-                      DT.ENTRADA: {formatDate(lancamento.data_lancamento)}
+                    <td 
+                      className="border border-black bg-yellow-100 font-bold text-[10px] p-1"
+                      style={{ width: "25%" }}
+                    >
+                      <span className="font-bold">DT.ENTRADA: </span>{formatDate(lancamento.data_lancamento)}
                     </td>
-                    <td className="border border-black bg-yellow-100 font-bold text-[10px] p-1" style={{ width: "20%" }}>
-                      DEPART.:
+                    <td 
+                      className="border border-black bg-yellow-100 font-bold text-[10px] p-1"
+                      style={{ width: "30%" }}
+                    >
+                      <span className="font-bold">DEPART.:</span>
                     </td>
-                    <td className="border border-black bg-yellow-100 font-bold text-[10px] p-1" style={{ width: "20%" }}>
-                      BLOCO:
+                    <td 
+                      className="border border-black bg-yellow-100 font-bold text-[10px] p-1"
+                      style={{ width: "30%" }}
+                    >
+                      <span className="font-bold">BLOCO:</span>
                     </td>
                   </tr>
                 </tbody>
@@ -304,25 +364,25 @@ export function MapaPecasCliente({
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <th className="border border-black bg-yellow-100 font-bold text-[10px] p-1 text-left">
+                    <th className="border border-black bg-yellow-100 font-bold text-[9px] p-1 text-left col-descricao">
                       DESCRIÇÃO DA PEÇA
                     </th>
-                    <th className="border border-black bg-yellow-100 font-bold text-[10px] p-1 text-center" style={{ width: "120px" }}>
+                    <th className="border border-black bg-yellow-100 font-bold text-[9px] p-1 text-center col-complemento">
                       COMPLEMENTO
                     </th>
-                    <th className="border border-black bg-yellow-100 font-bold text-[10px] p-1 text-center" style={{ width: "60px" }}>
+                    <th className="border border-black bg-yellow-100 font-bold text-[9px] p-1 text-center col-peso">
                       PESO
                     </th>
-                    <th className="border border-black bg-yellow-100 font-bold text-[10px] p-1 text-center" style={{ width: "60px" }}>
+                    <th className="border border-black bg-yellow-100 font-bold text-[9px] p-1 text-center col-quant">
                       QUANT.
                     </th>
-                    <th className="border border-black bg-yellow-100 font-bold text-[10px] p-1 text-center" style={{ width: "60px" }}>
+                    <th className="border border-black bg-yellow-100 font-bold text-[9px] p-1 text-center col-unit">
                       UNIT.
                     </th>
-                    <th className="border border-black bg-yellow-100 font-bold text-[10px] p-1 text-center" style={{ width: "70px" }}>
+                    <th className="border border-black bg-yellow-100 font-bold text-[9px] p-1 text-center col-total">
                       TOTAL
                     </th>
-                    <th className="border border-black bg-yellow-100 font-bold text-[10px] p-1 text-left" style={{ width: "100px" }}>
+                    <th className="border border-black bg-yellow-100 font-bold text-[9px] p-1 text-left col-obs">
                       OBSERVAÇÕES
                     </th>
                   </tr>
@@ -330,7 +390,7 @@ export function MapaPecasCliente({
                 <tbody>
                   {lancamento.itens.map((item) => (
                     <tr key={item.id}>
-                      <td className="border border-black p-1 text-[10px]">
+                      <td className="border border-black p-1 text-[10px] text-left">
                         {item.produto_nome.toUpperCase()}
                       </td>
                       <td className="border border-black p-1 text-[10px] text-center"></td>
@@ -344,7 +404,7 @@ export function MapaPecasCliente({
                       <td className="border border-black p-1 text-[10px] text-right">
                         {formatCurrency(item.subtotal)}
                       </td>
-                      <td className="border border-black p-1 text-[10px]"></td>
+                      <td className="border border-black p-1 text-[10px] text-left"></td>
                     </tr>
                   ))}
                   {/* Totais do ROL */}
@@ -367,18 +427,30 @@ export function MapaPecasCliente({
           );
         })}
 
-        {/* Total Geral */}
-        <table className="w-full border-collapse mt-3">
+        {/* ============ TOTAL GERAL ============ */}
+        <table className="w-full border-collapse mt-4 total-geral-section">
           <tbody>
             <tr>
-              <td className="border border-black bg-gray-200 p-2 text-right font-bold text-[11px]" style={{ width: "60%" }}>
+              <td 
+                className="border border-black bg-gray-200 p-2 text-right font-bold text-[11px]" 
+                style={{ width: "55%" }}
+              >
                 TOTAL GERAL
               </td>
-              <td className="border border-black bg-gray-200 p-2 text-right font-bold text-[11px]" style={{ width: "10%" }}>
+              <td 
+                className="border border-black bg-gray-200 p-2 text-right font-bold text-[11px]" 
+                style={{ width: "15%" }}
+              >
                 {totaisGerais.quantidade}
               </td>
-              <td className="border border-black bg-gray-200 p-2" style={{ width: "10%" }}></td>
-              <td className="border border-black bg-gray-200 p-2 text-right font-bold text-[11px]" style={{ width: "20%" }}>
+              <td 
+                className="border border-black bg-gray-200 p-2" 
+                style={{ width: "10%" }}
+              ></td>
+              <td 
+                className="border border-black bg-gray-200 p-2 text-right font-bold text-[11px]" 
+                style={{ width: "20%" }}
+              >
                 {formatCurrency(totaisGerais.valor)}
               </td>
             </tr>
