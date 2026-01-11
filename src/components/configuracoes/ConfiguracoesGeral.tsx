@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,15 @@ import {
   Info,
   Landmark,
   QrCode,
+  MapPin,
+  Search,
+  Loader2,
+  Building2,
 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { buscarCepComFallback, geocodeEndereco, montarEnderecoCompleto } from "@/services/apiServices";
+import { AddressMap } from "@/components/ui/AddressMap";
 
 const templateVariables = [
   "{{cliente}}",
@@ -87,7 +94,10 @@ Conta: {{banco_conta}}
 Titular: {{banco_titular}}`;
 
 export function ConfiguracoesGeral() {
+  const { configuracao, saveConfiguracao, isLoading } = useConfiguracoesGerais();
   const [isTesting, setIsTesting] = useState(false);
+  const [isSearchingCep, setIsSearchingCep] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   // Identidade Visual
   const [nomeEmpresa, setNomeEmpresa] = useState("AnjoLav");
@@ -108,38 +118,190 @@ export function ConfiguracoesGeral() {
 
   // WhatsApp
   const [whatsappNumero, setWhatsappNumero] = useState("");
-  const [whatsappApiKey, setWhatsappApiKey] = useState("");
+
+  // Endereço da Empresa
+  const [enderecoData, setEnderecoData] = useState({
+    cep: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
+    cidade: "",
+    uf: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
+  });
+
+  // Carregar dados existentes
+  useEffect(() => {
+    if (configuracao) {
+      setNomeEmpresa(configuracao.nome_empresa || "AnjoLav");
+      setCorPrimaria(configuracao.cor_primaria || "#3b82f6");
+      setTipoChave(configuracao.pix_tipo_chave || "cpf");
+      setChavePix(configuracao.pix_chave || "");
+      setNomeBanco(configuracao.banco_nome || "");
+      setAgencia(configuracao.banco_agencia || "");
+      setContaCorrente(configuracao.banco_conta || "");
+      setTitularConta(configuracao.banco_titular || "");
+      setTemplatePix(configuracao.template_pix || defaultPixTemplate);
+      setTemplateBoleto(configuracao.template_boleto || defaultBoletoTemplate);
+      setTemplateTransferencia(configuracao.template_transferencia || defaultTransferenciaTemplate);
+      setWhatsappNumero(configuracao.whatsapp_numero || "");
+      setEnderecoData({
+        cep: configuracao.endereco_cep || "",
+        logradouro: configuracao.endereco_logradouro || "",
+        numero: configuracao.endereco_numero || "",
+        complemento: configuracao.endereco_complemento || "",
+        bairro: configuracao.endereco_bairro || "",
+        cidade: configuracao.endereco_cidade || "",
+        uf: configuracao.endereco_uf || "",
+        latitude: configuracao.endereco_latitude || null,
+        longitude: configuracao.endereco_longitude || null,
+      });
+    }
+  }, [configuracao]);
 
   const handleTestConnection = async () => {
     setIsTesting(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setIsTesting(false);
-    toast({
-      title: "Conexão bem-sucedida",
-      description: "O banco de dados está funcionando corretamente.",
+    toast.success("Conexão bem-sucedida! O banco de dados está funcionando corretamente.");
+  };
+
+  const handleSaveIdentidade = () => {
+    saveConfiguracao.mutate({
+      nome_empresa: nomeEmpresa,
+      cor_primaria: corPrimaria,
     });
   };
 
   const handleSavePayment = () => {
-    toast({
-      title: "Dados salvos",
-      description: "Dados de pagamento salvos com sucesso!",
+    saveConfiguracao.mutate({
+      pix_tipo_chave: tipoChave,
+      pix_chave: chavePix,
+      banco_nome: nomeBanco,
+      banco_agencia: agencia,
+      banco_conta: contaCorrente,
+      banco_titular: titularConta,
     });
   };
 
   const handleSaveTemplates = () => {
-    toast({
-      title: "Templates salvos",
-      description: "Templates de mensagem salvos com sucesso!",
+    saveConfiguracao.mutate({
+      template_pix: templatePix,
+      template_boleto: templateBoleto,
+      template_transferencia: templateTransferencia,
     });
   };
 
   const handleSaveWhatsApp = () => {
-    toast({
-      title: "Configurações salvas",
-      description: "Configurações do WhatsApp salvas com sucesso!",
+    saveConfiguracao.mutate({
+      whatsapp_numero: whatsappNumero,
     });
   };
+
+  const handleSaveEndereco = () => {
+    saveConfiguracao.mutate({
+      endereco_cep: enderecoData.cep || null,
+      endereco_logradouro: enderecoData.logradouro || null,
+      endereco_numero: enderecoData.numero || null,
+      endereco_complemento: enderecoData.complemento || null,
+      endereco_bairro: enderecoData.bairro || null,
+      endereco_cidade: enderecoData.cidade || null,
+      endereco_uf: enderecoData.uf || null,
+      endereco_latitude: enderecoData.latitude,
+      endereco_longitude: enderecoData.longitude,
+    });
+  };
+
+  const handleEnderecoChange = (field: string, value: string) => {
+    setEnderecoData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleCepSearch = async () => {
+    const cepLimpo = enderecoData.cep.replace(/\D/g, "");
+    if (cepLimpo.length !== 8) {
+      toast.error("CEP inválido. Digite 8 dígitos.");
+      return;
+    }
+
+    setIsSearchingCep(true);
+    try {
+      const data = await buscarCepComFallback(cepLimpo);
+
+      if (!data) {
+        toast.error("CEP não encontrado.");
+        return;
+      }
+
+      const newData = {
+        ...enderecoData,
+        logradouro: data.logradouro || "",
+        bairro: data.bairro || "",
+        cidade: data.localidade || "",
+        uf: data.uf || "",
+      };
+
+      setEnderecoData(newData);
+      toast.success("Endereço encontrado!");
+
+      // Auto-geocodificar
+      await handleGeocode(newData);
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+      toast.error("Erro ao buscar CEP.");
+    } finally {
+      setIsSearchingCep(false);
+    }
+  };
+
+  const handleGeocode = async (data?: typeof enderecoData) => {
+    const addressData = data || enderecoData;
+    const enderecoCompleto = montarEnderecoCompleto({
+      logradouro: addressData.logradouro,
+      numero: addressData.numero,
+      bairro: addressData.bairro,
+      cidade: addressData.cidade,
+      uf: addressData.uf,
+      cep: addressData.cep,
+    });
+
+    if (!enderecoCompleto || enderecoCompleto === "Brasil") {
+      toast.error("Preencha o endereço para localizar no mapa.");
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const result = await geocodeEndereco(enderecoCompleto);
+      if (result) {
+        setEnderecoData((prev) => ({
+          ...prev,
+          latitude: result.latitude,
+          longitude: result.longitude,
+        }));
+        toast.success("Localização encontrada no mapa!");
+      } else {
+        toast.error("Não foi possível encontrar o endereço no mapa.");
+      }
+    } catch (error) {
+      console.error("Erro ao geocodificar:", error);
+      toast.error("Erro ao localizar endereço.");
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  const handleMapPositionChange = (lat: number, lng: number) => {
+    setEnderecoData((prev) => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+    }));
+    toast.success("Localização atualizada no mapa");
+  };
+
+  const hasAddress = enderecoData.logradouro && enderecoData.cidade;
 
   return (
     <div className="space-y-6">
@@ -186,7 +348,7 @@ export function ConfiguracoesGeral() {
             </div>
           </div>
 
-          <div className="grid grid-cols-[1fr_auto] gap-4">
+          <div className="grid grid-cols-[1fr_auto] gap-4 mb-4">
             <div>
               <Label className="text-xs text-muted-foreground">Nome da Empresa</Label>
               <Input
@@ -208,12 +370,167 @@ export function ConfiguracoesGeral() {
                   value={corPrimaria}
                   onChange={(e) => setCorPrimaria(e.target.value)}
                   className="w-24"
+                  skipUppercase
                 />
               </div>
             </div>
           </div>
+
+          <Button onClick={handleSaveIdentidade} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+            {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+            Salvar Identidade
+          </Button>
         </Card>
       </div>
+
+      {/* Endereço da Empresa */}
+      <Card className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Building2 className="w-5 h-5 text-primary" />
+          <h2 className="font-semibold text-foreground">Endereço da Empresa</h2>
+        </div>
+
+        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              Este endereço será usado como ponto de referência para calcular a distância até os clientes.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Form Fields */}
+          <div className="space-y-4">
+            {/* CEP */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Label className="text-xs text-muted-foreground">CEP</Label>
+                <Input
+                  placeholder="00000-000"
+                  value={enderecoData.cep}
+                  onChange={(e) => handleEnderecoChange("cep", e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleCepSearch}
+                  disabled={isSearchingCep}
+                  title="Buscar CEP"
+                >
+                  {isSearchingCep ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Logradouro + Número */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">Logradouro</Label>
+                <Input
+                  placeholder="Rua, Avenida..."
+                  value={enderecoData.logradouro}
+                  onChange={(e) => handleEnderecoChange("logradouro", e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Número</Label>
+                <Input
+                  placeholder="Nº"
+                  value={enderecoData.numero}
+                  onChange={(e) => handleEnderecoChange("numero", e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Bairro + Complemento */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-muted-foreground">Bairro</Label>
+                <Input
+                  placeholder="Bairro"
+                  value={enderecoData.bairro}
+                  onChange={(e) => handleEnderecoChange("bairro", e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Complemento</Label>
+                <Input
+                  placeholder="Complemento"
+                  value={enderecoData.complemento}
+                  onChange={(e) => handleEnderecoChange("complemento", e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Cidade + UF */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2">
+                <Label className="text-xs text-muted-foreground">Cidade</Label>
+                <Input
+                  placeholder="Cidade"
+                  value={enderecoData.cidade}
+                  onChange={(e) => handleEnderecoChange("cidade", e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">UF</Label>
+                <Input
+                  placeholder="SP"
+                  value={enderecoData.uf}
+                  onChange={(e) => handleEnderecoChange("uf", e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Botão Geocodificar */}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => handleGeocode()}
+              disabled={isGeocoding || !hasAddress}
+            >
+              {isGeocoding ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <MapPin className="w-4 h-4" />
+              )}
+              Localizar no Mapa
+            </Button>
+
+            {/* Coordenadas */}
+            {enderecoData.latitude && enderecoData.longitude && (
+              <div className="flex gap-4 text-xs text-muted-foreground">
+                <span>Lat: {enderecoData.latitude.toFixed(6)}</span>
+                <span>Lng: {enderecoData.longitude.toFixed(6)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Map */}
+          <AddressMap
+            latitude={enderecoData.latitude}
+            longitude={enderecoData.longitude}
+            onPositionChange={handleMapPositionChange}
+            draggable={true}
+            height="300px"
+          />
+        </div>
+
+        <div className="mt-4">
+          <Button onClick={handleSaveEndereco} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+            {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+            Salvar Endereço da Empresa
+          </Button>
+        </div>
+      </Card>
 
       {/* Dados de Pagamento */}
       <Card className="p-6">
@@ -259,6 +576,7 @@ export function ConfiguracoesGeral() {
                 value={chavePix}
                 onChange={(e) => setChavePix(e.target.value)}
                 placeholder="Digite sua chave PIX"
+                skipUppercase={tipoChave === "email"}
               />
             </div>
           </div>
@@ -306,8 +624,8 @@ export function ConfiguracoesGeral() {
           </div>
         </div>
 
-        <Button onClick={handleSavePayment} className="bg-green-600 hover:bg-green-700">
-          <Check className="w-4 h-4 mr-2" />
+        <Button onClick={handleSavePayment} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+          {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
           Salvar Dados de Pagamento
         </Button>
       </Card>
@@ -339,7 +657,7 @@ export function ConfiguracoesGeral() {
                 className="text-xs cursor-pointer hover:bg-secondary/80"
                 onClick={() => {
                   navigator.clipboard.writeText(variable);
-                  toast({ title: "Variável copiada!" });
+                  toast.success("Variável copiada!");
                 }}
               >
                 {variable}
@@ -374,6 +692,7 @@ export function ConfiguracoesGeral() {
               onChange={(e) => setTemplatePix(e.target.value)}
               rows={12}
               className="mt-2 font-mono text-sm"
+              skipUppercase
             />
           </TabsContent>
 
@@ -386,6 +705,7 @@ export function ConfiguracoesGeral() {
               onChange={(e) => setTemplateBoleto(e.target.value)}
               rows={12}
               className="mt-2 font-mono text-sm"
+              skipUppercase
             />
           </TabsContent>
 
@@ -398,12 +718,13 @@ export function ConfiguracoesGeral() {
               onChange={(e) => setTemplateTransferencia(e.target.value)}
               rows={12}
               className="mt-2 font-mono text-sm"
+              skipUppercase
             />
           </TabsContent>
         </Tabs>
 
-        <Button onClick={handleSaveTemplates} className="bg-green-600 hover:bg-green-700">
-          <Check className="w-4 h-4 mr-2" />
+        <Button onClick={handleSaveTemplates} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+          {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
           Salvar Templates
         </Button>
       </Card>
@@ -424,28 +745,17 @@ export function ConfiguracoesGeral() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <Label className="text-xs text-muted-foreground">Número do WhatsApp</Label>
-            <Input
-              value={whatsappNumero}
-              onChange={(e) => setWhatsappNumero(e.target.value)}
-              placeholder="+55 11 99999-9999"
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">API Key</Label>
-            <Input
-              type="password"
-              value={whatsappApiKey}
-              onChange={(e) => setWhatsappApiKey(e.target.value)}
-              placeholder="Digite sua API Key"
-            />
-          </div>
+        <div className="mb-4">
+          <Label className="text-xs text-muted-foreground">Número do WhatsApp</Label>
+          <Input
+            value={whatsappNumero}
+            onChange={(e) => setWhatsappNumero(e.target.value)}
+            placeholder="+55 11 99999-9999"
+          />
         </div>
 
-        <Button onClick={handleSaveWhatsApp} className="bg-green-600 hover:bg-green-700">
-          <MessageSquare className="w-4 h-4 mr-2" />
+        <Button onClick={handleSaveWhatsApp} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+          {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageSquare className="w-4 h-4 mr-2" />}
           Salvar Configurações WhatsApp
         </Button>
       </Card>

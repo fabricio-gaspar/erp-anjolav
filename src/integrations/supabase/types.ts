@@ -445,6 +445,15 @@ export type Database = {
           banco_titular: string | null
           cor_primaria: string | null
           created_at: string
+          endereco_bairro: string | null
+          endereco_cep: string | null
+          endereco_cidade: string | null
+          endereco_complemento: string | null
+          endereco_latitude: number | null
+          endereco_logradouro: string | null
+          endereco_longitude: number | null
+          endereco_numero: string | null
+          endereco_uf: string | null
           id: string
           logo_url: string | null
           nome_empresa: string | null
@@ -463,6 +472,15 @@ export type Database = {
           banco_titular?: string | null
           cor_primaria?: string | null
           created_at?: string
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_complemento?: string | null
+          endereco_latitude?: number | null
+          endereco_logradouro?: string | null
+          endereco_longitude?: number | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
           id?: string
           logo_url?: string | null
           nome_empresa?: string | null
@@ -481,6 +499,15 @@ export type Database = {
           banco_titular?: string | null
           cor_primaria?: string | null
           created_at?: string
+          endereco_bairro?: string | null
+          endereco_cep?: string | null
+          endereco_cidade?: string | null
+          endereco_complemento?: string | null
+          endereco_latitude?: number | null
+          endereco_logradouro?: string | null
+          endereco_longitude?: number | null
+          endereco_numero?: string | null
+          endereco_uf?: string | null
           id?: string
           logo_url?: string | null
           nome_empresa?: string | null

@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Lightbulb, Loader2, Search, MapPin } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Check, Lightbulb, Loader2, Search, MapPin, Building2, Navigation } from "lucide-react";
 import { useEnderecoCliente } from "@/hooks/useClientes";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { toast } from "sonner";
 import { 
   buscarCepComFallback, 
   geocodeEndereco, 
   montarEnderecoCompleto,
+  calcularDistanciaKm,
   BrasilApiCnpjResponse 
 } from "@/services/apiServices";
 import { AddressMap } from "@/components/ui/AddressMap";
@@ -21,8 +24,10 @@ interface ClienteEnderecoProps {
 
 export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: ClienteEnderecoProps) => {
   const { endereco, isLoading, upsertEndereco } = useEnderecoCliente(clienteId);
+  const { configuracao } = useConfiguracoesGerais();
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const [formData, setFormData] = useState({
     cep: "",
@@ -36,6 +41,21 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
     latitude: null as number | null,
     longitude: null as number | null,
   });
+
+  // Coordenadas da empresa
+  const empresaLatitude = configuracao?.endereco_latitude ?? null;
+  const empresaLongitude = configuracao?.endereco_longitude ?? null;
+  const hasEmpresaCoordinates = empresaLatitude !== null && empresaLongitude !== null;
+
+  // Calcular distância
+  const distancia = formData.latitude && formData.longitude && hasEmpresaCoordinates
+    ? calcularDistanciaKm(
+        empresaLatitude!,
+        empresaLongitude!,
+        formData.latitude,
+        formData.longitude
+      )
+    : null;
 
   // Carregar dados existentes
   useEffect(() => {
@@ -101,6 +121,28 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
     }
   }, [clienteId]);
 
+  // Auto-geocoding quando endereço está completo
+  useEffect(() => {
+    const { logradouro, cidade, uf, numero } = formData;
+    
+    // Só auto-geocodificar se tiver os campos principais e não tiver coordenadas
+    if (logradouro && cidade && uf && numero && !formData.latitude) {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+      
+      debounceRef.current = setTimeout(() => {
+        handleGeocode();
+      }, 1500);
+    }
+    
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [formData.logradouro, formData.cidade, formData.uf, formData.numero]);
+
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -137,6 +179,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
           latitude: result.latitude,
           longitude: result.longitude,
         }));
+        toast.success("Localização encontrada no mapa!");
       }
     } catch (error) {
       console.error("Erro ao geocodificar:", error);
@@ -347,27 +390,60 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
             Localizar no Mapa
           </Button>
 
-          {/* Coordenadas */}
-          {formData.latitude && formData.longitude && (
-            <div className="flex gap-4 text-xs text-muted-foreground">
-              <span>Lat: {formData.latitude.toFixed(6)}</span>
-              <span>Lng: {formData.longitude.toFixed(6)}</span>
-            </div>
-          )}
+          {/* Coordenadas e Distância */}
+          <div className="flex flex-wrap gap-2 items-center">
+            {formData.latitude && formData.longitude && (
+              <div className="flex gap-4 text-xs text-muted-foreground">
+                <span>Lat: {formData.latitude.toFixed(6)}</span>
+                <span>Lng: {formData.longitude.toFixed(6)}</span>
+              </div>
+            )}
+            
+            {/* Badge de Distância */}
+            {distancia !== null && (
+              <Badge variant="secondary" className="gap-1.5 ml-auto">
+                <Navigation className="w-3 h-3" />
+                {distancia < 1 
+                  ? `${(distancia * 1000).toFixed(0)} m da empresa`
+                  : `${distancia.toFixed(1)} km da empresa`
+                }
+              </Badge>
+            )}
+          </div>
 
           {/* Dica */}
           <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-amber-700">
-              <span className="font-medium">Dica:</span> Arraste o marcador no mapa para ajustar a localização exata da entrada. Clique no mapa para definir uma nova posição.
+              <span className="font-medium">Dica:</span> Arraste o marcador no mapa para ajustar a localização exata. 
+              {hasEmpresaCoordinates && (
+                <> O marcador <span className="text-blue-600 font-medium">azul</span> indica a empresa e o <span className="text-red-600 font-medium">vermelho</span> o cliente.</>
+              )}
             </p>
           </div>
+
+          {/* Legenda dos marcadores */}
+          {hasEmpresaCoordinates && formData.latitude && formData.longitude && (
+            <div className="flex gap-4 text-xs text-muted-foreground p-2 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-blue-500" />
+                <span>Empresa</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-red-500" />
+                <span>Cliente</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Map */}
         <AddressMap
           latitude={formData.latitude}
           longitude={formData.longitude}
+          companyLatitude={empresaLatitude}
+          companyLongitude={empresaLongitude}
+          showCompanyMarker={hasEmpresaCoordinates}
           onPositionChange={handleMapPositionChange}
           draggable={true}
           height="400px"
