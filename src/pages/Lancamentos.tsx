@@ -359,7 +359,7 @@ const Lancamentos = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="novo" className="mt-6">
+          <TabsContent value="novo" className="mt-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left Panel - Form */}
               <Card className="p-6">
@@ -747,8 +747,8 @@ const Lancamentos = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="conferencia" className="mt-6">
-            <div className="space-y-6">
+          <TabsContent value="conferencia" className="mt-4">
+            <div className="space-y-4">
               {/* Filters Section */}
               <Card className="p-4">
                 <div className="flex flex-wrap items-center gap-4">
