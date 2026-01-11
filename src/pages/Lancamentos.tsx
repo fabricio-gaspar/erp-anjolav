@@ -60,10 +60,16 @@ import {
   ChevronsUpDown,
   Package,
   AlertCircle,
+  Scale,
+  Boxes,
 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { usePrintLancamento, type LancamentosPrintData } from "@/hooks/usePrintOS";
 import { useClientes } from "@/hooks/useClientes";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
+import { useConferenciaProducao, type OSConferencia } from "@/hooks/useConferenciaProducao";
+import { ConferenciaModal } from "@/components/lancamentos/ConferenciaModal";
 
 interface LancamentoItem {
   id: string;
@@ -79,57 +85,6 @@ interface ClienteSelecionado {
   documento: string;
   telefone: string;
 }
-
-interface LancamentoConferencia {
-  id: string;
-  cliente: string;
-  dataEmissao: string;
-  dataEntrega: string;
-  itensCount: number;
-  valorTotal: number;
-  status: "pendente" | "conferido" | "divergencia";
-  observacao?: string;
-}
-
-const mockConferencias: LancamentoConferencia[] = [
-  {
-    id: "1",
-    cliente: "FABRICIO GASPAR",
-    dataEmissao: "09/01/2026",
-    dataEntrega: "09/01/2026",
-    itensCount: 3,
-    valorTotal: 125.50,
-    status: "pendente",
-  },
-  {
-    id: "2",
-    cliente: "HOTEL CENTRAL",
-    dataEmissao: "08/01/2026",
-    dataEntrega: "09/01/2026",
-    itensCount: 15,
-    valorTotal: 850.00,
-    status: "conferido",
-  },
-  {
-    id: "3",
-    cliente: "POUSADA SOL NASCENTE",
-    dataEmissao: "07/01/2026",
-    dataEntrega: "08/01/2026",
-    itensCount: 8,
-    valorTotal: 320.00,
-    status: "divergencia",
-    observacao: "Quantidade divergente em 2 itens",
-  },
-  {
-    id: "4",
-    cliente: "RESTAURANTE BOM SABOR",
-    dataEmissao: "06/01/2026",
-    dataEntrega: "07/01/2026",
-    itensCount: 5,
-    valorTotal: 180.00,
-    status: "pendente",
-  },
-];
 
 const periodOptions = ["Hoje", "Semana", "Quinzena", "Mês", "Personalizado"];
 
@@ -154,10 +109,16 @@ const Lancamentos = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("Semana");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedOS, setSelectedOS] = useState<OSConferencia | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   // Hooks for real data
   const { clientes, isLoading: isLoadingClientes } = useClientes();
   const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(selectedClienteId);
+  const { data: osConferencias, isLoading: isLoadingConferencias } = useConferenciaProducao(
+    undefined,
+    statusFilter !== "todos" ? statusFilter : undefined
+  );
 
   // Print hook
   const { printROLFromData, isLoading: isPrinting } = usePrintLancamento();
@@ -231,12 +192,31 @@ const Lancamentos = () => {
     setQuantidade(1);
   };
 
-  // Filter conferencias
-  const filteredConferencias = mockConferencias.filter((conf) => {
-    const matchesStatus = statusFilter === "todos" || conf.status === statusFilter;
-    const matchesSearch = conf.cliente.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
+  // Filter conferencias by search
+  const filteredConferencias = useMemo(() => {
+    if (!osConferencias) return [];
+    if (!searchQuery) return osConferencias;
+    return osConferencias.filter((os) =>
+      os.cliente.razao_social.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      os.numero.includes(searchQuery)
+    );
+  }, [osConferencias, searchQuery]);
+
+  // Summary counts
+  const conferenciasCounts = useMemo(() => {
+    if (!osConferencias) return { pendente: 0, conferido: 0, divergencia: 0, lancado: 0 };
+    return {
+      pendente: osConferencias.filter((os) => os.statusConferencia === "pendente").length,
+      conferido: osConferencias.filter((os) => os.statusConferencia === "conferido").length,
+      divergencia: osConferencias.filter((os) => os.statusConferencia === "divergencia").length,
+      lancado: osConferencias.filter((os) => os.statusConferencia === "lancado").length,
+    };
+  }, [osConferencias]);
+
+  const handleOpenOSDetails = (os: OSConferencia) => {
+    setSelectedOS(os);
+    setModalOpen(true);
+  };
 
   const formatCurrency = (value: number) => {
     return `R$ ${value.toFixed(2).replace(".", ",")}`;
@@ -747,7 +727,7 @@ const Lancamentos = () => {
               </Card>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -755,9 +735,9 @@ const Lancamentos = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-foreground">
-                        {mockConferencias.filter((c) => c.status === "pendente").length}
+                        {conferenciasCounts.pendente}
                       </p>
-                      <p className="text-xs text-muted-foreground">Pendentes de Conferência</p>
+                      <p className="text-xs text-muted-foreground">Pendentes</p>
                     </div>
                   </div>
                 </Card>
@@ -769,9 +749,23 @@ const Lancamentos = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-foreground">
-                        {mockConferencias.filter((c) => c.status === "conferido").length}
+                        {conferenciasCounts.conferido}
                       </p>
                       <p className="text-xs text-muted-foreground">Conferidos</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-foreground">
+                        {conferenciasCounts.lancado}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Lançados</p>
                     </div>
                   </div>
                 </Card>
@@ -783,9 +777,9 @@ const Lancamentos = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-foreground">
-                        {mockConferencias.filter((c) => c.status === "divergencia").length}
+                        {conferenciasCounts.divergencia}
                       </p>
-                      <p className="text-xs text-muted-foreground">Com Divergências</p>
+                      <p className="text-xs text-muted-foreground">Divergências</p>
                     </div>
                   </div>
                 </Card>
@@ -795,99 +789,150 @@ const Lancamentos = () => {
               <Card className="overflow-hidden">
                 <div className="p-4 border-b flex items-center gap-2">
                   <ClipboardList className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold">Lançamentos para Conferência</h3>
+                  <h3 className="font-semibold">OS para Conferência</h3>
                   <Badge variant="secondary" className="ml-auto">
                     {filteredConferencias.length} registros
                   </Badge>
                 </div>
 
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="font-semibold">CLIENTE</TableHead>
-                      <TableHead className="font-semibold">DATA EMISSÃO</TableHead>
-                      <TableHead className="font-semibold">DATA ENTREGA</TableHead>
-                      <TableHead className="font-semibold text-center">ITENS</TableHead>
-                      <TableHead className="font-semibold text-right">VALOR</TableHead>
-                      <TableHead className="font-semibold">STATUS</TableHead>
-                      <TableHead className="font-semibold text-right">AÇÕES</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredConferencias.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                          Nenhum lançamento encontrado para o período selecionado
-                        </TableCell>
+                {isLoadingConferencias ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="font-semibold">OS</TableHead>
+                        <TableHead className="font-semibold">CLIENTE</TableHead>
+                        <TableHead className="font-semibold">RETIRADA</TableHead>
+                        <TableHead className="font-semibold text-center">PEÇAS</TableHead>
+                        <TableHead className="font-semibold text-center">PESO</TableHead>
+                        <TableHead className="font-semibold text-center">VOLUMES</TableHead>
+                        <TableHead className="font-semibold">STATUS</TableHead>
+                        <TableHead className="font-semibold text-right">AÇÕES</TableHead>
                       </TableRow>
-                    ) : (
-                      filteredConferencias.map((conf) => (
-                        <TableRow key={conf.id} className="hover:bg-muted/30">
-                          <TableCell>
-                            <p className="font-medium text-foreground">{conf.cliente}</p>
-                            {conf.observacao && (
-                              <p className="text-xs text-destructive mt-0.5">{conf.observacao}</p>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-sm">{conf.dataEmissao}</TableCell>
-                          <TableCell className="text-sm">{conf.dataEntrega}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="secondary">{conf.itensCount}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            {formatCurrency(conf.valorTotal)}
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge
-                              variant={
-                                conf.status === "conferido"
-                                  ? "success"
-                                  : conf.status === "divergencia"
-                                  ? "danger"
-                                  : "warning"
-                              }
-                            >
-                              {conf.status === "conferido"
-                                ? "Conferido"
-                                : conf.status === "divergencia"
-                                ? "Divergência"
-                                : "Pendente"}
-                            </StatusBadge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Eye className="w-4 h-4 text-muted-foreground" />
-                              </Button>
-                              {conf.status === "pendente" && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-success hover:text-success"
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-destructive hover:text-destructive"
-                                  >
-                                    <AlertTriangle className="w-4 h-4" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredConferencias.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                            Nenhuma OS encontrada para conferência
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        filteredConferencias.map((os) => (
+                          <TableRow key={os.id} className="hover:bg-muted/30">
+                            <TableCell>
+                              <Badge variant="outline" className="font-mono">
+                                {os.numero}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <p className="font-medium text-foreground">{os.cliente.razao_social}</p>
+                              {os.dadosProducao.itensDanificados && (
+                                <p className="text-xs text-destructive mt-0.5 flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  Itens danificados
+                                </p>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {format(new Date(os.dataRetirada), "dd/MM/yyyy", { locale: ptBR })}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Package className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-medium">{os.dadosProducao.quantidadePecas || "-"}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Scale className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-medium">
+                                  {os.dadosProducao.pesoFinal || os.dadosProducao.pesoTotal || "-"}
+                                  {(os.dadosProducao.pesoFinal || os.dadosProducao.pesoTotal) && " kg"}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Boxes className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-medium">{os.dadosProducao.quantidadeVolumes || "-"}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge
+                                variant={
+                                  os.statusConferencia === "lancado"
+                                    ? "info"
+                                    : os.statusConferencia === "conferido"
+                                    ? "success"
+                                    : os.statusConferencia === "divergencia"
+                                    ? "danger"
+                                    : "warning"
+                                }
+                              >
+                                {os.statusConferencia === "lancado"
+                                  ? "Lançado"
+                                  : os.statusConferencia === "conferido"
+                                  ? "Conferido"
+                                  : os.statusConferencia === "divergencia"
+                                  ? "Divergência"
+                                  : "Pendente"}
+                              </StatusBadge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => handleOpenOSDetails(os)}
+                                >
+                                  <Eye className="w-4 h-4 text-muted-foreground" />
+                                </Button>
+                                {os.statusConferencia !== "lancado" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-primary hover:text-primary"
+                                    onClick={() => handleOpenOSDetails(os)}
+                                    title="Gerar Lançamento"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                {os.statusConferencia === "lancado" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-violet-600 hover:text-violet-600"
+                                    onClick={() => handleOpenOSDetails(os)}
+                                    title="Imprimir"
+                                  >
+                                    <Printer className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
               </Card>
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Modal de Conferência */}
+        <ConferenciaModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          os={selectedOS}
+        />
       </div>
     </AppLayout>
   );
