@@ -136,87 +136,257 @@
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 
   /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
-
   ::-webkit-scrollbar-track {
-    background: transparent;
+    @apply bg-muted/30;
   }
-
   ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full;
+    @apply bg-muted-foreground/20 rounded-full;
   }
-
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/30;
   }
 }
 
 @layer components {
-  /* KPI Card Styles */
+  /* ============================================ */
+  /* SECTION HEADERS                              */
+  /* ============================================ */
+  .section-header {
+    @apply flex items-center gap-4 mb-5;
+  }
+
+  .section-header-icon {
+    @apply w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center;
+  }
+
+  .section-header-icon svg {
+    @apply w-4 h-4 text-primary;
+  }
+
+  .section-title {
+    @apply text-sm font-bold uppercase tracking-widest text-slate-600;
+  }
+
+  .section-header-line {
+    @apply h-px bg-gradient-to-r from-border via-border/50 to-transparent flex-1;
+  }
+
+  /* ============================================ */
+  /* CARD SYSTEM                                  */
+  /* ============================================ */
+  .card-base {
+    @apply bg-white border border-slate-200 rounded-xl shadow-sm 
+           hover:shadow-md transition-all duration-200;
+  }
+
+  .card-bordered {
+    @apply card-base border-l-4;
+  }
+
+  .card-bordered-primary {
+    @apply card-bordered border-l-primary;
+  }
+
+  .card-bordered-success {
+    @apply card-bordered border-l-success;
+  }
+
+  .card-bordered-warning {
+    @apply card-bordered border-l-warning;
+  }
+
+  .card-bordered-destructive {
+    @apply card-bordered border-l-destructive;
+  }
+
+  .card-bordered-info {
+    @apply card-bordered border-l-info;
+  }
+
+  /* ============================================ */
+  /* KPI CARDS                                    */
+  /* ============================================ */
   .kpi-card {
-    @apply bg-card rounded-lg border p-5 shadow-sm transition-shadow hover:shadow-md;
+    @apply card-bordered p-5 relative overflow-hidden;
+  }
+
+  .kpi-card-title {
+    @apply text-xs font-bold uppercase tracking-widest text-slate-500 mb-1;
+  }
+
+  .kpi-card-value {
+    @apply text-4xl font-bold text-slate-900 tracking-tight;
   }
 
   .kpi-card-icon {
-    @apply w-10 h-10 rounded-lg flex items-center justify-center;
+    @apply absolute top-4 right-4 w-12 h-12 rounded-full flex items-center justify-center;
   }
 
-  /* Status Badge Styles */
+  .kpi-card-trend {
+    @apply text-xs font-medium mt-2 flex items-center gap-1;
+  }
+
+  /* ============================================ */
+  /* DATA TABLE                                   */
+  /* ============================================ */
+  .data-table {
+    @apply w-full border-collapse;
+  }
+
+  .data-table thead {
+    @apply bg-slate-100/80 border-b-2 border-slate-200;
+  }
+
+  .data-table th {
+    @apply px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500;
+  }
+
+  .data-table td {
+    @apply px-4 py-3 border-b border-slate-100;
+  }
+
+  .data-table tbody tr {
+    @apply transition-colors;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-slate-50/80;
+  }
+
+  .data-table tbody tr:nth-child(even) {
+    @apply bg-slate-50/40;
+  }
+
+  /* ============================================ */
+  /* SECTION DIVIDER                              */
+  /* ============================================ */
+  .section-divider {
+    @apply border-t-2 border-dashed border-slate-200/80 my-6;
+  }
+
+  /* ============================================ */
+  /* FINANCE CARDS                                */
+  /* ============================================ */
+  .finance-card {
+    @apply card-base p-5;
+  }
+
+  .finance-card-header {
+    @apply flex items-start justify-between pb-4 border-b border-slate-100;
+  }
+
+  /* ============================================ */
+  /* METRIC CARDS                                 */
+  /* ============================================ */
+  .metric-card {
+    @apply card-base p-4;
+  }
+
+  .metric-card-header {
+    @apply flex items-center gap-2 mb-3 pb-2 border-b border-slate-100;
+  }
+
+  .metric-card-icon {
+    @apply w-8 h-8 rounded-lg flex items-center justify-center;
+  }
+
+  .metric-card-title {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .metric-card-value {
+    @apply text-2xl font-bold text-slate-900;
+  }
+
+  /* ============================================ */
+  /* STATUS BADGES                                */
+  /* ============================================ */
   .status-badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full;
   }
 
-  .status-badge-success {
-    @apply bg-success-light text-success;
-  }
-
-  .status-badge-warning {
-    @apply bg-warning-light text-warning;
-  }
-
-  .status-badge-danger {
-    @apply bg-destructive-light text-destructive;
-  }
-
-  .status-badge-info {
-    @apply bg-info-light text-info;
-  }
-
+  /* ============================================ */
+  /* LEGACY STYLES (SIDEBAR, KANBAN, ETC.)        */
+  /* ============================================ */
   /* Alphabet Filter */
   .alphabet-filter {
-    @apply flex gap-0.5 flex-wrap;
+    @apply flex flex-wrap gap-1 p-2 bg-muted/50 rounded-lg;
   }
-
-  .alphabet-filter-btn {
-    @apply w-7 h-7 rounded text-xs font-medium text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-colors;
+  .alphabet-filter button {
+    @apply w-7 h-7 text-xs font-medium rounded transition-all;
   }
-
-  .alphabet-filter-btn.active {
+  .alphabet-filter button:hover {
+    @apply bg-primary/10 text-primary;
+  }
+  .alphabet-filter button.active {
     @apply bg-primary text-primary-foreground;
   }
 
-  /* Product Card */
+  /* Product Cards */
   .product-card {
-    @apply bg-card border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer;
+    @apply bg-card border rounded-xl p-4 transition-all hover:shadow-md;
+  }
+  .product-card-header {
+    @apply flex items-start justify-between mb-3;
+  }
+  .product-card-title {
+    @apply font-semibold text-foreground;
+  }
+  .product-card-badge {
+    @apply text-[10px] font-medium;
   }
 
-  /* Kanban Column */
+  /* Kanban */
+  .kanban-board {
+    @apply flex gap-4 overflow-x-auto pb-4;
+  }
   .kanban-column {
-    @apply flex-1 min-w-[200px] bg-muted/30 rounded-lg p-3;
+    @apply flex-shrink-0 w-72 bg-muted/30 rounded-xl p-3;
+  }
+  .kanban-column-header {
+    @apply flex items-center justify-between mb-3 pb-2 border-b border-border/50;
+  }
+  .kanban-card {
+    @apply bg-card border rounded-lg p-3 mb-2 cursor-pointer transition-all hover:shadow-sm;
   }
 
-  .kanban-card {
-    @apply bg-card border rounded-lg p-3 mb-2 shadow-sm cursor-grab hover:shadow-md transition-shadow;
+  /* Sidebar User Menu */
+  .sidebar-user-menu {
+    @apply absolute bottom-full left-0 w-full mb-2 bg-popover border rounded-lg shadow-lg p-1 z-50;
+  }
+
+  .sidebar-user-menu-item {
+    @apply flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md transition-colors;
+  }
+
+  .sidebar-user-menu-item:hover {
+    @apply bg-muted;
+  }
+
+  .sidebar-user-menu-item.destructive {
+    @apply text-destructive hover:bg-destructive/10;
+  }
+}
+
+@layer utilities {
+  .success-light-color {
+    color: hsl(142, 71%, 45%);
+  }
+  .warning-light-color {
+    color: hsl(38, 92%, 50%);
+  }
+  .info-light-color {
+    color: hsl(199, 89%, 48%);
   }
 }
 

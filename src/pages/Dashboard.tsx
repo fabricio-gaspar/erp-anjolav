@@ -1,11 +1,11 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import { SectionHeader } from "@/components/ui/section-header";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { FinanceCard } from "@/components/dashboard/FinanceCard";
 import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
 import { OperationalCosts } from "@/components/dashboard/OperationalCosts";
 import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   FileText, 
@@ -19,6 +19,9 @@ import {
   Clock,
   User,
   Activity,
+  BarChart3,
+  Wallet,
+  CalendarDays,
 } from "lucide-react";
 import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
 import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
@@ -172,12 +175,10 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Métricas e visão operacional">
-      <div className="space-y-4">
+      <div className="space-y-8">
         {/* KPIs Section */}
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-            Métricas Rápidas
-          </h2>
+          <SectionHeader icon={BarChart3} title="Métricas Rápidas" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {kpis.map((kpi, index) => (
               <KPICard
@@ -191,117 +192,123 @@ const Dashboard = () => {
           </div>
         </section>
 
+        {/* Divider */}
+        <div className="section-divider" />
+
         {/* Produção em Tempo Real */}
         {metricasAvancadas && (
           <section>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-              Produção em Tempo Real
-            </h2>
+            <SectionHeader icon={Activity} title="Produção em Tempo Real" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Scale className="w-4 h-4" />
-                    Peso Processado Hoje
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{metricasAvancadas.pesoTotalHoje.toFixed(1)}kg</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Activity className="w-4 h-4" />
-                    Etapas Concluídas Hoje
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">{metricasAvancadas.totalEtapasHoje}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Mais Produtivo
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {metricasAvancadas.funcionarioMaisProdutivo ? (
-                    <div>
-                      <p className="text-lg font-bold truncate">
-                        {metricasAvancadas.funcionarioMaisProdutivo.nome}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {metricasAvancadas.funcionarioMaisProdutivo.etapas} etapas hoje
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">-</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Tempo Médio/Etapa
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-1">
-                    {Object.entries(metricasAvancadas.mediaTempoPorEtapa || {})
-                      .slice(0, 2)
-                      .map(([etapa, tempo]) => (
-                        <div key={etapa} className="flex items-center justify-between text-xs">
-                          <Badge variant="secondary" className="text-[10px]">
-                            {etapaLabels[etapa] || etapa}
-                          </Badge>
-                          <span className="font-medium">{tempo}</span>
-                        </div>
-                      ))}
-                    {Object.keys(metricasAvancadas.mediaTempoPorEtapa || {}).length === 0 && (
-                      <p className="text-muted-foreground text-sm">Sem dados</p>
-                    )}
+              {/* Peso Processado */}
+              <div className="metric-card">
+                <div className="metric-card-header">
+                  <div className="metric-card-icon bg-primary/10">
+                    <Scale className="w-4 h-4 text-primary" />
                   </div>
-                </CardContent>
-              </Card>
+                  <span className="metric-card-title">Peso Processado Hoje</span>
+                </div>
+                <p className="metric-card-value">{metricasAvancadas.pesoTotalHoje.toFixed(1)}kg</p>
+              </div>
+
+              {/* Etapas Concluídas */}
+              <div className="metric-card">
+                <div className="metric-card-header">
+                  <div className="metric-card-icon bg-success/10">
+                    <Activity className="w-4 h-4 text-success" />
+                  </div>
+                  <span className="metric-card-title">Etapas Concluídas Hoje</span>
+                </div>
+                <p className="metric-card-value">{metricasAvancadas.totalEtapasHoje}</p>
+              </div>
+
+              {/* Mais Produtivo */}
+              <div className="metric-card">
+                <div className="metric-card-header">
+                  <div className="metric-card-icon bg-warning/10">
+                    <User className="w-4 h-4 text-warning" />
+                  </div>
+                  <span className="metric-card-title">Mais Produtivo</span>
+                </div>
+                {metricasAvancadas.funcionarioMaisProdutivo ? (
+                  <div>
+                    <p className="metric-card-value text-xl truncate">
+                      {metricasAvancadas.funcionarioMaisProdutivo.nome}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {metricasAvancadas.funcionarioMaisProdutivo.etapas} etapas hoje
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-slate-400">-</p>
+                )}
+              </div>
+
+              {/* Tempo Médio */}
+              <div className="metric-card">
+                <div className="metric-card-header">
+                  <div className="metric-card-icon bg-info/10">
+                    <Clock className="w-4 h-4 text-info" />
+                  </div>
+                  <span className="metric-card-title">Tempo Médio/Etapa</span>
+                </div>
+                <div className="space-y-2">
+                  {Object.entries(metricasAvancadas.mediaTempoPorEtapa || {})
+                    .slice(0, 2)
+                    .map(([etapa, tempo]) => (
+                      <div key={etapa} className="flex items-center justify-between text-xs">
+                        <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-600">
+                          {etapaLabels[etapa] || etapa}
+                        </Badge>
+                        <span className="font-bold text-slate-700">{tempo}</span>
+                      </div>
+                    ))}
+                  {Object.keys(metricasAvancadas.mediaTempoPorEtapa || {}).length === 0 && (
+                    <p className="text-slate-400 text-sm">Sem dados</p>
+                  )}
+                </div>
+              </div>
             </div>
           </section>
         )}
 
+        {/* Divider */}
+        <div className="section-divider" />
+
         {/* Finance Cards */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <FinanceCard
-            title="Contas a Receber"
-            subtitle="Em desenvolvimento"
-            total={0}
-            icon={TrendingUp}
-            variant="receivable"
-            items={[]}
-          />
-          <FinanceCard
-            title="Contas a Pagar"
-            subtitle={`${contasPendentes.length} pendentes`}
-            total={totalContasPagar}
-            icon={TrendingDown}
-            variant="payable"
-            items={contasPendentes.slice(0, 3).map((c) => ({
-              id: c.id,
-              status: new Date(c.vencimento) < new Date() ? "vencida" as const : "a_vencer" as const,
-              clientName: c.fornecedor || c.descricao,
-              value: Number(c.valor),
-              dueDate: format(new Date(c.vencimento), "dd/MM", { locale: ptBR }),
-            }))}
-          />
+        <section>
+          <SectionHeader icon={Wallet} title="Visão Financeira" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <FinanceCard
+              title="Contas a Receber"
+              subtitle="Em desenvolvimento"
+              total={0}
+              icon={TrendingUp}
+              variant="receivable"
+              items={[]}
+            />
+            <FinanceCard
+              title="Contas a Pagar"
+              subtitle={`${contasPendentes.length} pendentes`}
+              total={totalContasPagar}
+              icon={TrendingDown}
+              variant="payable"
+              items={contasPendentes.slice(0, 3).map((c) => ({
+                id: c.id,
+                status: new Date(c.vencimento) < new Date() ? "vencida" as const : "a_vencer" as const,
+                clientName: c.fornecedor || c.descricao,
+                value: Number(c.valor),
+                dueDate: format(new Date(c.vencimento), "dd/MM", { locale: ptBR }),
+              }))}
+            />
+          </div>
         </section>
 
+        {/* Divider */}
+        <div className="section-divider" />
+
         {/* Production & Costs */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <ProductionBottleneck
             items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
             recommendation={recommendation}
@@ -315,19 +322,31 @@ const Dashboard = () => {
           />
         </section>
 
+        {/* Divider */}
+        <div className="section-divider" />
+
         {/* Processing Summary */}
-        <ProcessingSummary
-          items={
-            processingItems.length > 0
-              ? processingItems
-              : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
-          }
-        />
+        <section>
+          <SectionHeader icon={FileText} title="OS em Processamento" />
+          <ProcessingSummary
+            items={
+              processingItems.length > 0
+                ? processingItems
+                : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
+            }
+          />
+        </section>
+
+        {/* Divider */}
+        <div className="section-divider" />
 
         {/* Daily Schedule */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
-          <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
+        <section>
+          <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
+            <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
+          </div>
         </section>
       </div>
     </AppLayout>

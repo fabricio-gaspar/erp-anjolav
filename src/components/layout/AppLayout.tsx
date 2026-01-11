@@ -14,15 +14,17 @@ export function AppLayout({ title, subtitle, children }: AppLayoutProps) {
   const { isCollapsed } = useSidebarContext();
   
   return (
-    <div className="min-h-screen bg-background flex w-full">
+    <div className="min-h-screen bg-slate-50/50 flex w-full">
       <AppSidebar />
       <div className={cn(
         "flex-1 transition-all duration-300",
         isCollapsed ? "ml-16" : "ml-56"
       )}>
         <AppHeader title={title} subtitle={subtitle} />
-        <main className="p-4">
-          {children || <Outlet />}
+        <main className="px-6 py-5">
+          <div className="max-w-[1800px] mx-auto">
+            {children || <Outlet />}
+          </div>
         </main>
       </div>
     </div>
