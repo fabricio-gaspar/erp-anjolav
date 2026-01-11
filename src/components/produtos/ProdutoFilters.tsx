@@ -127,21 +127,23 @@ export function ProdutoFilters({
       </div>
 
       {/* Alphabet Filter */}
-      <div className="flex gap-0.5 flex-wrap">
-        {alphabet.map((letter) => (
-          <button
-            key={letter}
-            onClick={() => onLetterChange(letter)}
-            className={cn(
-              "min-w-[28px] h-7 px-1.5 rounded text-xs font-medium transition-colors",
-              selectedLetter === letter
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            {letter}
-          </button>
-        ))}
+      <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-1">
+        <div className="flex gap-0.5 min-w-max sm:flex-wrap sm:min-w-0">
+          {alphabet.map((letter) => (
+            <button
+              key={letter}
+              onClick={() => onLetterChange(letter)}
+              className={cn(
+                "min-w-[28px] h-7 px-1.5 rounded text-xs font-medium transition-colors",
+                selectedLetter === letter
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {letter}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { Bell, ChevronRight, Search } from "lucide-react";
+import { Bell, ChevronRight, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "react-router-dom";
 import {
@@ -11,6 +11,8 @@ import {
 interface AppHeaderProps {
   title?: string;
   subtitle?: string;
+  onMenuClick?: () => void;
+  showMenuButton?: boolean;
 }
 
 const routeNames: Record<string, string> = {
@@ -75,7 +77,7 @@ function Breadcrumb() {
   );
 }
 
-export function AppHeader({ title, subtitle }: AppHeaderProps) {
+export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppHeaderProps) {
   const notifications = [
     { id: 1, title: "Nova OS criada", description: "OS #1234 foi registrada", time: "2 min atrás" },
     { id: 2, title: "Fatura vencida", description: "Cliente ABC - R$ 1.500,00", time: "1 hora atrás" },
@@ -83,21 +85,30 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
   ];
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between px-4 sticky top-0 z-30">
-      <div className="flex flex-col justify-center">
-        {title ? (
-          <>
-            <h1 className="text-lg font-bold text-slate-800 leading-tight">{title}</h1>
-            {subtitle && (
-              <p className="text-xs text-slate-500 leading-tight">{subtitle}</p>
-            )}
-          </>
-        ) : (
-          <Breadcrumb />
+    <header className="h-14 sm:h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between px-3 sm:px-4 sticky top-0 z-30">
+      <div className="flex items-center gap-3">
+        {/* Mobile menu button */}
+        {showMenuButton && (
+          <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0">
+            <Menu className="w-5 h-5" />
+          </Button>
         )}
+        
+        <div className="flex flex-col justify-center min-w-0">
+          {title ? (
+            <>
+              <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight truncate">{title}</h1>
+              {subtitle && (
+                <p className="text-xs text-slate-500 leading-tight truncate hidden sm:block">{subtitle}</p>
+              )}
+            </>
+          ) : (
+            <Breadcrumb />
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Search button */}
         <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-muted-foreground">
           <Search className="w-4 h-4" />

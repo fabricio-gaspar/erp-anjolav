@@ -103,30 +103,32 @@ const Clientes = () => {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-muted/50 p-1 rounded-lg flex-wrap">
-            <TabsTrigger value="lista">Lista de Clientes</TabsTrigger>
-            <TabsTrigger value="dados">Dados Básicos</TabsTrigger>
-            <TabsTrigger value="endereco" disabled={!selectedClienteId}>Endereço</TabsTrigger>
-            <TabsTrigger value="pagamento" disabled={!selectedClienteId}>Pagamento</TabsTrigger>
-            <TabsTrigger value="configuracao" disabled={!selectedClienteId}>Configuração</TabsTrigger>
-            <TabsTrigger value="contrato" disabled={!selectedClienteId}>Contrato</TabsTrigger>
-            <TabsTrigger value="precos" disabled={!selectedClienteId}>Tabela de Preços</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+            <TabsList className="bg-muted/50 p-1 rounded-lg inline-flex min-w-max">
+              <TabsTrigger value="lista">Lista</TabsTrigger>
+              <TabsTrigger value="dados">Dados</TabsTrigger>
+              <TabsTrigger value="endereco" disabled={!selectedClienteId}>Endereço</TabsTrigger>
+              <TabsTrigger value="pagamento" disabled={!selectedClienteId}>Pagamento</TabsTrigger>
+              <TabsTrigger value="configuracao" disabled={!selectedClienteId}>Config.</TabsTrigger>
+              <TabsTrigger value="contrato" disabled={!selectedClienteId}>Contrato</TabsTrigger>
+              <TabsTrigger value="precos" disabled={!selectedClienteId}>Preços</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="lista" className="mt-4">
-            <div className="flex items-center justify-between gap-4 mb-4">
-              <div className="flex items-center gap-2 flex-1">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Pesquisar por nome ou documento..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Pesquisar..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
 
-                <div className="flex gap-1">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1 overflow-x-auto">
                   <Button
                     variant={filter === "todos" ? "default" : "outline"}
                     size="sm"
@@ -141,7 +143,7 @@ const Clientes = () => {
                     className="gap-1"
                   >
                     <Building2 className="w-3 h-3" />
-                    Industrial
+                    <span className="hidden sm:inline">Industrial</span>
                   </Button>
                   <Button
                     variant={filter === "residencial" ? "default" : "outline"}
@@ -150,18 +152,18 @@ const Clientes = () => {
                     className="gap-1"
                   >
                     <Home className="w-3 h-3" />
-                    Residencial
+                    <span className="hidden sm:inline">Residencial</span>
                   </Button>
                 </div>
-              </div>
 
-              <Button className="gap-2" onClick={handleNovoCliente}>
-                <Plus className="w-4 h-4" />
-                Novo Cliente
-              </Button>
+                <Button className="gap-2 shrink-0" onClick={handleNovoCliente}>
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Novo Cliente</span>
+                </Button>
+              </div>
             </div>
 
-            <div className="bg-card border rounded-lg overflow-hidden">
+            <div className="bg-card border rounded-lg overflow-x-auto">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />

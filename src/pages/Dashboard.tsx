@@ -179,7 +179,7 @@ const Dashboard = () => {
         {/* KPIs Section */}
         <section>
           <SectionHeader icon={BarChart3} title="Métricas Rápidas" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             {kpis.map((kpi, index) => (
               <KPICard
                 key={index}
@@ -199,7 +199,7 @@ const Dashboard = () => {
         {metricasAvancadas && (
           <section>
             <SectionHeader icon={Activity} title="Produção em Tempo Real" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               {/* Peso Processado */}
               <div className="metric-card">
                 <div className="metric-card-header">
@@ -278,7 +278,7 @@ const Dashboard = () => {
         {/* Finance Cards */}
         <section>
           <SectionHeader icon={Wallet} title="Visão Financeira" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
             <FinanceCard
               title="Contas a Receber"
               subtitle="Em desenvolvimento"
@@ -308,7 +308,7 @@ const Dashboard = () => {
         <div className="section-divider" />
 
         {/* Production & Costs */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           <ProductionBottleneck
             items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
             recommendation={recommendation}
@@ -343,7 +343,7 @@ const Dashboard = () => {
         {/* Daily Schedule */}
         <section>
           <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
             <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
             <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
           </div>
