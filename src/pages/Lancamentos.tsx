@@ -121,7 +121,7 @@ const Lancamentos = () => {
   );
 
   // Print hook
-  const { printROLFromData, isLoading: isPrinting } = usePrintLancamento();
+  const { printROLFromData, printEtiquetaFromData, isLoading: isPrinting } = usePrintLancamento();
 
   const totalValue = items.reduce((sum, item) => sum + item.valorTotal, 0);
 
@@ -250,6 +250,27 @@ const Lancamentos = () => {
     };
 
     await printROLFromData(printData);
+  };
+
+  const handlePrintEtiqueta = async () => {
+    if (!clienteSelecionado || items.length === 0) return;
+
+    const printData: LancamentosPrintData = {
+      clienteNome: clienteSelecionado.nome,
+      clienteTelefone: clienteSelecionado.telefone,
+      itens: items.map(item => ({
+        nome: item.produto,
+        quantidade: item.quantidade,
+        precoUnitario: item.valorUnitario,
+        subtotal: item.valorTotal,
+      })),
+      valorTotal: totalValue,
+      dataEmissao: new Date(dataEmissao),
+      previsaoEntrega: dataEntrega ? new Date(dataEntrega) : undefined,
+      observacoes: observacao || undefined,
+    };
+
+    await printEtiquetaFromData(printData, 1);
   };
 
   return (
@@ -640,9 +661,14 @@ const Lancamentos = () => {
                       <Button
                         variant="outline"
                         className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-white border-amber-500 hover:border-amber-600"
-                        disabled={items.length === 0}
+                        disabled={isPrinting || items.length === 0}
+                        onClick={handlePrintEtiqueta}
                       >
-                        <Tag className="w-4 h-4" />
+                        {isPrinting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Tag className="w-4 h-4" />
+                        )}
                         Imprimir Etiqueta
                       </Button>
 
