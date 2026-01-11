@@ -22,8 +22,9 @@ import {
   ChevronRight,
   Route,
   Search,
-  Plus,
   Bell,
+  User,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -48,10 +49,9 @@ interface NavItemProps {
   label: string;
   end?: boolean;
   badge?: number;
-  accentColor?: string;
 }
 
-const NavItem = ({ to, icon: Icon, label, end = false, badge, accentColor = "primary" }: NavItemProps) => {
+const NavItem = ({ to, icon: Icon, label, end = false, badge }: NavItemProps) => {
   const location = useLocation();
   const { isCollapsed } = useSidebarContext();
   const isActive = end ? location.pathname === to : location.pathname.startsWith(to);
@@ -60,45 +60,27 @@ const NavItem = ({ to, icon: Icon, label, end = false, badge, accentColor = "pri
     <NavLink
       to={to}
       className={cn(
-        "group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative",
+        "group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative mx-2",
         isActive
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-        isCollapsed && "justify-center px-2"
+          ? "bg-white/20 text-white"
+          : "text-white/80 hover:bg-white/10 hover:text-white",
+        isCollapsed && "justify-center mx-1 px-2"
       )}
     >
-      {/* Active indicator bar */}
-      {isActive && (
-        <div className={cn(
-          "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-primary transition-all"
-        )} />
-      )}
+      <Icon className="w-5 h-5 flex-shrink-0" />
       
-      {/* Icon container */}
-      <div className={cn(
-        "flex items-center justify-center w-8 h-8 rounded-lg transition-colors",
-        isActive 
-          ? "bg-primary/15 text-primary" 
-          : "text-muted-foreground group-hover:bg-muted group-hover:text-foreground"
-      )}>
-        <Icon className="w-4 h-4" />
-      </div>
-      
-      {/* Label */}
       {!isCollapsed && (
-        <span className="flex-1">{label}</span>
+        <span className="flex-1 truncate">{label}</span>
       )}
       
-      {/* Badge */}
       {!isCollapsed && badge && badge > 0 && (
-        <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-[10px] font-semibold bg-destructive text-destructive-foreground rounded-full">
+        <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-[10px] font-semibold bg-white text-sidebar-primary-foreground rounded-full">
           {badge > 99 ? "99+" : badge}
         </span>
       )}
       
-      {/* Badge for collapsed mode */}
       {isCollapsed && badge && badge > 0 && (
-        <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[9px] font-bold bg-destructive text-destructive-foreground rounded-full">
+        <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[9px] font-bold bg-white text-sidebar-primary-foreground rounded-full">
           {badge > 9 ? "9+" : badge}
         </span>
       )}
@@ -111,10 +93,10 @@ const NavItem = ({ to, icon: Icon, label, end = false, badge, accentColor = "pri
         <TooltipTrigger asChild>
           {content}
         </TooltipTrigger>
-        <TooltipContent side="right" className="flex items-center gap-2">
+        <TooltipContent side="right" className="flex items-center gap-2 bg-sidebar text-white border-sidebar-border">
           {label}
           {badge && badge > 0 && (
-            <span className="flex items-center justify-center min-w-4 h-4 px-1 text-[10px] font-semibold bg-destructive text-destructive-foreground rounded-full">
+            <span className="flex items-center justify-center min-w-4 h-4 px-1 text-[10px] font-semibold bg-white text-sidebar-primary-foreground rounded-full">
               {badge}
             </span>
           )}
@@ -128,18 +110,23 @@ const NavItem = ({ to, icon: Icon, label, end = false, badge, accentColor = "pri
 
 interface NavGroupProps {
   title: string;
-  icon?: React.ElementType;
+  icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
-  accentColor?: string;
 }
 
-const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, accentColor = "muted" }: NavGroupProps) => {
+const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = false }: NavGroupProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const { isCollapsed } = useSidebarContext();
+  const location = useLocation();
+  
+  // Auto-open if any child is active
+  const hasActiveChild = Array.isArray(children) 
+    ? children.some((child: any) => child?.props?.to && location.pathname.startsWith(child.props.to))
+    : false;
 
   if (isCollapsed) {
-    return <div className="space-y-1 py-2">{children}</div>;
+    return <div className="space-y-1 py-1">{children}</div>;
   }
 
   return (
@@ -147,24 +134,25 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, accent
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center justify-between w-full px-3 py-2 text-[11px] font-semibold uppercase tracking-wider",
-          "text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+          "flex items-center gap-3 w-full px-3 py-2.5 mx-2 rounded-lg text-sm font-medium transition-all duration-200",
+          (isOpen || hasActiveChild)
+            ? "bg-white/10 text-white"
+            : "text-white/80 hover:bg-white/10 hover:text-white"
         )}
+        style={{ width: 'calc(100% - 16px)' }}
       >
-        <div className="flex items-center gap-2">
-          {GroupIcon && <GroupIcon className="w-3.5 h-3.5" />}
-          <span>{title}</span>
-        </div>
+        <GroupIcon className="w-5 h-5 flex-shrink-0" />
+        <span className="flex-1 text-left truncate">{title}</span>
         <ChevronDown
           className={cn(
-            "w-3.5 h-3.5 transition-transform duration-200",
-            isOpen ? "rotate-0" : "-rotate-90"
+            "w-4 h-4 transition-transform duration-200 flex-shrink-0",
+            isOpen ? "rotate-180" : "rotate-0"
           )}
         />
       </button>
       <div className={cn(
-        "space-y-0.5 overflow-hidden transition-all duration-200",
-        isOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+        "overflow-hidden transition-all duration-200 pl-4",
+        isOpen ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"
       )}>
         {children}
       </div>
@@ -172,59 +160,35 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, accent
   );
 };
 
-const QuickActions = () => {
+const SearchBar = () => {
   const { isCollapsed } = useSidebarContext();
 
   if (isCollapsed) {
     return (
-      <div className="p-2 border-b border-border">
+      <div className="px-2 py-3">
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <button className="w-full flex items-center justify-center p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
-              <Plus className="w-4 h-4" />
+            <button className="w-full flex items-center justify-center p-2.5 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition-colors">
+              <Search className="w-5 h-5" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right">Ações Rápidas</TooltipContent>
+          <TooltipContent side="right" className="bg-sidebar text-white border-sidebar-border">
+            Buscar
+          </TooltipContent>
         </Tooltip>
       </div>
     );
   }
 
   return (
-    <div className="p-3 border-b border-border space-y-2">
-      {/* Search */}
-      <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors">
+    <div className="px-3 py-3">
+      <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white/70 bg-white/10 hover:bg-white/15 rounded-lg transition-colors">
         <Search className="w-4 h-4" />
-        <span className="flex-1 text-left">Buscar...</span>
-        <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+        <span className="flex-1 text-left">Buscar</span>
+        <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded bg-white/10 px-1.5 font-mono text-[10px] font-medium text-white/50">
           ⌘K
         </kbd>
       </button>
-      
-      {/* Quick action buttons */}
-      <div className="flex gap-1.5">
-        <NavLink 
-          to="/clientes" 
-          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 rounded-lg transition-colors"
-        >
-          <Plus className="w-3 h-3" />
-          Cliente
-        </NavLink>
-        <NavLink 
-          to="/ordens" 
-          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 rounded-lg transition-colors"
-        >
-          <Plus className="w-3 h-3" />
-          OS
-        </NavLink>
-        <NavLink 
-          to="/lancamentos" 
-          className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 rounded-lg transition-colors"
-        >
-          <Plus className="w-3 h-3" />
-          Lançar
-        </NavLink>
-      </div>
     </div>
   );
 };
@@ -234,22 +198,27 @@ const UserSection = () => {
 
   const userButton = (
     <button className={cn(
-      "flex items-center gap-3 w-full p-2 rounded-lg hover:bg-muted transition-colors",
-      isCollapsed && "justify-center"
+      "flex items-center gap-3 w-full p-2 rounded-lg hover:bg-white/10 transition-colors",
+      isCollapsed && "justify-center p-2"
     )}>
       <div className="relative">
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center ring-2 ring-background">
-          <span className="text-white font-semibold text-sm">A</span>
+        <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+          <img 
+            src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face" 
+            alt="Avatar"
+            className="w-full h-full object-cover"
+          />
         </div>
-        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-background rounded-full" />
       </div>
       {!isCollapsed && (
         <div className="flex-1 min-w-0 text-left">
-          <p className="text-sm font-medium text-foreground truncate">Administrador</p>
-          <p className="text-xs text-muted-foreground truncate">Admin</p>
+          <p className="text-sm font-medium text-white truncate">Culaccino_</p>
+          <p className="text-xs text-white/60 truncate">UX Designer</p>
         </div>
       )}
-      {!isCollapsed && <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      {!isCollapsed && (
+        <Settings className="w-4 h-4 text-white/60 hover:text-white transition-colors" />
+      )}
     </button>
   );
 
@@ -261,7 +230,9 @@ const UserSection = () => {
             <TooltipTrigger asChild>
               {userButton}
             </TooltipTrigger>
-            <TooltipContent side="right">Administrador</TooltipContent>
+            <TooltipContent side="right" className="bg-sidebar text-white border-sidebar-border">
+              Culaccino_
+            </TooltipContent>
           </Tooltip>
         ) : (
           userButton
@@ -269,12 +240,12 @@ const UserSection = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side={isCollapsed ? "right" : "top"} className="w-56">
         <div className="px-2 py-1.5">
-          <p className="text-sm font-medium">Administrador</p>
+          <p className="text-sm font-medium">Culaccino_</p>
           <p className="text-xs text-muted-foreground">admin@anjolav.com</p>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem>
-          <Users className="w-4 h-4 mr-2" />
+          <User className="w-4 h-4 mr-2" />
           Meu Perfil
         </DropdownMenuItem>
         <DropdownMenuItem>
@@ -299,29 +270,19 @@ const CollapseButton = () => {
   const { isCollapsed, toggleSidebar } = useSidebarContext();
 
   return (
-    <Tooltip delayDuration={0}>
-      <TooltipTrigger asChild>
-        <button
-          onClick={toggleSidebar}
-          className={cn(
-            "flex items-center justify-center gap-2 w-full py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors",
-            isCollapsed && "px-2"
-          )}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <>
-              <ChevronLeft className="w-4 h-4" />
-              <span>Recolher menu</span>
-            </>
-          )}
-        </button>
-      </TooltipTrigger>
-      {isCollapsed && (
-        <TooltipContent side="right">Expandir menu</TooltipContent>
+    <button
+      onClick={toggleSidebar}
+      className={cn(
+        "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-sidebar text-white shadow-lg hover:scale-110 transition-all duration-200 z-50",
+        "border-2 border-white/20"
       )}
-    </Tooltip>
+    >
+      {isCollapsed ? (
+        <ChevronRight className="w-3.5 h-3.5" />
+      ) : (
+        <ChevronLeft className="w-3.5 h-3.5" />
+      )}
+    </button>
   );
 };
 
@@ -331,46 +292,46 @@ export function AppSidebar() {
   return (
     <TooltipProvider>
       <aside className={cn(
-        "h-screen bg-card border-r border-border flex flex-col fixed left-0 top-0 z-40 transition-all duration-300",
+        "h-screen bg-sidebar flex flex-col fixed left-0 top-0 z-40 transition-all duration-300 relative",
         isCollapsed ? "w-16" : "w-56"
       )}>
+        {/* Collapse Button */}
+        <CollapseButton />
+
         {/* Logo */}
         <div className={cn(
-          "h-14 flex items-center border-b border-border transition-all",
+          "h-14 flex items-center transition-all",
           isCollapsed ? "px-2 justify-center" : "px-4"
         )}>
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
-              <span className="text-primary-foreground font-bold text-base">A</span>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center">
+              <span className="text-white font-bold text-lg">A</span>
             </div>
             {!isCollapsed && (
-              <div className="flex flex-col">
-                <span className="font-bold text-base text-foreground leading-tight">AnjoLav</span>
-                <span className="text-[10px] text-muted-foreground leading-tight">Sistema de Gestão</span>
-              </div>
+              <span className="font-bold text-base text-white">AnjoLav</span>
             )}
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <QuickActions />
+        {/* Search */}
+        <SearchBar />
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+        <nav className="flex-1 overflow-y-auto pb-4 space-y-1">
           <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end />
 
-          <NavGroup title="Comercial" icon={Users}>
+          <NavGroup title="Comercial" icon={Users} defaultOpen>
             <NavItem to="/clientes" icon={Users} label="Clientes" badge={3} />
-            <NavItem to="/produtos" icon={Package} label="Produtos & Serviços" />
+            <NavItem to="/produtos" icon={Package} label="Produtos" />
           </NavGroup>
 
           <NavGroup title="Operacional" icon={Factory}>
             <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" />
-            <NavItem to="/producao" icon={Factory} label="Fluxo de Produção" badge={12} />
+            <NavItem to="/producao" icon={Factory} label="Produção" badge={12} />
             <NavItem to="/agenda" icon={Calendar} label="Agenda" />
           </NavGroup>
 
-          <NavGroup title="Financeiro" icon={DollarSign}>
+          <NavGroup title="Financeiro" icon={Wallet}>
             <NavItem to="/financeiro" icon={DollarSign} label="Dashboard" />
             <NavItem to="/lancamentos" icon={Receipt} label="Lançamentos" badge={5} />
             <NavItem to="/faturamento" icon={FileText} label="Faturamento" />
@@ -380,26 +341,28 @@ export function AppSidebar() {
             <NavItem to="/asaas" icon={Building2} label="Asaas" />
           </NavGroup>
 
-          <NavGroup title="Relatórios" icon={PieChart} defaultOpen={false}>
-            <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Relatórios de Cliente" />
+          <NavGroup title="Relatórios" icon={PieChart}>
+            <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Clientes" />
             <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" />
-            <NavItem to="/relatorios/caixa" icon={Receipt} label="Relatório de Caixa" />
-            <NavItem to="/relatorios/financeiro" icon={PieChart} label="Relatório Financeiro" />
+            <NavItem to="/relatorios/caixa" icon={Receipt} label="Caixa" />
+            <NavItem to="/relatorios/financeiro" icon={PieChart} label="Financeiro" />
           </NavGroup>
 
-          <NavGroup title="Sistema" icon={Settings} defaultOpen={false}>
+          {/* Bottom items */}
+          <div className="pt-4 mt-4 border-t border-white/10">
             <NavItem to="/configuracoes" icon={Settings} label="Configurações" />
-          </NavGroup>
+            <div className="mx-2">
+              <button className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200">
+                <Bell className="w-5 h-5 flex-shrink-0" />
+                {!isCollapsed && <span className="flex-1 text-left">Notificações</span>}
+              </button>
+            </div>
+          </div>
         </nav>
 
         {/* User Section */}
-        <div className="border-t border-border p-2">
+        <div className="border-t border-white/10 p-3">
           <UserSection />
-        </div>
-
-        {/* Collapse Button */}
-        <div className="border-t border-border">
-          <CollapseButton />
         </div>
       </aside>
     </TooltipProvider>
