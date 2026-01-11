@@ -333,6 +333,7 @@ export type Database = {
           horario_retirada: string | null
           id: string
           link_acesso: string | null
+          tipo_relatorio: string | null
           updated_at: string
         }
         Insert: {
@@ -346,6 +347,7 @@ export type Database = {
           horario_retirada?: string | null
           id?: string
           link_acesso?: string | null
+          tipo_relatorio?: string | null
           updated_at?: string
         }
         Update: {
@@ -359,6 +361,7 @@ export type Database = {
           horario_retirada?: string | null
           id?: string
           link_acesso?: string | null
+          tipo_relatorio?: string | null
           updated_at?: string
         }
         Relationships: [

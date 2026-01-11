@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,31 +10,68 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Users, Calendar, FileText, Grid, Table2, Eye } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Users, Calendar, FileText, Grid, Table2, Eye, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useClientes, useConfiguracaoCliente } from "@/hooks/useClientes";
+import { useRelatorioCliente } from "@/hooks/useRelatorioCliente";
+import { MapaPecasCliente } from "@/components/relatorios/MapaPecasCliente";
+import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 type ReportType = "detalhado" | "mapa_pecas" | "mapa_mensal";
 
-const months = [
-  { value: "2026-01", label: "Janeiro 2026" },
-  { value: "2025-12", label: "Dezembro 2025" },
-  { value: "2025-11", label: "Novembro 2025" },
-  { value: "2025-10", label: "Outubro 2025" },
-  { value: "2025-09", label: "Setembro 2025" },
-  { value: "2025-08", label: "Agosto 2025" },
-  { value: "2025-07", label: "Julho 2025" },
-  { value: "2025-06", label: "Junho 2025" },
-  { value: "2025-05", label: "Maio 2025" },
-  { value: "2025-04", label: "Abril 2025" },
-  { value: "2025-03", label: "Março 2025" },
-  { value: "2025-02", label: "Fevereiro 2025" },
-];
+// Gerar lista de meses dinamicamente
+const generateMonths = () => {
+  const months = [];
+  const today = new Date();
+  for (let i = 0; i < 12; i++) {
+    const date = subMonths(today, i);
+    months.push({
+      value: format(date, "yyyy-MM"),
+      label: format(date, "MMMM yyyy", { locale: require("date-fns/locale/pt-BR").ptBR }),
+    });
+  }
+  return months;
+};
 
 const RelatoriosCliente = () => {
   const [selectedClient, setSelectedClient] = useState("");
   const [reportType, setReportType] = useState<ReportType>("detalhado");
-  const [selectedMonth, setSelectedMonth] = useState("2026-01");
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const { clientes, isLoading: isLoadingClientes } = useClientes();
+  const { configuracao } = useConfiguracaoCliente(selectedClient || null);
+
+  // Calcular período baseado na seleção
+  const periodoInicio = selectedMonths.length > 0
+    ? format(startOfMonth(new Date(Math.min(...selectedMonths.map(m => new Date(m).getTime())))), "yyyy-MM-dd")
+    : format(startOfMonth(new Date(selectedMonth)), "yyyy-MM-dd");
+  
+  const periodoFim = selectedMonths.length > 0
+    ? format(endOfMonth(new Date(Math.max(...selectedMonths.map(m => new Date(m).getTime())))), "yyyy-MM-dd")
+    : format(endOfMonth(new Date(selectedMonth)), "yyyy-MM-dd");
+
+  const { data: lancamentos, isLoading: isLoadingRelatorio } = useRelatorioCliente(
+    selectedClient || null,
+    periodoInicio,
+    periodoFim
+  );
+
+  const months = generateMonths();
+
+  // Atualizar tipo de relatório quando selecionar cliente
+  useEffect(() => {
+    if (configuracao?.tipo_relatorio) {
+      setReportType(configuracao.tipo_relatorio as ReportType);
+    }
+  }, [configuracao]);
 
   const toggleMonth = (month: string) => {
     setSelectedMonths((prev) =>
@@ -42,6 +79,13 @@ const RelatoriosCliente = () => {
         ? prev.filter((m) => m !== month)
         : [...prev, month]
     );
+  };
+
+  const selectedClientData = clientes.find(c => c.id === selectedClient);
+
+  const handleVisualizarRelatorio = () => {
+    if (!selectedClient) return;
+    setShowPreview(true);
   };
 
   return (
@@ -67,14 +111,25 @@ const RelatoriosCliente = () => {
               </div>
               <Select value={selectedClient} onValueChange={setSelectedClient}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o cliente" />
+                  <SelectValue placeholder={isLoadingClientes ? "Carregando..." : "Selecione o cliente"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fabricio">FABRICIO GASPAR</SelectItem>
-                  <SelectItem value="garden">GARDEN HOUSE</SelectItem>
-                  <SelectItem value="anjolav">Anjolav Serviços</SelectItem>
+                  {clientes.map((cliente) => (
+                    <SelectItem key={cliente.id} value={cliente.id}>
+                      {cliente.razao_social}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+
+              {selectedClient && configuracao?.tipo_relatorio && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Tipo configurado: <span className="font-medium text-primary">
+                    {configuracao.tipo_relatorio === "mapa_pecas" ? "Mapa de Peças" :
+                     configuracao.tipo_relatorio === "mapa_mensal" ? "Mapa Mensal" : "Detalhado"}
+                  </span>
+                </p>
+              )}
             </div>
 
             {/* Report Type Selection */}
@@ -167,8 +222,16 @@ const RelatoriosCliente = () => {
                 </button>
               </div>
 
-              <Button className="w-full mt-6 gap-2" disabled={!selectedClient}>
-                <Eye className="w-4 h-4" />
+              <Button 
+                className="w-full mt-6 gap-2" 
+                disabled={!selectedClient || isLoadingRelatorio}
+                onClick={handleVisualizarRelatorio}
+              >
+                {isLoadingRelatorio ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
                 Visualizar Relatório
               </Button>
             </div>
@@ -192,7 +255,10 @@ const RelatoriosCliente = () => {
                 <Input
                   type="month"
                   value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedMonth(e.target.value);
+                    setSelectedMonths([]);
+                  }}
                   className="mt-1"
                 />
               </div>
@@ -211,7 +277,7 @@ const RelatoriosCliente = () => {
                         checked={selectedMonths.includes(month.value)}
                         onCheckedChange={() => toggleMonth(month.value)}
                       />
-                      <span className="text-sm">{month.label}</span>
+                      <span className="text-sm capitalize">{month.label}</span>
                     </label>
                   ))}
                 </div>
@@ -220,6 +286,45 @@ const RelatoriosCliente = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de Preview */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {reportType === "mapa_pecas" && "Mapa de Peças"}
+              {reportType === "mapa_mensal" && "Mapa Mensal"}
+              {reportType === "detalhado" && "Relatório Detalhado"}
+              {selectedClientData && ` - ${selectedClientData.razao_social}`}
+            </DialogTitle>
+          </DialogHeader>
+
+          {reportType === "mapa_pecas" && lancamentos && (
+            <MapaPecasCliente
+              clienteNome={selectedClientData?.razao_social || ""}
+              clienteDocumento={selectedClientData?.cpf_cnpj}
+              lancamentos={lancamentos}
+              periodoInicio={periodoInicio}
+              periodoFim={periodoFim}
+              onPrint={() => setShowPreview(false)}
+            />
+          )}
+
+          {reportType === "detalhado" && (
+            <div className="py-12 text-center text-muted-foreground">
+              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Relatório detalhado em desenvolvimento</p>
+            </div>
+          )}
+
+          {reportType === "mapa_mensal" && (
+            <div className="py-12 text-center text-muted-foreground">
+              <Grid className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Mapa mensal em desenvolvimento</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };

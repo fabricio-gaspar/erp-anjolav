@@ -60,6 +60,7 @@ export interface ConfiguracaoCliente {
   dias_entrega: string[];
   horario_retirada: string | null;
   horario_entrega: string | null;
+  tipo_relatorio: string | null;
   created_at: string;
   updated_at: string;
 }
