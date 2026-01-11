@@ -19,9 +19,9 @@ export default function OrdensServico() {
   return (
     <AppLayout title="Ordens de Serviço" subtitle="Criação e gerenciamento de pedidos">
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-auto p-0 mb-6">
+            <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-auto p-0 mb-3">
               <TabsTrigger
                 value="lista"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3"

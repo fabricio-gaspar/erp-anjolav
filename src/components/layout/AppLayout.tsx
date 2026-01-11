@@ -20,7 +20,7 @@ export function AppLayout({
       <AppSidebar />
       <div className={cn("flex-1 transition-all duration-300", isCollapsed ? "ml-16" : "ml-56")}>
         <AppHeader title={title} subtitle={subtitle} />
-        <main className="px-4 py-4">
+        <main className="py-3">
           <div className="max-w-[1800px] mx-auto">
             {children || <Outlet />}
           </div>
