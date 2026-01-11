@@ -42,7 +42,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
+  Tag,
+  Loader2,
 } from "lucide-react";
+import { usePrintLancamento, type LancamentosPrintData } from "@/hooks/usePrintOS";
 
 interface LancamentoItem {
   id: string;
@@ -132,11 +135,15 @@ const Lancamentos = () => {
 
   const [dataEmissao, setDataEmissao] = useState("2026-01-09");
   const [dataEntrega, setDataEntrega] = useState("2026-01-09");
+  const [observacao, setObservacao] = useState("");
   
   // Conferência state
   const [selectedPeriod, setSelectedPeriod] = useState("Semana");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Print hook
+  const { printROLFromData, isLoading: isPrinting } = usePrintLancamento();
 
   const totalValue = items.reduce((sum, item) => sum + item.valorTotal, 0);
 
@@ -158,6 +165,27 @@ const Lancamentos = () => {
 
   const handleRemoveItem = (id: string) => {
     setItems(items.filter((item) => item.id !== id));
+  };
+
+  const handlePrintROL = async () => {
+    if (!clienteSelecionado || items.length === 0) return;
+
+    const printData: LancamentosPrintData = {
+      clienteNome: clienteSelecionado.nome,
+      clienteTelefone: clienteSelecionado.telefone,
+      itens: items.map(item => ({
+        nome: item.produto,
+        quantidade: item.quantidade,
+        precoUnitario: item.valorUnitario,
+        subtotal: item.valorTotal,
+      })),
+      valorTotal: totalValue,
+      dataEmissao: new Date(dataEmissao),
+      previsaoEntrega: dataEntrega ? new Date(dataEntrega) : undefined,
+      observacoes: observacao || undefined,
+    };
+
+    await printROLFromData(printData);
   };
 
   return (
@@ -236,6 +264,8 @@ const Lancamentos = () => {
                     <Input
                       placeholder="Ex: Entregar até sexta, Roupa de cama extra..."
                       className="mt-1.5"
+                      value={observacao}
+                      onChange={(e) => setObservacao(e.target.value)}
                     />
                   </div>
 
@@ -392,16 +422,23 @@ const Lancamentos = () => {
                       <Button
                         variant="outline"
                         className="w-full gap-2 bg-violet-500 hover:bg-violet-600 text-white border-violet-500 hover:border-violet-600"
+                        onClick={handlePrintROL}
+                        disabled={isPrinting || items.length === 0}
                       >
-                        <Printer className="w-4 h-4" />
+                        {isPrinting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <FileText className="w-4 h-4" />
+                        )}
                         Imprimir ROL
                       </Button>
 
                       <Button
                         variant="outline"
                         className="w-full gap-2 bg-amber-500 hover:bg-amber-600 text-white border-amber-500 hover:border-amber-600"
+                        disabled={items.length === 0}
                       >
-                        <Printer className="w-4 h-4" />
+                        <Tag className="w-4 h-4" />
                         Imprimir Etiqueta
                       </Button>
 

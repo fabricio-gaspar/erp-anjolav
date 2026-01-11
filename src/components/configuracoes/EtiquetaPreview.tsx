@@ -1,13 +1,23 @@
-interface EtiquetaPreviewConfig {
+import { generateBarcodePattern } from "@/services/printService";
+
+export interface EtiquetaPreviewConfig {
   tamanhoEtiqueta: string;
   margemSuperior: number;
   margemLateral: number;
   tamanhoFonte: number;
   alturaCodigoBarras: number;
+  nomeEmpresa?: string;
 }
 
 interface EtiquetaPreviewProps {
   config: EtiquetaPreviewConfig;
+  data?: {
+    osNumero: string;
+    clienteNome: string;
+    bloco?: string;
+    posicao?: string;
+    data?: Date;
+  };
 }
 
 const getEtiquetaDimensions = (tamanho: string) => {
@@ -21,19 +31,38 @@ const getEtiquetaDimensions = (tamanho: string) => {
   }
 };
 
-// Simple barcode representation
-const generateBarcodeLines = () => {
-  const lines = [];
-  for (let i = 0; i < 40; i++) {
-    const width = Math.random() > 0.5 ? 2 : 4;
-    lines.push(width);
-  }
-  return lines;
-};
+// Real barcode component using Code128 pattern
+function BarcodeDisplay({ text, height }: { text: string; height: number }) {
+  const pattern = generateBarcodePattern(text);
+  const barWidth = 1.5;
+  
+  return (
+    <div className="flex items-end justify-center" style={{ height: `${height}px` }}>
+      {pattern.map((bit, idx) => (
+        <div
+          key={idx}
+          style={{
+            width: `${barWidth}px`,
+            height: bit === 1 ? `${height}px` : '0px',
+            backgroundColor: bit === 1 ? 'black' : 'transparent',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
-export function EtiquetaPreview({ config }: EtiquetaPreviewProps) {
+export function EtiquetaPreview({ config, data }: EtiquetaPreviewProps) {
   const dimensions = getEtiquetaDimensions(config.tamanhoEtiqueta);
-  const barcodeLines = generateBarcodeLines();
+  
+  // Use provided data or sample data
+  const osNumero = data?.osNumero || "00001";
+  const clienteNome = data?.clienteNome || "Maria Silva";
+  const bloco = data?.bloco || "A";
+  const posicao = data?.posicao || "15";
+  const dataFormatada = data?.data 
+    ? data.data.toLocaleDateString('pt-BR') 
+    : new Date().toLocaleDateString('pt-BR');
 
   return (
     <div 
@@ -51,7 +80,7 @@ export function EtiquetaPreview({ config }: EtiquetaPreviewProps) {
           className="font-bold text-gray-800 uppercase"
           style={{ fontSize: `${config.tamanhoFonte}px` }}
         >
-          ANJOLAV LAVANDERIA
+          {config.nomeEmpresa || "ANJOLAV LAVANDERIA"}
         </p>
       </div>
 
@@ -61,38 +90,26 @@ export function EtiquetaPreview({ config }: EtiquetaPreviewProps) {
           className="font-bold text-gray-700 mb-1"
           style={{ fontSize: `${config.tamanhoFonte + 2}px` }}
         >
-          OS: 00001
+          OS: {osNumero}
         </p>
         
         <p 
           className="text-gray-600 text-center mb-2"
           style={{ fontSize: `${config.tamanhoFonte - 2}px` }}
         >
-          Maria Silva
+          {clienteNome}
         </p>
 
-        {/* Barcode */}
-        <div 
-          className="flex items-end justify-center gap-[1px] mb-1"
-          style={{ height: `${config.alturaCodigoBarras}px` }}
-        >
-          {barcodeLines.map((width, idx) => (
-            <div
-              key={idx}
-              className="bg-black"
-              style={{ 
-                width: `${width}px`, 
-                height: `${Math.random() * 20 + 80}%` 
-              }}
-            />
-          ))}
+        {/* Real Barcode */}
+        <div className="mb-1">
+          <BarcodeDisplay text={osNumero} height={config.alturaCodigoBarras} />
         </div>
 
         <p 
           className="text-gray-500 font-mono"
           style={{ fontSize: `${config.tamanhoFonte - 4}px` }}
         >
-          7891234567890
+          {osNumero}
         </p>
       </div>
 
@@ -102,13 +119,13 @@ export function EtiquetaPreview({ config }: EtiquetaPreviewProps) {
           className="text-gray-500"
           style={{ fontSize: `${config.tamanhoFonte - 4}px` }}
         >
-          Bloco: A | Pos: 15
+          Bloco: {bloco} | Pos: {posicao}
         </p>
         <p 
           className="text-gray-400"
           style={{ fontSize: `${config.tamanhoFonte - 4}px` }}
         >
-          09/01/2026
+          {dataFormatada}
         </p>
       </div>
     </div>

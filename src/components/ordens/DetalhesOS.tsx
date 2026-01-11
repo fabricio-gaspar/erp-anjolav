@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Loader2, Package, Clock, Calendar, Truck, User, FileText } from "lucide-react";
+import { ArrowLeft, Loader2, Package, Clock, Calendar, Truck, User, FileText, Printer, Tag } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useHistoricoProducao } from "@/hooks/useHistoricoProducao";
 import { useItensOrdemServico } from "@/hooks/useOrdensServico";
 import { HistoricoTimeline } from "@/components/producao/HistoricoTimeline";
 import { FormularioEtapa } from "@/components/producao/FormularioEtapa";
+import { ImprimirOSModal } from "@/components/ordens/ImprimirOSModal";
+import { usePrintOS } from "@/hooks/usePrintOS";
 
 interface DetalhesOSProps {
   ordemServicoId: string;
@@ -33,6 +41,7 @@ const statusConfig: Record<string, { label: string; variant: "info" | "success" 
 
 export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
   const [showFormulario, setShowFormulario] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   const { data: ordem, isLoading } = useQuery({
     queryKey: ["ordem_servico", ordemServicoId],
@@ -54,6 +63,7 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
 
   const { historico, isLoading: isLoadingHistorico } = useHistoricoProducao(ordemServicoId);
   const { itens, isLoading: isLoadingItens } = useItensOrdemServico(ordemServicoId);
+  const { printROL, printEtiqueta, isLoading: isPrinting } = usePrintOS(ordemServicoId);
 
   if (isLoading) {
     return (
@@ -105,11 +115,41 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
           </div>
         </div>
 
-        {canAdvance && (
-          <Button onClick={() => setShowFormulario(true)} className="bg-primary hover:bg-primary/90">
-            Avançar para {statusConfig[statusInfo.next || ""]?.label || "Próxima Etapa"}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Print Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={isPrinting}>
+                {isPrinting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Printer className="h-4 w-4" />
+                )}
+                <span className="ml-2 hidden sm:inline">Imprimir</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => printROL()}>
+                <FileText className="h-4 w-4 mr-2" />
+                Imprimir ROL
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => printEtiqueta()}>
+                <Tag className="h-4 w-4 mr-2" />
+                Imprimir Etiqueta
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowPrintModal(true)}>
+                <Printer className="h-4 w-4 mr-2" />
+                Opções de Impressão...
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {canAdvance && (
+            <Button onClick={() => setShowFormulario(true)} className="bg-primary hover:bg-primary/90">
+              Avançar para {statusConfig[statusInfo.next || ""]?.label || "Próxima Etapa"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Formulário de Avanço */}
@@ -249,6 +289,17 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Print Modal */}
+      {ordem && (
+        <ImprimirOSModal
+          open={showPrintModal}
+          onOpenChange={setShowPrintModal}
+          ordemServicoId={ordemServicoId}
+          osNumero={ordem.numero}
+          clienteNome={ordem.cliente?.razao_social || "Cliente"}
+        />
+      )}
     </div>
   );
 }
