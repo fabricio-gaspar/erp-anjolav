@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -21,42 +20,25 @@ import {
   Play,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-interface FaturaResumo {
-  id: string;
-  cliente: string;
-  rolCount: number;
-  valor: number;
-  status: "aguardando" | "nota_emitida" | "pago";
-  numeroNF?: string;
-}
-
-const mockFaturas: FaturaResumo[] = [
-  {
-    id: "1",
-    cliente: "FABRICIO GASPAR",
-    rolCount: 1,
-    valor: 25.5,
-    status: "aguardando",
-    numeroNF: "1-202580000001488",
-  },
-];
+import { useFaturas } from "@/hooks/useFaturas";
+import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const periodOptions = ["Dia", "Semana", "Quinzena", "Mês", "Personalizado"];
 
 const Faturamento = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("Mês");
-  const [currentMonth] = useState("janeiro de 2026");
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  const totalPrevisto = mockFaturas.reduce((sum, f) => sum + f.valor, 0);
-  const pendente = mockFaturas
-    .filter((f) => f.status === "aguardando")
-    .reduce((sum, f) => sum + f.valor, 0);
-  const recebido = mockFaturas
-    .filter((f) => f.status === "pago")
-    .reduce((sum, f) => sum + f.valor, 0);
+  const periodoInicio = format(startOfMonth(currentDate), "yyyy-MM-dd");
+  const periodoFim = format(endOfMonth(currentDate), "yyyy-MM-dd");
+
+  const { faturas, summary, isLoading } = useFaturas(periodoInicio, periodoFim);
+
+  const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+  const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
   return (
     <AppLayout title="Dashboard">
@@ -89,14 +71,14 @@ const Faturamento = () => {
           </div>
 
           <div className="flex items-center gap-2 ml-4">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <div className="flex items-center gap-2 px-3 py-1.5 border rounded-lg">
               <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm">{currentMonth}</span>
+              <span className="text-sm">{format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}</span>
             </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleNextMonth}>
               <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
@@ -110,10 +92,10 @@ const Faturamento = () => {
                 Total Previsto
               </p>
               <p className="text-2xl font-bold text-foreground currency mt-1">
-                R$ {totalPrevisto.toFixed(2).replace(".", ",")}
+                R$ {summary.totalPrevisto.toFixed(2).replace(".", ",")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {mockFaturas.length} clientes ativos
+                {summary.totalClientes} clientes ativos
               </p>
             </div>
             <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -127,7 +109,7 @@ const Faturamento = () => {
                 Pendente
               </p>
               <p className="text-2xl font-bold text-warning currency mt-1">
-                R$ {pendente.toFixed(2).replace(".", ",")}
+                R$ {summary.pendente.toFixed(2).replace(".", ",")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">Aguardando emissão</p>
             </div>
@@ -142,7 +124,7 @@ const Faturamento = () => {
                 Recebido
               </p>
               <p className="text-2xl font-bold text-success currency mt-1">
-                R$ {recebido.toFixed(2).replace(".", ",")}
+                R$ {summary.pago.toFixed(2).replace(".", ",")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">Faturas pagas</p>
             </div>
@@ -156,66 +138,84 @@ const Faturamento = () => {
         <div className="bg-card border rounded-lg overflow-hidden">
           <div className="p-4 border-b flex items-center gap-2">
             <span className="text-lg">📋</span>
-            <h3 className="font-semibold">Resumo do Mês - dezembro 2025</h3>
+            <h3 className="font-semibold">
+              Resumo do Mês - {format(currentDate, "MMMM yyyy", { locale: ptBR })}
+            </h3>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="font-semibold">CLIENTE</TableHead>
-                <TableHead className="font-semibold">VALOR</TableHead>
-                <TableHead className="font-semibold">STATUS</TableHead>
-                <TableHead className="font-semibold">Nº NF</TableHead>
-                <TableHead className="font-semibold text-right">AÇÕES</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockFaturas.map((fatura) => (
-                <TableRow key={fatura.id} className="hover:bg-muted/30">
-                  <TableCell>
-                    <div>
-                      <p className="font-medium text-foreground">{fatura.cliente}</p>
-                      <p className="text-xs text-muted-foreground">{fatura.rolCount} ROL</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-semibold currency">
-                    R$ {fatura.valor.toFixed(2).replace(".", ",")}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge
-                      variant={
-                        fatura.status === "pago"
-                          ? "success"
-                          : fatura.status === "nota_emitida"
-                          ? "info"
-                          : "warning"
-                      }
-                    >
-                      {fatura.status === "pago"
-                        ? "Pago"
-                        : fatura.status === "nota_emitida"
-                        ? "Nota Emitida"
-                        : "Aguardando"}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground font-mono">
-                    {fatura.numeroNF || "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Eye className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                      <Button size="sm" className="gap-1 bg-success hover:bg-success/90">
-                        <Play className="w-3 h-3" />
-                        Continuar Processo
-                      </Button>
-                    </div>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : faturas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <p>Nenhuma fatura encontrada neste período</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold">CLIENTE</TableHead>
+                  <TableHead className="font-semibold">VALOR</TableHead>
+                  <TableHead className="font-semibold">STATUS</TableHead>
+                  <TableHead className="font-semibold">Nº NF</TableHead>
+                  <TableHead className="font-semibold text-right">AÇÕES</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {faturas.map((fatura) => (
+                  <TableRow key={fatura.id} className="hover:bg-muted/30">
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {fatura.cliente?.razao_social || "Cliente"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(fatura.periodo_inicio), "dd/MM")} - {format(new Date(fatura.periodo_fim), "dd/MM/yyyy")}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-semibold currency">
+                      R$ {Number(fatura.valor_total).toFixed(2).replace(".", ",")}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        variant={
+                          fatura.status === "pago"
+                            ? "success"
+                            : fatura.status === "nota_emitida"
+                            ? "info"
+                            : "warning"
+                        }
+                      >
+                        {fatura.status === "pago"
+                          ? "Pago"
+                          : fatura.status === "nota_emitida"
+                          ? "Nota Emitida"
+                          : "Aguardando"}
+                      </StatusBadge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground font-mono">
+                      {fatura.numero_nf || "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Eye className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                        {fatura.status !== "pago" && (
+                          <Button size="sm" className="gap-1 bg-success hover:bg-success/90">
+                            <Play className="w-3 h-3" />
+                            Continuar
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </div>
     </AppLayout>

@@ -70,6 +70,7 @@ import { useClientes } from "@/hooks/useClientes";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useConferenciaProducao, type OSConferencia } from "@/hooks/useConferenciaProducao";
 import { ConferenciaModal } from "@/components/lancamentos/ConferenciaModal";
+import { FaturamentoModal, type DadosFaturamento } from "@/components/faturamento/FaturamentoModal";
 
 interface LancamentoItem {
   id: string;
@@ -111,6 +112,7 @@ const Lancamentos = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOS, setSelectedOS] = useState<OSConferencia | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [faturamentoModalOpen, setFaturamentoModalOpen] = useState(false);
 
   // Hooks for real data
   const { clientes, isLoading: isLoadingClientes } = useClientes();
@@ -272,6 +274,24 @@ const Lancamentos = () => {
 
     await printEtiquetaFromData(printData, 1);
   };
+
+  const handleFinalizarLancamento = () => {
+    if (!clienteSelecionado || items.length === 0) return;
+    setFaturamentoModalOpen(true);
+  };
+
+  const dadosFaturamento: DadosFaturamento | null = clienteSelecionado && items.length > 0 ? {
+    clienteId: selectedClienteId!,
+    clienteNome: clienteSelecionado.nome,
+    clienteDocumento: clienteSelecionado.documento,
+    clienteEmail: clientes.find(c => c.id === selectedClienteId)?.email || null,
+    clienteTelefone: clienteSelecionado.telefone || null,
+    itens: items,
+    valorTotal: totalValue,
+    periodoInicio: dataEmissao,
+    periodoFim: dataEntrega,
+    observacao: observacao,
+  } : null;
 
   return (
     <AppLayout title="Lançamentos" subtitle="Registre a produção diária por cliente">
@@ -672,7 +692,11 @@ const Lancamentos = () => {
                         Imprimir Etiqueta
                       </Button>
 
-                      <Button className="w-full gap-2 bg-success hover:bg-success/90">
+                      <Button 
+                        className="w-full gap-2 bg-success hover:bg-success/90"
+                        onClick={handleFinalizarLancamento}
+                        disabled={items.length === 0}
+                      >
                         <Check className="w-4 h-4" />
                         Finalizar Lançamento
                       </Button>
@@ -958,6 +982,13 @@ const Lancamentos = () => {
           open={modalOpen}
           onOpenChange={setModalOpen}
           os={selectedOS}
+        />
+
+        {/* Modal de Faturamento */}
+        <FaturamentoModal
+          open={faturamentoModalOpen}
+          onOpenChange={setFaturamentoModalOpen}
+          dados={dadosFaturamento}
         />
       </div>
     </AppLayout>
