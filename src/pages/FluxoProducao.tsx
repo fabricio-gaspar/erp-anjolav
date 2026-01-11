@@ -18,12 +18,17 @@ import {
   Clock,
   Loader2,
   Timer,
+  Scale,
+  Shirt,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOrdensServico } from "@/hooks/useOrdensServico";
+import { useHistoricoMultiplasOS } from "@/hooks/useHistoricoProducaoResumo";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FormularioEtapa } from "@/components/producao/FormularioEtapa";
+import { MiniHistorico, extrairDadosHistorico } from "@/components/producao/MiniHistorico";
 
 interface KanbanColumn {
   id: string;
@@ -49,6 +54,10 @@ const FluxoProducao = () => {
   const [selectedOS, setSelectedOS] = useState<{ id: string; status: string; next: string } | null>(null);
 
   const { ordensServico, isLoading, error } = useOrdensServico();
+
+  // IDs das OS para buscar histórico
+  const osIds = useMemo(() => ordensServico.map((os) => os.id), [ordensServico]);
+  const { data: historicosPorOS = {} } = useHistoricoMultiplasOS(osIds);
 
   // Agrupar OS por status
   const osByStatus = useMemo(() => {
@@ -153,7 +162,7 @@ const FluxoProducao = () => {
             {columns.map((column) => {
               const columnItems = osByStatus[column.id] || [];
               return (
-                <div key={column.id} className="flex-shrink-0 w-[220px]">
+                <div key={column.id} className="flex-shrink-0 w-[260px]">
                   {/* Column Header */}
                   <div className="flex items-center gap-2 mb-3 px-2">
                     <column.icon className={cn("w-4 h-4", column.iconColor)} />
@@ -172,63 +181,106 @@ const FluxoProducao = () => {
                   </div>
 
                   {/* Column Content */}
-                  <div className="bg-muted/30 rounded-lg p-2 min-h-[400px]">
+                  <div className="bg-muted/30 rounded-lg p-2 min-h-[500px]">
                     {columnItems.length === 0 ? (
                       <p className="text-xs text-muted-foreground text-center py-8">
                         Nenhuma OS
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        {columnItems.map((os) => (
-                          <div
-                            key={os.id}
-                            onClick={() => handleCardClick(os.id, os.status, column.nextStatus)}
-                            className={cn(
-                              "bg-card border rounded-lg p-3 shadow-sm transition-shadow",
-                              column.nextStatus
-                                ? "cursor-pointer hover:shadow-md hover:border-primary/50"
-                                : ""
-                            )}
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <span className="text-xs font-mono text-primary">
-                                {os.numero}
-                              </span>
-                              <StatusBadge
-                                variant={getPrioridadeVariant(os.prioridade)}
-                                className="text-[10px]"
-                              >
-                                {os.prioridade || "normal"}
-                              </StatusBadge>
+                        {columnItems.map((os) => {
+                          const historico = historicosPorOS[os.id] || [];
+                          const { quantidadePecas, pesoTotal, ultimoFuncionario } = extrairDadosHistorico(historico);
+
+                          return (
+                            <div
+                              key={os.id}
+                              onClick={() => handleCardClick(os.id, os.status, column.nextStatus)}
+                              className={cn(
+                                "bg-card border rounded-lg p-3 shadow-sm transition-all",
+                                column.nextStatus
+                                  ? "cursor-pointer hover:shadow-md hover:border-primary/50 hover:-translate-y-0.5"
+                                  : ""
+                              )}
+                            >
+                              {/* Header: Número e Prioridade */}
+                              <div className="flex items-start justify-between mb-2">
+                                <span className="text-xs font-mono font-semibold text-primary">
+                                  {os.numero}
+                                </span>
+                                <StatusBadge
+                                  variant={getPrioridadeVariant(os.prioridade)}
+                                  className="text-[10px]"
+                                >
+                                  {os.prioridade || "normal"}
+                                </StatusBadge>
+                              </div>
+
+                              {/* Cliente */}
+                              <p className="font-semibold text-sm text-foreground mb-2 line-clamp-1">
+                                {os.cliente?.razao_social || "Cliente não definido"}
+                              </p>
+
+                              {/* Dados do Histórico: Peças e Peso */}
+                              {(quantidadePecas > 0 || pesoTotal > 0) && (
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2 bg-muted/50 rounded px-2 py-1">
+                                  {quantidadePecas > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <Shirt className="w-3 h-3" />
+                                      <span>{quantidadePecas} pç</span>
+                                    </div>
+                                  )}
+                                  {pesoTotal > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <Scale className="w-3 h-3" />
+                                      <span>{pesoTotal.toFixed(1)}kg</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Mini Histórico Timeline */}
+                              {historico.length > 0 && (
+                                <div className="mb-2 py-1 border-t border-b border-border/50">
+                                  <MiniHistorico historico={historico} maxItems={4} />
+                                </div>
+                              )}
+
+                              {/* Data Previsão */}
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Calendar className="w-3 h-3" />
+                                <span>
+                                  Prev.:{" "}
+                                  {os.data_previsao_entrega
+                                    ? format(new Date(os.data_previsao_entrega), "dd/MM", {
+                                        locale: ptBR,
+                                      })
+                                    : "-"}
+                                </span>
+                              </div>
+
+                              {/* Footer: Tempo e Funcionário */}
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] bg-info/10 text-info"
+                                >
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  {formatDistanceToNow(new Date(os.created_at), {
+                                    locale: ptBR,
+                                    addSuffix: false,
+                                  })}
+                                </Badge>
+                                {ultimoFuncionario && (
+                                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                    <User className="w-3 h-3" />
+                                    <span className="truncate max-w-[60px]">{ultimoFuncionario}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <p className="font-semibold text-sm text-foreground mb-2 line-clamp-1">
-                              {os.cliente?.razao_social || "Cliente não definido"}
-                            </p>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Calendar className="w-3 h-3" />
-                              <span>
-                                Prev.:{" "}
-                                {os.data_previsao_entrega
-                                  ? format(new Date(os.data_previsao_entrega), "dd/MM", {
-                                      locale: ptBR,
-                                    })
-                                  : "-"}
-                              </span>
-                            </div>
-                            <div className="mt-2">
-                              <Badge
-                                variant="secondary"
-                                className="text-[10px] bg-info/10 text-info"
-                              >
-                                <Clock className="w-3 h-3 mr-1" />
-                                {formatDistanceToNow(new Date(os.created_at), {
-                                  locale: ptBR,
-                                  addSuffix: false,
-                                })}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

@@ -3,12 +3,27 @@ import { KPICard } from "@/components/dashboard/KPICard";
 import { FinanceCard } from "@/components/dashboard/FinanceCard";
 import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
 import { OperationalCosts } from "@/components/dashboard/OperationalCosts";
-import { ProcessingSummary } from "@/components/dashboard/ProcessingSummary";
+import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
-import { FileText, AlertCircle, Users, Shirt, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { 
+  FileText, 
+  AlertCircle, 
+  Users, 
+  Shirt, 
+  TrendingUp, 
+  TrendingDown, 
+  Loader2,
+  Scale,
+  Clock,
+  User,
+  Activity,
+} from "lucide-react";
 import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
+import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
 import { useContasPagar } from "@/hooks/useContasPagar";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const etapaLabels: Record<string, string> = {
@@ -26,6 +41,7 @@ const Dashboard = () => {
   const { metricas, isLoading: isLoadingMetricas } = useMetricasProducao();
   const { retiradas, entregas, isLoading: isLoadingAgenda } = useAgendaDia();
   const { osEmProcessamento, isLoading: isLoadingResumo } = useResumoProcessamento();
+  const { data: metricasAvancadas } = useMetricasProducaoAvancadas();
   const { contas: contasPagar } = useContasPagar();
 
   const isLoading = isLoadingMetricas || isLoadingAgenda || isLoadingResumo;
@@ -71,26 +87,54 @@ const Dashboard = () => {
       stage: etapaLabels[stage] || stage,
       osCount: count,
       piecesCount: 0,
-      avgTime: "-",
+      avgTime: metricasAvancadas?.mediaTempoPorEtapa?.[stage] || "-",
       percentage: totalGargalos > 0 ? Math.round((count / totalGargalos) * 100) : 0,
     }))
     .sort((a, b) => b.osCount - a.osCount);
 
-  // Preparar resumo de processamento
-  const processingItems = osEmProcessamento.slice(0, 5).map((os: any) => {
+  // Preparar resumo de processamento com dados de histórico
+  const processingItems: ProcessingItem[] = osEmProcessamento.slice(0, 5).map((os: any) => {
     const ultimoHistorico = os.historico?.[os.historico.length - 1];
     const tempoNaEtapa = ultimoHistorico
       ? formatDistanceToNow(new Date(ultimoHistorico.created_at), { locale: ptBR })
       : "-";
 
+    // Extrair dados do histórico
+    let quantidadePecas = 0;
+    let pesoKg = 0;
+    (os.historico || []).forEach((h: any) => {
+      const dados = h.dados_formulario || {};
+      if (dados.quantidade_pecas) quantidadePecas = dados.quantidade_pecas;
+      if (dados.peso_total_kg) pesoKg = dados.peso_total_kg;
+      if (dados.peso_final_kg) pesoKg = dados.peso_final_kg;
+    });
+
+    // Determinar status baseado na data de previsão
+    let status: "on_time" | "delayed" | "at_risk" = "on_time";
+    if (os.data_previsao_entrega) {
+      const previsao = new Date(os.data_previsao_entrega);
+      const hoje = startOfDay(new Date());
+      if (isBefore(previsao, hoje)) {
+        status = "delayed";
+      } else {
+        const diffDias = Math.ceil((previsao.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDias <= 1) {
+          status = "at_risk";
+        }
+      }
+    }
+
     return {
       clientName: os.cliente?.razao_social || "Cliente",
+      osNumero: os.numero,
       currentStage: etapaLabels[os.status] || os.status,
       timeInStage: tempoNaEtapa,
       expectedDate: os.data_previsao_entrega
         ? format(new Date(os.data_previsao_entrega), "dd/MM", { locale: ptBR })
         : undefined,
-      status: "on_time" as const,
+      status,
+      quantidadePecas: quantidadePecas || undefined,
+      pesoKg: pesoKg || undefined,
     };
   });
 
@@ -146,6 +190,89 @@ const Dashboard = () => {
             ))}
           </div>
         </section>
+
+        {/* Produção em Tempo Real */}
+        {metricasAvancadas && (
+          <section>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+              Produção em Tempo Real
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Scale className="w-4 h-4" />
+                    Peso Processado Hoje
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{metricasAvancadas.pesoTotalHoje.toFixed(1)}kg</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Activity className="w-4 h-4" />
+                    Etapas Concluídas Hoje
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold">{metricasAvancadas.totalEtapasHoje}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Mais Produtivo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {metricasAvancadas.funcionarioMaisProdutivo ? (
+                    <div>
+                      <p className="text-lg font-bold truncate">
+                        {metricasAvancadas.funcionarioMaisProdutivo.nome}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {metricasAvancadas.funcionarioMaisProdutivo.etapas} etapas hoje
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">-</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Tempo Médio/Etapa
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1">
+                    {Object.entries(metricasAvancadas.mediaTempoPorEtapa || {})
+                      .slice(0, 2)
+                      .map(([etapa, tempo]) => (
+                        <div key={etapa} className="flex items-center justify-between text-xs">
+                          <Badge variant="secondary" className="text-[10px]">
+                            {etapaLabels[etapa] || etapa}
+                          </Badge>
+                          <span className="font-medium">{tempo}</span>
+                        </div>
+                      ))}
+                    {Object.keys(metricasAvancadas.mediaTempoPorEtapa || {}).length === 0 && (
+                      <p className="text-muted-foreground text-sm">Sem dados</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+        )}
 
         {/* Finance Cards */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
