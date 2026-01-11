@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useClientes, useConfiguracaoCliente } from "@/hooks/useClientes";
 import { useRelatorioCliente } from "@/hooks/useRelatorioCliente";
 import { MapaPecasCliente } from "@/components/relatorios/MapaPecasCliente";
+import { RelatorioDetalhadoCliente } from "@/components/relatorios/RelatorioDetalhadoCliente";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -329,11 +330,15 @@ const RelatoriosCliente = () => {
             />
           )}
 
-          {reportType === "detalhado" && (
-            <div className="py-12 text-center text-muted-foreground">
-              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Relatório detalhado em desenvolvimento</p>
-            </div>
+          {reportType === "detalhado" && lancamentos && (
+            <RelatorioDetalhadoCliente
+              clienteNome={selectedClientData?.razao_social || ""}
+              clienteDocumento={selectedClientData?.cpf_cnpj}
+              lancamentos={lancamentos}
+              periodoInicio={periodoInicio}
+              periodoFim={periodoFim}
+              onPrint={() => setShowPreview(false)}
+            />
           )}
 
           {reportType === "mapa_mensal" && (
