@@ -30,8 +30,22 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
 
 export function useSidebarContext() {
   const context = useContext(SidebarContext);
+
+  // Fallback defensivo: evita tela em branco caso algum componente use o hook
+  // fora do provider (ex.: hot reload, páginas isoladas, etc.).
   if (context === undefined) {
-    throw new Error("useSidebarContext must be used within a SidebarProvider");
+    if (import.meta.env.DEV) {
+      // Mantém o alerta para facilitar debug, mas sem quebrar a UI.
+      // eslint-disable-next-line no-console
+      console.warn("useSidebarContext foi chamado fora de <SidebarProvider>. Usando fallback.");
+    }
+
+    return {
+      isCollapsed: false,
+      toggleSidebar: () => {},
+      setCollapsed: () => {},
+    };
   }
+
   return context;
 }
