@@ -2,9 +2,9 @@ import { cn } from "@/lib/utils";
 import { LucideIcon, Eye, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-interface FinanceItem {
+export interface FinanceItem {
   id: string;
-  status: "vencida" | "pendente" | "paga";
+  status: "vencida" | "pendente" | "paga" | "a_vencer";
   clientName: string;
   value: number;
   dueDate: string;
