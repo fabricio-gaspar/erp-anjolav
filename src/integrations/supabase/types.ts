@@ -822,6 +822,57 @@ export type Database = {
         }
         Relationships: []
       }
+      historico_producao: {
+        Row: {
+          created_at: string
+          dados_formulario: Json | null
+          etapa_anterior: string | null
+          etapa_nova: string
+          funcionario_id: string | null
+          id: string
+          observacoes: string | null
+          ordem_servico_id: string
+          tempo_na_etapa_anterior: unknown
+        }
+        Insert: {
+          created_at?: string
+          dados_formulario?: Json | null
+          etapa_anterior?: string | null
+          etapa_nova: string
+          funcionario_id?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id: string
+          tempo_na_etapa_anterior?: unknown
+        }
+        Update: {
+          created_at?: string
+          dados_formulario?: Json | null
+          etapa_anterior?: string | null
+          etapa_nova?: string
+          funcionario_id?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id?: string
+          tempo_na_etapa_anterior?: unknown
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_producao_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_producao_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itens_ordem_servico: {
         Row: {
           created_at: string
