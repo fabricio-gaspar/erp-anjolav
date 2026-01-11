@@ -17,6 +17,7 @@ import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
 import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
 import { ClientePagamento } from "@/components/clientes/ClientePagamento";
 import { ClienteConfiguracao } from "@/components/clientes/ClienteConfiguracao";
+import { ClienteContrato } from "@/components/clientes/ClienteContrato";
 import { ClienteTabelaPrecos } from "@/components/clientes/ClienteTabelaPrecos";
 import { useClientes, type Cliente } from "@/hooks/useClientes";
 import { BrasilApiCnpjResponse } from "@/services/apiServices";
@@ -102,12 +103,13 @@ const Clientes = () => {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-muted/50 p-1 rounded-lg">
+          <TabsList className="bg-muted/50 p-1 rounded-lg flex-wrap">
             <TabsTrigger value="lista">Lista de Clientes</TabsTrigger>
             <TabsTrigger value="dados">Dados Básicos</TabsTrigger>
             <TabsTrigger value="endereco" disabled={!selectedClienteId}>Endereço</TabsTrigger>
             <TabsTrigger value="pagamento" disabled={!selectedClienteId}>Pagamento</TabsTrigger>
             <TabsTrigger value="configuracao" disabled={!selectedClienteId}>Configuração</TabsTrigger>
+            <TabsTrigger value="contrato" disabled={!selectedClienteId}>Contrato</TabsTrigger>
             <TabsTrigger value="precos" disabled={!selectedClienteId}>Tabela de Preços</TabsTrigger>
           </TabsList>
 
@@ -279,8 +281,12 @@ const Clientes = () => {
           <TabsContent value="configuracao">
             <ClienteConfiguracao 
               clienteId={selectedClienteId}
-              onSave={() => setActiveTab("precos")} 
+              onSave={() => setActiveTab("contrato")} 
             />
+          </TabsContent>
+
+          <TabsContent value="contrato">
+            <ClienteContrato clienteId={selectedClienteId} />
           </TabsContent>
 
           <TabsContent value="precos">
