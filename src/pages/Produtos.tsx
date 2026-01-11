@@ -12,51 +12,95 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Plus, Check } from "lucide-react";
+import { Plus, Check, Loader2, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Produto {
-  id: string;
-  nome: string;
-  preco: number;
-  unidade: string;
-  unidadeNegocio: "ID1" | "ID2";
-  status: "ativo" | "inativo";
-}
-
-const mockProdutos: Produto[] = [
-  { id: "1", nome: "CAPA DE ALMOFADA", preco: 5.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "2", nome: "COBERTOR", preco: 25.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "3", nome: "COBERTOR / EDREDON", preco: 25.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "4", nome: "EDREDON", preco: 25.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "5", nome: "FRONHA", preco: 3.5, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "6", nome: "FRONHA COM DEFEITO", preco: 0.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "7", nome: "LENÇOL", preco: 4.8, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "8", nome: "LENÇOL - DEFEITO", preco: 0.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "9", nome: "PISO - DEFEITO", preco: 0.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "10", nome: "ROUPÃO", preco: 4.5, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "11", nome: "ROUPÃO - DEFEITO", preco: 0.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "12", nome: "TAPETE", preco: 25.0, unidade: "Metro", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "13", nome: "TOALHA", preco: 10.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "14", nome: "TOALHA BANHO", preco: 4.5, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "15", nome: "TOALHA DE BANHO - DEFEITO", preco: 0.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "16", nome: "TOALHA DE PISCINA", preco: 4.5, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "17", nome: "TOALHA DE PISCINA - DEFEITO", preco: 0.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "18", nome: "TOALHA DE PISO", preco: 3.5, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "19", nome: "TOALHA DE ROSTO", preco: 3.5, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-  { id: "20", nome: "TOALHA DE ROSTO - DEFEITO", preco: 0.0, unidade: "Peça", unidadeNegocio: "ID2", status: "ativo" },
-];
+import { useProdutos, Produto } from "@/hooks/useProdutos";
+import { toast } from "sonner";
 
 const alphabet = ["TODOS", "ALL", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 
 const Produtos = () => {
+  const { produtos, isLoading, createProduto, updateProduto, deleteProduto } = useProdutos();
   const [selectedLetter, setSelectedLetter] = useState("TODOS");
   const [showForm, setShowForm] = useState(false);
-
-  const filteredProdutos = mockProdutos.filter((produto) => {
-    if (selectedLetter === "TODOS" || selectedLetter === "ALL") return true;
-    return produto.nome.startsWith(selectedLetter);
+  const [editingProduto, setEditingProduto] = useState<Produto | null>(null);
+  
+  const [formData, setFormData] = useState({
+    nome: "",
+    preco: 0,
+    unidade: "peca" as "kg" | "peca" | "metro" | "unidade",
+    unidade_negocio: "ambos" as "ID1" | "ID2" | "ambos",
+    status: "ativo" as "ativo" | "inativo",
+    descricao: "",
+    categoria: "",
   });
+
+  const resetForm = () => {
+    setFormData({
+      nome: "",
+      preco: 0,
+      unidade: "peca" as "kg" | "peca" | "metro" | "unidade",
+      unidade_negocio: "ambos" as "ID1" | "ID2" | "ambos",
+      status: "ativo" as "ativo" | "inativo",
+      descricao: "",
+      categoria: "",
+    });
+    setEditingProduto(null);
+    setShowForm(false);
+  };
+
+  const handleSubmit = () => {
+    if (!formData.nome.trim()) {
+      toast.error("Nome do produto é obrigatório");
+      return;
+    }
+
+    const produtoData = {
+      nome: formData.nome,
+      preco: formData.preco,
+      unidade: formData.unidade,
+      unidade_negocio: formData.unidade_negocio === "ambos" ? "ambos" as const : formData.unidade_negocio,
+      status: formData.status,
+      descricao: formData.descricao || null,
+      categoria: formData.categoria || null,
+    };
+
+    if (editingProduto) {
+      updateProduto.mutate(
+        { id: editingProduto.id, ...produtoData },
+        { onSuccess: resetForm }
+      );
+    } else {
+      createProduto.mutate(produtoData, { onSuccess: resetForm });
+    }
+  };
+
+  const handleEdit = (produto: Produto) => {
+    setEditingProduto(produto);
+    setFormData({
+      nome: produto.nome,
+      preco: produto.preco,
+      unidade: (produto.unidade as "kg" | "peca" | "metro" | "unidade") || "peca",
+      unidade_negocio: (produto.unidade_negocio as "ID1" | "ID2" | "ambos") || "ambos",
+      status: (produto.status as "ativo" | "inativo") || "ativo",
+      descricao: produto.descricao || "",
+      categoria: produto.categoria || "",
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Deseja realmente excluir este produto?")) {
+      deleteProduto.mutate(id);
+    }
+  };
+
+  const filteredProdutos = (produtos || []).filter((produto) => {
+    if (selectedLetter === "TODOS" || selectedLetter === "ALL") return true;
+    return produto.nome.toUpperCase().startsWith(selectedLetter);
+  });
+
+  const isSaving = createProduto.isPending || updateProduto.isPending;
 
   return (
     <AppLayout title="Dashboard">
@@ -69,37 +113,54 @@ const Produtos = () => {
         {/* New Product Form */}
         <div className="bg-card border rounded-lg p-4">
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => {
+              if (showForm && editingProduto) {
+                resetForm();
+              } else {
+                setShowForm(!showForm);
+              }
+            }}
             className="flex items-center gap-2 text-primary font-medium text-sm"
           >
             <Plus className="w-4 h-4" />
-            Novo Produto
+            {editingProduto ? "Editar Produto" : "Novo Produto"}
           </button>
 
           {showForm && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <Label className="text-xs text-muted-foreground">Unidade de Negócio</Label>
-                <Select defaultValue="ambos">
+                <Select 
+                  value={formData.unidade_negocio} 
+                  onValueChange={(v) => setFormData(prev => ({ ...prev, unidade_negocio: v as "ID1" | "ID2" | "ambos" }))}
+                >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ambos">Ambos (ID1+ID2)</SelectItem>
-                    <SelectItem value="id1">Industrial (ID1)</SelectItem>
-                    <SelectItem value="id2">Residencial (ID2)</SelectItem>
+                    <SelectItem value="ID1">Industrial (ID1)</SelectItem>
+                    <SelectItem value="ID2">Residencial (ID2)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
                 <Label className="text-xs text-muted-foreground">Nome do Serviço/Produto</Label>
-                <Input className="mt-1" placeholder="EX: LAVAGEM DE TOALHAS" />
+                <Input 
+                  className="mt-1" 
+                  placeholder="EX: LAVAGEM DE TOALHAS" 
+                  value={formData.nome}
+                  onChange={(e) => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+                />
               </div>
 
               <div>
                 <Label className="text-xs text-muted-foreground">Unidade de Cobrança</Label>
-                <Select defaultValue="kg">
+                <Select 
+                  value={formData.unidade} 
+                  onValueChange={(v) => setFormData(prev => ({ ...prev, unidade: v as "kg" | "peca" | "metro" | "unidade" }))}
+                >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
@@ -107,18 +168,28 @@ const Produtos = () => {
                     <SelectItem value="kg">Quilo (Kg)</SelectItem>
                     <SelectItem value="peca">Peça</SelectItem>
                     <SelectItem value="metro">Metro</SelectItem>
+                    <SelectItem value="unidade">Unidade</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
                 <Label className="text-xs text-muted-foreground">Preço Padrão (R$)</Label>
-                <Input className="mt-1" type="number" defaultValue="0.00" />
+                <Input 
+                  className="mt-1" 
+                  type="number" 
+                  step="0.01"
+                  value={formData.preco}
+                  onChange={(e) => setFormData(prev => ({ ...prev, preco: parseFloat(e.target.value) || 0 }))}
+                />
               </div>
 
               <div>
                 <Label className="text-xs text-muted-foreground">Status</Label>
-                <Select defaultValue="ativo">
+                <Select 
+                  value={formData.status} 
+                  onValueChange={(v) => setFormData(prev => ({ ...prev, status: v as "ativo" | "inativo" }))}
+                >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
@@ -134,13 +205,20 @@ const Produtos = () => {
                 <Textarea
                   className="mt-1"
                   placeholder="DESCREVA DETALHES TÉCNICOS, TIPO DE LAVAGEM, ETC..."
+                  value={formData.descricao}
+                  onChange={(e) => setFormData(prev => ({ ...prev, descricao: e.target.value }))}
                 />
               </div>
 
-              <div className="flex items-end">
-                <Button className="w-full gap-2">
-                  <Check className="w-4 h-4" />
-                  Cadastrar Produto
+              <div className="flex items-end gap-2">
+                {editingProduto && (
+                  <Button variant="outline" onClick={resetForm} className="flex-1">
+                    Cancelar
+                  </Button>
+                )}
+                <Button onClick={handleSubmit} disabled={isSaving} className="flex-1 gap-2">
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  {editingProduto ? "Atualizar" : "Cadastrar"}
                 </Button>
               </div>
             </div>
@@ -166,29 +244,61 @@ const Produtos = () => {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredProdutos.map((produto) => (
-            <div
-              key={produto.id}
-              className="bg-card border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold text-foreground text-sm leading-tight">
-                  {produto.nome}
-                </h3>
-                <StatusBadge variant="success" className="text-[10px] px-1.5 py-0">
-                  {produto.unidadeNegocio}
-                </StatusBadge>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Carregando produtos...</span>
+          </div>
+        ) : filteredProdutos.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            Nenhum produto encontrado
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredProdutos.map((produto) => (
+              <div
+                key={produto.id}
+                className="bg-card border rounded-lg p-4 hover:shadow-md transition-shadow group relative"
+              >
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleEdit(produto)}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(produto.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="flex items-start justify-between mb-2 pr-16 group-hover:pr-0">
+                  <h3 className="font-semibold text-foreground text-sm leading-tight">
+                    {produto.nome}
+                  </h3>
+                  <StatusBadge 
+                    variant={produto.status === "ativo" ? "success" : "warning"} 
+                    className="text-[10px] px-1.5 py-0"
+                  >
+                    {produto.unidade_negocio || "ID1+ID2"}
+                  </StatusBadge>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-lg font-bold text-primary currency">
+                    R$ {produto.preco.toFixed(2).replace(".", ",")}
+                  </span>
+                  <span className="text-xs text-muted-foreground">• {produto.unidade || "Peça"}</span>
+                </div>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-lg font-bold text-primary currency">
-                  R$ {produto.preco.toFixed(2).replace(".", ",")}
-                </span>
-                <span className="text-xs text-muted-foreground">• {produto.unidade}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </AppLayout>
   );

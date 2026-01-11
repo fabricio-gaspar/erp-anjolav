@@ -147,7 +147,7 @@ export const ClienteDadosBasicos = ({
 
   const handleSave = async (goNext: boolean = false) => {
     if (!formData.razao_social.trim()) {
-      toast.error("Razão Social é obrigatória");
+      toast.error(tipoPessoa === "cpf" ? "Nome do Cliente é obrigatório" : "Razão Social é obrigatória");
       return;
     }
 
@@ -254,7 +254,7 @@ export const ClienteDadosBasicos = ({
         <div className="space-y-1">
           <div className="flex gap-2">
             <Input
-              placeholder={tipoPessoa === "cnpj" ? "* Número do CNPJ" : "* Número do CPF"}
+              placeholder={tipoPessoa === "cnpj" ? "* NÚMERO DO CNPJ" : "* NÚMERO DO CPF"}
               value={formData.cpf_cnpj}
               onChange={(e) => handleChange("cpf_cnpj", e.target.value)}
               className="flex-1"
@@ -283,7 +283,7 @@ export const ClienteDadosBasicos = ({
         </div>
         <div className="space-y-1">
           <Input
-            placeholder="* RAZÃO SOCIAL"
+            placeholder={tipoPessoa === "cpf" ? "* NOME DO CLIENTE" : "* RAZÃO SOCIAL"}
             value={formData.razao_social}
             onChange={(e) => handleChange("razao_social", e.target.value)}
           />
