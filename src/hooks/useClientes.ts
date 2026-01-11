@@ -123,6 +123,20 @@ export function useClientes() {
 
   const deleteCliente = useMutation({
     mutationFn: async (id: string) => {
+      // Deletar registros dependentes primeiro (devido às foreign keys)
+      // Deletar endereços
+      await supabase.from("enderecos_clientes").delete().eq("cliente_id", id);
+      
+      // Deletar configurações de pagamento
+      await supabase.from("configuracoes_pagamento_cliente").delete().eq("cliente_id", id);
+      
+      // Deletar configurações do cliente
+      await supabase.from("configuracoes_cliente").delete().eq("cliente_id", id);
+      
+      // Deletar preços especiais
+      await supabase.from("precos_especiais").delete().eq("cliente_id", id);
+      
+      // Agora deletar o cliente
       const { error } = await supabase.from("clientes").delete().eq("id", id);
       if (error) throw error;
     },
