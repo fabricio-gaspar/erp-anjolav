@@ -171,8 +171,8 @@ const Dashboard = () => {
   }
 
   return (
-    <AppLayout title="Dashboard">
-      <div className="space-y-6">
+    <AppLayout title="Dashboard" subtitle="Métricas e visão operacional">
+      <div className="space-y-4">
         {/* KPIs Section */}
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">

@@ -161,19 +161,10 @@ const Lancamentos = () => {
   };
 
   return (
-    <AppLayout title="Lançamentos">
-      <div className="space-y-6">
+    <AppLayout title="Lançamentos" subtitle="Registre a produção diária por cliente">
+      <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Lançamentos de Consumo
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Registre a produção diária por cliente
-            </p>
-          </div>
-
+        <div className="flex justify-end">
           <Button variant="outline" className="gap-2">
             <ArrowRight className="w-4 h-4" />
             Ir para Faturamento

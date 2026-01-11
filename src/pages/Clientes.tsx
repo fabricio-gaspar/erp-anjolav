@@ -91,16 +91,15 @@ const Clientes = () => {
   };
 
   return (
-    <AppLayout title="Clientes">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">Cadastro de Clientes</h1>
-          {activeTab !== "lista" && (
+    <AppLayout title="Clientes" subtitle="Gerenciamento de clientes">
+      <div className="space-y-4">
+        {activeTab !== "lista" && (
+          <div className="flex justify-end">
             <Button variant="outline" onClick={handleBackToList}>
               Voltar para Lista
             </Button>
-          )}
-        </div>
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="bg-muted/50 p-1 rounded-lg">

@@ -96,16 +96,8 @@ const ContasPagar = () => {
   };
 
   return (
-    <AppLayout title="Contas a Pagar">
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Contas a Pagar</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie suas despesas e pagamentos
-          </p>
-        </div>
-
+    <AppLayout title="Contas a Pagar" subtitle="Gerencie suas despesas e pagamentos">
+      <div className="space-y-4">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* A Pagar */}
