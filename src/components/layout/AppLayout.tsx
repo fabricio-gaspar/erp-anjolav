@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
-import { SidebarProvider, useSidebarContext } from "@/contexts/SidebarContext";
+import { useSidebarContext } from "@/contexts/SidebarContext";
 import { cn } from "@/lib/utils";
 
 interface AppLayoutProps {
@@ -10,7 +10,7 @@ interface AppLayoutProps {
   children?: React.ReactNode;
 }
 
-function LayoutContent({ title, subtitle, children }: AppLayoutProps) {
+export function AppLayout({ title, subtitle, children }: AppLayoutProps) {
   const { isCollapsed } = useSidebarContext();
   
   return (
@@ -26,15 +26,5 @@ function LayoutContent({ title, subtitle, children }: AppLayoutProps) {
         </main>
       </div>
     </div>
-  );
-}
-
-export function AppLayout({ title, subtitle, children }: AppLayoutProps) {
-  return (
-    <SidebarProvider>
-      <LayoutContent title={title} subtitle={subtitle}>
-        {children}
-      </LayoutContent>
-    </SidebarProvider>
   );
 }
