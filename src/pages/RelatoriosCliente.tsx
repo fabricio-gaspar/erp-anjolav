@@ -42,9 +42,9 @@ const generateMonths = () => {
 
 const RelatoriosCliente = () => {
   const [selectedClient, setSelectedClient] = useState("");
-  const [reportType, setReportType] = useState<ReportType>("detalhado");
+  const [reportType, setReportType] = useState<ReportType>("mapa_pecas");
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([format(new Date(), "yyyy-MM")]);
   const [showPreview, setShowPreview] = useState(false);
 
   const { clientes, isLoading: isLoadingClientes } = useClientes();
