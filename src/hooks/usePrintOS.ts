@@ -9,8 +9,10 @@ import {
   fetchOSPrintData,
   generateROLHTMLWithData,
   generateEtiquetaHTMLWithData,
+  generateBarcodeSVG,
   type PrintOSData,
   type EtiquetaData,
+  type EtiquetaConfig,
 } from "@/services/printService";
 import type { ROLPreviewConfig } from "@/components/configuracoes/ROLPreview";
 
@@ -202,8 +204,136 @@ export function usePrintLancamento() {
     }
   }, [toast]);
 
+  const printEtiquetaFromData = useCallback(async (data: LancamentosPrintData, quantidade: number = 1) => {
+    setIsLoading(true);
+    try {
+      const config = await fetchEtiquetaConfig();
+      if (!config) {
+        toast({ title: "Erro", description: "Configurações de etiqueta não encontradas", variant: "destructive" });
+        return false;
+      }
+
+      // Generate a temporary OS number
+      const tempNumero = `L${Date.now().toString().slice(-6)}`;
+
+      const etiquetaData: EtiquetaData = {
+        osNumero: tempNumero,
+        clienteNome: data.clienteNome,
+        data: data.dataEmissao,
+      };
+
+      // Generate HTML for multiple labels
+      const singleLabel = generateEtiquetaHTMLWithData(config, etiquetaData);
+      
+      // For multiple labels, we need to generate a page with all of them
+      if (quantidade > 1) {
+        const labelsHtml = generateMultipleLabelsHTML(config, etiquetaData, quantidade);
+        const printWindow = window.open('', '_blank', 'width=400,height=600');
+        if (printWindow) {
+          printWindow.document.write(labelsHtml);
+          printWindow.document.close();
+          printWindow.onload = () => {
+            setTimeout(() => {
+              printWindow.print();
+              printWindow.close();
+            }, 250);
+          };
+        }
+      } else {
+        const printWindow = window.open('', '_blank', 'width=400,height=600');
+        if (printWindow) {
+          printWindow.document.write(singleLabel);
+          printWindow.document.close();
+          printWindow.onload = () => {
+            setTimeout(() => {
+              printWindow.print();
+              printWindow.close();
+            }, 250);
+          };
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Print Etiqueta error:", error);
+      toast({ title: "Erro", description: "Erro ao imprimir etiqueta", variant: "destructive" });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
   return {
     printROLFromData,
+    printEtiquetaFromData,
     isLoading,
   };
+}
+
+// Helper function to generate multiple labels on one page
+function generateMultipleLabelsHTML(config: EtiquetaConfig, data: EtiquetaData, quantidade: number): string {
+  const barcodeSVG = generateBarcodeSVG(data.osNumero, config.alturaCodigoBarras);
+  
+  const labelContent = `
+    <div class="label">
+      <div class="header">
+        <div class="company">${config.nomeEmpresa || 'ANJOLAV LAVANDERIA'}</div>
+      </div>
+      <div class="content">
+        <div class="os-number">OS: ${data.osNumero}</div>
+        <div class="client">${data.clienteNome}</div>
+        <div class="barcode">${barcodeSVG}</div>
+        <div class="barcode-number">${data.osNumero}</div>
+      </div>
+      <div class="footer">
+        ${(data.bloco || data.posicao) ? `<div class="location">${data.bloco ? `Bloco: ${data.bloco}` : ''} ${data.bloco && data.posicao ? '|' : ''} ${data.posicao ? `Pos: ${data.posicao}` : ''}</div>` : ''}
+        <div class="date">${data.data.toLocaleDateString('pt-BR')}</div>
+      </div>
+    </div>
+  `;
+
+  const labels = Array(quantidade).fill(labelContent).join('');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Etiquetas - ${data.osNumero}</title>
+      <style>
+        @page { margin: 5mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: Arial, sans-serif;
+        }
+        .label {
+          width: 100mm;
+          height: 50mm;
+          padding: ${config.margemSuperior}mm ${config.margemLateral}mm;
+          display: flex;
+          flex-direction: column;
+          border: 1px dashed #ccc;
+          margin-bottom: 2mm;
+          page-break-inside: avoid;
+        }
+        .header { text-align: center; margin-bottom: 2mm; }
+        .company { font-size: ${config.tamanhoFonte}px; font-weight: bold; text-transform: uppercase; }
+        .content { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .os-number { font-size: ${config.tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
+        .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 2mm; text-align: center; }
+        .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
+        .barcode-number { font-size: ${config.tamanhoFonte - 4}px; font-family: monospace; color: #666; }
+        .footer { text-align: center; margin-top: 1mm; }
+        .location { font-size: ${config.tamanhoFonte - 4}px; color: #666; }
+        .date { font-size: ${config.tamanhoFonte - 4}px; color: #888; }
+        @media print {
+          .label { border: none; }
+        }
+      </style>
+    </head>
+    <body>
+      ${labels}
+    </body>
+    </html>
+  `;
 }
