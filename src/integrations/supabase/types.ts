@@ -873,6 +873,47 @@ export type Database = {
           },
         ]
       }
+      itens_lancamento: {
+        Row: {
+          created_at: string
+          id: string
+          lancamento_id: string
+          preco_unitario: number
+          produto_nome: string
+          quantidade: number
+          subtotal: number
+          unidade: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lancamento_id: string
+          preco_unitario: number
+          produto_nome: string
+          quantidade: number
+          subtotal: number
+          unidade?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lancamento_id?: string
+          preco_unitario?: number
+          produto_nome?: string
+          quantidade?: number
+          subtotal?: number
+          unidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_lancamento_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itens_ordem_servico: {
         Row: {
           created_at: string
@@ -917,6 +958,86 @@ export type Database = {
             columns: ["produto_id"]
             isOneToOne: false
             referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lancamentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          data_entrega: string | null
+          data_lancamento: string
+          id: string
+          observacao: string | null
+          status: string
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          data_entrega?: string | null
+          data_lancamento?: string
+          id?: string
+          observacao?: string | null
+          status?: string
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          data_entrega?: string | null
+          data_lancamento?: string
+          id?: string
+          observacao?: string | null
+          status?: string
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lancamentos_fatura: {
+        Row: {
+          created_at: string
+          fatura_id: string
+          id: string
+          lancamento_id: string
+        }
+        Insert: {
+          created_at?: string
+          fatura_id: string
+          id?: string
+          lancamento_id: string
+        }
+        Update: {
+          created_at?: string
+          fatura_id?: string
+          id?: string
+          lancamento_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_fatura_fatura_id_fkey"
+            columns: ["fatura_id"]
+            isOneToOne: false
+            referencedRelation: "faturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_fatura_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
             referencedColumns: ["id"]
           },
         ]

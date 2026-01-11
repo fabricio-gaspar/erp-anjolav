@@ -70,7 +70,9 @@ import { useClientes } from "@/hooks/useClientes";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useConferenciaProducao, type OSConferencia } from "@/hooks/useConferenciaProducao";
 import { ConferenciaModal } from "@/components/lancamentos/ConferenciaModal";
-import { FaturamentoModal, type DadosFaturamento } from "@/components/faturamento/FaturamentoModal";
+import { useLancamentos, useCreateItemLancamento } from "@/hooks/useLancamentos";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface LancamentoItem {
   id: string;
@@ -112,8 +114,9 @@ const Lancamentos = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOS, setSelectedOS] = useState<OSConferencia | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [faturamentoModalOpen, setFaturamentoModalOpen] = useState(false);
-
+  const [isFinalizando, setIsFinalizando] = useState(false);
+  
+  const navigate = useNavigate();
   // Hooks for real data
   const { clientes, isLoading: isLoadingClientes } = useClientes();
   const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(selectedClienteId);
@@ -124,6 +127,10 @@ const Lancamentos = () => {
 
   // Print hook
   const { printROLFromData, printEtiquetaFromData, isLoading: isPrinting } = usePrintLancamento();
+
+  // Lancamentos hooks
+  const { createLancamento } = useLancamentos();
+  const createItemLancamento = useCreateItemLancamento();
 
   const totalValue = items.reduce((sum, item) => sum + item.valorTotal, 0);
 
@@ -275,23 +282,52 @@ const Lancamentos = () => {
     await printEtiquetaFromData(printData, 1);
   };
 
-  const handleFinalizarLancamento = () => {
-    if (!clienteSelecionado || items.length === 0) return;
-    setFaturamentoModalOpen(true);
-  };
+  const handleFinalizarLancamento = async () => {
+    if (!clienteSelecionado || items.length === 0 || !selectedClienteId) return;
+    
+    setIsFinalizando(true);
+    try {
+      // 1. Criar registro em lancamentos
+      const lancamento = await createLancamento.mutateAsync({
+        cliente_id: selectedClienteId,
+        data_lancamento: dataEmissao,
+        data_entrega: dataEntrega || null,
+        observacao: observacao || null,
+        valor_total: totalValue,
+        status: "pendente",
+      });
 
-  const dadosFaturamento: DadosFaturamento | null = clienteSelecionado && items.length > 0 ? {
-    clienteId: selectedClienteId!,
-    clienteNome: clienteSelecionado.nome,
-    clienteDocumento: clienteSelecionado.documento,
-    clienteEmail: clientes.find(c => c.id === selectedClienteId)?.email || null,
-    clienteTelefone: clienteSelecionado.telefone || null,
-    itens: items,
-    valorTotal: totalValue,
-    periodoInicio: dataEmissao,
-    periodoFim: dataEntrega,
-    observacao: observacao,
-  } : null;
+      // 2. Criar itens do lançamento
+      for (const item of items) {
+        await createItemLancamento.mutateAsync({
+          lancamento_id: lancamento.id,
+          produto_nome: item.produto,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          preco_unitario: item.valorUnitario,
+          subtotal: item.valorTotal,
+        });
+      }
+
+      // 3. Limpar formulário
+      setItems([]);
+      setSelectedClienteId(null);
+      setObservacao("");
+      
+      toast.success("Lançamento registrado com sucesso!", {
+        description: "Veja em Faturamento para processar a cobrança.",
+        action: {
+          label: "Ir para Faturamento",
+          onClick: () => navigate("/faturamento"),
+        },
+      });
+    } catch (error) {
+      console.error("Erro ao finalizar lançamento:", error);
+      toast.error("Erro ao finalizar lançamento");
+    } finally {
+      setIsFinalizando(false);
+    }
+  };
 
   return (
     <AppLayout title="Lançamentos" subtitle="Registre a produção diária por cliente">
@@ -695,9 +731,13 @@ const Lancamentos = () => {
                       <Button 
                         className="w-full gap-2 bg-success hover:bg-success/90"
                         onClick={handleFinalizarLancamento}
-                        disabled={items.length === 0}
+                        disabled={items.length === 0 || isFinalizando}
                       >
-                        <Check className="w-4 h-4" />
+                        {isFinalizando ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4" />
+                        )}
                         Finalizar Lançamento
                       </Button>
                     </div>
@@ -982,13 +1022,6 @@ const Lancamentos = () => {
           open={modalOpen}
           onOpenChange={setModalOpen}
           os={selectedOS}
-        />
-
-        {/* Modal de Faturamento */}
-        <FaturamentoModal
-          open={faturamentoModalOpen}
-          onOpenChange={setFaturamentoModalOpen}
-          dados={dadosFaturamento}
         />
       </div>
     </AppLayout>

@@ -42,6 +42,7 @@ export interface DadosFaturamento {
   periodoInicio: string;
   periodoFim: string;
   observacao?: string;
+  lancamentoIds?: string[]; // IDs dos lançamentos selecionados
 }
 
 interface FaturamentoModalProps {
