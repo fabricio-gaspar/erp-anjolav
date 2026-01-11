@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -10,11 +10,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileText, Download, ChevronRight, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FileText, Download, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useFaturas } from "@/hooks/useFaturas";
+import { useFaturas, useValidateLancamentosForFatura } from "@/hooks/useFaturas";
 import { useLinkLancamentosToFatura } from "@/hooks/useLancamentos";
+import { useConfiguracaoCliente } from "@/hooks/useClientes";
+import { gerarSnapshotItens, formatCurrency } from "@/lib/faturamentoUtils";
 import type { DadosFaturamento } from "./FaturamentoModal";
 
 interface EtapaRelatorioProps {
@@ -30,15 +33,41 @@ export function EtapaRelatorio({
 }: EtapaRelatorioProps) {
   const [revisado, setRevisado] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+
   const { createFatura } = useFaturas();
   const linkLancamentos = useLinkLancamentosToFatura();
+  const validateLancamentos = useValidateLancamentosForFatura();
+  const { configuracao: configCliente } = useConfiguracaoCliente(dados.clienteId);
 
-  const formatCurrency = (value: number) => {
-    return `R$ ${value.toFixed(2).replace(".", ",")}`;
-  };
+  // Tipo de relatório do cliente (se configurado)
+  const tipoRelatorioCliente = configCliente?.tipo_relatorio || "detalhado";
+
+  // Validar ROLs duplicados ao montar
+  useEffect(() => {
+    const validar = async () => {
+      if (!dados.lancamentoIds || dados.lancamentoIds.length === 0) return;
+
+      setIsValidating(true);
+      try {
+        const result = await validateLancamentos.mutateAsync(dados.lancamentoIds);
+        if (!result.valid) {
+          setValidationError(result.message);
+        } else {
+          setValidationError(null);
+        }
+      } catch (error) {
+        console.error("Erro na validação:", error);
+      } finally {
+        setIsValidating(false);
+      }
+    };
+
+    validar();
+  }, [dados.lancamentoIds]);
 
   const handleGenerateReport = async () => {
-    // Generate printable report
     const reportHTML = `
       <!DOCTYPE html>
       <html>
@@ -60,6 +89,7 @@ export function EtapaRelatorio({
           <p><strong>Cliente:</strong> ${dados.clienteNome}</p>
           <p><strong>Documento:</strong> ${dados.clienteDocumento || "Não informado"}</p>
           <p><strong>Período:</strong> ${format(new Date(dados.periodoInicio), "dd/MM/yyyy", { locale: ptBR })} a ${format(new Date(dados.periodoFim), "dd/MM/yyyy", { locale: ptBR })}</p>
+          <p><strong>Tipo:</strong> ${tipoRelatorioCliente}</p>
         </div>
         <table>
           <thead>
@@ -79,15 +109,15 @@ export function EtapaRelatorio({
                 <td>${item.produto}</td>
                 <td>${item.quantidade}</td>
                 <td>${item.unidade}</td>
-                <td>R$ ${item.valorUnitario.toFixed(2)}</td>
-                <td>R$ ${item.valorTotal.toFixed(2)}</td>
+                <td>${formatCurrency(item.valorUnitario)}</td>
+                <td>${formatCurrency(item.valorTotal)}</td>
               </tr>
             `
               )
               .join("")}
           </tbody>
         </table>
-        <p class="total">TOTAL: R$ ${dados.valorTotal.toFixed(2)}</p>
+        <p class="total">TOTAL: ${formatCurrency(dados.valorTotal)}</p>
       </body>
       </html>
     `;
@@ -101,15 +131,32 @@ export function EtapaRelatorio({
   };
 
   const handleNext = async () => {
+    // Validar novamente antes de prosseguir
+    if (dados.lancamentoIds && dados.lancamentoIds.length > 0) {
+      const validation = await validateLancamentos.mutateAsync(dados.lancamentoIds);
+      if (!validation.valid) {
+        setValidationError(validation.message);
+        return;
+      }
+    }
+
     setIsGenerating(true);
     try {
-      // Create fatura in database
+      // Gerar snapshot dos itens
+      const itensSnapshot = gerarSnapshotItens(dados);
+
+      // Create fatura in database com dados da Etapa 1
       const result = await createFatura.mutateAsync({
         cliente_id: dados.clienteId,
         periodo_inicio: dados.periodoInicio,
         periodo_fim: dados.periodoFim,
         valor_total: dados.valorTotal,
         status: "pendente",
+        // Campos da Etapa 1
+        relatorio_gerado: true,
+        relatorio_data: new Date().toISOString(),
+        tipo_relatorio: tipoRelatorioCliente,
+        itens_snapshot: itensSnapshot,
       });
 
       // Link lancamentos to fatura if we have lancamentoIds
@@ -131,6 +178,20 @@ export function EtapaRelatorio({
 
   return (
     <div className="space-y-6">
+      {/* Alerta de validação de ROLs duplicados */}
+      {validationError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            {validationError}
+            <br />
+            <span className="text-sm">
+              Remova os lançamentos duplicados antes de prosseguir.
+            </span>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="w-5 h-5 text-primary" />
@@ -155,6 +216,10 @@ export function EtapaRelatorio({
               a{" "}
               {format(new Date(dados.periodoFim), "dd/MM/yyyy", { locale: ptBR })}
             </p>
+          </div>
+          <div>
+            <span className="text-sm text-muted-foreground">Tipo Relatório</span>
+            <p className="font-medium capitalize">{tipoRelatorioCliente}</p>
           </div>
           <div>
             <span className="text-sm text-muted-foreground">Lançamentos</span>
@@ -206,6 +271,7 @@ export function EtapaRelatorio({
           id="revisado"
           checked={revisado}
           onCheckedChange={(checked) => setRevisado(checked === true)}
+          disabled={!!validationError}
         />
         <label htmlFor="revisado" className="text-sm cursor-pointer">
           Confirmo que revisei os dados do relatório
@@ -220,10 +286,10 @@ export function EtapaRelatorio({
 
         <Button
           onClick={handleNext}
-          disabled={!revisado || isGenerating}
+          disabled={!revisado || isGenerating || !!validationError || isValidating}
           className="gap-2"
         >
-          {isGenerating ? (
+          {isGenerating || isValidating ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <>

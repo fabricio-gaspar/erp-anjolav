@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   Send,
   FileText,
@@ -16,8 +15,21 @@ import {
   Check,
   Loader2,
   User,
+  History,
 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { useFaturas } from "@/hooks/useFaturas";
+import { useHistoricoEnvios } from "@/hooks/useHistoricoEnvios";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import {
+  formatCurrency,
+  substituirVariaveis,
+  TEMPLATE_WHATSAPP_DEFAULT,
+  TEMPLATE_EMAIL_DEFAULT,
+  type TemplateVariables,
+} from "@/lib/faturamentoUtils";
 import type { DadosFaturamento } from "./FaturamentoModal";
 
 interface EtapaEnvioProps {
@@ -39,12 +51,27 @@ export function EtapaEnvio({
   const [sendWhatsApp, setSendWhatsApp] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
-  const formatCurrency = (value: number) => {
-    return `R$ ${value.toFixed(2).replace(".", ",")}`;
+  const { updateFatura } = useFaturas();
+  const { createEnvio } = useHistoricoEnvios(faturaId);
+  const { configuracao: configGeral } = useConfiguracoesGerais();
+
+  // Preparar variáveis para templates
+  const templateVars: TemplateVariables = {
+    cliente: dados.clienteNome,
+    valor: formatCurrency(dados.valorTotal),
+    vencimento: paymentData?.data?.dataVencimento
+      ? format(new Date(paymentData.data.dataVencimento as string), "dd/MM/yyyy", { locale: ptBR })
+      : format(new Date(), "dd/MM/yyyy", { locale: ptBR }),
+    numero_nf: numeroNF || undefined,
+    link_boleto: paymentData?.data?.url as string || undefined,
+    periodo: `${format(new Date(dados.periodoInicio), "dd/MM/yyyy", { locale: ptBR })} a ${format(new Date(dados.periodoFim), "dd/MM/yyyy", { locale: ptBR })}`,
   };
 
+  // Usar templates configurados ou padrão
+  const templateWhatsApp = configGeral?.template_pix || TEMPLATE_WHATSAPP_DEFAULT;
+  const templateEmail = configGeral?.template_boleto || TEMPLATE_EMAIL_DEFAULT;
+
   const handleDownloadROL = () => {
-    // Generate ROL PDF (reuse existing print logic)
     const reportHTML = `
       <!DOCTYPE html>
       <html>
@@ -62,15 +89,16 @@ export function EtapaEnvio({
       <body>
         <h1>Romaneio de Lavanderia</h1>
         <p><strong>Cliente:</strong> ${dados.clienteNome}</p>
+        <p><strong>Período:</strong> ${format(new Date(dados.periodoInicio), "dd/MM/yyyy", { locale: ptBR })} a ${format(new Date(dados.periodoFim), "dd/MM/yyyy", { locale: ptBR })}</p>
         <table>
           <thead>
-            <tr><th>Item</th><th>Qtd</th><th>Valor</th></tr>
+            <tr><th>Item</th><th>Qtd</th><th>Unidade</th><th>Valor</th></tr>
           </thead>
           <tbody>
             ${dados.itens
               .map(
                 (item) =>
-                  `<tr><td>${item.produto}</td><td>${item.quantidade}</td><td>${formatCurrency(item.valorTotal)}</td></tr>`
+                  `<tr><td>${item.produto}</td><td>${item.quantidade}</td><td>${item.unidade}</td><td>${formatCurrency(item.valorTotal)}</td></tr>`
               )
               .join("")}
           </tbody>
@@ -91,7 +119,6 @@ export function EtapaEnvio({
   const handleDownloadNF = () => {
     if (!numeroNF) return;
     toast.info("Nota Fiscal: " + numeroNF);
-    // In production, would download the actual NF PDF
   };
 
   const handleDownloadPayment = () => {
@@ -99,59 +126,107 @@ export function EtapaEnvio({
 
     if (paymentData.type === "boleto" && paymentData.data.url) {
       window.open(paymentData.data.url as string, "_blank");
+    } else if (paymentData.data.copyPaste) {
+      navigator.clipboard.writeText(paymentData.data.copyPaste as string);
+      toast.success("Código PIX copiado!");
     } else {
       toast.info("Dados do pagamento exibidos no console");
       console.log("Payment data:", paymentData);
     }
   };
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = async () => {
     if (!dados.clienteTelefone) {
       toast.error("Cliente não possui telefone cadastrado");
-      return;
+      return false;
     }
+
+    // Substituir variáveis no template
+    const mensagem = substituirVariaveis(templateWhatsApp, templateVars);
 
     const phone = dados.clienteTelefone.replace(/\D/g, "");
-    const message = encodeURIComponent(
-      `Olá ${dados.clienteNome}!\n\nSegue o resumo do seu faturamento:\n\n` +
-        `Valor Total: ${formatCurrency(dados.valorTotal)}\n` +
-        (numeroNF ? `Nota Fiscal: ${numeroNF}\n` : "") +
-        `\nObrigado pela preferência!`
-    );
+    const encodedMessage = encodeURIComponent(mensagem);
 
-    window.open(`https://wa.me/55${phone}?text=${message}`, "_blank");
+    window.open(`https://wa.me/55${phone}?text=${encodedMessage}`, "_blank");
+
+    // Registrar envio no histórico
+    if (faturaId) {
+      await createEnvio.mutateAsync({
+        fatura_id: faturaId,
+        canal: "whatsapp",
+        destinatario: dados.clienteTelefone,
+        mensagem: mensagem,
+        documentos_enviados: ["ROL", numeroNF ? "NF" : "", paymentData ? "Pagamento" : ""].filter(Boolean),
+        status: "enviado",
+      });
+    }
+
+    return true;
   };
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     if (!dados.clienteEmail) {
       toast.error("Cliente não possui e-mail cadastrado");
-      return;
+      return false;
     }
+
+    // Substituir variáveis no template
+    const mensagem = substituirVariaveis(templateEmail, templateVars);
 
     const subject = encodeURIComponent(
       `Faturamento - ${dados.clienteNome} - ${formatCurrency(dados.valorTotal)}`
     );
-    const body = encodeURIComponent(
-      `Prezado(a) ${dados.clienteNome},\n\n` +
-        `Segue o resumo do seu faturamento:\n\n` +
-        `Valor Total: ${formatCurrency(dados.valorTotal)}\n` +
-        (numeroNF ? `Nota Fiscal: ${numeroNF}\n` : "") +
-        `\nAtenciosamente`
-    );
+    const body = encodeURIComponent(mensagem);
 
     window.open(`mailto:${dados.clienteEmail}?subject=${subject}&body=${body}`);
+
+    // Registrar envio no histórico
+    if (faturaId) {
+      await createEnvio.mutateAsync({
+        fatura_id: faturaId,
+        canal: "email",
+        destinatario: dados.clienteEmail,
+        mensagem: mensagem,
+        documentos_enviados: ["ROL", numeroNF ? "NF" : "", paymentData ? "Pagamento" : ""].filter(Boolean),
+        status: "enviado",
+      });
+    }
+
+    return true;
   };
 
   const handleSend = async () => {
     setIsSending(true);
-    
+
     try {
+      const canaisEnviados: string[] = [];
+      let destinatarioFinal = "";
+
       if (sendWhatsApp) {
-        handleSendWhatsApp();
+        const success = await handleSendWhatsApp();
+        if (success) {
+          canaisEnviados.push("whatsapp");
+          destinatarioFinal = dados.clienteTelefone || "";
+        }
       }
-      
+
       if (sendEmail) {
-        handleSendEmail();
+        const success = await handleSendEmail();
+        if (success) {
+          canaisEnviados.push("email");
+          destinatarioFinal = dados.clienteEmail || destinatarioFinal;
+        }
+      }
+
+      // Atualizar fatura com status "enviado"
+      if (faturaId && canaisEnviados.length > 0) {
+        await updateFatura.mutateAsync({
+          id: faturaId,
+          status: "enviado",
+          data_envio: new Date().toISOString(),
+          canais_envio: canaisEnviados,
+          destinatario_envio: destinatarioFinal,
+        });
       }
 
       toast.success("Faturamento finalizado com sucesso!");
@@ -164,7 +239,15 @@ export function EtapaEnvio({
     }
   };
 
-  const handleFinalizarSemEnvio = () => {
+  const handleFinalizarSemEnvio = async () => {
+    // Atualizar status para "pendente" ou manter o atual
+    if (faturaId) {
+      await updateFatura.mutateAsync({
+        id: faturaId,
+        data_envio: null,
+        canais_envio: [],
+      });
+    }
     toast.success("Faturamento finalizado!");
     onClose();
   };
@@ -274,6 +357,21 @@ export function EtapaEnvio({
         </div>
       </Card>
 
+      {/* Preview da mensagem */}
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <History className="w-4 h-4 text-muted-foreground" />
+          <h4 className="font-medium text-sm">Preview da Mensagem</h4>
+        </div>
+        <div className="p-3 bg-muted rounded-lg text-sm whitespace-pre-line max-h-32 overflow-y-auto">
+          {sendWhatsApp
+            ? substituirVariaveis(templateWhatsApp, templateVars)
+            : sendEmail
+            ? substituirVariaveis(templateEmail, templateVars)
+            : "Selecione um canal de envio para ver o preview"}
+        </div>
+      </Card>
+
       <Separator />
 
       <div className="flex justify-between items-center">
@@ -291,8 +389,8 @@ export function EtapaEnvio({
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             onClick={handleFinalizarSemEnvio}
             className="gap-2"
           >

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Receipt,
   Building2,
@@ -12,10 +13,18 @@ import {
   Loader2,
   AlertCircle,
   SkipForward,
+  AlertTriangle,
 } from "lucide-react";
 import { useConfiguracoesFiscais } from "@/hooks/useConfiguracoesFiscais";
 import { useClienteById, useEnderecoCliente } from "@/hooks/useClientes";
 import { useFaturas } from "@/hooks/useFaturas";
+import {
+  formatCurrency,
+  gerarSnapshotCliente,
+  gerarSnapshotEmitente,
+  gerarChaveAcesso,
+  validarDadosFiscaisCliente,
+} from "@/lib/faturamentoUtils";
 import type { DadosFaturamento } from "./FaturamentoModal";
 
 interface EtapaNFProps {
@@ -41,27 +50,62 @@ export function EtapaNF({
 
   const isLoading = isLoadingFiscal || isLoadingCliente || isLoadingEndereco;
 
-  const formatCurrency = (value: number) => {
-    return `R$ ${value.toFixed(2).replace(".", ",")}`;
-  };
+  // Validar dados fiscais do cliente
+  const validacaoCliente = cliente
+    ? validarDadosFiscaisCliente(cliente, endereco)
+    : { valid: false, erros: ["Cliente não encontrado"] };
 
   const handleEmitirNF = async () => {
-    if (!faturaId || !configuracaoAtiva) return;
+    if (!faturaId || !configuracaoAtiva || !cliente) return;
 
     setIsEmitting(true);
     try {
-      // Generate NF number (simplified - in production would call NF API)
+      // Gerar número da NF
       const year = new Date().getFullYear();
       const random = Math.floor(Math.random() * 1000000)
         .toString()
         .padStart(6, "0");
       const nfNumber = `${year}${random}`;
 
-      // Update fatura with NF number
+      // Gerar chave de acesso (44 dígitos)
+      const chaveAcesso = gerarChaveAcesso();
+
+      // Gerar snapshots
+      const snapshotCliente = gerarSnapshotCliente(
+        {
+          razao_social: cliente.razao_social,
+          cpf_cnpj: cliente.cpf_cnpj,
+          email: cliente.email,
+          telefone: cliente.telefone,
+          inscricao_municipal: cliente.inscricao_municipal,
+        },
+        endereco
+      );
+
+      const snapshotEmitente = gerarSnapshotEmitente({
+        razao_social: configuracaoAtiva.razao_social,
+        cnpj: configuracaoAtiva.cnpj,
+        inscricao_municipal: configuracaoAtiva.inscricao_municipal,
+        inscricao_estadual: configuracaoAtiva.inscricao_estadual,
+        endereco: configuracaoAtiva.endereco as Record<string, string> | null,
+        codigo_servico: configuracaoAtiva.codigo_servico,
+        aliquota_iss: configuracaoAtiva.aliquota_iss,
+      });
+
+      // Descrição do serviço
+      const descricaoServico = `Serviços de lavanderia industrial - ${dados.itens.length} item(ns) processado(s)`;
+
+      // Update fatura com todos os dados da Etapa 2
       await updateFatura.mutateAsync({
         id: faturaId,
         numero_nf: nfNumber,
         status: "nota_emitida",
+        chave_acesso: chaveAcesso,
+        data_emissao_nf: new Date().toISOString(),
+        snapshot_cliente: snapshotCliente,
+        snapshot_emitente: snapshotEmitente,
+        descricao_servico: descricaoServico,
+        // Em produção, aqui teria o link_pdf_nf após integração real
       });
 
       onNFEmitida(nfNumber);
@@ -106,6 +150,21 @@ export function EtapaNF({
         </Card>
       ) : (
         <>
+          {/* Alerta de dados incompletos do cliente */}
+          {!validacaoCliente.valid && (
+            <Alert variant="destructive" className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <AlertDescription className="text-amber-700 dark:text-amber-400">
+                <strong>Dados do cliente incompletos:</strong>
+                <ul className="list-disc list-inside mt-1">
+                  {validacaoCliente.erros.map((erro, i) => (
+                    <li key={i} className="text-sm">{erro}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="flex items-center gap-2 mb-4">
             <Receipt className="w-5 h-5 text-primary" />
             <h3 className="font-semibold">Prévia da Nota Fiscal</h3>
@@ -144,6 +203,9 @@ export function EtapaNF({
               <div className="flex items-center gap-2 mb-3">
                 <User className="w-4 h-4 text-muted-foreground" />
                 <span className="font-medium text-sm">TOMADOR</span>
+                {!validacaoCliente.valid && (
+                  <AlertTriangle className="w-4 h-4 text-amber-500 ml-auto" />
+                )}
               </div>
               <div className="space-y-2 text-sm">
                 <p className="font-semibold">{cliente?.razao_social}</p>
@@ -217,7 +279,7 @@ export function EtapaNF({
           {configuracaoAtiva && (
             <Button
               onClick={handleEmitirNF}
-              disabled={isEmitting}
+              disabled={isEmitting || !validacaoCliente.valid}
               className="gap-2"
             >
               {isEmitting ? (
