@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -14,6 +16,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { 
   FileText, 
@@ -21,58 +31,63 @@ import {
   TrendingUp, 
   TrendingDown,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Users,
+  Package,
+  Wallet,
+  BarChart3,
+  PieChart,
+  ArrowUpRight,
+  ArrowDownRight,
+  Loader2,
+  Filter,
+  Printer
 } from "lucide-react";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useClientes } from "@/hooks/useClientes";
+import { useRelatorioFinanceiro } from "@/hooks/useRelatorioFinanceiro";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 
-type QuickPeriod = "hoje" | "ontem" | "esta_semana" | "este_mes" | "este_ano";
+type QuickPeriod = "hoje" | "ontem" | "esta_semana" | "este_mes" | "este_ano" | "custom";
+type ViewType = "resumo" | "receitas" | "despesas" | "produtos" | "clientes";
 
-interface Receita {
-  id: string;
-  descricao: string;
-  valor: number;
-}
-
-interface Despesa {
-  id: string;
-  descricao: string;
-  valor: number;
-}
-
-interface ProdutoVendido {
-  id: string;
-  nome: string;
-  quantidade: number;
-  valor: number;
-}
-
-// Mock data - will be replaced with real data
-const mockReceitas: Receita[] = [];
-const mockDespesas: Despesa[] = [];
-const mockProdutos: ProdutoVendido[] = [
-  { id: "1", nome: "CAPA DE ALMOFADA", quantidade: 4, valor: 20.00 },
-  { id: "2", nome: "FRONHA", quantidade: 2, valor: 7.00 },
-  { id: "3", nome: "TOALHA DE PISO", quantidade: 1, valor: 3.50 },
-];
-
-const mockClientes = [
-  { id: "todos", nome: "Todos os clientes" },
-  { id: "1", nome: "FABRICIO GASPAR" },
-  { id: "2", nome: "GARDEN HOUSE" },
-  { id: "3", nome: "Anjolav Serviços" },
-];
+const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"];
 
 const RelatorioFinanceiro = () => {
   const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>("este_mes");
   const [dataInicio, setDataInicio] = useState<Date>(startOfMonth(new Date()));
   const [dataFim, setDataFim] = useState<Date>(endOfMonth(new Date()));
   const [selectedCliente, setSelectedCliente] = useState("todos");
-  
-  const [receitas] = useState<Receita[]>(mockReceitas);
-  const [despesas] = useState<Despesa[]>(mockDespesas);
-  const [produtos] = useState<ProdutoVendido[]>(mockProdutos);
+  const [viewType, setViewType] = useState<ViewType>("resumo");
+  const [statusFilter, setStatusFilter] = useState("todos");
+
+  const { clientes, isLoading: isLoadingClientes } = useClientes();
+  const { 
+    receitas, 
+    despesas, 
+    produtos, 
+    categorias, 
+    clientesResumo,
+    isLoading 
+  } = useRelatorioFinanceiro(
+    dataInicio, 
+    dataFim, 
+    selectedCliente === "todos" ? null : selectedCliente
+  );
 
   const handleQuickPeriod = (period: QuickPeriod) => {
     setQuickPeriod(period);
@@ -110,20 +125,32 @@ const RelatorioFinanceiro = () => {
     }).format(value);
   };
 
+  // Filtrar receitas e despesas por status
+  const receitasFiltradas = useMemo(() => {
+    if (statusFilter === "todos") return receitas;
+    return receitas.filter(r => r.status === statusFilter);
+  }, [receitas, statusFilter]);
+
+  const despesasFiltradas = useMemo(() => {
+    if (statusFilter === "todos") return despesas;
+    return despesas.filter(d => d.status === statusFilter);
+  }, [despesas, statusFilter]);
+
   const totals = useMemo(() => {
-    const totalReceitas = receitas.reduce((acc, r) => acc + r.valor, 0);
-    const totalDespesas = despesas.reduce((acc, d) => acc + d.valor, 0);
+    const totalReceitas = receitasFiltradas.reduce((acc, r) => acc + r.valor, 0);
+    const totalDespesas = despesasFiltradas.reduce((acc, d) => acc + d.valor, 0);
     const resultado = totalReceitas - totalDespesas;
     const margemLiquida = totalReceitas > 0 
       ? ((totalReceitas - totalDespesas) / totalReceitas) * 100 
       : 0;
-    const ticketMedioReceita = receitas.length > 0 
-      ? totalReceitas / receitas.length 
+    const ticketMedioReceita = receitasFiltradas.length > 0 
+      ? totalReceitas / receitasFiltradas.length 
       : 0;
-    const ticketMedioDespesa = despesas.length > 0 
-      ? totalDespesas / despesas.length 
+    const ticketMedioDespesa = despesasFiltradas.length > 0 
+      ? totalDespesas / despesasFiltradas.length 
       : 0;
-    const totalLancamentos = receitas.length + despesas.length;
+    const totalLancamentos = receitasFiltradas.length + despesasFiltradas.length;
+    const totalPecas = produtos.reduce((acc, p) => acc + p.quantidade, 0);
 
     return {
       totalReceitas,
@@ -133,38 +160,70 @@ const RelatorioFinanceiro = () => {
       ticketMedioReceita,
       ticketMedioDespesa,
       totalLancamentos,
-      qtdReceitas: receitas.length,
-      qtdDespesas: despesas.length,
+      qtdReceitas: receitasFiltradas.length,
+      qtdDespesas: despesasFiltradas.length,
+      totalPecas,
     };
-  }, [receitas, despesas]);
+  }, [receitasFiltradas, despesasFiltradas, produtos]);
+
+  // Dados para gráfico de barras (receitas vs despesas)
+  const chartData = useMemo(() => {
+    return [
+      { name: "Receitas", valor: totals.totalReceitas, fill: "#10B981" },
+      { name: "Despesas", valor: totals.totalDespesas, fill: "#EF4444" },
+    ];
+  }, [totals]);
+
+  // Dados para gráfico de pizza (categorias de despesas)
+  const pieData = useMemo(() => {
+    return categorias.map((cat, index) => ({
+      name: cat.categoria,
+      value: cat.valor,
+      fill: COLORS[index % COLORS.length],
+    }));
+  }, [categorias]);
 
   const handleExportCSV = () => {
-    // TODO: Implement CSV export
-    console.log("Exportar CSV");
+    const csvRows: string[] = [];
+    
+    // Cabeçalho
+    csvRows.push("Tipo,Data,Descrição,Cliente/Fornecedor,Categoria,Valor,Status");
+    
+    // Receitas
+    receitasFiltradas.forEach(r => {
+      csvRows.push(`Receita,${r.data},"${r.descricao}","${r.cliente_nome}",,${r.valor},${r.status}`);
+    });
+    
+    // Despesas
+    despesasFiltradas.forEach(d => {
+      csvRows.push(`Despesa,${d.data},"${d.descricao}","${d.fornecedor || ""}","${d.categoria || ""}",${d.valor},${d.status}`);
+    });
+
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relatorio_financeiro_${format(dataInicio, "yyyy-MM-dd")}_${format(dataFim, "yyyy-MM-dd")}.csv`;
+    link.click();
   };
 
-  const handleExportPDF = () => {
-    // TODO: Implement PDF export
-    console.log("Exportar PDF");
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
     <AppLayout title="Relatório Financeiro" subtitle="Análises e relatórios financeiros detalhados">
-      <div className="space-y-4">
+      <div className="space-y-4 print:space-y-2">
         {/* Filters Card */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <FileText className="w-5 h-5 text-muted-foreground" />
-            <h2 className="font-semibold text-foreground">Filtros do Relatório</h2>
+        <Card className="p-4 print:hidden">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <h2 className="font-semibold text-foreground text-sm">Filtros</h2>
           </div>
 
           {/* Quick Period */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">Período Rápido</span>
-            </div>
-            
+          <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
               {[
                 { value: "hoje", label: "Hoje" },
@@ -178,30 +237,26 @@ const RelatorioFinanceiro = () => {
                   variant={quickPeriod === period.value ? "default" : "outline"}
                   size="sm"
                   onClick={() => handleQuickPeriod(period.value as QuickPeriod)}
-                  className={cn(
-                    "h-8",
-                    quickPeriod === period.value 
-                      ? "bg-foreground text-background hover:bg-foreground/90" 
-                      : ""
-                  )}
+                  className="h-7 text-xs"
                 >
                   {period.label}
                 </Button>
               ))}
             </div>
 
-            {/* Date Range & Client Filter */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            {/* Date Range & Filters */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {/* Data Início */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Data Início</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Data Início</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-start text-left font-normal"
+                      size="sm"
+                      className="w-full justify-start text-left font-normal h-8 text-xs"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <CalendarIcon className="mr-2 h-3 w-3" />
                       {format(dataInicio, "dd/MM/yyyy", { locale: ptBR })}
                     </Button>
                   </PopoverTrigger>
@@ -209,7 +264,12 @@ const RelatorioFinanceiro = () => {
                     <Calendar
                       mode="single"
                       selected={dataInicio}
-                      onSelect={(date) => date && setDataInicio(date)}
+                      onSelect={(date) => {
+                        if (date) {
+                          setDataInicio(date);
+                          setQuickPeriod("custom");
+                        }
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                     />
@@ -218,15 +278,16 @@ const RelatorioFinanceiro = () => {
               </div>
 
               {/* Data Fim */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Data Fim</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Data Fim</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-start text-left font-normal"
+                      size="sm"
+                      className="w-full justify-start text-left font-normal h-8 text-xs"
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <CalendarIcon className="mr-2 h-3 w-3" />
                       {format(dataFim, "dd/MM/yyyy", { locale: ptBR })}
                     </Button>
                   </PopoverTrigger>
@@ -234,7 +295,12 @@ const RelatorioFinanceiro = () => {
                     <Calendar
                       mode="single"
                       selected={dataFim}
-                      onSelect={(date) => date && setDataFim(date)}
+                      onSelect={(date) => {
+                        if (date) {
+                          setDataFim(date);
+                          setQuickPeriod("custom");
+                        }
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                     />
@@ -243,185 +309,535 @@ const RelatorioFinanceiro = () => {
               </div>
 
               {/* Client Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Filtrar por Cliente</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Cliente</label>
                 <Select value={selectedCliente} onValueChange={setSelectedCliente}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Todos os clientes" />
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockClientes.map((cliente) => (
+                    <SelectItem value="todos">Todos os clientes</SelectItem>
+                    {clientes.map((cliente) => (
                       <SelectItem key={cliente.id} value={cliente.id}>
-                        {cliente.nome}
+                        {cliente.razao_social}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            {/* Export Buttons */}
-            <div className="flex gap-2 mt-4">
-              <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
-                <FileSpreadsheet className="w-4 h-4" />
-                Exportar CSV
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-2">
-                <Download className="w-4 h-4" />
-                Exportar PDF
-              </Button>
-            </div>
-          </div>
-        </Card>
+              {/* Status Filter */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="faturado">Faturado</SelectItem>
+                    <SelectItem value="pago">Pago</SelectItem>
+                    <SelectItem value="vencido">Vencido</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-        {/* DRE Card */}
-        <Card className="p-6">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h2 className="font-semibold text-foreground">DRE - Demonstrativo do Resultado</h2>
-              <p className="text-sm text-muted-foreground">
-                {format(subDays(dataInicio, 1), "dd/MM/yyyy", { locale: ptBR })} a {format(dataFim, "dd/MM/yyyy", { locale: ptBR })}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Resultado</p>
-              <p className={cn(
-                "text-xl font-bold",
-                totals.resultado >= 0 ? "text-emerald-600" : "text-red-600"
-              )}>
-                {formatCurrency(totals.resultado)}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Receitas */}
-            <div className="rounded-lg overflow-hidden border">
-              <div className="bg-emerald-50 px-4 py-3 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
-                <span className="font-semibold text-emerald-600">RECEITAS</span>
-              </div>
-              <div className="p-4 min-h-[100px]">
-                {receitas.length === 0 ? (
-                  <p className="text-center text-muted-foreground text-sm py-4">
-                    Nenhuma receita no período
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {receitas.map((receita) => (
-                      <div key={receita.id} className="flex justify-between text-sm">
-                        <span>{receita.descricao}</span>
-                        <span className="text-emerald-600">{formatCurrency(receita.valor)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="border-t px-4 py-3 flex justify-between items-center bg-muted/30">
-                <span className="font-semibold text-foreground">Total</span>
-                <span className="font-bold text-emerald-600">{formatCurrency(totals.totalReceitas)}</span>
-              </div>
-            </div>
-
-            {/* Despesas */}
-            <div className="rounded-lg overflow-hidden border">
-              <div className="bg-red-50 px-4 py-3 flex items-center gap-2">
-                <TrendingDown className="w-4 h-4 text-red-600" />
-                <span className="font-semibold text-red-600">DESPESAS</span>
-              </div>
-              <div className="p-4 min-h-[100px]">
-                {despesas.length === 0 ? (
-                  <p className="text-center text-muted-foreground text-sm py-4">
-                    Nenhuma despesa no período
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {despesas.map((despesa) => (
-                      <div key={despesa.id} className="flex justify-between text-sm">
-                        <span>{despesa.descricao}</span>
-                        <span className="text-red-600">{formatCurrency(despesa.valor)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="border-t px-4 py-3 flex justify-between items-center bg-muted/30">
-                <span className="font-semibold text-foreground">Total</span>
-                <span className="font-bold text-red-600">{formatCurrency(totals.totalDespesas)}</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Produtos/Serviços Vendidos */}
-        <Card className="p-6">
-          <h2 className="font-semibold text-foreground mb-4">Produtos/Serviços Vendidos no Período</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {produtos.map((produto) => (
-              <div 
-                key={produto.id} 
-                className="p-4 rounded-lg border bg-muted/30"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-medium text-foreground text-sm">{produto.nome}</p>
-                    <p className="text-xs text-muted-foreground">Qtd: {produto.quantidade}</p>
-                  </div>
-                  <span className="text-primary font-semibold text-sm">
-                    {formatCurrency(produto.valor)}
-                  </span>
+              {/* Export Buttons */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Exportar</label>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" onClick={handleExportCSV} className="h-8 text-xs flex-1">
+                    <FileSpreadsheet className="w-3 h-3 mr-1" />
+                    CSV
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handlePrint} className="h-8 text-xs flex-1">
+                    <Printer className="w-3 h-3 mr-1" />
+                    PDF
+                  </Button>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
         </Card>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Lançamentos */}
-          <Card className="p-4">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              LANÇAMENTOS
-            </p>
-            <p className="text-2xl font-bold text-primary mt-1">
-              {totals.totalLancamentos}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {totals.qtdReceitas} receitas • {totals.qtdDespesas} despesas
-            </p>
-          </Card>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        )}
 
-          {/* Ticket Médio Receita */}
-          <Card className="p-4">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              TICKET MÉDIO (RECEITA)
-            </p>
-            <p className="text-2xl font-bold text-emerald-600 mt-1">
-              {formatCurrency(totals.ticketMedioReceita)}
-            </p>
-          </Card>
+        {!isLoading && (
+          <>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 print:grid-cols-6">
+              {/* Total Receitas */}
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-100">
+                    <ArrowUpRight className="w-3 h-3 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Receitas</p>
+                    <p className="text-sm font-bold text-emerald-600">
+                      {formatCurrency(totals.totalReceitas)}
+                    </p>
+                  </div>
+                </div>
+              </Card>
 
-          {/* Ticket Médio Despesa */}
-          <Card className="p-4">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              TICKET MÉDIO (DESPESA)
-            </p>
-            <p className="text-2xl font-bold text-red-600 mt-1">
-              {formatCurrency(totals.ticketMedioDespesa)}
-            </p>
-          </Card>
+              {/* Total Despesas */}
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-red-100">
+                    <ArrowDownRight className="w-3 h-3 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Despesas</p>
+                    <p className="text-sm font-bold text-red-600">
+                      {formatCurrency(totals.totalDespesas)}
+                    </p>
+                  </div>
+                </div>
+              </Card>
 
-          {/* Margem Líquida */}
-          <Card className="p-4">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              MARGEM LÍQUIDA
-            </p>
-            <p className="text-2xl font-bold text-emerald-600 mt-1">
-              {totals.margemLiquida.toFixed(1)}%
-            </p>
-          </Card>
-        </div>
+              {/* Resultado */}
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "p-1.5 rounded-lg",
+                    totals.resultado >= 0 ? "bg-emerald-100" : "bg-red-100"
+                  )}>
+                    <Wallet className={cn(
+                      "w-3 h-3",
+                      totals.resultado >= 0 ? "text-emerald-600" : "text-red-600"
+                    )} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Resultado</p>
+                    <p className={cn(
+                      "text-sm font-bold",
+                      totals.resultado >= 0 ? "text-emerald-600" : "text-red-600"
+                    )}>
+                      {formatCurrency(totals.resultado)}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Margem */}
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-100">
+                    <BarChart3 className="w-3 h-3 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Margem</p>
+                    <p className="text-sm font-bold text-blue-600">
+                      {totals.margemLiquida.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Total Peças */}
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-purple-100">
+                    <Package className="w-3 h-3 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Peças</p>
+                    <p className="text-sm font-bold text-purple-600">
+                      {totals.totalPecas.toLocaleString("pt-BR")}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Lançamentos */}
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-100">
+                    <FileText className="w-3 h-3 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase">Lançamentos</p>
+                    <p className="text-sm font-bold text-amber-600">
+                      {totals.totalLancamentos}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Tabs de Visualização */}
+            <Tabs value={viewType} onValueChange={(v) => setViewType(v as ViewType)} className="print:hidden">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="resumo" className="text-xs">
+                  <BarChart3 className="w-3 h-3 mr-1" />
+                  DRE
+                </TabsTrigger>
+                <TabsTrigger value="receitas" className="text-xs">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  Receitas
+                </TabsTrigger>
+                <TabsTrigger value="despesas" className="text-xs">
+                  <TrendingDown className="w-3 h-3 mr-1" />
+                  Despesas
+                </TabsTrigger>
+                <TabsTrigger value="produtos" className="text-xs">
+                  <Package className="w-3 h-3 mr-1" />
+                  Produtos
+                </TabsTrigger>
+                <TabsTrigger value="clientes" className="text-xs">
+                  <Users className="w-3 h-3 mr-1" />
+                  Clientes
+                </TabsTrigger>
+              </TabsList>
+
+              {/* DRE - Resumo */}
+              <TabsContent value="resumo" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Gráfico de Barras */}
+                  <Card className="p-4">
+                    <h3 className="font-semibold text-sm mb-4">Receitas vs Despesas</h3>
+                    <div className="h-[250px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                          <XAxis type="number" tickFormatter={(v) => formatCurrency(v)} fontSize={10} />
+                          <YAxis dataKey="name" type="category" width={80} fontSize={10} />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Bar dataKey="valor" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card>
+
+                  {/* Gráfico de Pizza - Categorias */}
+                  <Card className="p-4">
+                    <h3 className="font-semibold text-sm mb-4">Despesas por Categoria</h3>
+                    {pieData.length === 0 ? (
+                      <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
+                        Sem despesas no período
+                      </div>
+                    ) : (
+                      <div className="h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsPieChart>
+                            <Pie
+                              data={pieData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={50}
+                              outerRadius={80}
+                              paddingAngle={2}
+                              dataKey="value"
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              labelLine={false}
+                              fontSize={9}
+                            >
+                              {pieData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          </RechartsPieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </Card>
+                </div>
+
+                {/* DRE Detalhado */}
+                <Card className="p-4">
+                  <h3 className="font-semibold text-sm mb-4">
+                    DRE - Demonstrativo do Resultado
+                    <span className="text-xs font-normal text-muted-foreground ml-2">
+                      {format(dataInicio, "dd/MM/yyyy")} a {format(dataFim, "dd/MM/yyyy")}
+                    </span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Receitas */}
+                    <div className="rounded-lg overflow-hidden border">
+                      <div className="bg-emerald-50 px-4 py-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-emerald-600" />
+                          <span className="font-semibold text-emerald-700 text-sm">RECEITAS</span>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">{receitasFiltradas.length}</Badge>
+                      </div>
+                      <div className="p-3 max-h-[200px] overflow-y-auto">
+                        {receitasFiltradas.length === 0 ? (
+                          <p className="text-center text-muted-foreground text-xs py-4">
+                            Nenhuma receita no período
+                          </p>
+                        ) : (
+                          <div className="space-y-1">
+                            {receitasFiltradas.slice(0, 10).map((receita) => (
+                              <div key={receita.id} className="flex justify-between text-xs py-1 border-b last:border-0">
+                                <div>
+                                  <span className="text-foreground">{receita.cliente_nome}</span>
+                                  <span className="text-muted-foreground ml-2">{format(new Date(receita.data), "dd/MM")}</span>
+                                </div>
+                                <span className="text-emerald-600 font-medium">{formatCurrency(receita.valor)}</span>
+                              </div>
+                            ))}
+                            {receitasFiltradas.length > 10 && (
+                              <p className="text-xs text-center text-muted-foreground pt-2">
+                                +{receitasFiltradas.length - 10} lançamentos
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="border-t px-4 py-2 flex justify-between items-center bg-muted/30">
+                        <span className="font-semibold text-foreground text-sm">Total</span>
+                        <span className="font-bold text-emerald-600">{formatCurrency(totals.totalReceitas)}</span>
+                      </div>
+                    </div>
+
+                    {/* Despesas */}
+                    <div className="rounded-lg overflow-hidden border">
+                      <div className="bg-red-50 px-4 py-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <TrendingDown className="w-4 h-4 text-red-600" />
+                          <span className="font-semibold text-red-700 text-sm">DESPESAS</span>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">{despesasFiltradas.length}</Badge>
+                      </div>
+                      <div className="p-3 max-h-[200px] overflow-y-auto">
+                        {despesasFiltradas.length === 0 ? (
+                          <p className="text-center text-muted-foreground text-xs py-4">
+                            Nenhuma despesa no período
+                          </p>
+                        ) : (
+                          <div className="space-y-1">
+                            {despesasFiltradas.slice(0, 10).map((despesa) => (
+                              <div key={despesa.id} className="flex justify-between text-xs py-1 border-b last:border-0">
+                                <div>
+                                  <span className="text-foreground">{despesa.descricao}</span>
+                                  <span className="text-muted-foreground ml-2">{format(new Date(despesa.data), "dd/MM")}</span>
+                                </div>
+                                <span className="text-red-600 font-medium">{formatCurrency(despesa.valor)}</span>
+                              </div>
+                            ))}
+                            {despesasFiltradas.length > 10 && (
+                              <p className="text-xs text-center text-muted-foreground pt-2">
+                                +{despesasFiltradas.length - 10} lançamentos
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="border-t px-4 py-2 flex justify-between items-center bg-muted/30">
+                        <span className="font-semibold text-foreground text-sm">Total</span>
+                        <span className="font-bold text-red-600">{formatCurrency(totals.totalDespesas)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Receitas Detalhadas */}
+              <TabsContent value="receitas">
+                <Card className="p-4">
+                  <h3 className="font-semibold text-sm mb-4">
+                    Receitas Detalhadas
+                    <Badge variant="secondary" className="ml-2">{receitasFiltradas.length}</Badge>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Data</TableHead>
+                          <TableHead className="text-xs">Cliente</TableHead>
+                          <TableHead className="text-xs">Descrição</TableHead>
+                          <TableHead className="text-xs">Status</TableHead>
+                          <TableHead className="text-xs text-right">Valor</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {receitasFiltradas.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center text-muted-foreground text-sm py-8">
+                              Nenhuma receita encontrada no período
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          receitasFiltradas.map((receita) => (
+                            <TableRow key={receita.id}>
+                              <TableCell className="text-xs">{format(new Date(receita.data), "dd/MM/yyyy")}</TableCell>
+                              <TableCell className="text-xs font-medium">{receita.cliente_nome}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{receita.descricao}</TableCell>
+                              <TableCell>
+                                <Badge variant={receita.status === "faturado" ? "default" : "secondary"} className="text-[10px]">
+                                  {receita.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-medium text-emerald-600">
+                                {formatCurrency(receita.valor)}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Despesas Detalhadas */}
+              <TabsContent value="despesas">
+                <Card className="p-4">
+                  <h3 className="font-semibold text-sm mb-4">
+                    Despesas Detalhadas
+                    <Badge variant="secondary" className="ml-2">{despesasFiltradas.length}</Badge>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Vencimento</TableHead>
+                          <TableHead className="text-xs">Descrição</TableHead>
+                          <TableHead className="text-xs">Fornecedor</TableHead>
+                          <TableHead className="text-xs">Categoria</TableHead>
+                          <TableHead className="text-xs">Status</TableHead>
+                          <TableHead className="text-xs text-right">Valor</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {despesasFiltradas.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-muted-foreground text-sm py-8">
+                              Nenhuma despesa encontrada no período
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          despesasFiltradas.map((despesa) => (
+                            <TableRow key={despesa.id}>
+                              <TableCell className="text-xs">{format(new Date(despesa.data), "dd/MM/yyyy")}</TableCell>
+                              <TableCell className="text-xs font-medium">{despesa.descricao}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{despesa.fornecedor || "-"}</TableCell>
+                              <TableCell className="text-xs">
+                                <Badge variant="outline" className="text-[10px]">{despesa.categoria || "Sem categoria"}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={despesa.status === "pago" ? "default" : despesa.status === "vencido" ? "destructive" : "secondary"} 
+                                  className="text-[10px]"
+                                >
+                                  {despesa.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-medium text-red-600">
+                                {formatCurrency(despesa.valor)}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Produtos */}
+              <TabsContent value="produtos">
+                <Card className="p-4">
+                  <h3 className="font-semibold text-sm mb-4">
+                    Produtos/Serviços Vendidos
+                    <Badge variant="secondary" className="ml-2">{produtos.length}</Badge>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Produto</TableHead>
+                          <TableHead className="text-xs text-right">Quantidade</TableHead>
+                          <TableHead className="text-xs text-right">Preço Médio</TableHead>
+                          <TableHead className="text-xs text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {produtos.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center text-muted-foreground text-sm py-8">
+                              Nenhum produto vendido no período
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          produtos.map((produto, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="text-xs font-medium">{produto.produto_nome}</TableCell>
+                              <TableCell className="text-xs text-right">{produto.quantidade.toLocaleString("pt-BR")}</TableCell>
+                              <TableCell className="text-xs text-right">{formatCurrency(produto.preco_medio)}</TableCell>
+                              <TableCell className="text-xs text-right font-medium text-primary">
+                                {formatCurrency(produto.valor_total)}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Clientes */}
+              <TabsContent value="clientes">
+                <Card className="p-4">
+                  <h3 className="font-semibold text-sm mb-4">
+                    Faturamento por Cliente
+                    <Badge variant="secondary" className="ml-2">{clientesResumo.length}</Badge>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Cliente</TableHead>
+                          <TableHead className="text-xs text-right">Lançamentos</TableHead>
+                          <TableHead className="text-xs text-right">Total</TableHead>
+                          <TableHead className="text-xs text-right">% do Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {clientesResumo.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center text-muted-foreground text-sm py-8">
+                              Nenhum cliente com faturamento no período
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          clientesResumo.map((cliente) => {
+                            const percentual = totals.totalReceitas > 0 
+                              ? (cliente.valor_total / totals.totalReceitas) * 100 
+                              : 0;
+                            return (
+                              <TableRow key={cliente.cliente_id}>
+                                <TableCell className="text-xs font-medium">{cliente.cliente_nome}</TableCell>
+                                <TableCell className="text-xs text-right">{cliente.quantidade_lancamentos}</TableCell>
+                                <TableCell className="text-xs text-right font-medium text-primary">
+                                  {formatCurrency(cliente.valor_total)}
+                                </TableCell>
+                                <TableCell className="text-xs text-right">
+                                  <Badge variant="outline" className="text-[10px]">{percentual.toFixed(1)}%</Badge>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </>
+        )}
       </div>
     </AppLayout>
   );
