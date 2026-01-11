@@ -1,20 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Check, Lightbulb, Loader2, Search } from "lucide-react";
+import { Check, Lightbulb, Loader2, Search, MapPin } from "lucide-react";
 import { useEnderecoCliente } from "@/hooks/useClientes";
 import { toast } from "sonner";
+import { 
+  buscarCepComFallback, 
+  geocodeEndereco, 
+  montarEnderecoCompleto,
+  BrasilApiCnpjResponse 
+} from "@/services/apiServices";
+import { AddressMap } from "@/components/ui/AddressMap";
 
 interface ClienteEnderecoProps {
   clienteId: string | null;
   onNext: () => void;
   onSave: () => void;
+  cnpjData?: BrasilApiCnpjResponse | null;
 }
 
-export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoProps) => {
+export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: ClienteEnderecoProps) => {
   const { endereco, isLoading, upsertEndereco } = useEnderecoCliente(clienteId);
   const [isSearchingCep, setIsSearchingCep] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   const [formData, setFormData] = useState({
     cep: "",
@@ -25,6 +33,8 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoPr
     cidade: "",
     uf: "",
     pais: "Brasil",
+    latitude: null as number | null,
+    longitude: null as number | null,
   });
 
   // Carregar dados existentes
@@ -39,9 +49,39 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoPr
         cidade: endereco.cidade || "",
         uf: endereco.uf || "",
         pais: endereco.pais || "Brasil",
+        latitude: endereco.latitude || null,
+        longitude: endereco.longitude || null,
       });
     }
   }, [endereco]);
+
+  // Preencher com dados do CNPJ quando disponível
+  useEffect(() => {
+    if (cnpjData && !endereco) {
+      setFormData((prev) => ({
+        ...prev,
+        cep: cnpjData.cep || prev.cep,
+        logradouro: cnpjData.logradouro || prev.logradouro,
+        numero: cnpjData.numero || prev.numero,
+        complemento: cnpjData.complemento || prev.complemento,
+        bairro: cnpjData.bairro || prev.bairro,
+        cidade: cnpjData.municipio || prev.cidade,
+        uf: cnpjData.uf || prev.uf,
+      }));
+      
+      // Auto-geocodificar endereço do CNPJ
+      if (cnpjData.logradouro && cnpjData.municipio) {
+        handleGeocode({
+          logradouro: cnpjData.logradouro,
+          numero: cnpjData.numero,
+          bairro: cnpjData.bairro,
+          cidade: cnpjData.municipio,
+          uf: cnpjData.uf,
+          cep: cnpjData.cep,
+        });
+      }
+    }
+  }, [cnpjData, endereco]);
 
   // Reset when clienteId changes to null
   useEffect(() => {
@@ -55,6 +95,8 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoPr
         cidade: "",
         uf: "",
         pais: "Brasil",
+        latitude: null,
+        longitude: null,
       });
     }
   }, [clienteId]);
@@ -62,6 +104,46 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoPr
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Geocodificar endereço
+  const handleGeocode = useCallback(async (addressData?: {
+    logradouro?: string;
+    numero?: string;
+    bairro?: string;
+    cidade?: string;
+    uf?: string;
+    cep?: string;
+  }) => {
+    const data = addressData || formData;
+    const enderecoCompleto = montarEnderecoCompleto({
+      logradouro: data.logradouro,
+      numero: data.numero,
+      bairro: data.bairro,
+      cidade: data.cidade,
+      uf: data.uf,
+      cep: data.cep,
+    });
+
+    if (!enderecoCompleto || enderecoCompleto === "Brasil") {
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const result = await geocodeEndereco(enderecoCompleto);
+      if (result) {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: result.latitude,
+          longitude: result.longitude,
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao geocodificar:", error);
+    } finally {
+      setIsGeocoding(false);
+    }
+  }, [formData]);
 
   const handleCepSearch = async () => {
     const cepLimpo = formData.cep.replace(/\D/g, "");
@@ -72,27 +154,49 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoPr
 
     setIsSearchingCep(true);
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-      const data = await response.json();
+      const data = await buscarCepComFallback(cepLimpo);
 
-      if (data.erro) {
+      if (!data) {
         toast.error("CEP não encontrado.");
         return;
       }
 
-      setFormData((prev) => ({
-        ...prev,
+      const newFormData = {
+        ...formData,
         logradouro: data.logradouro || "",
         bairro: data.bairro || "",
         cidade: data.localidade || "",
         uf: data.uf || "",
-      }));
+      };
+
+      setFormData(newFormData);
       toast.success("Endereço encontrado!");
-    } catch {
+
+      // Auto-geocodificar após buscar CEP
+      await handleGeocode({
+        logradouro: data.logradouro,
+        numero: formData.numero,
+        bairro: data.bairro,
+        cidade: data.localidade,
+        uf: data.uf,
+        cep: cepLimpo,
+      });
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
       toast.error("Erro ao buscar CEP.");
     } finally {
       setIsSearchingCep(false);
     }
+  };
+
+  // Atualizar coordenadas quando marcador é arrastado no mapa
+  const handleMapPositionChange = (lat: number, lng: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+    }));
+    toast.success("Localização atualizada no mapa");
   };
 
   const handleSave = async (goNext: boolean = false) => {
@@ -112,8 +216,8 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoPr
         cidade: formData.cidade || null,
         uf: formData.uf || null,
         pais: formData.pais || "Brasil",
-        latitude: null,
-        longitude: null,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
       },
       {
         onSuccess: () => {
@@ -128,6 +232,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoPr
   };
 
   const isSaving = upsertEndereco.isPending;
+  const hasAddress = formData.logradouro && formData.cidade;
 
   if (isLoading && clienteId) {
     return (
@@ -164,6 +269,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoPr
               variant="outline" 
               onClick={handleCepSearch}
               disabled={isSearchingCep}
+              title="Buscar CEP"
             >
               {isSearchingCep ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -225,46 +331,47 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave }: ClienteEnderecoPr
             className="bg-muted/50"
           />
 
+          {/* Botão Geocodificar */}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => handleGeocode()}
+            disabled={isGeocoding || !hasAddress}
+          >
+            {isGeocoding ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <MapPin className="w-4 h-4" />
+            )}
+            Localizar no Mapa
+          </Button>
+
+          {/* Coordenadas */}
+          {formData.latitude && formData.longitude && (
+            <div className="flex gap-4 text-xs text-muted-foreground">
+              <span>Lat: {formData.latitude.toFixed(6)}</span>
+              <span>Lng: {formData.longitude.toFixed(6)}</span>
+            </div>
+          )}
+
           {/* Dica */}
           <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <Lightbulb className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-amber-700">
-              <span className="font-medium">Dica:</span> Arraste o marcador azul no mapa para ajustar a localização exata da entrada.
+              <span className="font-medium">Dica:</span> Arraste o marcador no mapa para ajustar a localização exata da entrada. Clique no mapa para definir uma nova posição.
             </p>
           </div>
         </div>
 
-        {/* Map Placeholder */}
-        <Card className="h-[400px] overflow-hidden">
-          <div className="w-full h-full bg-muted/30 flex items-center justify-center relative">
-            {/* Placeholder map with styling similar to the reference */}
-            <div className="absolute inset-0 bg-gradient-to-br from-green-100 via-green-50 to-amber-50">
-              <div className="absolute inset-0" style={{
-                backgroundImage: `
-                  linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)
-                `,
-                backgroundSize: '20px 20px'
-              }} />
-              {/* Map marker */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-full">
-                <div className="w-8 h-8 bg-destructive rounded-full flex items-center justify-center shadow-lg">
-                  <div className="w-3 h-3 bg-white rounded-full" />
-                </div>
-                <div className="w-0 h-0 border-l-4 border-r-4 border-t-8 border-l-transparent border-r-transparent border-t-destructive mx-auto -mt-1" />
-              </div>
-              {/* Zoom controls */}
-              <div className="absolute top-4 left-4 flex flex-col gap-0 bg-white rounded shadow">
-                <button className="w-8 h-8 flex items-center justify-center text-foreground hover:bg-muted border-b">+</button>
-                <button className="w-8 h-8 flex items-center justify-center text-foreground hover:bg-muted">−</button>
-              </div>
-              {/* Attribution */}
-              <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-white/80 px-2 py-1 rounded">
-                Leaflet | © OpenStreetMap
-              </div>
-            </div>
-          </div>
-        </Card>
+        {/* Map */}
+        <AddressMap
+          latitude={formData.latitude}
+          longitude={formData.longitude}
+          onPositionChange={handleMapPositionChange}
+          draggable={true}
+          height="400px"
+        />
       </div>
 
       {/* Footer Buttons */}
