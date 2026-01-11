@@ -113,8 +113,8 @@ const Clientes = () => {
             <TabsTrigger value="precos" disabled={!selectedClienteId}>Tabela de Preços</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="lista" className="mt-6">
-            <div className="flex items-center justify-between gap-4 mb-6">
+          <TabsContent value="lista" className="mt-4">
+            <div className="flex items-center justify-between gap-4 mb-4">
               <div className="flex items-center gap-2 flex-1">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

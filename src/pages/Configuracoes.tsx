@@ -87,35 +87,35 @@ const Configuracoes = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="equipe" className="mt-6">
+          <TabsContent value="equipe" className="mt-4">
             <ConfiguracoesEquipe />
           </TabsContent>
 
-          <TabsContent value="permissoes" className="mt-6">
+          <TabsContent value="permissoes" className="mt-4">
             <ConfiguracoesPermissoes />
           </TabsContent>
 
-          <TabsContent value="rol" className="mt-6">
+          <TabsContent value="rol" className="mt-4">
             <ConfiguracoesROL />
           </TabsContent>
 
-          <TabsContent value="etiquetas" className="mt-6">
+          <TabsContent value="etiquetas" className="mt-4">
             <ConfiguracoesEtiquetas />
           </TabsContent>
 
-          <TabsContent value="fiscal" className="mt-6">
+          <TabsContent value="fiscal" className="mt-4">
             <ConfiguracoesFiscal />
           </TabsContent>
 
-          <TabsContent value="dados" className="mt-6">
+          <TabsContent value="dados" className="mt-4">
             <ConfiguracoesDados />
           </TabsContent>
 
-          <TabsContent value="sistema" className="mt-6">
+          <TabsContent value="sistema" className="mt-4">
             <ConfiguracoesSistema />
           </TabsContent>
 
-          <TabsContent value="geral" className="mt-6">
+          <TabsContent value="geral" className="mt-4">
             <ConfiguracoesGeral />
           </TabsContent>
         </Tabs>

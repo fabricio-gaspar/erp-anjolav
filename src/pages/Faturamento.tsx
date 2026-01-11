@@ -151,14 +151,8 @@ const Faturamento = () => {
   const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
 
   return (
-    <AppLayout title="Faturamento">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Faturamento</h1>
-          <p className="text-sm text-muted-foreground">
-            Selecione lançamentos para gerar faturas
-          </p>
-        </div>
+    <AppLayout title="Faturamento" subtitle="Selecione lançamentos para gerar faturas">
+      <div className="space-y-4">
 
         <Tabs defaultValue="lancamentos" className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6">
@@ -184,7 +178,7 @@ const Faturamento = () => {
           </TabsList>
 
           {/* Tab: Lançamentos Pendentes */}
-          <TabsContent value="lancamentos" className="mt-6">
+          <TabsContent value="lancamentos" className="mt-4">
             <div className="space-y-4">
               {/* Selection Summary */}
               {selectedLancamentos.length > 0 && (
@@ -313,8 +307,8 @@ const Faturamento = () => {
           </TabsContent>
 
           {/* Tab: Faturas Geradas */}
-          <TabsContent value="faturas" className="mt-6">
-            <div className="space-y-6">
+          <TabsContent value="faturas" className="mt-4">
+            <div className="space-y-4">
               {/* Period Navigation */}
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
