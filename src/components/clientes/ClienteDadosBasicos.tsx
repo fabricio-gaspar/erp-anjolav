@@ -1,31 +1,41 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Building2, Home, Check, Loader2 } from "lucide-react";
+import { Building2, Home, Check, Loader2, Search } from "lucide-react";
 import { useClientes, useClienteById } from "@/hooks/useClientes";
+import { buscarCnpj, BrasilApiCnpjResponse } from "@/services/apiServices";
+import { toast } from "sonner";
 
 interface ClienteDadosBasicosProps {
   clienteId: string | null;
   onNext: () => void;
   onClienteSaved: (clienteId: string) => void;
+  onCnpjDataLoaded?: (data: BrasilApiCnpjResponse) => void;
 }
 
 type TipoPessoa = "cnpj" | "cpf";
 type Classificacao = "residencial" | "industrial";
 type RegimeTributario = "simples_nacional" | "simples_excesso" | "normal" | "mei" | "nao_contribuinte";
 
-export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: ClienteDadosBasicosProps) => {
+export const ClienteDadosBasicos = ({ 
+  clienteId, 
+  onNext, 
+  onClienteSaved,
+  onCnpjDataLoaded 
+}: ClienteDadosBasicosProps) => {
   const { createCliente, updateCliente } = useClientes();
   const { data: clienteExistente, isLoading: isLoadingCliente } = useClienteById(clienteId);
 
   const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>("cnpj");
   const [classificacao, setClassificacao] = useState<Classificacao>("industrial");
   const [regimeTributario, setRegimeTributario] = useState<RegimeTributario>("nao_contribuinte");
+  const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
 
   const [formData, setFormData] = useState({
     cpf_cnpj: "",
     razao_social: "",
+    nome_fantasia: "",
     email: "",
     telefone: "",
     inscricao_estadual: "",
@@ -44,6 +54,7 @@ export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: Clien
       setFormData({
         cpf_cnpj: clienteExistente.cpf_cnpj || "",
         razao_social: clienteExistente.razao_social || "",
+        nome_fantasia: clienteExistente.nome_fantasia || "",
         email: clienteExistente.email || "",
         telefone: clienteExistente.telefone || "",
         inscricao_estadual: clienteExistente.inscricao_estadual || "",
@@ -64,6 +75,7 @@ export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: Clien
       setFormData({
         cpf_cnpj: "",
         razao_social: "",
+        nome_fantasia: "",
         email: "",
         telefone: "",
         inscricao_estadual: "",
@@ -79,8 +91,63 @@ export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: Clien
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Buscar CNPJ automaticamente
+  const handleCnpjSearch = useCallback(async () => {
+    const cnpjLimpo = formData.cpf_cnpj.replace(/\D/g, "");
+    if (cnpjLimpo.length !== 14) {
+      toast.error("CNPJ deve conter 14 dígitos");
+      return;
+    }
+
+    setIsSearchingCnpj(true);
+    try {
+      const data = await buscarCnpj(cnpjLimpo);
+      
+      if (!data) {
+        toast.error("CNPJ não encontrado na base de dados");
+        return;
+      }
+
+      if (data.situacao_cadastral !== "ATIVA") {
+        toast.warning(`Atenção: Situação cadastral ${data.descricao_situacao_cadastral}`);
+      }
+
+      // Preencher formulário com dados do CNPJ
+      setFormData((prev) => ({
+        ...prev,
+        razao_social: data.razao_social || prev.razao_social,
+        nome_fantasia: data.nome_fantasia || "",
+        email: data.email || prev.email,
+        telefone: data.ddd_telefone_1 || prev.telefone,
+        telefone2: data.ddd_telefone_2 || prev.telefone2,
+      }));
+
+      // Determinar regime tributário baseado nos dados
+      if (data.opcao_pelo_mei) {
+        setRegimeTributario("mei");
+      } else if (data.opcao_pelo_simples) {
+        setRegimeTributario("simples_nacional");
+      } else {
+        setRegimeTributario("normal");
+      }
+
+      // Notificar componente pai sobre dados do CNPJ (para preencher endereço)
+      if (onCnpjDataLoaded) {
+        onCnpjDataLoaded(data);
+      }
+
+      toast.success("Dados do CNPJ carregados com sucesso!");
+    } catch (error) {
+      console.error("Erro ao buscar CNPJ:", error);
+      toast.error("Erro ao buscar CNPJ. Tente novamente.");
+    } finally {
+      setIsSearchingCnpj(false);
+    }
+  }, [formData.cpf_cnpj, onCnpjDataLoaded]);
+
   const handleSave = async (goNext: boolean = false) => {
     if (!formData.razao_social.trim()) {
+      toast.error("Razão Social é obrigatória");
       return;
     }
 
@@ -90,6 +157,7 @@ export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: Clien
       regime_tributario: regimeTributario,
       cpf_cnpj: formData.cpf_cnpj || null,
       razao_social: formData.razao_social,
+      nome_fantasia: formData.nome_fantasia || null,
       email: formData.email || null,
       telefone: formData.telefone || null,
       telefone2: formData.telefone2 || null,
@@ -98,7 +166,6 @@ export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: Clien
       inscricao_municipal: formData.inscricao_municipal || null,
       observacoes: formData.observacoes || null,
       ativo: true,
-      nome_fantasia: null,
     };
 
     if (clienteId) {
@@ -121,6 +188,7 @@ export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: Clien
   };
 
   const isSaving = createCliente.isPending || updateCliente.isPending;
+  const canSearchCnpj = tipoPessoa === "cnpj" && formData.cpf_cnpj.replace(/\D/g, "").length === 14;
 
   if (isLoadingCliente && clienteId) {
     return (
@@ -181,14 +249,37 @@ export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: Clien
         </div>
       </div>
 
-      {/* Row 1: CNPJ + Razão Social */}
+      {/* Row 1: CNPJ/CPF + Botão de Busca */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <Input
-            placeholder={tipoPessoa === "cnpj" ? "* Número do CNPJ" : "* Número do CPF"}
-            value={formData.cpf_cnpj}
-            onChange={(e) => handleChange("cpf_cnpj", e.target.value)}
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder={tipoPessoa === "cnpj" ? "* Número do CNPJ" : "* Número do CPF"}
+              value={formData.cpf_cnpj}
+              onChange={(e) => handleChange("cpf_cnpj", e.target.value)}
+              className="flex-1"
+            />
+            {tipoPessoa === "cnpj" && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCnpjSearch}
+                disabled={!canSearchCnpj || isSearchingCnpj}
+                title="Buscar dados do CNPJ"
+              >
+                {isSearchingCnpj ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
+              </Button>
+            )}
+          </div>
+          {tipoPessoa === "cnpj" && (
+            <p className="text-xs text-muted-foreground">
+              Digite o CNPJ e clique na lupa para buscar automaticamente
+            </p>
+          )}
         </div>
         <div className="space-y-1">
           <Input
@@ -197,6 +288,15 @@ export const ClienteDadosBasicos = ({ clienteId, onNext, onClienteSaved }: Clien
             onChange={(e) => handleChange("razao_social", e.target.value)}
           />
         </div>
+      </div>
+
+      {/* Nome Fantasia */}
+      <div className="space-y-1">
+        <Input
+          placeholder="Nome Fantasia"
+          value={formData.nome_fantasia}
+          onChange={(e) => handleChange("nome_fantasia", e.target.value)}
+        />
       </div>
 
       {/* Row 2: Email + Telefone */}

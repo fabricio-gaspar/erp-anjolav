@@ -19,6 +19,7 @@ import { ClientePagamento } from "@/components/clientes/ClientePagamento";
 import { ClienteConfiguracao } from "@/components/clientes/ClienteConfiguracao";
 import { ClienteTabelaPrecos } from "@/components/clientes/ClienteTabelaPrecos";
 import { useClientes, type Cliente } from "@/hooks/useClientes";
+import { BrasilApiCnpjResponse } from "@/services/apiServices";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +38,7 @@ const Clientes = () => {
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clienteToDelete, setClienteToDelete] = useState<string | null>(null);
+  const [cnpjData, setCnpjData] = useState<BrasilApiCnpjResponse | null>(null);
 
   const { clientes, isLoading, deleteCliente, updateCliente } = useClientes();
 
@@ -50,11 +52,13 @@ const Clientes = () => {
 
   const handleNovoCliente = () => {
     setSelectedClienteId(null);
+    setCnpjData(null);
     setActiveTab("dados");
   };
 
   const handleEditCliente = (clienteId: string) => {
     setSelectedClienteId(clienteId);
+    setCnpjData(null);
     setActiveTab("dados");
   };
 
@@ -252,6 +256,7 @@ const Clientes = () => {
               clienteId={selectedClienteId}
               onNext={() => setActiveTab("endereco")} 
               onClienteSaved={handleClienteSaved}
+              onCnpjDataLoaded={setCnpjData}
             />
           </TabsContent>
 
@@ -260,6 +265,7 @@ const Clientes = () => {
               clienteId={selectedClienteId}
               onNext={() => setActiveTab("pagamento")} 
               onSave={() => setActiveTab("pagamento")}
+              cnpjData={cnpjData}
             />
           </TabsContent>
 
