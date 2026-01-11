@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Copy, Clock, Loader2 } from "lucide-react";
+import { Check, Copy, Clock, Loader2, FileText, Table2, Grid } from "lucide-react";
 import { useConfiguracaoCliente } from "@/hooks/useClientes";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface ClienteConfiguracaoProps {
   clienteId: string | null;
@@ -12,6 +13,7 @@ interface ClienteConfiguracaoProps {
 }
 
 type Frequencia = "diaria" | "semanal" | "quinzenal" | "mensal";
+type TipoRelatorio = "detalhado" | "mapa_pecas" | "mapa_mensal";
 
 const diasSemana = [
   { key: "seg", label: "Seg" },
@@ -21,6 +23,27 @@ const diasSemana = [
   { key: "sex", label: "Sex" },
   { key: "sab", label: "Sáb" },
   { key: "dom", label: "Dom" },
+];
+
+const tiposRelatorio = [
+  {
+    key: "detalhado" as TipoRelatorio,
+    label: "Relatório Detalhado",
+    description: "Análise completa com KPIs e gráficos",
+    icon: FileText,
+  },
+  {
+    key: "mapa_pecas" as TipoRelatorio,
+    label: "Mapa de Peças",
+    description: "Detalhado por ROL/data de entrada",
+    icon: Table2,
+  },
+  {
+    key: "mapa_mensal" as TipoRelatorio,
+    label: "Mapa Mensal",
+    description: "Matriz com dias do mês",
+    icon: Grid,
+  },
 ];
 
 export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoProps) => {
@@ -33,6 +56,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
   const [diasEntrega, setDiasEntrega] = useState<string[]>([]);
   const [horarioRetirada, setHorarioRetirada] = useState("");
   const [horarioEntrega, setHorarioEntrega] = useState("");
+  const [tipoRelatorio, setTipoRelatorio] = useState<TipoRelatorio>("detalhado");
 
   // Carregar dados existentes
   useEffect(() => {
@@ -44,6 +68,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
       setDiasEntrega(configuracao.dias_entrega || []);
       setHorarioRetirada(configuracao.horario_retirada || "");
       setHorarioEntrega(configuracao.horario_entrega || "");
+      setTipoRelatorio((configuracao.tipo_relatorio as TipoRelatorio) || "detalhado");
     }
   }, [configuracao]);
 
@@ -57,6 +82,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
       setDiasEntrega([]);
       setHorarioRetirada("");
       setHorarioEntrega("");
+      setTipoRelatorio("detalhado");
     }
   }, [clienteId]);
 
@@ -99,6 +125,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
         dias_entrega: diasEntrega,
         horario_retirada: horarioRetirada || null,
         horario_entrega: horarioEntrega || null,
+        tipo_relatorio: tipoRelatorio,
       },
       {
         onSuccess: () => {
@@ -129,6 +156,55 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
 
   return (
     <div className="space-y-6 mt-6">
+      {/* Tipo de Relatório para Faturamento */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base font-semibold">Tipo de Relatório para Faturamento</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Selecione o formato de relatório que será enviado ao cliente
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {tiposRelatorio.map((tipo) => {
+              const Icon = tipo.icon;
+              const isSelected = tipoRelatorio === tipo.key;
+              return (
+                <button
+                  key={tipo.key}
+                  type="button"
+                  onClick={() => setTipoRelatorio(tipo.key)}
+                  className={cn(
+                    "flex flex-col items-start p-4 rounded-lg border-2 text-left transition-all",
+                    isSelected
+                      ? "border-primary bg-primary/5"
+                      : "border-transparent bg-muted/50 hover:bg-muted hover:border-muted-foreground/20"
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon
+                      className={cn(
+                        "w-5 h-5",
+                        isSelected ? "text-primary" : "text-muted-foreground"
+                      )}
+                    />
+                    {isSelected && (
+                      <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <p className={cn("font-medium text-sm", isSelected && "text-primary")}>
+                    {tipo.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">{tipo.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Acesso ao Portal do Cliente */}
       <Card>
         <CardHeader className="pb-4">
