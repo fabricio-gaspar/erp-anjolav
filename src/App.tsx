@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { SidebarProvider } from "@/contexts/SidebarContext";
 import Dashboard from "./pages/Dashboard";
 import Clientes from "./pages/Clientes";
 import Produtos from "./pages/Produtos";
@@ -28,32 +29,34 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/clientes" element={<Clientes />} />
-          <Route path="/produtos" element={<Produtos />} />
-          <Route path="/producao" element={<FluxoProducao />} />
-          <Route path="/caixa" element={<CaixaPDV />} />
-          <Route path="/faturamento" element={<Faturamento />} />
-          <Route path="/lancamentos" element={<Lancamentos />} />
-          <Route path="/relatorios/clientes" element={<RelatoriosCliente />} />
-          <Route path="/relatorios/proximidade" element={<RelatorioProximidade />} />
-          {/* Placeholder routes */}
-          <Route path="/ordens" element={<OrdensServico />} />
-          <Route path="/agenda" element={<Agenda />} />
-          <Route path="/financeiro" element={<DashboardFinanceiro />} />
-          <Route path="/receber" element={<ContasReceber />} />
-          <Route path="/pagar" element={<ContasPagar />} />
-          <Route path="/asaas" element={<DashboardCobrancas />} />
-          <Route path="/relatorios/caixa" element={<HistoricoCaixas />} />
-          <Route path="/relatorios/financeiro" element={<RelatorioFinanceiro />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <SidebarProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clientes" element={<Clientes />} />
+            <Route path="/produtos" element={<Produtos />} />
+            <Route path="/producao" element={<FluxoProducao />} />
+            <Route path="/caixa" element={<CaixaPDV />} />
+            <Route path="/faturamento" element={<Faturamento />} />
+            <Route path="/lancamentos" element={<Lancamentos />} />
+            <Route path="/relatorios/clientes" element={<RelatoriosCliente />} />
+            <Route path="/relatorios/proximidade" element={<RelatorioProximidade />} />
+            {/* Placeholder routes */}
+            <Route path="/ordens" element={<OrdensServico />} />
+            <Route path="/agenda" element={<Agenda />} />
+            <Route path="/financeiro" element={<DashboardFinanceiro />} />
+            <Route path="/receber" element={<ContasReceber />} />
+            <Route path="/pagar" element={<ContasPagar />} />
+            <Route path="/asaas" element={<DashboardCobrancas />} />
+            <Route path="/relatorios/caixa" element={<HistoricoCaixas />} />
+            <Route path="/relatorios/financeiro" element={<RelatorioFinanceiro />} />
+            <Route path="/configuracoes" element={<Configuracoes />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </SidebarProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
