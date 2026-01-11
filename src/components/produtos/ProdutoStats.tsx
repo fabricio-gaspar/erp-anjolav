@@ -1,5 +1,4 @@
 import { Package, CheckCircle, XCircle, DollarSign } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Produto } from "@/hooks/useProdutos";
 
 interface ProdutoStatsProps {
@@ -46,21 +45,17 @@ export function ProdutoStats({ produtos }: ProdutoStatsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {stats.map((stat) => (
-        <Card key={stat.label} className="border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div key={stat.label} className="card-base p-3 flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+            <stat.icon className={`w-4 h-4 ${stat.color}`} />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-slate-800">{stat.value}</p>
+            <p className="text-[11px] text-slate-500">{stat.label}</p>
+          </div>
+        </div>
       ))}
     </div>
   );

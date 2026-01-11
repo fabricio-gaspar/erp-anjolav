@@ -209,9 +209,9 @@ const Produtos = () => {
 
   return (
     <AppLayout title="Produtos & Serviços" subtitle="Cadastro de produtos e serviços de lavanderia">
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* Header */}
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end -mt-1">
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleExportCSV}>
               <Download className="w-4 h-4 mr-1" />

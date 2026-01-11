@@ -21,7 +21,7 @@ export function AppLayout({ title, subtitle, children }: AppLayoutProps) {
         isCollapsed ? "ml-16" : "ml-56"
       )}>
         <AppHeader title={title} subtitle={subtitle} />
-        <main className="px-6 py-5">
+        <main className="px-6 py-4">
           <div className="max-w-[1800px] mx-auto">
             {children || <Outlet />}
           </div>
