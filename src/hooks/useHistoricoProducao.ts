@@ -97,7 +97,7 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
           etapa_nova,
           funcionario_id: funcionario_id || null,
           observacoes: observacoes || null,
-          dados_formulario: dados_formulario || {},
+          dados_formulario: (dados_formulario || {}) as unknown as Record<string, never>,
         }])
         .select()
         .single();
