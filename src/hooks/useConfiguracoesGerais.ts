@@ -17,6 +17,16 @@ export interface ConfiguracaoGeral {
   template_boleto: string | null;
   template_transferencia: string | null;
   whatsapp_numero: string | null;
+  // Campos de endereço da empresa
+  endereco_logradouro: string | null;
+  endereco_numero: string | null;
+  endereco_complemento: string | null;
+  endereco_bairro: string | null;
+  endereco_cidade: string | null;
+  endereco_uf: string | null;
+  endereco_cep: string | null;
+  endereco_latitude: number | null;
+  endereco_longitude: number | null;
   created_at: string;
   updated_at: string;
 }
