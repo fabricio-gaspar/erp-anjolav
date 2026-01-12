@@ -1019,18 +1019,19 @@ const Lancamentos = () => {
                                   size="icon"
                                   className="h-8 w-8"
                                   onClick={() => handleOpenOSDetails(os)}
+                                  title="Ver Detalhes"
                                 >
                                   <Eye className="w-4 h-4 text-muted-foreground" />
                                 </Button>
-                                {os.statusConferencia !== "lancado" && (
+                                {os.statusConferencia !== "lancado" && os.itensOS && os.itensOS.length > 0 && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-primary hover:text-primary"
-                                    onClick={() => handleOpenOSDetails(os)}
-                                    title="Gerar Lançamento"
+                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    onClick={() => handleUsarParaLancamento(os.cliente.id, os.itensOS)}
+                                    title="Enviar para Novo Lançamento"
                                   >
-                                    <Plus className="w-4 h-4" />
+                                    <ArrowRight className="w-4 h-4" />
                                   </Button>
                                 )}
                                 {os.statusConferencia === "lancado" && (
