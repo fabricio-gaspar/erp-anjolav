@@ -284,8 +284,23 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
                   </div>
                 )}
               </div>
-            )}
+          )}
           </div>
+
+          {/* Alerta quando não há itens detalhados mas tem quantidade de peças */}
+          {(!os.itensOS || os.itensOS.length === 0) && os.dadosProducao.quantidadePecas > 0 && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+              <div className="flex items-center gap-2 text-amber-700">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="font-medium">Itens não detalhados na Separação</span>
+              </div>
+              <p className="text-sm text-amber-600 mt-1">
+                Esta OS possui {os.dadosProducao.quantidadePecas} peças registradas, mas os itens 
+                individuais não foram especificados na etapa de Separação. Use o formulário abaixo 
+                para lançar os itens manualmente.
+              </p>
+            </div>
+          )}
 
           {/* Itens Registrados na Separação */}
           {os.itensOS && os.itensOS.length > 0 && (
