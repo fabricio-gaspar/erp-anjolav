@@ -18,8 +18,11 @@ import {
   Settings,
   Package,
   Truck,
-  CheckCircle2
+  CheckCircle2,
+  LayoutList,
+  LayoutGrid
 } from "lucide-react";
+import { Toggle } from "@/components/ui/toggle";
 import { useFuncionarios } from "@/hooks/useFuncionarios";
 import { useModuloPermissoes, useSavePermissoes, type PermissaoUpdate } from "@/hooks/useModuloPermissoes";
 import { cn } from "@/lib/utils";
@@ -68,6 +71,7 @@ export function ConfiguracoesPermissoes() {
   const [selectedModulo, setSelectedModulo] = useState<string>('dashboard');
   const [localPermissoes, setLocalPermissoes] = useState<Record<string, Record<string, boolean>>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [compactMode, setCompactMode] = useState(false);
 
   // Initialize local permissions from DB
   useEffect(() => {
@@ -201,13 +205,43 @@ export function ConfiguracoesPermissoes() {
       <div className="grid grid-cols-12 gap-6">
         {/* Left panel - Module list */}
         <div className="col-span-4">
-          <ScrollArea className="h-[calc(100vh-320px)] min-h-[400px] pr-4">
+          {/* Compact mode toggle */}
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Módulos
+            </p>
+            <div className="flex items-center gap-1 border rounded-md p-0.5">
+              <Toggle
+                size="sm"
+                pressed={!compactMode}
+                onPressedChange={() => setCompactMode(false)}
+                className="h-7 w-7 p-0 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                aria-label="Modo expandido"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </Toggle>
+              <Toggle
+                size="sm"
+                pressed={compactMode}
+                onPressedChange={() => setCompactMode(true)}
+                className="h-7 w-7 p-0 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                aria-label="Modo compacto"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+              </Toggle>
+            </div>
+          </div>
+
+          <ScrollArea className="h-[calc(100vh-360px)] min-h-[400px] pr-4">
             {Object.entries(modulosByCategoria).map(([categoria, modulos]) => (
-              <div key={categoria} className="mb-4">
-                <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
+              <div key={categoria} className={cn("mb-3", compactMode && "mb-2")}>
+                <p className={cn(
+                  "text-xs font-medium text-muted-foreground uppercase tracking-wider",
+                  compactMode ? "mb-1" : "mb-2"
+                )}>
                   {categoria}
                 </p>
-                <div className="space-y-2">
+                <div className={cn(compactMode ? "space-y-1" : "space-y-2")}>
                   {modulos.map((modulo) => {
                     const Icon = modulo.icon;
                     const accessCount = getAccessCount(modulo.key);
@@ -218,35 +252,51 @@ export function ConfiguracoesPermissoes() {
                         key={modulo.key}
                         onClick={() => setSelectedModulo(modulo.key)}
                         className={cn(
-                          "p-3 rounded-lg border cursor-pointer transition-all",
+                          "rounded-lg border cursor-pointer transition-all",
+                          compactMode ? "p-2" : "p-3",
                           isSelected 
                             ? "ring-2 ring-blue-500 border-blue-200 bg-blue-50/50" 
                             : "border-border hover:border-blue-200 hover:bg-muted/50"
                         )}
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", modulo.iconBg)}>
-                              <Icon className={cn("w-5 h-5", modulo.iconColor)} />
+                        <div className="flex items-center justify-between">
+                          <div className={cn("flex items-center", compactMode ? "gap-2" : "gap-3")}>
+                            <div className={cn(
+                              "rounded-lg flex items-center justify-center", 
+                              modulo.iconBg,
+                              compactMode ? "w-6 h-6" : "w-9 h-9"
+                            )}>
+                              <Icon className={cn(
+                                modulo.iconColor,
+                                compactMode ? "w-3.5 h-3.5" : "w-5 h-5"
+                              )} />
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm text-foreground truncate">
+                            <div className="min-w-0 flex-1">
+                              <p className={cn(
+                                "font-medium text-foreground truncate",
+                                compactMode ? "text-xs" : "text-sm"
+                              )}>
                                 {modulo.nome}
                               </p>
-                              <p className="text-xs text-muted-foreground line-clamp-1">
-                                {modulo.descricao}
-                              </p>
+                              {!compactMode && (
+                                <p className="text-xs text-muted-foreground line-clamp-1">
+                                  {modulo.descricao}
+                                </p>
+                              )}
                             </div>
                           </div>
+                          {accessCount > 0 && (
+                            <div className={cn(
+                              "flex items-center text-emerald-600 shrink-0",
+                              compactMode ? "gap-1" : "gap-1.5"
+                            )}>
+                              <CheckCircle2 className={cn(compactMode ? "w-3 h-3" : "w-3.5 h-3.5")} />
+                              <span className={cn("font-medium", compactMode ? "text-[10px]" : "text-xs")}>
+                                {accessCount}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        {accessCount > 0 && (
-                          <div className="flex items-center gap-1.5 mt-2 text-emerald-600">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span className="text-xs font-medium">
-                              {accessCount} usuário{accessCount !== 1 ? 's' : ''} com acesso
-                            </span>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
