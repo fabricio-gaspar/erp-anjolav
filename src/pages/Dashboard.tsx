@@ -195,86 +195,6 @@ const Dashboard = () => {
         {/* Divider */}
         <div className="section-divider" />
 
-        {/* Produção em Tempo Real */}
-        {metricasAvancadas && (
-          <section>
-            <SectionHeader icon={Activity} title="Produção em Tempo Real" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-              {/* Peso Processado */}
-              <div className="metric-card">
-                <div className="metric-card-header">
-                  <div className="metric-card-icon bg-primary/10">
-                    <Scale className="w-4 h-4 text-primary" />
-                  </div>
-                  <span className="metric-card-title">Peso Processado Hoje</span>
-                </div>
-                <p className="metric-card-value">{metricasAvancadas.pesoTotalHoje.toFixed(1)}kg</p>
-              </div>
-
-              {/* Etapas Concluídas */}
-              <div className="metric-card">
-                <div className="metric-card-header">
-                  <div className="metric-card-icon bg-success/10">
-                    <Activity className="w-4 h-4 text-success" />
-                  </div>
-                  <span className="metric-card-title">Etapas Concluídas Hoje</span>
-                </div>
-                <p className="metric-card-value">{metricasAvancadas.totalEtapasHoje}</p>
-              </div>
-
-              {/* Mais Produtivo */}
-              <div className="metric-card">
-                <div className="metric-card-header">
-                  <div className="metric-card-icon bg-warning/10">
-                    <User className="w-4 h-4 text-warning" />
-                  </div>
-                  <span className="metric-card-title">Mais Produtivo</span>
-                </div>
-                {metricasAvancadas.funcionarioMaisProdutivo ? (
-                  <div>
-                    <p className="metric-card-value text-xl truncate">
-                      {metricasAvancadas.funcionarioMaisProdutivo.nome}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {metricasAvancadas.funcionarioMaisProdutivo.etapas} etapas hoje
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-slate-400">-</p>
-                )}
-              </div>
-
-              {/* Tempo Médio */}
-              <div className="metric-card">
-                <div className="metric-card-header">
-                  <div className="metric-card-icon bg-info/10">
-                    <Clock className="w-4 h-4 text-info" />
-                  </div>
-                  <span className="metric-card-title">Tempo Médio/Etapa</span>
-                </div>
-                <div className="space-y-2">
-                  {Object.entries(metricasAvancadas.mediaTempoPorEtapa || {})
-                    .slice(0, 2)
-                    .map(([etapa, tempo]) => (
-                      <div key={etapa} className="flex items-center justify-between text-xs">
-                        <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-600">
-                          {etapaLabels[etapa] || etapa}
-                        </Badge>
-                        <span className="font-bold text-slate-700">{tempo}</span>
-                      </div>
-                    ))}
-                  {Object.keys(metricasAvancadas.mediaTempoPorEtapa || {}).length === 0 && (
-                    <p className="text-slate-400 text-sm">Sem dados</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Divider */}
-        <div className="section-divider" />
-
         {/* Finance Cards */}
         <section>
           <SectionHeader icon={Wallet} title="Visão Financeira" />
@@ -307,18 +227,11 @@ const Dashboard = () => {
         {/* Divider */}
         <div className="section-divider" />
 
-        {/* Production & Costs */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+        {/* Production Bottleneck */}
+        <section>
           <ProductionBottleneck
             items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
             recommendation={recommendation}
-          />
-          <OperationalCosts
-            month={format(new Date(), "MMMM/yyyy", { locale: ptBR })}
-            revenue={0}
-            expenses={totalContasPagar}
-            profit={-totalContasPagar}
-            margin={0}
           />
         </section>
 
