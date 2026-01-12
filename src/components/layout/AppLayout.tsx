@@ -48,7 +48,7 @@ export function AppLayout({
         />
         <main className={cn(
           "py-3 sm:py-4 pr-3 sm:pr-4",
-          isMobile ? "pl-3 sm:pl-4" : "pl-0"
+          isMobile ? "pl-3 sm:pl-4" : "pl-1.5"
         )}>
           <div className="w-full">
             {children || <Outlet />}
