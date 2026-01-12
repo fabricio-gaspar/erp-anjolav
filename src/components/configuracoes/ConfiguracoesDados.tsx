@@ -44,9 +44,10 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useDataManagement, exportEntityData, exportAllData, EntityStats } from "@/hooks/useDataManagement";
+import { useDataManagement, exportEntityData, exportAllData, deleteAllData, EntityStats } from "@/hooks/useDataManagement";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Bomb } from "lucide-react";
 
 const categoryLabels = {
   cadastros: { label: "Cadastros", icon: Users, color: "bg-blue-500" },
@@ -63,6 +64,9 @@ export function ConfiguracoesDados() {
   const [deleteEntity, setDeleteEntity] = useState<EntityStats | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingAll, setIsExportingAll] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
 
   const filteredEntities = useMemo(() => {
     if (!data?.entities) return [];
@@ -254,6 +258,40 @@ export function ConfiguracoesDados() {
     }
   };
 
+  const handleResetSystem = async () => {
+    if (resetConfirmText !== "ZERAR TUDO") return;
+
+    setIsResetting(true);
+    try {
+      const result = await deleteAllData();
+      
+      if (result.errors.length > 0) {
+        toast({
+          title: "Exclusão parcial",
+          description: `${result.deleted} tabelas limpas. ${result.errors.length} erros encontrados.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sistema zerado com sucesso",
+          description: "Todos os dados foram removidos. O sistema está pronto para começar do zero.",
+        });
+      }
+      
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Erro ao zerar sistema",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
+      setShowResetConfirm(false);
+      setResetConfirmText("");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -300,6 +338,30 @@ export function ConfiguracoesDados() {
             Importar Backup Completo
           </Button>
         </div>
+      </Card>
+
+      {/* Zerar Sistema */}
+      <Card className="p-6 border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20">
+        <div className="flex items-center gap-2 mb-2">
+          <Bomb className="w-5 h-5 text-red-600" />
+          <h2 className="font-semibold text-red-600">Zerar Sistema</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Remove <strong>TODOS</strong> os dados do sistema de uma só vez. Use esta opção para começar do zero.
+          <span className="block mt-1 text-red-600 font-medium">
+            ⚠️ Esta ação é IRREVERSÍVEL. Faça backup antes de prosseguir.
+          </span>
+        </p>
+
+        <Button
+          variant="destructive"
+          onClick={() => setShowResetConfirm(true)}
+          className="bg-red-600 hover:bg-red-700"
+          disabled={data?.totalRecords === 0}
+        >
+          <Bomb className="w-4 h-4 mr-2" />
+          Zerar Todos os Dados ({data?.totalRecords || 0} registros)
+        </Button>
       </Card>
 
       {/* Visão Geral dos Dados com KPIs */}
@@ -565,6 +627,74 @@ export function ConfiguracoesDados() {
               <Trash2 className="w-4 h-4 mr-2" />
               Confirmar Exclusão
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset System Confirmation Dialog */}
+      <AlertDialog open={showResetConfirm} onOpenChange={(open) => {
+        setShowResetConfirm(open);
+        if (!open) setResetConfirmText("");
+      }}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <Bomb className="w-5 h-5" />
+              Zerar Sistema Completamente
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Você está prestes a excluir <strong>TODOS OS {data?.totalRecords || 0} REGISTROS</strong> do sistema.
+              </p>
+              <div className="p-3 bg-red-100 dark:bg-red-950 rounded-lg border border-red-300 dark:border-red-800">
+                <p className="text-red-700 dark:text-red-300 font-medium text-sm">
+                  ⚠️ Esta ação é IRREVERSÍVEL!
+                </p>
+                <ul className="text-red-600 dark:text-red-400 text-xs mt-2 space-y-1">
+                  <li>• Todos os clientes serão removidos</li>
+                  <li>• Todas as ordens de serviço serão perdidas</li>
+                  <li>• Todo o histórico financeiro será apagado</li>
+                  <li>• Todos os produtos e preços serão excluídos</li>
+                </ul>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  Digite <span className="font-mono bg-muted px-1 rounded">ZERAR TUDO</span> para confirmar:
+                </p>
+                <Input
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value.toUpperCase())}
+                  placeholder="Digite ZERAR TUDO"
+                  className="font-mono"
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                handleExportAllBackup();
+              }}
+              className="w-full sm:w-auto"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Backup Primeiro
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleResetSystem}
+              disabled={resetConfirmText !== "ZERAR TUDO" || isResetting}
+              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
+            >
+              {isResetting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Bomb className="w-4 h-4 mr-2" />
+              )}
+              Zerar Sistema
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
