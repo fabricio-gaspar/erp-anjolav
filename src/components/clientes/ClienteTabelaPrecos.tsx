@@ -69,10 +69,26 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
     }
   }, [clienteId]);
 
-  // Produtos disponíveis (não cadastrados ainda)
-  const produtosDisponiveis = produtos.filter(
-    (p) => !precosLocais.some((pl) => pl.produto_id === p.id)
-  );
+  // Buscar dados do cliente atual para filtrar por classificação
+  const clienteAtual = clientes.find((c) => c.id === clienteId);
+
+  // Produtos disponíveis (não cadastrados ainda e compatíveis com a classificação do cliente)
+  const produtosDisponiveis = produtos.filter((p) => {
+    // Já está na tabela de preços? Ignora
+    if (precosLocais.some((pl) => pl.produto_id === p.id)) return false;
+    
+    // Produto deve estar ativo
+    if (p.status !== "ativo") return false;
+    
+    // Verificar compatibilidade de unidade de negócio com classificação do cliente
+    // ID1 = Industrial, ID2 = Residencial, ambos = todos
+    if (p.unidade_negocio === "ambos") return true;
+    
+    if (clienteAtual?.classificacao === "industrial" && p.unidade_negocio === "ID1") return true;
+    if (clienteAtual?.classificacao === "residencial" && p.unidade_negocio === "ID2") return true;
+    
+    return false;
+  });
 
   // Outros clientes para importação
   const outrosClientes = clientes.filter((c) => c.id !== clienteId);
