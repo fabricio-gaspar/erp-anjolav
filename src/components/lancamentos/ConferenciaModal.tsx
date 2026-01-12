@@ -35,6 +35,7 @@ import {
   Clock,
   FileText,
   ArrowRight,
+  Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -71,6 +72,9 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
   const [produtoSelecionado, setProdutoSelecionado] = useState<string>("");
   const [quantidade, setQuantidade] = useState<number>(1);
   const [showLancamentoForm, setShowLancamentoForm] = useState(false);
+  
+  // Estado para edição de quantidades dos itens da OS
+  const [quantidadesEditadas, setQuantidadesEditadas] = useState<Record<string, number>>({});
 
   const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(os?.cliente?.id || null);
   const { mutate: gerarLancamento, isPending: isGerando } = useGerarLancamento();
@@ -307,10 +311,18 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
             <>
               <Separator className="my-4" />
               <div className="mb-6">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  Itens Registrados na Separação
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Itens Registrados na Separação
+                  </h3>
+                  {os.statusConferencia !== "lancado" && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Pencil className="h-3 w-3" />
+                      Clique na quantidade para editar
+                    </span>
+                  )}
+                </div>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -321,26 +333,63 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {os.itensOS.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.produto?.nome || "Produto"}</TableCell>
-                        <TableCell className="text-center">
-                          {item.quantidade} {item.produto?.unidade || "un"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(item.preco_unitario)}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(item.subtotal)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {os.itensOS.map((item) => {
+                      const qtdEditada = quantidadesEditadas[item.id] ?? item.quantidade;
+                      const subtotalEditado = qtdEditada * item.preco_unitario;
+                      const foiEditado = quantidadesEditadas[item.id] !== undefined && quantidadesEditadas[item.id] !== item.quantidade;
+                      
+                      return (
+                        <TableRow key={item.id} className={foiEditado ? "bg-primary/5" : ""}>
+                          <TableCell>{item.produto?.nome || "Produto"}</TableCell>
+                          <TableCell className="text-center">
+                            {os.statusConferencia !== "lancado" ? (
+                              <div className="flex items-center justify-center gap-1">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={qtdEditada}
+                                  onChange={(e) => {
+                                    const novaQtd = Number(e.target.value);
+                                    setQuantidadesEditadas(prev => ({
+                                      ...prev,
+                                      [item.id]: novaQtd
+                                    }));
+                                  }}
+                                  className="w-20 h-8 text-center"
+                                />
+                                <span className="text-xs text-muted-foreground">
+                                  {item.produto?.unidade || "un"}
+                                </span>
+                              </div>
+                            ) : (
+                              <span>{item.quantidade} {item.produto?.unidade || "un"}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(item.preco_unitario)}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(subtotalEditado)}
+                            {foiEditado && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                (era {formatCurrency(item.subtotal)})
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                     <TableRow>
                       <TableCell colSpan={3} className="text-right font-bold">
                         Total:
                       </TableCell>
                       <TableCell className="text-right font-bold text-lg">
-                        {formatCurrency(os.itensOS.reduce((sum, i) => sum + i.subtotal, 0))}
+                        {formatCurrency(
+                          os.itensOS.reduce((sum, item) => {
+                            const qtd = quantidadesEditadas[item.id] ?? item.quantidade;
+                            return sum + (qtd * item.preco_unitario);
+                          }, 0)
+                        )}
                       </TableCell>
                     </TableRow>
                   </TableBody>
@@ -352,7 +401,18 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
                     variant="secondary" 
                     className="w-full mt-4 gap-2"
                     onClick={() => {
-                      onUsarParaLancamento(os.cliente.id, os.itensOS);
+                      // Criar cópia dos itens com quantidades editadas
+                      const itensAtualizados = os.itensOS.map(item => {
+                        const qtdEditada = quantidadesEditadas[item.id] ?? item.quantidade;
+                        return {
+                          ...item,
+                          quantidade: qtdEditada,
+                          subtotal: qtdEditada * item.preco_unitario,
+                        };
+                      }).filter(item => item.quantidade > 0); // Remove itens zerados
+                      
+                      onUsarParaLancamento(os.cliente.id, itensAtualizados);
+                      setQuantidadesEditadas({}); // Limpar edições
                       onOpenChange(false);
                     }}
                   >
