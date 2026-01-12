@@ -183,6 +183,26 @@ export function useDescricoesServicosFiscais() {
     },
   });
 
+  const updateDescricao = useMutation({
+    mutationFn: async ({ id, descricao }: { id: string; descricao: string }) => {
+      const { data, error } = await supabase
+        .from("descricoes_servicos_fiscais")
+        .update({ descricao })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["descricoes_servicos_fiscais"] });
+      toast.success("Descrição atualizada!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar descrição: " + error.message);
+    },
+  });
+
   const deleteDescricao = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -200,5 +220,5 @@ export function useDescricoesServicosFiscais() {
     },
   });
 
-  return { descricoes, isLoading, addDescricao, deleteDescricao };
+  return { descricoes, isLoading, addDescricao, updateDescricao, deleteDescricao };
 }
