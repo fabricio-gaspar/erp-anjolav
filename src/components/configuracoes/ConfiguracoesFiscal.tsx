@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -23,11 +22,18 @@ import {
   Shield,
   FileText,
   Info,
+  Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+  useConfiguracoesFiscais,
+  useDescricoesServicosFiscais,
+  type ConfiguracaoFiscalInsert,
+} from "@/hooks/useConfiguracoesFiscais";
+import type { Json } from "@/integrations/supabase/types";
 
-interface ConfiguracaoFiscal {
-  id: string;
+// Interface para formulário (camelCase)
+interface FormData {
   nome: string;
   cnpj: string;
   razaoSocial: string;
@@ -41,7 +47,7 @@ interface ConfiguracaoFiscal {
   cep: string;
   aliquotaIss: string;
   codigoServico: string;
-  ambiente: string;
+  ambiente: "producao" | "homologacao";
   ativo: boolean;
   certificadoNome: string;
   senhaCertificado: string;
@@ -58,14 +64,7 @@ interface ConfiguracaoFiscal {
   regimeTributario: string;
 }
 
-interface DescricaoServico {
-  id: string;
-  descricao: string;
-  ativo: boolean;
-}
-
-const defaultConfig: ConfiguracaoFiscal = {
-  id: "",
+const defaultFormData: FormData = {
   nome: "",
   cnpj: "",
   razaoSocial: "",
@@ -84,9 +83,9 @@ const defaultConfig: ConfiguracaoFiscal = {
   certificadoNome: "",
   senhaCertificado: "",
   validadeCertificado: "",
-  urlHomologacao: "https://homologacao.prefeitura...",
-  urlProducao: "https://nfse.prefeitura...",
-  urlWebServiceIM: "https://saoroque.ginfes.cloud/Nfse.PortalIntegracao/Services.svc?wsdl",
+  urlHomologacao: "",
+  urlProducao: "",
+  urlWebServiceIM: "",
   serieNfse: "1",
   proximoNfse: "1",
   serieNfe: "1",
@@ -96,34 +95,130 @@ const defaultConfig: ConfiguracaoFiscal = {
   regimeTributario: "simples-nacional",
 };
 
-export function ConfiguracoesFiscal() {
-  const [configuracoes, setConfiguracoes] = useState<ConfiguracaoFiscal[]>([
-    {
-      ...defaultConfig,
-      id: "1",
-      nome: "Lavanderia São Roque Ltda",
-      cnpj: "25.127.025/0001-06",
-      razaoSocial: "Lavanderia São Roque Ltda",
-      ambiente: "homologacao",
+// Converte dados do banco para formulário
+function databaseToForm(config: {
+  id: string;
+  nome: string;
+  cnpj: string | null;
+  razao_social: string | null;
+  inscricao_municipal: string | null;
+  inscricao_estadual: string | null;
+  endereco: Json;
+  aliquota_iss: number | null;
+  codigo_servico: string | null;
+  ambiente: string | null;
+  ativo: boolean;
+  certificado_url: string | null;
+  validade_certificado: string | null;
+  urls_webservice: Json;
+  series_numeracao: Json;
+  csc_dados: Json;
+  regime_tributario: string | null;
+}): FormData {
+  const endereco = (config.endereco || {}) as Record<string, string>;
+  const urls = (config.urls_webservice || {}) as Record<string, string>;
+  const series = (config.series_numeracao || {}) as Record<string, string>;
+  const csc = (config.csc_dados || {}) as Record<string, string>;
+
+  return {
+    nome: config.nome || "",
+    cnpj: config.cnpj || "",
+    razaoSocial: config.razao_social || "",
+    inscricaoMunicipal: config.inscricao_municipal || "",
+    inscricaoEstadual: config.inscricao_estadual || "ISENTO",
+    rua: endereco.logradouro || "",
+    numero: endereco.numero || "",
+    bairro: endereco.bairro || "",
+    cidade: endereco.cidade || "",
+    estado: endereco.uf || "",
+    cep: endereco.cep || "",
+    aliquotaIss: config.aliquota_iss?.toString() || "5.00",
+    codigoServico: config.codigo_servico || "14.01",
+    ambiente: (config.ambiente as "producao" | "homologacao") || "homologacao",
+    ativo: config.ativo,
+    certificadoNome: config.certificado_url || "",
+    senhaCertificado: "",
+    validadeCertificado: config.validade_certificado || "",
+    urlHomologacao: urls.homologacao || "",
+    urlProducao: urls.producao || "",
+    urlWebServiceIM: urls.webservice_im || "",
+    serieNfse: series.serie_nfse || "1",
+    proximoNfse: series.proximo_nfse || "1",
+    serieNfe: series.serie_nfe || "1",
+    proximoNfe: series.proximo_nfe || "1",
+    idCsc: csc.id_csc || "1",
+    tokenCsc: csc.token_csc || "",
+    regimeTributario: config.regime_tributario || "simples-nacional",
+  };
+}
+
+// Converte formulário para formato do banco
+function formToDatabase(form: FormData): ConfiguracaoFiscalInsert {
+  return {
+    nome: form.nome,
+    cnpj: form.cnpj || null,
+    razao_social: form.razaoSocial || null,
+    inscricao_municipal: form.inscricaoMunicipal || null,
+    inscricao_estadual: form.inscricaoEstadual || null,
+    endereco: {
+      logradouro: form.rua,
+      numero: form.numero,
+      bairro: form.bairro,
+      cidade: form.cidade,
+      uf: form.estado,
+      cep: form.cep,
     },
-  ]);
+    aliquota_iss: parseFloat(form.aliquotaIss) || 5,
+    codigo_servico: form.codigoServico || null,
+    ambiente: form.ambiente,
+    ativo: form.ativo,
+    certificado_url: null,
+    validade_certificado: form.validadeCertificado || null,
+    urls_webservice: {
+      homologacao: form.urlHomologacao,
+      producao: form.urlProducao,
+      webservice_im: form.urlWebServiceIM,
+    },
+    series_numeracao: {
+      serie_nfse: form.serieNfse,
+      proximo_nfse: form.proximoNfse,
+      serie_nfe: form.serieNfe,
+      proximo_nfe: form.proximoNfe,
+    },
+    csc_dados: {
+      id_csc: form.idCsc,
+      token_csc: form.tokenCsc,
+    },
+    regime_tributario: form.regimeTributario || null,
+  };
+}
 
-  const [descricoes, setDescricoes] = useState<DescricaoServico[]>([
-    { id: "1", descricao: "HIGIENIZAÇÃO DE UNIFORMES", ativo: true },
-    { id: "2", descricao: "HIGIENIZAÇÃO DE PEÇAS", ativo: true },
-    { id: "3", descricao: "HIGIENIZAÇÃO DE TOALHAS", ativo: true },
-    { id: "4", descricao: "LAVAGEM DE ROUPAS PROFISSIONAIS", ativo: true },
-  ]);
+export function ConfiguracoesFiscal() {
+  const {
+    configuracoes,
+    isLoading: loadingConfigs,
+    createConfiguracao,
+    updateConfiguracao,
+    deleteConfiguracao,
+  } = useConfiguracoesFiscais();
 
-  const [editingConfig, setEditingConfig] = useState<ConfiguracaoFiscal | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState<ConfiguracaoFiscal>(defaultConfig);
+  const {
+    descricoes,
+    isLoading: loadingDescricoes,
+    addDescricao,
+    updateDescricao,
+    deleteDescricao,
+  } = useDescricoesServicosFiscais();
 
-  const handleInputChange = (field: keyof ConfiguracaoFiscal, value: string | boolean) => {
+  const [editingConfigId, setEditingConfigId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<FormData>(defaultFormData);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveConfig = () => {
+  const handleSaveConfig = async () => {
     if (!formData.nome || !formData.cnpj) {
       toast({
         title: "Campos obrigatórios",
@@ -133,61 +228,71 @@ export function ConfiguracoesFiscal() {
       return;
     }
 
-    if (editingConfig) {
-      setConfiguracoes((prev) =>
-        prev.map((c) => (c.id === editingConfig.id ? { ...formData, id: editingConfig.id } : c))
-      );
-      toast({ title: "Configuração atualizada com sucesso!" });
-    } else {
-      const newConfig = { ...formData, id: Date.now().toString() };
-      setConfiguracoes((prev) => [...prev, newConfig]);
-      toast({ title: "Configuração adicionada com sucesso!" });
+    setIsSaving(true);
+    try {
+      const dbData = formToDatabase(formData);
+
+      if (editingConfigId) {
+        await updateConfiguracao.mutateAsync({ id: editingConfigId, ...dbData });
+        toast({ title: "Configuração atualizada com sucesso!" });
+      } else {
+        await createConfiguracao.mutateAsync(dbData);
+        toast({ title: "Configuração adicionada com sucesso!" });
+      }
+
+      setFormData(defaultFormData);
+      setEditingConfigId(null);
+    } catch (error) {
+      console.error("Erro ao salvar configuração:", error);
+    } finally {
+      setIsSaving(false);
     }
-
-    setFormData(defaultConfig);
-    setEditingConfig(null);
-    setShowForm(false);
   };
 
-  const handleEditConfig = (config: ConfiguracaoFiscal) => {
-    setFormData(config);
-    setEditingConfig(config);
-    setShowForm(true);
+  const handleEditConfig = (config: typeof configuracoes[0]) => {
+    setFormData(databaseToForm(config));
+    setEditingConfigId(config.id);
   };
 
-  const handleDeleteConfig = (id: string) => {
-    setConfiguracoes((prev) => prev.filter((c) => c.id !== id));
-    toast({ title: "Configuração removida!" });
+  const handleCancelEdit = () => {
+    setFormData(defaultFormData);
+    setEditingConfigId(null);
   };
 
-  const handleAddDescricao = () => {
+  const handleDeleteConfig = async (id: string) => {
+    if (confirm("Tem certeza que deseja excluir esta configuração?")) {
+      await deleteConfiguracao.mutateAsync(id);
+    }
+  };
+
+  const handleAddDescricao = async () => {
     const descricao = prompt("Digite a descrição do serviço:");
     if (descricao) {
-      setDescricoes((prev) => [
-        ...prev,
-        { id: Date.now().toString(), descricao: descricao.toUpperCase(), ativo: true },
-      ]);
-      toast({ title: "Descrição adicionada!" });
+      await addDescricao.mutateAsync(descricao.toUpperCase());
     }
   };
 
-  const handleEditDescricao = (id: string) => {
-    const desc = descricoes.find((d) => d.id === id);
-    if (desc) {
-      const novaDescricao = prompt("Editar descrição:", desc.descricao);
-      if (novaDescricao) {
-        setDescricoes((prev) =>
-          prev.map((d) => (d.id === id ? { ...d, descricao: novaDescricao.toUpperCase() } : d))
-        );
-        toast({ title: "Descrição atualizada!" });
-      }
+  const handleEditDescricao = async (id: string, descricaoAtual: string) => {
+    const novaDescricao = prompt("Editar descrição:", descricaoAtual);
+    if (novaDescricao && novaDescricao !== descricaoAtual) {
+      await updateDescricao.mutateAsync({ id, descricao: novaDescricao.toUpperCase() });
     }
   };
 
-  const handleDeleteDescricao = (id: string) => {
-    setDescricoes((prev) => prev.filter((d) => d.id !== id));
-    toast({ title: "Descrição removida!" });
+  const handleDeleteDescricao = async (id: string) => {
+    if (confirm("Tem certeza que deseja excluir esta descrição?")) {
+      await deleteDescricao.mutateAsync(id);
+    }
   };
+
+  if (loadingConfigs || loadingDescricoes) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Carregando configurações fiscais...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -198,53 +303,66 @@ export function ConfiguracoesFiscal() {
           <h2 className="font-semibold text-foreground">CNPJs Cadastrados ({configuracoes.length})</h2>
         </div>
 
-        <div className="space-y-3">
-          {configuracoes.map((config) => (
-            <div
-              key={config.id}
-              className="flex items-center justify-between p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">{config.nome}</span>
-                    <Badge variant={config.ativo ? "default" : "secondary"} className="text-xs">
-                      {config.ativo ? "Ativo" : "Inativo"}
-                    </Badge>
+        {configuracoes.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            Nenhuma configuração fiscal cadastrada. Adicione uma abaixo.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {configuracoes.map((config) => (
+              <div
+                key={config.id}
+                className="flex items-center justify-between p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">{config.nome}</span>
+                      <Badge variant={config.ativo ? "default" : "secondary"} className="text-xs">
+                        {config.ativo ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {config.cnpj} · {config.razao_social}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      ISS: {config.aliquota_iss}% · {config.ambiente === "homologacao" ? "Homologação" : "Produção"}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {config.cnpj} · {config.razaoSocial}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    ISS: {config.aliquotaIss}% · {config.ambiente === "homologacao" ? "Homologação" : "Produção"}
-                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleEditConfig(config)}>
+                    Editar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteConfig(config.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleEditConfig(config)}>
-                  Editar
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => handleDeleteConfig(config.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       {/* Formulário Nova Configuração */}
       <Card className="p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <Receipt className="w-5 h-5 text-muted-foreground" />
-          <h2 className="font-semibold text-foreground">
-            {editingConfig ? "Editar Configuração Fiscal" : "Nova Configuração Fiscal"}
-          </h2>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-muted-foreground" />
+            <h2 className="font-semibold text-foreground">
+              {editingConfigId ? "Editar Configuração Fiscal" : "Nova Configuração Fiscal"}
+            </h2>
+          </div>
+          {editingConfigId && (
+            <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
+              Cancelar Edição
+            </Button>
+          )}
         </div>
 
         {/* Dados da Empresa */}
@@ -436,11 +554,9 @@ export function ConfiguracoesFiscal() {
             </h3>
           </div>
 
-          <div
-            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/30 transition-colors mb-4"
-          >
+          <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/30 transition-colors mb-4">
             <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Fazer Upload do Certificado</span>
+            <span className="text-sm text-muted-foreground">Fazer Upload do Certificado (em breve)</span>
           </div>
 
           <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
@@ -587,9 +703,13 @@ export function ConfiguracoesFiscal() {
           </div>
         </div>
 
-        <Button onClick={handleSaveConfig} className="bg-primary hover:bg-primary/90">
-          <Plus className="w-4 h-4 mr-2" />
-          {editingConfig ? "Salvar Alterações" : "Adicionar Configuração"}
+        <Button onClick={handleSaveConfig} className="bg-primary hover:bg-primary/90" disabled={isSaving}>
+          {isSaving ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4 mr-2" />
+          )}
+          {editingConfigId ? "Salvar Alterações" : "Adicionar Configuração"}
         </Button>
       </Card>
 
@@ -603,46 +723,49 @@ export function ConfiguracoesFiscal() {
           Cadastre descrições padrão que podem ser usadas nas notas fiscais. Ex: "HIGIENIZAÇÃO DE UNIFORMES", "HIGIENIZAÇÃO DE PEÇAS", etc.
         </p>
 
-        <Button
-          onClick={handleAddDescricao}
-          className="w-full mb-4 bg-primary hover:bg-primary/90"
-        >
+        <Button onClick={handleAddDescricao} className="w-full mb-4 bg-primary hover:bg-primary/90">
           <Plus className="w-4 h-4 mr-2" />
           Adicionar Nova Descrição
         </Button>
 
-        <div className="space-y-2">
-          {descricoes.map((desc) => (
-            <div
-              key={desc.id}
-              className="flex items-center justify-between p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
-            >
-              <div>
-                <p className="font-medium text-sm text-foreground">{desc.descricao}</p>
-                <Badge variant="default" className="text-xs mt-1">
-                  Ativo
-                </Badge>
+        {descricoes.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            Nenhuma descrição cadastrada.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {descricoes.map((desc) => (
+              <div
+                key={desc.id}
+                className="flex items-center justify-between p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
+              >
+                <div>
+                  <p className="font-medium text-sm text-foreground">{desc.descricao}</p>
+                  <Badge variant={desc.ativo ? "default" : "secondary"} className="text-xs mt-1">
+                    {desc.ativo ? "Ativo" : "Inativo"}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEditDescricao(desc.id, desc.descricao)}
+                  >
+                    <Pencil className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteDescricao(desc.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleEditDescricao(desc.id)}
-                >
-                  <Pencil className="w-4 h-4 text-muted-foreground" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => handleDeleteDescricao(desc.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );
