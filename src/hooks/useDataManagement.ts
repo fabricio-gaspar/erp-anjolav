@@ -129,3 +129,60 @@ export async function deleteEntityData(table: string): Promise<number> {
   
   return count || 0;
 }
+
+// Ordem de exclusão respeitando dependências de FK
+const deletionOrder = [
+  // Primeiro: tabelas dependentes (filhas)
+  "historico_envios",
+  "historico_producao",
+  "itens_lancamento",
+  "itens_ordem_servico",
+  "itens_contrato_aluguel",
+  "lancamentos_fatura",
+  "asaas_webhook_events",
+  "caixa_movimentacoes",
+  "modulo_permissoes",
+  "precos_especiais",
+  "configuracoes_cliente",
+  "configuracoes_pagamento_cliente",
+  "enderecos_clientes",
+  // Segundo: tabelas intermediárias
+  "lancamentos",
+  "faturas",
+  "ordens_servico",
+  "agendamentos",
+  "contratos_aluguel",
+  "contas_pagar",
+  "caixas",
+  "asaas_charges",
+  // Terceiro: tabelas principais
+  "motoristas",
+  "veiculos",
+  "funcionarios",
+  "produtos",
+  "clientes",
+];
+
+export async function deleteAllData(): Promise<{ deleted: number; errors: string[] }> {
+  let totalDeleted = 0;
+  const errors: string[] = [];
+
+  for (const table of deletionOrder) {
+    try {
+      const { error } = await supabase
+        .from(table as any)
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      if (error) {
+        errors.push(`${table}: ${error.message}`);
+      } else {
+        totalDeleted++;
+      }
+    } catch (err) {
+      errors.push(`${table}: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    }
+  }
+
+  return { deleted: totalDeleted, errors };
+}
