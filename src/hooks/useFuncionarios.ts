@@ -137,10 +137,29 @@ export const useCreateFuncionario = () => {
         .single();
 
       if (error) throw error;
+
+      // If cargo is MOTORISTA, automatically create a motorista record
+      if (data.cargo === "MOTORISTA") {
+        const { error: motoristaError } = await supabase
+          .from("motoristas")
+          .insert({
+            nome: data.nome,
+            telefone: data.telefone || null,
+            email: data.email || null,
+            funcionario_id: funcionario.id,
+            ativo: true,
+          });
+
+        if (motoristaError) {
+          console.error("Erro ao criar motorista:", motoristaError);
+        }
+      }
+
       return funcionario;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
+      queryClient.invalidateQueries({ queryKey: ["motoristas"] });
       toast.success("Funcionário cadastrado com sucesso!");
     },
     onError: (error: Error) => {
