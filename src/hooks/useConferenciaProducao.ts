@@ -23,6 +23,7 @@ export interface ItemOS {
   produto: {
     nome: string;
     unidade: string | null;
+    peso_medio_kg?: number | null;
   } | null;
 }
 
@@ -52,7 +53,10 @@ export interface OSConferencia {
   itensOS: ItemOS[];
 }
 
-function extrairDadosProducao(historico: Array<{ etapa_nova: string; dados_formulario: Record<string, unknown> | null }>): DadosProducao {
+function extrairDadosProducao(
+  historico: Array<{ etapa_nova: string; dados_formulario: Record<string, unknown> | null }>,
+  itensOS: Array<{ quantidade: number; produto?: { peso_medio_kg?: number | null } | null }>
+): DadosProducao {
   const dados: DadosProducao = {
     quantidadePecas: 0,
     pesoTotal: 0,
@@ -62,20 +66,33 @@ function extrairDadosProducao(historico: Array<{ etapa_nova: string; dados_formu
     conferenciaFinal: false,
   };
 
+  // 1. Calcular Peças e Peso a partir dos ITENS da OS (fonte mais confiável)
+  if (itensOS && itensOS.length > 0) {
+    dados.quantidadePecas = itensOS.reduce((sum, item) => sum + (Number(item.quantidade) || 0), 0);
+    dados.pesoTotal = itensOS.reduce((sum, item) => {
+      const peso = item.produto?.peso_medio_kg || 0;
+      return sum + (Number(item.quantidade) * Number(peso));
+    }, 0);
+  }
+
+  // 2. Procurar dados no histórico de produção
   for (const h of historico) {
     const form = h.dados_formulario;
     if (!form) continue;
 
-    if (h.etapa_nova === "em_lavagem" || h.etapa_nova === "separacao") {
-      // Dados da Separação
-      if (form.quantidade_pecas) dados.quantidadePecas = Number(form.quantidade_pecas);
+    // Etapas de Separação (aceitar todas as variações)
+    if (["separacao", "em_lavagem", "lavagem"].includes(h.etapa_nova)) {
+      // Se não temos itens, usar dados manuais do formulário
+      if (dados.quantidadePecas === 0 && form.quantidade_pecas) {
+        dados.quantidadePecas = Number(form.quantidade_pecas);
+      }
       if (form.peso_total_kg) dados.pesoTotal = Number(form.peso_total_kg);
       if (form.itens_danificados) dados.itensDanificados = String(form.itens_danificados);
       if (form.observacoes) dados.observacoesSeparacao = String(form.observacoes);
     }
 
-    if (h.etapa_nova === "pronto_entrega" || h.etapa_nova === "embalagem") {
-      // Dados da Embalagem
+    // Etapas de Embalagem/Expedição (aceitar todas as variações)
+    if (["embalagem", "expedicao", "pronto_entrega"].includes(h.etapa_nova)) {
       if (form.peso_final_kg) dados.pesoFinal = Number(form.peso_final_kg);
       if (form.quantidade_volumes) dados.quantidadeVolumes = Number(form.quantidade_volumes);
       if (form.etiqueta_aplicada) dados.etiquetaAplicada = Boolean(form.etiqueta_aplicada);
@@ -122,7 +139,7 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
             quantidade,
             preco_unitario,
             subtotal,
-            produto:produtos(nome, unidade)
+            produto:produtos(nome, unidade, peso_medio_kg)
           )
         `)
         .neq("status", "retirada")
@@ -152,11 +169,18 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
           const historico = os.historico_producao || [];
           const temItens = (os.itens_ordem_servico?.length || 0) > 0;
           
+          // Mapear itens para extrair dados de produção
+          const itensParaCalculo = (os.itens_ordem_servico || []).map((item: any) => ({
+            quantidade: item.quantidade,
+            produto: item.produto,
+          }));
+
           const dadosProducao = extrairDadosProducao(
             historico.map((h) => ({
               etapa_nova: h.etapa_nova,
               dados_formulario: h.dados_formulario as Record<string, unknown> | null,
-            }))
+            })),
+            itensParaCalculo
           );
 
           const statusConferencia = determinarStatusConferencia(os, temItens, dadosProducao);

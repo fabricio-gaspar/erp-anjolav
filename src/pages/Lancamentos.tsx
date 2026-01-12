@@ -961,15 +961,27 @@ const Lancamentos = () => {
                             <TableCell className="text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <Package className="h-3 w-3 text-muted-foreground" />
-                                <span className="font-medium">{os.dadosProducao.quantidadePecas || "-"}</span>
+                                <span className="font-medium">
+                                  {/* Priorizar itens da OS, depois dados do formulário */}
+                                  {os.itensOS?.reduce((sum, i) => sum + i.quantidade, 0) || 
+                                   os.dadosProducao.quantidadePecas || "-"}
+                                </span>
                               </div>
                             </TableCell>
                             <TableCell className="text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <Scale className="h-3 w-3 text-muted-foreground" />
                                 <span className="font-medium">
-                                  {os.dadosProducao.pesoFinal || os.dadosProducao.pesoTotal || "-"}
-                                  {(os.dadosProducao.pesoFinal || os.dadosProducao.pesoTotal) && " kg"}
+                                  {(() => {
+                                    // Calcular peso dos itens
+                                    const pesoItens = os.itensOS?.reduce((sum, i) => {
+                                      const peso = (i.produto as any)?.peso_medio_kg || 0;
+                                      return sum + (i.quantidade * peso);
+                                    }, 0) || 0;
+                                    
+                                    const pesoFinal = pesoItens || os.dadosProducao.pesoFinal || os.dadosProducao.pesoTotal;
+                                    return pesoFinal ? `${Math.round(pesoFinal * 10) / 10} kg` : "-";
+                                  })()}
                                 </span>
                               </div>
                             </TableCell>
