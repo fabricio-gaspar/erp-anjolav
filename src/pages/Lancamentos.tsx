@@ -68,7 +68,7 @@ import { ptBR } from "date-fns/locale";
 import { usePrintLancamento, type LancamentosPrintData } from "@/hooks/usePrintOS";
 import { useClientes } from "@/hooks/useClientes";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
-import { useConferenciaProducao, type OSConferencia } from "@/hooks/useConferenciaProducao";
+import { useConferenciaProducao, type OSConferencia, type ItemOS } from "@/hooks/useConferenciaProducao";
 import { ConferenciaModal } from "@/components/lancamentos/ConferenciaModal";
 import { useLancamentos, useCreateItemLancamento } from "@/hooks/useLancamentos";
 import { toast } from "sonner";
@@ -115,6 +115,7 @@ const Lancamentos = () => {
   const [selectedOS, setSelectedOS] = useState<OSConferencia | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [isFinalizando, setIsFinalizando] = useState(false);
+  const [activeTab, setActiveTab] = useState("novo");
   
   const navigate = useNavigate();
   // Hooks for real data
@@ -329,6 +330,32 @@ const Lancamentos = () => {
     }
   };
 
+  // Função para receber itens da conferência e usar no novo lançamento
+  const handleUsarParaLancamento = (clienteId: string, itens: ItemOS[]) => {
+    // 1. Selecionar o cliente
+    setSelectedClienteId(clienteId);
+    
+    // 2. Mapear itens para o formato do lançamento
+    const novosItens: LancamentoItem[] = itens.map((item) => ({
+      id: crypto.randomUUID(),
+      produto: item.produto?.nome || "Produto",
+      quantidade: item.quantidade,
+      unidade: item.produto?.unidade || "un",
+      valorUnitario: item.preco_unitario,
+      valorTotal: item.subtotal,
+    }));
+    
+    // 3. Adicionar itens à lista
+    setItems(novosItens);
+    
+    // 4. Mudar para aba "Novo Lançamento"
+    setActiveTab("novo");
+    
+    toast.success("Itens adicionados ao lançamento", {
+      description: `${itens.length} itens do cliente foram carregados`,
+    });
+  };
+
   return (
     <AppLayout title="Lançamentos" subtitle="Registre a produção diária por cliente">
       <div className="content-panel">
@@ -342,7 +369,7 @@ const Lancamentos = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="novo" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6">
             <TabsTrigger
               value="novo"
@@ -1023,6 +1050,7 @@ const Lancamentos = () => {
           open={modalOpen}
           onOpenChange={setModalOpen}
           os={selectedOS}
+          onUsarParaLancamento={handleUsarParaLancamento}
         />
         </div>
       </div>

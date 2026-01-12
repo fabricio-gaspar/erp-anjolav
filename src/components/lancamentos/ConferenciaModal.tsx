@@ -34,17 +34,19 @@ import {
   AlertTriangle,
   Clock,
   FileText,
+  ArrowRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
-import { useGerarLancamento, type OSConferencia } from "@/hooks/useConferenciaProducao";
+import { useGerarLancamento, type OSConferencia, type ItemOS } from "@/hooks/useConferenciaProducao";
 import { usePrintOS } from "@/hooks/usePrintOS";
 
 interface ConferenciaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   os: OSConferencia | null;
+  onUsarParaLancamento?: (clienteId: string, itens: ItemOS[]) => void;
 }
 
 interface ItemLancamento {
@@ -64,7 +66,7 @@ const etapaLabels: Record<string, string> = {
   entregue: "Entregue",
 };
 
-export function ConferenciaModal({ open, onOpenChange, os }: ConferenciaModalProps) {
+export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento }: ConferenciaModalProps) {
   const [itensLancamento, setItensLancamento] = useState<ItemLancamento[]>([]);
   const [produtoSelecionado, setProdutoSelecionado] = useState<string>("");
   const [quantidade, setQuantidade] = useState<number>(1);
@@ -284,6 +286,68 @@ export function ConferenciaModal({ open, onOpenChange, os }: ConferenciaModalPro
               </div>
             )}
           </div>
+
+          {/* Itens Registrados na Separação */}
+          {os.itensOS && os.itensOS.length > 0 && (
+            <>
+              <Separator className="my-4" />
+              <div className="mb-6">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Itens Registrados na Separação
+                </h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead className="text-center">Quantidade</TableHead>
+                      <TableHead className="text-right">Valor Unit.</TableHead>
+                      <TableHead className="text-right">Subtotal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {os.itensOS.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.produto?.nome || "Produto"}</TableCell>
+                        <TableCell className="text-center">
+                          {item.quantidade} {item.produto?.unidade || "un"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(item.preco_unitario)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(item.subtotal)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-right font-bold">
+                        Total:
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-lg">
+                        {formatCurrency(os.itensOS.reduce((sum, i) => sum + i.subtotal, 0))}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+
+                {/* Botão para usar no lançamento */}
+                {onUsarParaLancamento && os.statusConferencia !== "lancado" && (
+                  <Button 
+                    variant="secondary" 
+                    className="w-full mt-4 gap-2"
+                    onClick={() => {
+                      onUsarParaLancamento(os.cliente.id, os.itensOS);
+                      onOpenChange(false);
+                    }}
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                    Usar para Novo Lançamento
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
 
           <Separator className="my-4" />
 

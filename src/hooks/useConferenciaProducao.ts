@@ -14,6 +14,18 @@ export interface DadosProducao {
   observacoesEmbalagem?: string;
 }
 
+export interface ItemOS {
+  id: string;
+  produto_id: string;
+  quantidade: number;
+  preco_unitario: number;
+  subtotal: number;
+  produto: {
+    nome: string;
+    unidade: string | null;
+  } | null;
+}
+
 export interface OSConferencia {
   id: string;
   numero: string;
@@ -37,6 +49,7 @@ export interface OSConferencia {
     dados_formulario: Record<string, unknown> | null;
     observacoes: string | null;
   }>;
+  itensOS: ItemOS[];
 }
 
 function extrairDadosProducao(historico: Array<{ etapa_nova: string; dados_formulario: Record<string, unknown> | null }>): DadosProducao {
@@ -103,7 +116,14 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
           data_previsao_entrega,
           cliente:clientes(id, razao_social, telefone, cpf_cnpj),
           historico_producao(id, etapa_nova, etapa_anterior, created_at, dados_formulario, observacoes),
-          itens_ordem_servico(id)
+          itens_ordem_servico(
+            id,
+            produto_id,
+            quantidade,
+            preco_unitario,
+            subtotal,
+            produto:produtos(nome, unidade)
+          )
         `)
         .neq("status", "retirada")
         .order("created_at", { ascending: false });
@@ -163,6 +183,14 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
               created_at: h.created_at,
               dados_formulario: h.dados_formulario as Record<string, unknown> | null,
               observacoes: h.observacoes,
+            })),
+            itensOS: (os.itens_ordem_servico || []).map((item: any) => ({
+              id: item.id,
+              produto_id: item.produto_id,
+              quantidade: item.quantidade,
+              preco_unitario: item.preco_unitario,
+              subtotal: item.subtotal,
+              produto: item.produto,
             })),
           };
         });
