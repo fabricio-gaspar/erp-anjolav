@@ -102,25 +102,61 @@ const Dashboard = () => {
       ? formatDistanceToNow(new Date(ultimoHistorico.created_at), { locale: ptBR })
       : "-";
 
-    // Extrair dados do histórico
-    let quantidadePecas = 0;
-    let pesoKg = 0;
+    // Extrair quantidade de peças do histórico (dados_formulario)
+    let quantidadePecasHistorico = 0;
     (os.historico || []).forEach((h: any) => {
       const dados = h.dados_formulario || {};
-      if (dados.quantidade_pecas) quantidadePecas = dados.quantidade_pecas;
-      if (dados.peso_total_kg) pesoKg = dados.peso_total_kg;
-      if (dados.peso_final_kg) pesoKg = dados.peso_final_kg;
+      if (dados.quantidade_pecas) {
+        quantidadePecasHistorico = dados.quantidade_pecas;
+      }
     });
 
-    // Determinar status baseado na data de previsão
-    let status: "on_time" | "delayed" | "at_risk" = "on_time";
+    // Calcular peças, peso e tempo a partir dos itens da OS
+    let pecasItens = 0;
+    let pesoEstimado = 0;
+    let tempoTotalProcessoMin = 0;
+    
+    (os.itens || []).forEach((item: any) => {
+      const qtd = Number(item.quantidade) || 0;
+      pecasItens += qtd;
+      
+      if (item.produto?.peso_medio_kg) {
+        pesoEstimado += qtd * Number(item.produto.peso_medio_kg);
+      }
+      if (item.produto?.tempo_processo_min) {
+        tempoTotalProcessoMin += qtd * Number(item.produto.tempo_processo_min);
+      }
+    });
+
+    // Usar peças do histórico se disponível, senão dos itens
+    const pecasFinal = quantidadePecasHistorico || pecasItens;
+
+    // Calcular previsão de conclusão
+    let previsaoTexto: string | undefined;
+    let dataPrevisaoCalc: Date | null = null;
+    
     if (os.data_previsao_entrega) {
-      const previsao = new Date(os.data_previsao_entrega);
+      dataPrevisaoCalc = new Date(os.data_previsao_entrega);
+      previsaoTexto = format(dataPrevisaoCalc, "dd/MM", { locale: ptBR });
+    } else if (os.data_retirada && tempoTotalProcessoMin > 0) {
+      // Estimativa baseada na data de retirada + tempo de processo
+      const dataRetirada = new Date(os.data_retirada);
+      const horasProcesso = Math.ceil(tempoTotalProcessoMin / 60);
+      // Considerando 8h de trabalho por dia
+      const diasProcesso = Math.max(1, Math.ceil(horasProcesso / 8));
+      dataPrevisaoCalc = new Date(dataRetirada);
+      dataPrevisaoCalc.setDate(dataPrevisaoCalc.getDate() + diasProcesso);
+      previsaoTexto = format(dataPrevisaoCalc, "dd/MM", { locale: ptBR }) + " (est.)";
+    }
+
+    // Determinar status baseado na previsão
+    let status: "on_time" | "delayed" | "at_risk" = "on_time";
+    if (dataPrevisaoCalc) {
       const hoje = startOfDay(new Date());
-      if (isBefore(previsao, hoje)) {
+      if (isBefore(dataPrevisaoCalc, hoje)) {
         status = "delayed";
       } else {
-        const diffDias = Math.ceil((previsao.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDias = Math.ceil((dataPrevisaoCalc.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDias <= 1) {
           status = "at_risk";
         }
@@ -132,12 +168,10 @@ const Dashboard = () => {
       osNumero: os.numero,
       currentStage: etapaLabels[os.status] || os.status,
       timeInStage: tempoNaEtapa,
-      expectedDate: os.data_previsao_entrega
-        ? format(new Date(os.data_previsao_entrega), "dd/MM", { locale: ptBR })
-        : undefined,
+      expectedDate: previsaoTexto,
       status,
-      quantidadePecas: quantidadePecas || undefined,
-      pesoKg: pesoKg || undefined,
+      quantidadePecas: pecasFinal || undefined,
+      pesoKg: pesoEstimado > 0 ? Math.round(pesoEstimado * 10) / 10 : undefined,
     };
   });
 

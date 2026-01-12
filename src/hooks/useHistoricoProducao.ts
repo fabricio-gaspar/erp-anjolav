@@ -231,7 +231,15 @@ export function useResumoProcessamento() {
         .select(`
           *,
           cliente:clientes(razao_social),
-          historico:historico_producao(created_at, etapa_nova)
+          historico:historico_producao(created_at, etapa_nova, dados_formulario),
+          itens:itens_ordem_servico(
+            quantidade,
+            produto:produtos(
+              nome,
+              tempo_processo_min,
+              peso_medio_kg
+            )
+          )
         `)
         .not("status", "in", '("entregue","cancelada")')
         .order("created_at", { ascending: false })
