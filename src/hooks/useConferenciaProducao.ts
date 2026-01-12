@@ -41,7 +41,8 @@ export interface OSConferencia {
   status: string;
   observacoes: string | null;
   dadosProducao: DadosProducao;
-  statusConferencia: "pendente" | "conferido" | "divergencia" | "lancado";
+  statusConferencia: "pendente" | "fluxo_completo" | "divergencia" | "lancado";
+  temLancamento: boolean;
   historicoProducao: Array<{
     id: string;
     etapa_nova: string;
@@ -106,12 +107,19 @@ function extrairDadosProducao(
 
 function determinarStatusConferencia(
   os: { status: string },
-  temItens: boolean,
+  temLancamento: boolean,
   dadosProducao: DadosProducao
-): "pendente" | "conferido" | "divergencia" | "lancado" {
-  if (temItens) return "lancado";
+): "pendente" | "fluxo_completo" | "divergencia" | "lancado" {
+  // 1. Se tem lançamento na tabela lancamentos = Lançado
+  if (temLancamento) return "lancado";
+  
+  // 2. Se tem itens danificados = Divergência
   if (dadosProducao.itensDanificados) return "divergencia";
-  if (dadosProducao.conferenciaFinal) return "conferido";
+  
+  // 3. Se o fluxo de produção foi finalizado (entregue) = Fluxo Completo
+  if (os.status === "entregue") return "fluxo_completo";
+  
+  // 4. Caso contrário = Pendente (ainda no fluxo de produção)
   return "pendente";
 }
 
@@ -161,13 +169,36 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
 
       if (!data) return [];
 
+      // Coletar IDs únicos de OS para verificar lançamentos
+      const osIds = data.map((os) => os.id);
+      
+      // Buscar lançamentos existentes para estas OS (via cliente_id e período)
+      // Também podemos verificar se há lançamentos relacionados aos clientes
+      const clienteIds = data.map((os) => {
+        const cliente = Array.isArray(os.cliente) ? os.cliente[0] : os.cliente;
+        return cliente?.id;
+      }).filter(Boolean) as string[];
+
+      // Buscar lançamentos dos clientes no período relevante
+      const { data: lancamentosData } = await supabase
+        .from("lancamentos")
+        .select("id, cliente_id, data_lancamento")
+        .in("cliente_id", clienteIds.length > 0 ? clienteIds : ["none"]);
+
+      // Criar um Set de cliente_ids que têm lançamentos
+      const clientesComLancamento = new Set(
+        (lancamentosData || []).map((l) => l.cliente_id)
+      );
+
       // Processar e mapear os dados
       const osConferencias: OSConferencia[] = data
         .filter((os) => os.cliente && os.historico_producao && os.historico_producao.length > 0)
         .map((os) => {
           const cliente = Array.isArray(os.cliente) ? os.cliente[0] : os.cliente;
           const historico = os.historico_producao || [];
-          const temItens = (os.itens_ordem_servico?.length || 0) > 0;
+          
+          // Verificar se este cliente tem lançamento
+          const temLancamento = cliente?.id ? clientesComLancamento.has(cliente.id) : false;
           
           // Mapear itens para extrair dados de produção
           const itensParaCalculo = (os.itens_ordem_servico || []).map((item: any) => ({
@@ -183,7 +214,7 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
             itensParaCalculo
           );
 
-          const statusConferencia = determinarStatusConferencia(os, temItens, dadosProducao);
+          const statusConferencia = determinarStatusConferencia(os, temLancamento, dadosProducao);
 
           return {
             id: os.id,
@@ -200,6 +231,7 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
             observacoes: os.observacoes,
             dadosProducao,
             statusConferencia,
+            temLancamento,
             historicoProducao: historico.map((h) => ({
               id: h.id,
               etapa_nova: h.etapa_nova,

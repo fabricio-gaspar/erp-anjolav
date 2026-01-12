@@ -157,9 +157,9 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
 
   if (!os) return null;
 
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     pendente: "bg-yellow-100 text-yellow-800",
-    conferido: "bg-green-100 text-green-800",
+    fluxo_completo: "bg-green-100 text-green-800",
     divergencia: "bg-red-100 text-red-800",
     lancado: "bg-blue-100 text-blue-800",
   };
@@ -171,9 +171,9 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
           <DialogTitle className="flex items-center gap-3">
             <FileText className="h-5 w-5" />
             Conferência OS {os.numero}
-            <Badge className={statusColors[os.statusConferencia]}>
-              {os.statusConferencia === "pendente" && "Pendente"}
-              {os.statusConferencia === "conferido" && "Conferido"}
+            <Badge className={statusColors[os.statusConferencia] || "bg-gray-100 text-gray-800"}>
+              {os.statusConferencia === "pendente" && "Em Produção"}
+              {os.statusConferencia === "fluxo_completo" && "Fluxo Completo"}
               {os.statusConferencia === "divergencia" && "Divergência"}
               {os.statusConferencia === "lancado" && "Lançado"}
             </Badge>
@@ -395,8 +395,8 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
                   </TableBody>
                 </Table>
 
-                {/* Botão para usar no lançamento */}
-                {onUsarParaLancamento && os.statusConferencia !== "lancado" && (
+                {/* Botão para usar no lançamento - Apenas para Fluxo Completo */}
+                {onUsarParaLancamento && os.statusConferencia === "fluxo_completo" && (
                   <Button 
                     variant="secondary" 
                     className="w-full mt-4 gap-2"
