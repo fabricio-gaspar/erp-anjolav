@@ -140,7 +140,8 @@ const ContasReceber = () => {
 
   return (
     <AppLayout title="Contas a Receber" subtitle="Gerencie suas receitas e cobranças">
-      <div className="space-y-4">
+      <div className="content-panel">
+        <div className="space-y-4">
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <Card className="p-3 sm:p-4 flex items-center justify-between">
@@ -322,9 +323,10 @@ const ContasReceber = () => {
           </Table>
           </div>
         </Card>
+        </div>
       </div>
 
-      <NovaCobrancaModal 
+      <NovaCobrancaModal
         open={showNovaCobranca} 
         onOpenChange={setShowNovaCobranca} 
       />

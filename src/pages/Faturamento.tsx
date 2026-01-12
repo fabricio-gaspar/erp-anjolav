@@ -152,8 +152,7 @@ const Faturamento = () => {
 
   return (
     <AppLayout title="Faturamento" subtitle="Selecione lançamentos para gerar faturas">
-      <div className="space-y-4">
-
+      <div className="content-panel">
         <Tabs defaultValue="lancamentos" className="w-full">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6">
             <TabsTrigger

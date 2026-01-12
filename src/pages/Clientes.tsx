@@ -93,7 +93,8 @@ const Clientes = () => {
 
   return (
     <AppLayout title="Clientes" subtitle="Gerenciamento de clientes">
-      <div className="space-y-4">
+      <div className="content-panel">
+        <div className="space-y-4">
         {activeTab !== "lista" && (
           <div className="flex justify-end">
             <Button variant="outline" onClick={handleBackToList}>
@@ -295,6 +296,7 @@ const Clientes = () => {
             <ClienteTabelaPrecos clienteId={selectedClienteId} />
           </TabsContent>
         </Tabs>
+        </div>
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
