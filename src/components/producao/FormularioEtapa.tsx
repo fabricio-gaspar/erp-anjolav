@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Info } from "lucide-react";
+import { Loader2, Info, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -115,26 +115,23 @@ export function FormularioEtapa({
     setIsSubmitting(true);
 
     try {
-      // Construir dados do formulário baseado na etapa
+      // Construir dados do formulário baseado na etapa ATUAL
       let dadosFormulario: Record<string, unknown> = {};
 
-      // Verificar se é a etapa de retirada (saindo de "retirada" para "separacao")
-      const isEtapaRetirada = etapaAtual === "retirada" && proximaEtapa === "separacao";
-
-      if (isEtapaRetirada) {
-        dadosFormulario = {
-          horario_retirada: horarioRetirada || new Date().toISOString(),
-        };
-      } else {
-        switch (proximaEtapa) {
-          case "separacao":
-            dadosFormulario = {
-              quantidade_pecas: Number(quantidadePecas) || 0,
-              peso_total_kg: Number(pesoTotalKg) || 0,
-              itens_danificados: itensDanificados || null,
-              conferido_cliente: conferidoCliente,
-            };
-            break;
+      switch (etapaAtual) {
+        case "retirada":
+          dadosFormulario = {
+            horario_retirada: horarioRetirada || new Date().toISOString(),
+          };
+          break;
+        case "separacao":
+          dadosFormulario = {
+            quantidade_pecas: Number(quantidadePecas) || 0,
+            peso_total_kg: Number(pesoTotalKg) || 0,
+            itens_danificados: itensDanificados || null,
+            conferido_cliente: conferidoCliente,
+          };
+          break;
         case "lavagem":
           dadosFormulario = {
             maquina_utilizada: maquinaUtilizada,
@@ -185,7 +182,6 @@ export function FormularioEtapa({
             data_hora_entrega: new Date().toISOString(),
           };
           break;
-        }
       }
 
       // Atualizar status da OS
@@ -218,21 +214,20 @@ export function FormularioEtapa({
   };
 
   const renderCamposEspecificos = () => {
-    // Caso especial: Etapa de Retirada (saindo de "retirada" para "separacao")
-    if (etapaAtual === "retirada" && proximaEtapa === "separacao") {
-      return (
-        <div className="space-y-2">
-          <Label>Horário da Retirada *</Label>
-          <Input
-            type="datetime-local"
-            value={horarioRetirada}
-            onChange={(e) => setHorarioRetirada(e.target.value)}
-          />
-        </div>
-      );
-    }
+    // Renderizar campos baseado na etapa ATUAL
+    switch (etapaAtual) {
+      case "retirada":
+        return (
+          <div className="space-y-2">
+            <Label>Horário da Retirada *</Label>
+            <Input
+              type="datetime-local"
+              value={horarioRetirada}
+              onChange={(e) => setHorarioRetirada(e.target.value)}
+            />
+          </div>
+        );
 
-    switch (proximaEtapa) {
       case "separacao":
         return (
           <>
@@ -621,21 +616,16 @@ export function FormularioEtapa({
     }
   };
 
-  // Determinar título e descrição baseado na etapa
-  const isEtapaRetirada = etapaAtual === "retirada" && proximaEtapa === "separacao";
-  const tituloModal = isEtapaRetirada 
-    ? etapaLabels["retirada"] 
-    : (etapaLabels[proximaEtapa] || proximaEtapa);
-  const descricaoModal = isEtapaRetirada 
-    ? etapaDescricoes["retirada"] 
-    : (etapaDescricoes[proximaEtapa] || "Preencha os dados para avançar a etapa.");
+  // Determinar título e descrição baseado na etapa ATUAL
+  const tituloModal = etapaLabels[etapaAtual] || etapaAtual;
+  const descricaoModal = etapaDescricoes[etapaAtual] || "Preencha os dados para registrar esta etapa.";
 
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEtapaRetirada ? "Confirmar Retirada" : `Avançar para ${tituloModal}`}
+            Registrar {tituloModal}
           </DialogTitle>
           <DialogDescription>
             {descricaoModal}
@@ -694,6 +684,3 @@ export function FormularioEtapa({
     </Dialog>
   );
 }
-
-// Import CheckCircle for the entregue alert
-import { CheckCircle } from "lucide-react";
