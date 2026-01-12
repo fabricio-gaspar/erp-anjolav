@@ -19,6 +19,7 @@ export interface Fatura {
   relatorio_data: string | null;
   tipo_relatorio: string | null;
   itens_snapshot: Json | null;
+  observacao_fatura: string | null;
   // Etapa 2 - Nota Fiscal
   chave_acesso: string | null;
   link_pdf_nf: string | null;
@@ -26,6 +27,7 @@ export interface Fatura {
   snapshot_cliente: Json | null;
   snapshot_emitente: Json | null;
   descricao_servico: string | null;
+  imposto_calculado: Json | null;
   // Etapa 3 - Pagamento
   forma_pagamento: string | null;
   data_vencimento: string | null;
@@ -34,6 +36,7 @@ export interface Fatura {
   pix_qr_code: string | null;
   pix_copia_cola: string | null;
   dados_transferencia: Json | null;
+  vencimento_ajustado_por: string | null;
   // Etapa 4 - Envio
   data_envio: string | null;
   canais_envio: string[] | null;
@@ -61,6 +64,7 @@ export interface FaturaInsert {
   relatorio_data?: string | null;
   tipo_relatorio?: string | null;
   itens_snapshot?: Json | null;
+  observacao_fatura?: string | null;
   // Etapa 2
   chave_acesso?: string | null;
   link_pdf_nf?: string | null;
@@ -68,6 +72,7 @@ export interface FaturaInsert {
   snapshot_cliente?: Json | null;
   snapshot_emitente?: Json | null;
   descricao_servico?: string | null;
+  imposto_calculado?: Json | null;
   // Etapa 3
   forma_pagamento?: string | null;
   data_vencimento?: string | null;
@@ -76,6 +81,7 @@ export interface FaturaInsert {
   pix_qr_code?: string | null;
   pix_copia_cola?: string | null;
   dados_transferencia?: Json | null;
+  vencimento_ajustado_por?: string | null;
   // Etapa 4
   data_envio?: string | null;
   canais_envio?: string[] | null;
@@ -93,6 +99,7 @@ export interface FaturaUpdate {
   relatorio_data?: string | null;
   tipo_relatorio?: string | null;
   itens_snapshot?: Json | null;
+  observacao_fatura?: string | null;
   // Etapa 2
   chave_acesso?: string | null;
   link_pdf_nf?: string | null;
@@ -100,6 +107,7 @@ export interface FaturaUpdate {
   snapshot_cliente?: Json | null;
   snapshot_emitente?: Json | null;
   descricao_servico?: string | null;
+  imposto_calculado?: Json | null;
   // Etapa 3
   forma_pagamento?: string | null;
   data_vencimento?: string | null;
@@ -108,6 +116,7 @@ export interface FaturaUpdate {
   pix_qr_code?: string | null;
   pix_copia_cola?: string | null;
   dados_transferencia?: Json | null;
+  vencimento_ajustado_por?: string | null;
   // Etapa 4
   data_envio?: string | null;
   canais_envio?: string[] | null;
