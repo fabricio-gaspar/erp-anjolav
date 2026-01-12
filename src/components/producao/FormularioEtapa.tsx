@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Info, CheckCircle } from "lucide-react";
+import { Loader2, Info, CheckCircle, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,8 +25,18 @@ import { useHistoricoProducao } from "@/hooks/useHistoricoProducao";
 import { useFuncionarios } from "@/hooks/useFuncionarios";
 import { useMotoristas } from "@/hooks/useMotoristas";
 import { useVeiculos } from "@/hooks/useVeiculos";
+import { usePrecosEspeciais } from "@/hooks/useProdutos";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface ItemSeparacao {
+  produto_id: string;
+  produto_nome: string;
+  quantidade: number;
+  preco_unitario: number;
+  subtotal: number;
+}
 
 interface FormularioEtapaProps {
   ordemServicoId: string;
@@ -69,11 +79,15 @@ export function FormularioEtapa({
   const [observacoes, setObservacoes] = useState("");
   const [funcionarioId, setFuncionarioId] = useState("");
 
-  // Campos específicos por etapa
-  const [quantidadePecas, setQuantidadePecas] = useState("");
-  const [pesoTotalKg, setPesoTotalKg] = useState("");
+  // Campos específicos por etapa - Separação
+  const [itensSeparacao, setItensSeparacao] = useState<ItemSeparacao[]>([]);
+  const [produtoSelecionado, setProdutoSelecionado] = useState("");
+  const [quantidadeItem, setQuantidadeItem] = useState("");
   const [itensDanificados, setItensDanificados] = useState("");
   const [conferidoCliente, setConferidoCliente] = useState(false);
+  
+  // Campos legados (mantidos para outras etapas)
+  const [quantidadePecas, setQuantidadePecas] = useState("");
   
   const [maquinaUtilizada, setMaquinaUtilizada] = useState("");
   const [temperatura, setTemperatura] = useState("");
@@ -103,13 +117,52 @@ export function FormularioEtapa({
   // Campos específicos da etapa Retirada
   const [horarioRetirada, setHorarioRetirada] = useState("");
 
-  const { updateOrdemServico } = useOrdensServico();
+  const { ordensServico, updateOrdemServico } = useOrdensServico();
   const { registrarMudancaEtapa } = useHistoricoProducao(ordemServicoId);
   const { data: funcionarios = [] } = useFuncionarios();
   const { motoristasAtivos } = useMotoristas();
   const { veiculosAtivos } = useVeiculos();
 
   const funcionariosAtivos = funcionarios.filter((f) => f.ativo);
+
+  // Buscar dados da OS para obter o cliente_id
+  const osAtual = ordensServico.find(os => os.id === ordemServicoId);
+  const clienteId = osAtual?.cliente_id || null;
+
+  // Buscar produtos do cliente (preços especiais)
+  const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(clienteId);
+
+  // Funções para gerenciar itens da separação
+  const handleAdicionarItem = () => {
+    if (!produtoSelecionado || !quantidadeItem) {
+      toast.error("Selecione um produto e informe a quantidade");
+      return;
+    }
+
+    const precoItem = precosEspeciais.find((p: any) => p.produto_id === produtoSelecionado);
+    if (!precoItem) return;
+
+    const quantidade = Number(quantidadeItem);
+    const preco = precoItem.preco_especial;
+
+    setItensSeparacao(prev => [
+      ...prev,
+      {
+        produto_id: produtoSelecionado,
+        produto_nome: precoItem.produto?.nome || "Produto",
+        quantidade,
+        preco_unitario: preco,
+        subtotal: quantidade * preco,
+      }
+    ]);
+
+    setProdutoSelecionado("");
+    setQuantidadeItem("");
+  };
+
+  const handleRemoverItem = (index: number) => {
+    setItensSeparacao(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -125,9 +178,20 @@ export function FormularioEtapa({
           };
           break;
         case "separacao":
+          // Salvar itens na tabela itens_ordem_servico
+          for (const item of itensSeparacao) {
+            const { error } = await supabase.from("itens_ordem_servico").insert({
+              ordem_servico_id: ordemServicoId,
+              produto_id: item.produto_id,
+              quantidade: item.quantidade,
+              preco_unitario: item.preco_unitario,
+              subtotal: item.subtotal,
+            });
+            if (error) throw error;
+          }
+
           dadosFormulario = {
-            quantidade_pecas: Number(quantidadePecas) || 0,
-            peso_total_kg: Number(pesoTotalKg) || 0,
+            quantidade_pecas: itensSeparacao.reduce((acc, i) => acc + i.quantidade, 0),
             itens_danificados: itensDanificados || null,
             conferido_cliente: conferidoCliente,
           };
@@ -231,36 +295,87 @@ export function FormularioEtapa({
       case "separacao":
         return (
           <>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Quantidade de Peças *</Label>
+            {/* Seleção de Produto */}
+            <div className="space-y-2">
+              <Label>Produto do Cliente *</Label>
+              <Select value={produtoSelecionado} onValueChange={setProdutoSelecionado}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isLoadingPrecos ? "Carregando..." : "Selecione um produto"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {precosEspeciais.map((preco: any) => (
+                    <SelectItem key={preco.produto_id} value={preco.produto_id}>
+                      {preco.produto?.nome} - R$ {preco.preco_especial.toFixed(2)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {precosEspeciais.length === 0 && !isLoadingPrecos && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum produto cadastrado para este cliente. Configure a tabela de preços no cadastro do cliente.
+                </p>
+              )}
+            </div>
+
+            {/* Quantidade e Botão Adicionar */}
+            <div className="grid grid-cols-3 gap-2 items-end">
+              <div className="col-span-2 space-y-2">
+                <Label>Quantidade *</Label>
                 <Input
                   type="number"
                   placeholder="0"
-                  value={quantidadePecas}
-                  onChange={(e) => setQuantidadePecas(e.target.value)}
+                  value={quantidadeItem}
+                  onChange={(e) => setQuantidadeItem(e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Peso Total (kg) *</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="0.0"
-                  value={pesoTotalKg}
-                  onChange={(e) => setPesoTotalKg(e.target.value)}
-                />
-              </div>
+              <Button 
+                type="button" 
+                onClick={handleAdicionarItem}
+                disabled={!produtoSelecionado || !quantidadeItem}
+              >
+                <Plus className="h-4 w-4 mr-1" /> Adicionar
+              </Button>
             </div>
+
+            {/* Lista de Itens Adicionados */}
+            {itensSeparacao.length > 0 && (
+              <div className="border rounded-md p-3 space-y-2">
+                <Label className="text-sm font-medium">Itens Separados:</Label>
+                {itensSeparacao.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center text-sm bg-muted/50 p-2 rounded">
+                    <span className="truncate flex-1">{item.produto_nome} x {item.quantidade}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium whitespace-nowrap">R$ {item.subtotal.toFixed(2)}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleRemoverItem(index)}
+                        className="h-7 w-7 p-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-between font-medium pt-2 border-t">
+                  <span>Total de Peças:</span>
+                  <span>{itensSeparacao.reduce((acc, i) => acc + i.quantidade, 0)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Itens Danificados */}
             <div className="space-y-2">
               <Label>Itens Danificados / Avarias</Label>
               <Textarea
                 placeholder="Descreva itens com avarias, manchas ou defeitos encontrados..."
                 value={itensDanificados}
                 onChange={(e) => setItensDanificados(e.target.value)}
-                rows={3}
+                rows={2}
               />
             </div>
+
+            {/* Checkbox Conferido */}
             <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
               <Checkbox
                 id="conferidoCliente"
