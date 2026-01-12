@@ -23,7 +23,7 @@ export function AppLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 flex w-full">
+    <div className="min-h-screen bg-slate-50/50 flex w-full overflow-x-hidden">
       {/* Desktop Sidebar */}
       {!isMobile && <AppSidebar />}
       
@@ -37,7 +37,7 @@ export function AppLayout({
       )}
       
       <div className={cn(
-        "flex-1 transition-all duration-300",
+        "flex-1 min-w-0 transition-all duration-300",
         !isMobile && (isCollapsed ? "ml-16" : "ml-56")
       )}>
         <AppHeader 
