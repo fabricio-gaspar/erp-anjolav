@@ -46,7 +46,10 @@ export function AppLayout({
           onMenuClick={() => setMobileMenuOpen(true)}
           showMenuButton={isMobile}
         />
-        <main className="p-3 sm:p-4 md:p-6">
+        <main className={cn(
+          "py-3 sm:py-4 pr-3 sm:pr-4",
+          isMobile ? "pl-3 sm:pl-4" : "pl-0"
+        )}>
           <div className="w-full">
             {children || <Outlet />}
           </div>
