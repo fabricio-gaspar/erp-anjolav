@@ -1025,13 +1025,13 @@ const Lancamentos = () => {
                                 </Button>
                                 {os.statusConferencia !== "lancado" && os.itensOS && os.itensOS.length > 0 && (
                                   <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    variant="default"
+                                    size="sm"
+                                    className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white"
                                     onClick={() => handleUsarParaLancamento(os.cliente.id, os.itensOS)}
-                                    title="Enviar para Novo Lançamento"
                                   >
-                                    <ArrowRight className="w-4 h-4" />
+                                    <ArrowRight className="w-3.5 h-3.5 mr-1" />
+                                    Lançar
                                   </Button>
                                 )}
                                 {os.statusConferencia === "lancado" && (
