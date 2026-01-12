@@ -85,7 +85,7 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
   ];
 
   return (
-    <header className="h-14 sm:h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between pl-0 pr-3 sm:pr-4 sticky top-0 z-30">
+    <header className="h-14 sm:h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between pl-4 pr-3 sm:pr-4 sticky top-0 z-30">
       <div className="flex items-center gap-3">
         {/* Mobile menu button */}
         {showMenuButton && (
