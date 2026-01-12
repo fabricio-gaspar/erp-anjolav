@@ -201,7 +201,7 @@ export function ConfiguracoesPermissoes() {
       <div className="grid grid-cols-12 gap-6">
         {/* Left panel - Module list */}
         <div className="col-span-4">
-          <ScrollArea className="h-[500px] pr-4">
+          <ScrollArea className="h-[calc(100vh-320px)] min-h-[400px] pr-4">
             {Object.entries(modulosByCategoria).map(([categoria, modulos]) => (
               <div key={categoria} className="mb-4">
                 <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
