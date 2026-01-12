@@ -301,7 +301,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
     <TooltipProvider>
       <aside className={cn(
         "h-screen bg-sidebar flex flex-col transition-all duration-300",
-        isMobile ? "w-full" : "fixed left-0 top-0 z-40 relative",
+        isMobile ? "w-full" : "fixed left-0 top-0 z-40",
         !isMobile && (effectiveCollapsed ? "w-16" : "w-56")
       )}>
         {/* Collapse Button - hide on mobile */}
