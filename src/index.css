@@ -164,6 +164,11 @@
 }
 
 @layer base {
+  html, body, #root {
+    width: 100%;
+    overflow-x: hidden;
+  }
+  
   * {
     @apply border-border;
   }
