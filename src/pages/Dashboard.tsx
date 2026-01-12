@@ -175,9 +175,9 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Métricas e visão operacional">
-      <div className="space-y-6">
-        {/* KPIs Section */}
-        <section>
+      <div className="space-y-4">
+        {/* Painel 1: KPIs */}
+        <section className="content-panel">
           <SectionHeader icon={BarChart3} title="Métricas Rápidas" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
             {kpis.map((kpi, index) => (
@@ -192,11 +192,8 @@ const Dashboard = () => {
           </div>
         </section>
 
-        {/* Divider */}
-        <div className="section-divider" />
-
-        {/* Finance Cards */}
-        <section>
+        {/* Painel 2: Financeiro + Produção */}
+        <section className="content-panel">
           <SectionHeader icon={Wallet} title="Visão Financeira" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
             <FinanceCard
@@ -222,24 +219,17 @@ const Dashboard = () => {
               }))}
             />
           </div>
-        </section>
 
-        {/* Divider */}
-        <div className="section-divider" />
+          <div className="section-divider" />
 
-        {/* Production Bottleneck */}
-        <section>
           <ProductionBottleneck
             items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
             recommendation={recommendation}
           />
         </section>
 
-        {/* Divider */}
-        <div className="section-divider" />
-
-        {/* Processing Summary */}
-        <section>
+        {/* Painel 3: Operação */}
+        <section className="content-panel">
           <SectionHeader icon={FileText} title="OS em Processamento" />
           <ProcessingSummary
             items={
@@ -248,13 +238,9 @@ const Dashboard = () => {
                 : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
             }
           />
-        </section>
 
-        {/* Divider */}
-        <div className="section-divider" />
+          <div className="section-divider" />
 
-        {/* Daily Schedule */}
-        <section>
           <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
             <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
