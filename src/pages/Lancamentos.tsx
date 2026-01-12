@@ -214,10 +214,10 @@ const Lancamentos = () => {
 
   // Summary counts
   const conferenciasCounts = useMemo(() => {
-    if (!osConferencias) return { pendente: 0, conferido: 0, divergencia: 0, lancado: 0 };
+    if (!osConferencias) return { pendente: 0, fluxo_completo: 0, divergencia: 0, lancado: 0 };
     return {
       pendente: osConferencias.filter((os) => os.statusConferencia === "pendente").length,
-      conferido: osConferencias.filter((os) => os.statusConferencia === "conferido").length,
+      fluxo_completo: osConferencias.filter((os) => os.statusConferencia === "fluxo_completo").length,
       divergencia: osConferencias.filter((os) => os.statusConferencia === "divergencia").length,
       lancado: osConferencias.filter((os) => os.statusConferencia === "lancado").length,
     };
@@ -824,9 +824,10 @@ const Lancamentos = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="todos">Todos</SelectItem>
-                        <SelectItem value="pendente">Pendente</SelectItem>
-                        <SelectItem value="conferido">Conferido</SelectItem>
+                        <SelectItem value="pendente">Em Produção</SelectItem>
+                        <SelectItem value="fluxo_completo">Fluxo Completo</SelectItem>
                         <SelectItem value="divergencia">Divergência</SelectItem>
+                        <SelectItem value="lancado">Lançado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -855,7 +856,7 @@ const Lancamentos = () => {
                       <p className="text-2xl font-bold text-foreground">
                         {conferenciasCounts.pendente}
                       </p>
-                      <p className="text-xs text-muted-foreground">Pendentes</p>
+                      <p className="text-xs text-muted-foreground">Em Produção</p>
                     </div>
                   </div>
                 </Card>
@@ -867,9 +868,9 @@ const Lancamentos = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-foreground">
-                        {conferenciasCounts.conferido}
+                        {conferenciasCounts.fluxo_completo}
                       </p>
-                      <p className="text-xs text-muted-foreground">Conferidos</p>
+                      <p className="text-xs text-muted-foreground">Fluxo Completo</p>
                     </div>
                   </div>
                 </Card>
@@ -996,7 +997,7 @@ const Lancamentos = () => {
                                 variant={
                                   os.statusConferencia === "lancado"
                                     ? "info"
-                                    : os.statusConferencia === "conferido"
+                                    : os.statusConferencia === "fluxo_completo"
                                     ? "success"
                                     : os.statusConferencia === "divergencia"
                                     ? "danger"
@@ -1005,11 +1006,11 @@ const Lancamentos = () => {
                               >
                                 {os.statusConferencia === "lancado"
                                   ? "Lançado"
-                                  : os.statusConferencia === "conferido"
-                                  ? "Conferido"
+                                  : os.statusConferencia === "fluxo_completo"
+                                  ? "Fluxo Completo"
                                   : os.statusConferencia === "divergencia"
                                   ? "Divergência"
-                                  : "Pendente"}
+                                  : "Em Produção"}
                               </StatusBadge>
                             </TableCell>
                             <TableCell className="text-right">
@@ -1023,7 +1024,7 @@ const Lancamentos = () => {
                                 >
                                   <Eye className="w-4 h-4 text-muted-foreground" />
                                 </Button>
-                                {os.statusConferencia !== "lancado" && os.itensOS && os.itensOS.length > 0 && (
+                                {os.statusConferencia === "fluxo_completo" && os.itensOS && os.itensOS.length > 0 && (
                                   <Button
                                     variant="default"
                                     size="sm"
