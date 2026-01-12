@@ -236,6 +236,8 @@ const Produtos = () => {
         {/* Stats */}
         <ProdutoStats produtos={produtos} />
 
+        {/* Content Panel */}
+        <div className="content-panel">
         {/* Form */}
         {showForm && (
           <div className="bg-card border rounded-lg p-4">
@@ -290,6 +292,7 @@ const Produtos = () => {
             ))}
           </div>
         )}
+        </div>
       </div>
     </AppLayout>
   );

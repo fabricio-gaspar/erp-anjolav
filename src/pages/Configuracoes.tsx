@@ -25,8 +25,7 @@ const Configuracoes = () => {
 
   return (
     <AppLayout title="Configurações" subtitle="Gerencie as configurações do sistema">
-      <div className="space-y-4">
-        {/* Tabs */}
+      <div className="content-panel">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
             <TabsList className="justify-start bg-transparent border-b rounded-none h-auto p-0 gap-0 inline-flex min-w-max w-full sm:w-auto">

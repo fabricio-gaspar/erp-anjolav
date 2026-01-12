@@ -110,7 +110,8 @@ const FluxoProducao = () => {
       title="Fluxo de Produção" 
       subtitle={`${totalEmProcessamento} ${totalEmProcessamento === 1 ? "ordem" : "ordens"} em processamento`}
     >
-      <div className="space-y-3">
+      <div className="content-panel">
+        <div className="space-y-3">
         {/* Filters */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
@@ -287,6 +288,7 @@ const FluxoProducao = () => {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Modal de Formulário */}

@@ -331,7 +331,8 @@ const Lancamentos = () => {
 
   return (
     <AppLayout title="Lançamentos" subtitle="Registre a produção diária por cliente">
-      <div className="space-y-4">
+      <div className="content-panel">
+        <div className="space-y-4">
         {/* Header */}
         <div className="flex justify-end">
           <Button variant="outline" className="gap-2">
@@ -1023,6 +1024,7 @@ const Lancamentos = () => {
           onOpenChange={setModalOpen}
           os={selectedOS}
         />
+        </div>
       </div>
     </AppLayout>
   );

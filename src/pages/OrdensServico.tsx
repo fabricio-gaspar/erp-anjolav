@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListaOS } from "@/components/ordens/ListaOS";
 import { NovaOS } from "@/components/ordens/NovaOS";
@@ -18,9 +17,8 @@ export default function OrdensServico() {
 
   return (
     <AppLayout title="Ordens de Serviço" subtitle="Criação e gerenciamento de pedidos">
-      <Card>
-        <CardContent className="p-3">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <div className="content-panel">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-auto p-0 mb-3">
               <TabsTrigger
                 value="lista"
@@ -44,8 +42,7 @@ export default function OrdensServico() {
               <NovaOS onSuccess={handleOSCreated} />
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
+      </div>
     </AppLayout>
   );
 }
