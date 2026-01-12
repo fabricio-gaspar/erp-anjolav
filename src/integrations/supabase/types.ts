@@ -790,10 +790,12 @@ export type Database = {
           destinatario_envio: string | null
           forma_pagamento: string | null
           id: string
+          imposto_calculado: Json | null
           itens_snapshot: Json | null
           link_pdf_nf: string | null
           mensagem_enviada: string | null
           numero_nf: string | null
+          observacao_fatura: string | null
           periodo_fim: string
           periodo_inicio: string
           pix_copia_cola: string | null
@@ -806,6 +808,7 @@ export type Database = {
           tipo_relatorio: string | null
           updated_at: string
           valor_total: number
+          vencimento_ajustado_por: string | null
         }
         Insert: {
           asaas_charge_id?: string | null
@@ -823,10 +826,12 @@ export type Database = {
           destinatario_envio?: string | null
           forma_pagamento?: string | null
           id?: string
+          imposto_calculado?: Json | null
           itens_snapshot?: Json | null
           link_pdf_nf?: string | null
           mensagem_enviada?: string | null
           numero_nf?: string | null
+          observacao_fatura?: string | null
           periodo_fim: string
           periodo_inicio: string
           pix_copia_cola?: string | null
@@ -839,6 +844,7 @@ export type Database = {
           tipo_relatorio?: string | null
           updated_at?: string
           valor_total?: number
+          vencimento_ajustado_por?: string | null
         }
         Update: {
           asaas_charge_id?: string | null
@@ -856,10 +862,12 @@ export type Database = {
           destinatario_envio?: string | null
           forma_pagamento?: string | null
           id?: string
+          imposto_calculado?: Json | null
           itens_snapshot?: Json | null
           link_pdf_nf?: string | null
           mensagem_enviada?: string | null
           numero_nf?: string | null
+          observacao_fatura?: string | null
           periodo_fim?: string
           periodo_inicio?: string
           pix_copia_cola?: string | null
@@ -872,6 +880,7 @@ export type Database = {
           tipo_relatorio?: string | null
           updated_at?: string
           valor_total?: number
+          vencimento_ajustado_por?: string | null
         }
         Relationships: [
           {

@@ -16,6 +16,7 @@ import {
   Loader2,
   User,
   History,
+  ChevronLeft,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -38,6 +39,7 @@ interface EtapaEnvioProps {
   numeroNF: string | null;
   paymentData: { type: string; data: Record<string, unknown> } | null;
   onClose: () => void;
+  onBack?: () => void;
 }
 
 export function EtapaEnvio({
@@ -46,6 +48,7 @@ export function EtapaEnvio({
   numeroNF,
   paymentData,
   onClose,
+  onBack,
 }: EtapaEnvioProps) {
   const [sendEmail, setSendEmail] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(false);
@@ -375,14 +378,22 @@ export function EtapaEnvio({
       <Separator />
 
       <div className="flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
-          {sendEmail && sendWhatsApp
-            ? "Será enviado por e-mail e WhatsApp"
-            : sendEmail
-            ? "Será enviado por e-mail"
-            : sendWhatsApp
-            ? "Será enviado por WhatsApp"
-            : "Nenhum método de envio selecionado"}
+        <div className="flex items-center gap-4">
+          {onBack && (
+            <Button variant="outline" onClick={onBack} className="gap-2">
+              <ChevronLeft className="w-4 h-4" />
+              Voltar
+            </Button>
+          )}
+          <div className="text-sm text-muted-foreground">
+            {sendEmail && sendWhatsApp
+              ? "Será enviado por e-mail e WhatsApp"
+              : sendEmail
+              ? "Será enviado por e-mail"
+              : sendWhatsApp
+              ? "Será enviado por WhatsApp"
+              : "Nenhum método de envio selecionado"}
+          </div>
         </div>
 
         <div className="flex gap-2">

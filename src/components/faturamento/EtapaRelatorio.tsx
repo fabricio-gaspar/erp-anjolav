@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Table,
   TableBody,
@@ -11,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileText, Download, ChevronRight, Loader2, AlertTriangle } from "lucide-react";
+import { FileText, Download, ChevronRight, Loader2, AlertTriangle, Map, List } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFaturas, useValidateLancamentosForFatura } from "@/hooks/useFaturas";
@@ -35,6 +38,8 @@ export function EtapaRelatorio({
   const [isGenerating, setIsGenerating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const [observacaoFatura, setObservacaoFatura] = useState(dados.observacao || "");
+  const [tipoRelatorio, setTipoRelatorio] = useState<string>("detalhado");
 
   const { createFatura } = useFaturas();
   const linkLancamentos = useLinkLancamentosToFatura();
@@ -42,7 +47,11 @@ export function EtapaRelatorio({
   const { configuracao: configCliente } = useConfiguracaoCliente(dados.clienteId);
 
   // Tipo de relatório do cliente (se configurado)
-  const tipoRelatorioCliente = configCliente?.tipo_relatorio || "detalhado";
+  useEffect(() => {
+    if (configCliente?.tipo_relatorio) {
+      setTipoRelatorio(configCliente.tipo_relatorio);
+    }
+  }, [configCliente]);
 
   // Validar ROLs duplicados ao montar
   useEffect(() => {
@@ -89,7 +98,7 @@ export function EtapaRelatorio({
           <p><strong>Cliente:</strong> ${dados.clienteNome}</p>
           <p><strong>Documento:</strong> ${dados.clienteDocumento || "Não informado"}</p>
           <p><strong>Período:</strong> ${format(new Date(dados.periodoInicio), "dd/MM/yyyy", { locale: ptBR })} a ${format(new Date(dados.periodoFim), "dd/MM/yyyy", { locale: ptBR })}</p>
-          <p><strong>Tipo:</strong> ${tipoRelatorioCliente}</p>
+          <p><strong>Tipo:</strong> ${tipoRelatorio}</p>
         </div>
         <table>
           <thead>
@@ -155,8 +164,9 @@ export function EtapaRelatorio({
         // Campos da Etapa 1
         relatorio_gerado: true,
         relatorio_data: new Date().toISOString(),
-        tipo_relatorio: tipoRelatorioCliente,
+        tipo_relatorio: tipoRelatorio,
         itens_snapshot: itensSnapshot,
+        observacao_fatura: observacaoFatura || null,
       });
 
       // Link lancamentos to fatura if we have lancamentoIds
@@ -192,6 +202,31 @@ export function EtapaRelatorio({
         </Alert>
       )}
 
+      {/* Seletor de Tipo de Relatório */}
+      <Card className="p-4">
+        <Label className="text-sm font-medium mb-3 block">Tipo de Relatório</Label>
+        <RadioGroup
+          value={tipoRelatorio}
+          onValueChange={setTipoRelatorio}
+          className="flex gap-4"
+        >
+          <div className="flex items-center space-x-2 bg-muted/50 px-4 py-3 rounded-lg border border-transparent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+            <RadioGroupItem value="mapa" id="tipo-mapa" />
+            <Label htmlFor="tipo-mapa" className="cursor-pointer flex items-center gap-2">
+              <Map className="w-4 h-4" />
+              Mapa de Peças
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2 bg-muted/50 px-4 py-3 rounded-lg border border-transparent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+            <RadioGroupItem value="detalhado" id="tipo-detalhado" />
+            <Label htmlFor="tipo-detalhado" className="cursor-pointer flex items-center gap-2">
+              <List className="w-4 h-4" />
+              Relatório Detalhado
+            </Label>
+          </div>
+        </RadioGroup>
+      </Card>
+
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="w-5 h-5 text-primary" />
@@ -219,7 +254,7 @@ export function EtapaRelatorio({
           </div>
           <div>
             <span className="text-sm text-muted-foreground">Tipo Relatório</span>
-            <p className="font-medium capitalize">{tipoRelatorioCliente}</p>
+            <p className="font-medium capitalize">{tipoRelatorio === "mapa" ? "Mapa de Peças" : "Detalhado"}</p>
           </div>
           <div>
             <span className="text-sm text-muted-foreground">Lançamentos</span>
@@ -264,6 +299,21 @@ export function EtapaRelatorio({
             </p>
           </div>
         </div>
+      </Card>
+
+      {/* Campo de Observação */}
+      <Card className="p-4">
+        <Label className="text-sm font-medium mb-2 block">Observação da Fatura (opcional)</Label>
+        <Textarea
+          value={observacaoFatura}
+          onChange={(e) => setObservacaoFatura(e.target.value)}
+          placeholder="Adicione observações que serão salvas junto com a fatura..."
+          rows={3}
+          className="resize-none"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Essas observações ficarão registradas na fatura para consulta futura.
+        </p>
       </Card>
 
       <div className="flex items-center gap-2">
