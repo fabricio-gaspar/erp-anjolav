@@ -56,12 +56,15 @@ export function AtribuirMotoristaModal({
 
           <div className="space-y-2">
             <Label>Motorista</Label>
-            <Select value={motoristaId} onValueChange={setMotoristaId}>
+            <Select 
+              value={motoristaId || "none"} 
+              onValueChange={(v) => setMotoristaId(v === "none" ? "" : v)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o motorista" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum</SelectItem>
+                <SelectItem value="none">Nenhum</SelectItem>
                 {motoristasAtivos.map((motorista) => (
                   <SelectItem key={motorista.id} value={motorista.id}>
                     {motorista.nome}
