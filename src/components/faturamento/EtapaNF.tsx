@@ -4,6 +4,15 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Receipt,
   Building2,
@@ -16,9 +25,11 @@ import {
   AlertTriangle,
   FileDown,
   Eye,
+  FileText,
+  List,
 } from "lucide-react";
 import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
-import { useConfiguracoesFiscais } from "@/hooks/useConfiguracoesFiscais";
+import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
 import { useClienteById, useEnderecoCliente } from "@/hooks/useClientes";
 import { useFaturas } from "@/hooks/useFaturas";
 import {
@@ -46,12 +57,29 @@ export function EtapaNF({
   onNFEmitida,
 }: EtapaNFProps) {
   const [isEmitting, setIsEmitting] = useState(false);
+  const [tipoDescricao, setTipoDescricao] = useState<"itens" | "padrao">("itens");
+  const [descricaoPadraoSelecionada, setDescricaoPadraoSelecionada] = useState<string>("");
+  
   const { configuracaoAtiva, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
+  const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
   const { data: cliente, isLoading: isLoadingCliente } = useClienteById(dados.clienteId);
   const { endereco, isLoading: isLoadingEndereco } = useEnderecoCliente(dados.clienteId);
   const { updateFatura } = useFaturas();
 
-  const isLoading = isLoadingFiscal || isLoadingCliente || isLoadingEndereco;
+  const isLoading = isLoadingFiscal || isLoadingCliente || isLoadingEndereco || isLoadingDescricoes;
+  
+  // Filtrar apenas descrições ativas
+  const descricoesAtivas = descricoes?.filter(d => d.ativo) || [];
+  
+  // Gerar descrição baseada na escolha
+  const gerarDescricaoServico = () => {
+    if (tipoDescricao === "padrao" && descricaoPadraoSelecionada) {
+      return descricaoPadraoSelecionada;
+    }
+    return `Serviços de lavanderia industrial:\n${dados.itens.map(item => 
+      `- ${item.produto}: ${item.quantidade} ${item.unidade}`
+    ).join('\n')}`;
+  };
 
   // Validar dados fiscais do cliente
   const validacaoCliente = cliente
@@ -95,8 +123,8 @@ export function EtapaNF({
         aliquota_iss: configuracaoAtiva.aliquota_iss,
       });
 
-      // Descrição do serviço
-      const descricaoServico = `Serviços de lavanderia industrial - ${dados.itens.length} item(ns) processado(s)`;
+      // Descrição do serviço baseada na escolha do usuário
+      const descricaoServico = gerarDescricaoServico();
 
       // Update fatura com todos os dados da Etapa 2
       await updateFatura.mutateAsync({
@@ -368,25 +396,103 @@ export function EtapaNF({
             </Card>
           </div>
 
+          {/* Tipo de Descrição */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <h4 className="font-medium text-sm">TIPO DE DESCRIÇÃO PARA NOTA FISCAL</h4>
+            </div>
+            
+            <RadioGroup 
+              value={tipoDescricao} 
+              onValueChange={(value) => setTipoDescricao(value as "itens" | "padrao")}
+              className="space-y-3"
+            >
+              <div className="flex items-start space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
+                <RadioGroupItem value="itens" id="itens" className="mt-0.5" />
+                <div className="flex-1">
+                  <Label htmlFor="itens" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <List className="w-4 h-4" />
+                    Listar itens detalhados
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Cada item será listado com nome, quantidade e valor unitário
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
+                <RadioGroupItem value="padrao" id="padrao" className="mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="padrao" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <FileText className="w-4 h-4" />
+                    Usar descrição pré-cadastrada
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Usar uma descrição padrão configurada em Configurações &gt; Fiscal
+                  </p>
+                  
+                  {tipoDescricao === "padrao" && (
+                    <div className="pt-2">
+                      {descricoesAtivas.length > 0 ? (
+                        <Select 
+                          value={descricaoPadraoSelecionada} 
+                          onValueChange={setDescricaoPadraoSelecionada}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Selecione uma descrição..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {descricoesAtivas.map((desc) => (
+                              <SelectItem key={desc.id} value={desc.descricao}>
+                                {desc.descricao}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+                          <AlertCircle className="h-4 w-4 text-amber-500" />
+                          <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
+                            Nenhuma descrição pré-cadastrada. Configure em Configurações &gt; Fiscal.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </RadioGroup>
+          </Card>
+
           {/* Serviços */}
           <Card className="p-4">
             <h4 className="font-medium text-sm mb-3">DESCRIÇÃO DOS SERVIÇOS</h4>
-            <p className="text-sm text-muted-foreground mb-4">
-              Serviços de lavanderia industrial conforme itens abaixo:
-            </p>
-            <div className="space-y-2">
-              {dados.itens.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="flex justify-between text-sm py-1 border-b last:border-0"
-                >
-                  <span>
-                    {index + 1}. {item.produto} - {item.quantidade} {item.unidade}
-                  </span>
-                  <span className="font-medium">{formatCurrency(item.valorTotal)}</span>
+            
+            {tipoDescricao === "padrao" && descricaoPadraoSelecionada ? (
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-sm font-medium">{descricaoPadraoSelecionada}</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Serviços de lavanderia industrial conforme itens abaixo:
+                </p>
+                <div className="space-y-2">
+                  {dados.itens.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="flex justify-between text-sm py-1 border-b last:border-0"
+                    >
+                      <span>
+                        {index + 1}. {item.produto} - {item.quantidade} {item.unidade}
+                      </span>
+                      <span className="font-medium">{formatCurrency(item.valorTotal)}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
 
             <Separator className="my-4" />
 
@@ -419,7 +525,7 @@ export function EtapaNF({
           {configuracaoAtiva && (
             <Button
               onClick={handleEmitirNF}
-              disabled={isEmitting || !validacaoCliente.valid}
+              disabled={isEmitting || !validacaoCliente.valid || (tipoDescricao === "padrao" && !descricaoPadraoSelecionada)}
               className="gap-2"
             >
               {isEmitting ? (
