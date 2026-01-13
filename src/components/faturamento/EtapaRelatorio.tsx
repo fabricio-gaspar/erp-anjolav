@@ -177,11 +177,15 @@ export function EtapaRelatorio({
         });
       }
 
+      // Primeiro seta o faturaId, depois avança
       onFaturaCreated(result.id);
-      onNext();
+      
+      // Usar setTimeout para garantir que o estado do faturaId seja propagado antes de avançar
+      setTimeout(() => {
+        onNext();
+      }, 100);
     } catch (error) {
       console.error("Erro ao criar fatura:", error);
-    } finally {
       setIsGenerating(false);
     }
   };
