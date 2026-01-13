@@ -297,7 +297,7 @@ export function useConfiguracaoPagamentoCliente(clienteId: string | null) {
 export function useConfiguracaoCliente(clienteId: string | null) {
   const queryClient = useQueryClient();
 
-  const { data: configuracao, isLoading } = useQuery({
+  const { data: configuracao, isLoading, refetch } = useQuery({
     queryKey: ["configuracao_cliente", clienteId],
     queryFn: async () => {
       if (!clienteId) return null;
@@ -310,6 +310,7 @@ export function useConfiguracaoCliente(clienteId: string | null) {
       return data as ConfiguracaoCliente | null;
     },
     enabled: !!clienteId,
+    staleTime: 0, // Always refetch when clienteId changes
   });
 
   const upsertConfiguracao = useMutation({
@@ -348,5 +349,5 @@ export function useConfiguracaoCliente(clienteId: string | null) {
     },
   });
 
-  return { configuracao, isLoading, upsertConfiguracao };
+  return { configuracao, isLoading, upsertConfiguracao, refetch };
 }
