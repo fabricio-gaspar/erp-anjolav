@@ -1,62 +1,41 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Package, Truck } from "lucide-react";
-import { format, addDays, startOfWeek, addWeeks, isSameDay } from "date-fns";
+import { ChevronLeft, ChevronRight, Package, Truck, Plus, Loader2, Eye, EyeOff } from "lucide-react";
+import { format, addDays, startOfWeek, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useAgendamentos, Agendamento, AgendamentoInsert, AgendamentoUpdate } from "@/hooks/useAgendamentos";
+import { AgendaEventCard } from "@/components/agenda/AgendaEventCard";
+import { NovoAgendamentoModal } from "@/components/agenda/NovoAgendamentoModal";
+import { CancelarAgendamentoModal } from "@/components/agenda/CancelarAgendamentoModal";
+import { DetalhesAgendamentoModal } from "@/components/agenda/DetalhesAgendamentoModal";
+import { ExcluirAgendamentoModal } from "@/components/agenda/ExcluirAgendamentoModal";
+import { AtribuirMotoristaModal } from "@/components/agenda/AtribuirMotoristaModal";
+import { ObservacaoModal } from "@/components/agenda/ObservacaoModal";
+import { ReagendarModal } from "@/components/agenda/ReagendarModal";
 
 type ViewType = "semanal" | "quinzenal" | "mensal";
-type EventType = "retirada" | "entrega";
-
-interface AgendaEvent {
-  id: string;
-  clientName: string;
-  type: EventType;
-  frequency: string;
-  date: Date;
-}
-
-// Mock data for events
-const generateMockEvents = (baseDate: Date): AgendaEvent[] => {
-  const events: AgendaEvent[] = [];
-  const startOfCurrentWeek = startOfWeek(baseDate, { weekStartsOn: 0 });
-  
-  // Add recurring events on Mondays (Retirada) and Wednesdays (Entrega)
-  for (let week = 0; week < 5; week++) {
-    const weekStart = addWeeks(startOfCurrentWeek, week);
-    
-    // Monday - Retirada
-    events.push({
-      id: `ret-${week}`,
-      clientName: "Anjolav Serv",
-      type: "retirada",
-      frequency: "Semanal",
-      date: addDays(weekStart, 1), // Monday
-    });
-    
-    // Wednesday - Entrega
-    events.push({
-      id: `ent-${week}`,
-      clientName: "Anjolav Serv",
-      type: "entrega",
-      frequency: "Semanal",
-      date: addDays(weekStart, 3), // Wednesday
-    });
-  }
-  
-  return events;
-};
 
 const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export default function Agenda() {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 4)); // 04 Jan 2026
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>("semanal");
   const [filterRetirada, setFilterRetirada] = useState(true);
   const [filterEntrega, setFilterEntrega] = useState(true);
-  
-  const events = generateMockEvents(currentDate);
+  const [showCanceled, setShowCanceled] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(true);
+
+  // Modals state
+  const [novoModalOpen, setNovoModalOpen] = useState(false);
+  const [cancelarModalOpen, setCancelarModalOpen] = useState(false);
+  const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
+  const [excluirModalOpen, setExcluirModalOpen] = useState(false);
+  const [motoristaModalOpen, setMotoristaModalOpen] = useState(false);
+  const [observacaoModalOpen, setObservacaoModalOpen] = useState(false);
+  const [reagendarModalOpen, setReagendarModalOpen] = useState(false);
+  const [selectedAgendamento, setSelectedAgendamento] = useState<Agendamento | null>(null);
 
   const getWeeksToShow = () => {
     switch (viewType) {
@@ -75,6 +54,20 @@ export default function Agenda() {
   const startDate = startOfWeek(currentDate, { weekStartsOn: 0 });
   const endDate = addDays(startDate, weeksToShow * 7 - 1);
 
+  // Fetch agendamentos from database
+  const filtroData = useMemo(() => ({
+    inicio: format(startDate, "yyyy-MM-dd"),
+    fim: format(endDate, "yyyy-MM-dd"),
+  }), [startDate, endDate]);
+
+  const {
+    agendamentos,
+    isLoading,
+    createAgendamento,
+    updateAgendamento,
+    deleteAgendamento,
+  } = useAgendamentos(filtroData);
+
   const formatDateRange = () => {
     const start = format(startDate, "dd MMM", { locale: ptBR });
     const end = format(endDate, "dd MMM yyyy", { locale: ptBR });
@@ -90,12 +83,16 @@ export default function Agenda() {
   };
 
   const getEventsForDay = (date: Date) => {
-    return events.filter((event) => {
-      const matchesDate = isSameDay(event.date, date);
-      const matchesFilter =
-        (filterRetirada && event.type === "retirada") ||
-        (filterEntrega && event.type === "entrega");
-      return matchesDate && matchesFilter;
+    return agendamentos.filter((agendamento) => {
+      const agendamentoDate = new Date(agendamento.data + "T12:00:00");
+      const matchesDate = isSameDay(agendamentoDate, date);
+      const matchesTypeFilter =
+        (filterRetirada && agendamento.tipo === "retirada") ||
+        (filterEntrega && agendamento.tipo === "entrega");
+      const matchesStatusFilter =
+        (showCanceled || agendamento.status !== "cancelado") &&
+        (showCompleted || agendamento.status !== "realizado");
+      return matchesDate && matchesTypeFilter && matchesStatusFilter;
     });
   };
 
@@ -111,13 +108,89 @@ export default function Agenda() {
 
   const isFriday = (date: Date) => date.getDay() === 5;
 
+  // Handlers
+  const handleCreateAgendamento = (agendamento: AgendamentoInsert) => {
+    createAgendamento.mutate(agendamento, {
+      onSuccess: () => setNovoModalOpen(false),
+    });
+  };
+
+  const handleMarkCompleted = (id: string) => {
+    updateAgendamento.mutate({ id, status: "realizado" });
+  };
+
+  const handleCancelAgendamento = (id: string, motivo: string) => {
+    const observacoesAtuais = selectedAgendamento?.observacoes || "";
+    const novasObservacoes = motivo
+      ? `${observacoesAtuais}\n[Cancelado] ${motivo}`.trim()
+      : observacoesAtuais;
+
+    updateAgendamento.mutate(
+      { id, status: "cancelado", observacoes: novasObservacoes },
+      { onSuccess: () => setCancelarModalOpen(false) }
+    );
+  };
+
+  const handleDeleteAgendamento = (id: string) => {
+    deleteAgendamento.mutate(id, {
+      onSuccess: () => setExcluirModalOpen(false),
+    });
+  };
+
+  const handleUpdateAgendamento = (id: string, updates: AgendamentoUpdate) => {
+    updateAgendamento.mutate({ id, ...updates });
+  };
+
+  const handleAssignDriver = (id: string, motoristaId: string | null) => {
+    updateAgendamento.mutate({ id, motorista_id: motoristaId });
+  };
+
+  const handleAddObservation = (id: string, observacoes: string) => {
+    updateAgendamento.mutate({ id, observacoes });
+  };
+
+  const handleReschedule = (id: string, novaData: string, novoHorario: string | null) => {
+    updateAgendamento.mutate({ id, data: novaData, horario: novoHorario });
+  };
+
+  // Modal openers
+  const openCancelarModal = (agendamento: Agendamento) => {
+    setSelectedAgendamento(agendamento);
+    setCancelarModalOpen(true);
+  };
+
+  const openDetalhesModal = (agendamento: Agendamento) => {
+    setSelectedAgendamento(agendamento);
+    setDetalhesModalOpen(true);
+  };
+
+  const openExcluirModal = (agendamento: Agendamento) => {
+    setSelectedAgendamento(agendamento);
+    setExcluirModalOpen(true);
+  };
+
+  const openMotoristaModal = (agendamento: Agendamento) => {
+    setSelectedAgendamento(agendamento);
+    setMotoristaModalOpen(true);
+  };
+
+  const openObservacaoModal = (agendamento: Agendamento) => {
+    setSelectedAgendamento(agendamento);
+    setObservacaoModalOpen(true);
+  };
+
+  const openReagendarModal = (agendamento: Agendamento) => {
+    setSelectedAgendamento(agendamento);
+    setReagendarModalOpen(true);
+  };
+
   return (
     <AppLayout title="Agenda" subtitle="Programação de retiradas e entregas">
       <div className="space-y-3">
         {/* Header with filters and navigation */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           {/* Left side - Filters */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant={filterRetirada ? "default" : "ghost"}
               size="sm"
@@ -127,7 +200,7 @@ export default function Agenda() {
               <Package className="h-4 w-4" />
               Retirada
             </Button>
-            
+
             <Button
               variant={filterEntrega ? "default" : "ghost"}
               size="sm"
@@ -138,7 +211,31 @@ export default function Agenda() {
               Entrega
             </Button>
 
-            <div className="flex items-center gap-1 ml-2">
+            <div className="h-6 w-px bg-border mx-1" />
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCompleted(!showCompleted)}
+              className={`gap-1.5 text-xs ${showCompleted ? "text-emerald-600" : "text-muted-foreground"}`}
+            >
+              {showCompleted ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              Realizados
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCanceled(!showCanceled)}
+              className={`gap-1.5 text-xs ${showCanceled ? "text-destructive" : "text-muted-foreground"}`}
+            >
+              {showCanceled ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              Cancelados
+            </Button>
+
+            <div className="h-6 w-px bg-border mx-1" />
+
+            <div className="flex items-center gap-1">
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
                 Semanal
               </Badge>
@@ -151,8 +248,13 @@ export default function Agenda() {
             </div>
           </div>
 
-          {/* Right side - Navigation */}
-          <div className="flex items-center gap-4">
+          {/* Right side - Navigation and Actions */}
+          <div className="flex items-center gap-3">
+            <Button size="sm" onClick={() => setNovoModalOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Novo Agendamento
+            </Button>
+
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={navigatePrevious}>
                 <ChevronLeft className="h-4 w-4" />
@@ -208,74 +310,120 @@ export default function Agenda() {
             ))}
           </div>
 
-          {/* Calendar rows */}
-          {Array.from({ length: weeksToShow }).map((_, weekIndex) => (
-            <div key={weekIndex} className="grid grid-cols-7 border-b border-border last:border-b-0">
-              {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((date, dayIndex) => {
-                const dayEvents = getEventsForDay(date);
-                const isWeekend = isFriday(date);
+          {/* Loading state */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
 
-                return (
-                  <div
-                    key={dayIndex}
-                    className="min-h-[120px] p-3 border-r border-border last:border-r-0 flex flex-col"
-                  >
-                    {/* Date */}
-                    <span
-                      className={`text-sm font-medium mb-2 ${
-                        isWeekend ? "text-destructive" : "text-foreground"
+          {/* Calendar rows */}
+          {!isLoading &&
+            Array.from({ length: weeksToShow }).map((_, weekIndex) => (
+              <div key={weekIndex} className="grid grid-cols-7 border-b border-border last:border-b-0">
+                {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((date, dayIndex) => {
+                  const dayEvents = getEventsForDay(date);
+                  const isWeekend = isFriday(date);
+                  const isToday = isSameDay(date, new Date());
+
+                  return (
+                    <div
+                      key={dayIndex}
+                      className={`min-h-[120px] p-3 border-r border-border last:border-r-0 flex flex-col ${
+                        isToday ? "bg-primary/5" : ""
                       }`}
                     >
-                      {format(date, "dd/MM")}
-                    </span>
+                      {/* Date */}
+                      <span
+                        className={`text-sm font-medium mb-2 ${
+                          isToday
+                            ? "text-primary font-bold"
+                            : isWeekend
+                            ? "text-destructive"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {format(date, "dd/MM")}
+                      </span>
 
-                    {/* Events */}
-                    <div className="flex-1 space-y-2">
-                      {dayEvents.length > 0 ? (
-                        dayEvents.map((event) => (
-                          <div
-                            key={event.id}
-                            className={`p-2 rounded-md border-l-4 bg-card shadow-sm ${
-                              event.type === "retirada"
-                                ? "border-l-primary"
-                                : "border-l-emerald-500"
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5 text-sm">
-                              {event.type === "retirada" ? (
-                                <Package className="h-3.5 w-3.5 text-primary" />
-                              ) : (
-                                <Truck className="h-3.5 w-3.5 text-emerald-500" />
-                              )}
-                              <span className="font-medium text-foreground">
-                                {event.clientName}
-                              </span>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={`mt-1 text-xs ${
-                                event.type === "retirada"
-                                  ? "bg-primary/10 text-primary border-primary/20"
-                                  : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                              }`}
-                            >
-                              {event.frequency}
-                            </Badge>
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          Sem agendamentos
-                        </span>
-                      )}
+                      {/* Events */}
+                      <div className="flex-1 space-y-2">
+                        {dayEvents.length > 0 ? (
+                          dayEvents.map((agendamento) => (
+                            <AgendaEventCard
+                              key={agendamento.id}
+                              agendamento={agendamento}
+                              onMarkCompleted={handleMarkCompleted}
+                              onCancel={openCancelarModal}
+                              onReschedule={openReagendarModal}
+                              onAssignDriver={openMotoristaModal}
+                              onAddObservation={openObservacaoModal}
+                              onDelete={openExcluirModal}
+                              onViewDetails={openDetalhesModal}
+                            />
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            Sem agendamentos
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                  );
+                })}
+              </div>
+            ))}
         </div>
       </div>
+
+      {/* Modals */}
+      <NovoAgendamentoModal
+        open={novoModalOpen}
+        onOpenChange={setNovoModalOpen}
+        onSave={handleCreateAgendamento}
+      />
+
+      <CancelarAgendamentoModal
+        open={cancelarModalOpen}
+        onOpenChange={setCancelarModalOpen}
+        agendamento={selectedAgendamento}
+        onConfirm={handleCancelAgendamento}
+      />
+
+      <DetalhesAgendamentoModal
+        open={detalhesModalOpen}
+        onOpenChange={setDetalhesModalOpen}
+        agendamento={selectedAgendamento}
+        onSave={handleUpdateAgendamento}
+      />
+
+      <ExcluirAgendamentoModal
+        open={excluirModalOpen}
+        onOpenChange={setExcluirModalOpen}
+        agendamento={selectedAgendamento}
+        onConfirm={handleDeleteAgendamento}
+      />
+
+      <AtribuirMotoristaModal
+        open={motoristaModalOpen}
+        onOpenChange={setMotoristaModalOpen}
+        agendamento={selectedAgendamento}
+        onSave={handleAssignDriver}
+      />
+
+      <ObservacaoModal
+        open={observacaoModalOpen}
+        onOpenChange={setObservacaoModalOpen}
+        agendamento={selectedAgendamento}
+        onSave={handleAddObservation}
+      />
+
+      <ReagendarModal
+        open={reagendarModalOpen}
+        onOpenChange={setReagendarModalOpen}
+        agendamento={selectedAgendamento}
+        onSave={handleReschedule}
+      />
     </AppLayout>
   );
 }
