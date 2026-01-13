@@ -14,7 +14,10 @@ import {
   AlertCircle,
   SkipForward,
   AlertTriangle,
+  FileDown,
+  Eye,
 } from "lucide-react";
+import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
 import { useConfiguracoesFiscais } from "@/hooks/useConfiguracoesFiscais";
 import { useClienteById, useEnderecoCliente } from "@/hooks/useClientes";
 import { useFaturas } from "@/hooks/useFaturas";
@@ -121,6 +124,122 @@ export function EtapaNF({
     onNext();
   };
 
+  const handlePreviewPdf = () => {
+    if (!configuracaoAtiva || !cliente) return;
+
+    const enderecoConfig = configuracaoAtiva.endereco as Record<string, string> | null;
+
+    const htmlContent = gerarPreviewNFHtml({
+      emitente: {
+        razao_social: configuracaoAtiva.razao_social,
+        cnpj: configuracaoAtiva.cnpj,
+        inscricao_municipal: configuracaoAtiva.inscricao_municipal,
+        inscricao_estadual: configuracaoAtiva.inscricao_estadual,
+        email: null,
+        telefone: null,
+        endereco: enderecoConfig ? {
+          logradouro: enderecoConfig.logradouro,
+          numero: enderecoConfig.numero,
+          bairro: enderecoConfig.bairro,
+          cidade: enderecoConfig.cidade,
+          uf: enderecoConfig.uf,
+          cep: enderecoConfig.cep,
+        } : null,
+        codigo_servico: configuracaoAtiva.codigo_servico,
+        aliquota_iss: configuracaoAtiva.aliquota_iss,
+      },
+      tomador: {
+        razao_social: cliente.razao_social,
+        cpf_cnpj: cliente.cpf_cnpj,
+        tipo_pessoa: cliente.tipo_pessoa,
+        inscricao_municipal: cliente.inscricao_municipal,
+        inscricao_estadual: cliente.inscricao_estadual,
+        email: cliente.email,
+        telefone: cliente.telefone,
+        endereco: endereco ? {
+          logradouro: endereco.logradouro || undefined,
+          numero: endereco.numero || undefined,
+          bairro: endereco.bairro || undefined,
+          cidade: endereco.cidade || undefined,
+          uf: endereco.uf || undefined,
+          cep: endereco.cep || undefined,
+        } : null,
+      },
+      itens: dados.itens.map(item => ({
+        id: item.id,
+        produto: item.produto,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        valorUnitario: item.valorUnitario,
+        valorTotal: item.valorTotal,
+      })),
+      valorTotal: dados.valorTotal,
+      periodoInicio: dados.periodoInicio,
+      periodoFim: dados.periodoFim,
+      ambiente: configuracaoAtiva.ambiente as "producao" | "homologacao" | undefined,
+    });
+
+    downloadNFPreviewPdf(htmlContent);
+  };
+
+  const handlePrintPreview = () => {
+    if (!configuracaoAtiva || !cliente) return;
+
+    const enderecoConfig = configuracaoAtiva.endereco as Record<string, string> | null;
+
+    const htmlContent = gerarPreviewNFHtml({
+      emitente: {
+        razao_social: configuracaoAtiva.razao_social,
+        cnpj: configuracaoAtiva.cnpj,
+        inscricao_municipal: configuracaoAtiva.inscricao_municipal,
+        inscricao_estadual: configuracaoAtiva.inscricao_estadual,
+        email: null,
+        telefone: null,
+        endereco: enderecoConfig ? {
+          logradouro: enderecoConfig.logradouro,
+          numero: enderecoConfig.numero,
+          bairro: enderecoConfig.bairro,
+          cidade: enderecoConfig.cidade,
+          uf: enderecoConfig.uf,
+          cep: enderecoConfig.cep,
+        } : null,
+        codigo_servico: configuracaoAtiva.codigo_servico,
+        aliquota_iss: configuracaoAtiva.aliquota_iss,
+      },
+      tomador: {
+        razao_social: cliente.razao_social,
+        cpf_cnpj: cliente.cpf_cnpj,
+        tipo_pessoa: cliente.tipo_pessoa,
+        inscricao_municipal: cliente.inscricao_municipal,
+        inscricao_estadual: cliente.inscricao_estadual,
+        email: cliente.email,
+        telefone: cliente.telefone,
+        endereco: endereco ? {
+          logradouro: endereco.logradouro || undefined,
+          numero: endereco.numero || undefined,
+          bairro: endereco.bairro || undefined,
+          cidade: endereco.cidade || undefined,
+          uf: endereco.uf || undefined,
+          cep: endereco.cep || undefined,
+        } : null,
+      },
+      itens: dados.itens.map(item => ({
+        id: item.id,
+        produto: item.produto,
+        quantidade: item.quantidade,
+        unidade: item.unidade,
+        valorUnitario: item.valorUnitario,
+        valorTotal: item.valorTotal,
+      })),
+      valorTotal: dados.valorTotal,
+      periodoInicio: dados.periodoInicio,
+      periodoFim: dados.periodoFim,
+      ambiente: configuracaoAtiva.ambiente as "producao" | "homologacao" | undefined,
+    });
+
+    printNFPreview(htmlContent);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -173,6 +292,27 @@ export function EtapaNF({
             </Badge>
           </div>
 
+          {/* Botões de Prévia PDF */}
+          <div className="flex gap-2 mb-4">
+            <Button 
+              variant="outline" 
+              onClick={handlePreviewPdf}
+              className="gap-2"
+              disabled={!cliente}
+            >
+              <Eye className="w-4 h-4" />
+              Visualizar Prévia
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handlePrintPreview}
+              className="gap-2"
+              disabled={!cliente}
+            >
+              <FileDown className="w-4 h-4" />
+              Imprimir Prévia
+            </Button>
+          </div>
           <div className="grid md:grid-cols-2 gap-6">
             {/* Emitente */}
             <Card className="p-4">
