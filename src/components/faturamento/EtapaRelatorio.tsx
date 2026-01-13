@@ -186,6 +186,7 @@ export function EtapaRelatorio({
       }, 100);
     } catch (error) {
       console.error("Erro ao criar fatura:", error);
+    } finally {
       setIsGenerating(false);
     }
   };

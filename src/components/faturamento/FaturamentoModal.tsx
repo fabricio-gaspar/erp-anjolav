@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import {
   Send,
   Check,
   Lock,
+  AlertCircle,
 } from "lucide-react";
 import { EtapaRelatorio } from "./EtapaRelatorio";
 import { EtapaNF } from "./EtapaNF";
@@ -20,6 +21,7 @@ import { EtapaPagamento } from "./EtapaPagamento";
 import { EtapaEnvio } from "./EtapaEnvio";
 import type { Fatura } from "@/hooks/useFaturas";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 export interface LancamentoItem {
   id: string;
@@ -107,14 +109,16 @@ export function FaturamentoModal({
     setPaymentData({ type, data });
   };
 
-  const handleClose = () => {
-    setCurrentStep(1);
-    setFaturaId(null);
-    setNumeroNF(null);
-    setPaymentData(null);
-    setStepsCompleted([false, false, false, false]);
-    onOpenChange(false);
-  };
+  // Reset estados internos quando o modal fecha
+  useEffect(() => {
+    if (!open) {
+      setCurrentStep(1);
+      setFaturaId(null);
+      setNumeroNF(null);
+      setPaymentData(null);
+      setStepsCompleted([false, false, false, false]);
+    }
+  }, [open]);
 
   // Verifica se uma etapa está bloqueada
   const isStepLocked = (stepId: number): boolean => {
@@ -123,10 +127,35 @@ export function FaturamentoModal({
     return !stepsCompleted[stepId - 2];
   };
 
-  if (!dados) return null;
+  // Fallback visual quando dados não estão disponíveis
+  if (!dados) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-warning" />
+              Dados Indisponíveis
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-muted-foreground">
+              Os dados do faturamento não estão disponíveis. Isso pode ocorrer se os lançamentos foram atualizados.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Feche este modal e selecione novamente os lançamentos para gerar a fatura.
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => onOpenChange(false)}>Fechar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">Finalizar Faturamento</DialogTitle>
@@ -232,7 +261,7 @@ export function FaturamentoModal({
               faturaId={faturaId}
               numeroNF={numeroNF}
               paymentData={paymentData}
-              onClose={handleClose}
+              onClose={() => onOpenChange(false)}
               onBack={handleBack}
             />
           )}

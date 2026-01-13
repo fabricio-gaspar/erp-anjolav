@@ -39,6 +39,8 @@ const Faturamento = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedLancamentos, setSelectedLancamentos] = useState<string[]>([]);
   const [faturamentoModalOpen, setFaturamentoModalOpen] = useState(false);
+  // Estado "congelado" para o wizard - não muda enquanto o modal está aberto
+  const [wizardDados, setWizardDados] = useState<DadosFaturamento | null>(null);
 
   const periodoInicio = format(startOfMonth(currentDate), "yyyy-MM-dd");
   const periodoFim = format(endOfMonth(currentDate), "yyyy-MM-dd");
@@ -108,6 +110,8 @@ const Faturamento = () => {
       toast.error("Aguarde, carregando itens dos lançamentos...");
       return;
     }
+    // Congela os dados para o wizard (snapshot)
+    setWizardDados({ ...dadosFaturamento });
     setFaturamentoModalOpen(true);
   };
 
@@ -145,7 +149,16 @@ const Faturamento = () => {
 
   const handleFaturamentoConcluido = () => {
     setSelectedLancamentos([]);
+    setWizardDados(null);
     setFaturamentoModalOpen(false);
+  };
+
+  const handleModalClose = (open: boolean) => {
+    if (!open) {
+      // Limpa o wizard ao fechar
+      setWizardDados(null);
+    }
+    setFaturamentoModalOpen(open);
   };
 
   const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
@@ -469,8 +482,8 @@ const Faturamento = () => {
         {/* Modal de Faturamento */}
         <FaturamentoModal
           open={faturamentoModalOpen}
-          onOpenChange={setFaturamentoModalOpen}
-          dados={dadosFaturamento}
+          onOpenChange={handleModalClose}
+          dados={wizardDados}
           onComplete={handleFaturamentoConcluido}
         />
       </div>
