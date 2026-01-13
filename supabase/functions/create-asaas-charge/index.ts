@@ -6,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Use Sandbox for testing, change to "https://api.asaas.com/v3" for production
+const ASAAS_BASE_URL = "https://sandbox.asaas.com/api/v3";
+
 interface ChargeRequest {
   customer_name: string;
   customer_email?: string;
@@ -47,7 +50,7 @@ serve(async (req) => {
     }
 
     // First, create or find customer in Asaas
-    const customerResponse = await fetch("https://api.asaas.com/v3/customers", {
+    const customerResponse = await fetch(`${ASAAS_BASE_URL}/customers`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -65,7 +68,7 @@ serve(async (req) => {
     if (customerResponse.status === 409) {
       // Customer already exists, fetch by CPF/CNPJ
       const searchResponse = await fetch(
-        `https://api.asaas.com/v3/customers?cpfCnpj=${body.customer_cpf_cnpj.replace(/\D/g, "")}`,
+        `${ASAAS_BASE_URL}/customers?cpfCnpj=${body.customer_cpf_cnpj.replace(/\D/g, "")}`,
         {
           headers: {
             "access_token": ASAAS_API_KEY,
@@ -87,7 +90,7 @@ serve(async (req) => {
     }
 
     // Create payment/charge
-    const paymentResponse = await fetch("https://api.asaas.com/v3/payments", {
+    const paymentResponse = await fetch(`${ASAAS_BASE_URL}/payments`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -115,7 +118,7 @@ serve(async (req) => {
 
     if (body.billing_type === "PIX" || body.billing_type === "BOLETO_PIX") {
       const pixResponse = await fetch(
-        `https://api.asaas.com/v3/payments/${paymentData.id}/pixQrCode`,
+        `${ASAAS_BASE_URL}/payments/${paymentData.id}/pixQrCode`,
         {
           headers: {
             "access_token": ASAAS_API_KEY,
