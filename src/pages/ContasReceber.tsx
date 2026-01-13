@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -20,17 +21,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DollarSign,
   CheckCircle,
   TrendingUp,
   Plus,
   Search,
-  Pencil,
   Trash2,
   Check,
   ExternalLink,
   Copy,
   Loader2,
+  FileText,
+  QrCode,
+  Barcode,
+  CreditCard,
 } from "lucide-react";
 import { useAsaasCharges, useDeleteAsaasCharge, useUpdateChargeStatus } from "@/hooks/useAsaas";
 import { NovaCobrancaModal } from "@/components/cobrancas/NovaCobrancaModal";
@@ -52,11 +62,32 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+interface AsaasCharge {
+  id: string;
+  asaas_id: string | null;
+  customer_name: string;
+  customer_email: string | null;
+  customer_cpf_cnpj: string | null;
+  description: string;
+  value: number;
+  due_date: string;
+  billing_type: string;
+  status: string;
+  invoice_url: string | null;
+  bank_slip_url: string | null;
+  pix_qr_code: string | null;
+  pix_copy_paste: string | null;
+  created_at: string;
+  updated_at: string;
+  paid_at: string | null;
+}
+
 const ContasReceber = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [showNovaCobranca, setShowNovaCobranca] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [pixModalCharge, setPixModalCharge] = useState<AsaasCharge | null>(null);
 
   const { data: charges = [], isLoading } = useAsaasCharges();
   const deleteCharge = useDeleteAsaasCharge();
@@ -133,9 +164,48 @@ const ContasReceber = () => {
     }
   };
 
-  const copyPixCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast.success("Código PIX copiado!");
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copiado!`);
+  };
+
+  const getBillingTypeBadge = (billingType: string) => {
+    switch (billingType) {
+      case "BOLETO":
+        return (
+          <Badge variant="outline" className="gap-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
+            <Barcode className="w-3 h-3" />
+            Boleto
+          </Badge>
+        );
+      case "PIX":
+        return (
+          <Badge variant="outline" className="gap-1 text-xs bg-green-50 text-green-700 border-green-200">
+            <QrCode className="w-3 h-3" />
+            PIX
+          </Badge>
+        );
+      case "BOLETO_PIX":
+        return (
+          <Badge variant="outline" className="gap-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+            <CreditCard className="w-3 h-3" />
+            Boleto + PIX
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline" className="gap-1 text-xs">
+            {billingType}
+          </Badge>
+        );
+    }
+  };
+
+  // Extract boleto barcode from bank_slip_url if available
+  const getBoletoLinhaDigitavel = (charge: AsaasCharge): string | null => {
+    // The Asaas API returns invoice_url which contains the full payment page
+    // For now we'll use the invoice_url as it contains boleto info
+    return null; // Linha digitável would need to be stored separately
   };
 
   return (
@@ -222,6 +292,7 @@ const ContasReceber = () => {
                 <TableHead className="font-semibold">CLIENTE</TableHead>
                 <TableHead className="font-semibold text-right">VALOR</TableHead>
                 <TableHead className="font-semibold">VENCIMENTO</TableHead>
+                <TableHead className="font-semibold">FORMA</TableHead>
                 <TableHead className="font-semibold">STATUS</TableHead>
                 <TableHead className="font-semibold text-right">AÇÕES</TableHead>
               </TableRow>
@@ -229,14 +300,14 @@ const ContasReceber = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
+                  <TableCell colSpan={7} className="text-center py-12">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : filteredCharges.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="text-center py-12 text-muted-foreground"
                   >
                     Nenhuma cobrança encontrada
@@ -273,22 +344,58 @@ const ContasReceber = () => {
                             </Button>
                           )}
                           
+                          {/* Ver Boleto PDF */}
+                          {charge.bank_slip_url && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 border-blue-200 hover:bg-blue-50"
+                                  onClick={() => window.open(charge.bank_slip_url!, "_blank")}
+                                >
+                                  <FileText className="w-4 h-4 text-blue-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Ver Boleto (PDF)</TooltipContent>
+                            </Tooltip>
+                          )}
+
+                          {/* QR Code PIX */}
+                          {charge.pix_qr_code && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 border-green-200 hover:bg-green-50"
+                                  onClick={() => setPixModalCharge(charge as AsaasCharge)}
+                                >
+                                  <QrCode className="w-4 h-4 text-green-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Ver QR Code PIX</TooltipContent>
+                            </Tooltip>
+                          )}
+
+                          {/* Copiar PIX Copia e Cola */}
                           {charge.pix_copy_paste && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
-                                  variant="ghost"
+                                  variant="outline"
                                   size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => copyPixCode(charge.pix_copy_paste!)}
+                                  className="h-8 w-8 border-green-200 hover:bg-green-50"
+                                  onClick={() => copyToClipboard(charge.pix_copy_paste!, "Código PIX")}
                                 >
-                                  <Copy className="w-4 h-4 text-muted-foreground" />
+                                  <Copy className="w-4 h-4 text-green-600" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Copiar código PIX</TooltipContent>
                             </Tooltip>
                           )}
 
+                          {/* Abrir Fatura */}
                           {charge.invoice_url && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -301,18 +408,24 @@ const ContasReceber = () => {
                                   <ExternalLink className="w-4 h-4 text-muted-foreground" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>Abrir fatura</TooltipContent>
+                              <TooltipContent>Abrir página de pagamento</TooltipContent>
                             </Tooltip>
                           )}
 
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => setDeleteConfirm(charge.id)}
-                          >
-                            <Trash2 className="w-4 h-4 text-muted-foreground" />
-                          </Button>
+                          {/* Excluir */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-destructive/10"
+                                onClick={() => setDeleteConfirm(charge.id)}
+                              >
+                                <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Excluir cobrança</TooltipContent>
+                          </Tooltip>
                         </div>
                       </TooltipProvider>
                     </TableCell>
@@ -330,6 +443,67 @@ const ContasReceber = () => {
         open={showNovaCobranca} 
         onOpenChange={setShowNovaCobranca} 
       />
+
+      {/* Modal QR Code PIX */}
+      <Dialog open={!!pixModalCharge} onOpenChange={() => setPixModalCharge(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5 text-green-600" />
+              QR Code PIX
+            </DialogTitle>
+          </DialogHeader>
+          {pixModalCharge && (
+            <div className="flex flex-col items-center space-y-4">
+              {/* QR Code Image */}
+              <div className="p-4 bg-white rounded-lg border-2 border-green-200">
+                <img 
+                  src={`data:image/png;base64,${pixModalCharge.pix_qr_code}`}
+                  alt="QR Code PIX"
+                  className="w-48 h-48"
+                />
+              </div>
+
+              {/* Charge Info */}
+              <div className="text-center space-y-1">
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(Number(pixModalCharge.value))}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {pixModalCharge.description}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Vencimento: {formatDate(pixModalCharge.due_date)}
+                </p>
+              </div>
+
+              {/* Copy PIX Code */}
+              {pixModalCharge.pix_copy_paste && (
+                <div className="w-full space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground text-center">
+                    PIX Copia e Cola
+                  </p>
+                  <div className="flex gap-2">
+                    <Input 
+                      readOnly 
+                      value={pixModalCharge.pix_copy_paste}
+                      className="text-xs font-mono"
+                    />
+                    <Button 
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 border-green-200 hover:bg-green-50"
+                      onClick={() => copyToClipboard(pixModalCharge.pix_copy_paste!, "Código PIX")}
+                    >
+                      <Copy className="w-4 h-4 text-green-600" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <AlertDialogContent>
