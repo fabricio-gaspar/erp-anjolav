@@ -5,6 +5,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import {
   FileText,
@@ -75,6 +85,8 @@ export function FaturamentoModal({
   } | null>(null);
   // Estado para controlar quais etapas foram completadas
   const [stepsCompleted, setStepsCompleted] = useState<boolean[]>([false, false, false, false]);
+  // Estado para confirmação de saída
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
 
   const markStepCompleted = (stepIndex: number) => {
     setStepsCompleted((prev) => {
@@ -82,6 +94,19 @@ export function FaturamentoModal({
       newState[stepIndex] = true;
       return newState;
     });
+  };
+
+  const handleCloseAttempt = () => {
+    setShowExitConfirmation(true);
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitConfirmation(false);
+    onOpenChange(false);
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirmation(false);
   };
 
   const handleNext = () => {
@@ -155,118 +180,144 @@ export function FaturamentoModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl">Finalizar Faturamento</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={() => {}}>
+        <DialogContent 
+          className="max-w-4xl max-h-[90vh] overflow-y-auto"
+          preventClose={true}
+          onCloseAttempt={handleCloseAttempt}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-xl">Finalizar Faturamento</DialogTitle>
+          </DialogHeader>
 
-        {/* Stepper com bloqueio visual */}
-        <TooltipProvider>
-          <div className="flex items-center justify-between mb-6">
-            {etapas.map((etapa, index) => {
-              const isLocked = isStepLocked(etapa.id);
-              const isCompleted = stepsCompleted[etapa.id - 1];
-              const isCurrent = currentStep === etapa.id;
+          {/* Stepper com bloqueio visual */}
+          <TooltipProvider>
+            <div className="flex items-center justify-between mb-6">
+              {etapas.map((etapa, index) => {
+                const isLocked = isStepLocked(etapa.id);
+                const isCompleted = stepsCompleted[etapa.id - 1];
+                const isCurrent = currentStep === etapa.id;
 
-              return (
-                <div key={etapa.id} className="flex items-center flex-1">
-                  <div className="flex flex-col items-center flex-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div
-                          className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors relative",
-                            isCompleted
-                              ? "bg-success border-success text-white"
-                              : isCurrent
-                              ? "bg-primary border-primary text-white"
-                              : isLocked
-                              ? "bg-muted border-muted-foreground/20 text-muted-foreground/50"
-                              : "bg-muted border-muted-foreground/30 text-muted-foreground"
-                          )}
-                        >
-                          {isCompleted ? (
-                            <Check className="w-5 h-5" />
-                          ) : isLocked ? (
-                            <Lock className="w-4 h-4" />
-                          ) : (
-                            <etapa.icon className="w-5 h-5" />
-                          )}
-                        </div>
-                      </TooltipTrigger>
-                      {isLocked && (
-                        <TooltipContent>
-                          <p>Complete a etapa anterior para continuar</p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                    <span
-                      className={cn(
-                        "text-xs mt-2 font-medium",
-                        isCurrent || isCompleted
-                          ? "text-foreground"
-                          : isLocked
-                          ? "text-muted-foreground/50"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {etapa.label}
-                    </span>
+                return (
+                  <div key={etapa.id} className="flex items-center flex-1">
+                    <div className="flex flex-col items-center flex-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={cn(
+                              "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors relative",
+                              isCompleted
+                                ? "bg-success border-success text-white"
+                                : isCurrent
+                                ? "bg-primary border-primary text-white"
+                                : isLocked
+                                ? "bg-muted border-muted-foreground/20 text-muted-foreground/50"
+                                : "bg-muted border-muted-foreground/30 text-muted-foreground"
+                            )}
+                          >
+                            {isCompleted ? (
+                              <Check className="w-5 h-5" />
+                            ) : isLocked ? (
+                              <Lock className="w-4 h-4" />
+                            ) : (
+                              <etapa.icon className="w-5 h-5" />
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        {isLocked && (
+                          <TooltipContent>
+                            <p>Complete a etapa anterior para continuar</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                      <span
+                        className={cn(
+                          "text-xs mt-2 font-medium",
+                          isCurrent || isCompleted
+                            ? "text-foreground"
+                            : isLocked
+                            ? "text-muted-foreground/50"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {etapa.label}
+                      </span>
+                    </div>
+                    {index < etapas.length - 1 && (
+                      <div
+                        className={cn(
+                          "h-0.5 flex-1 mx-2",
+                          isCompleted ? "bg-success" : "bg-muted"
+                        )}
+                      />
+                    )}
                   </div>
-                  {index < etapas.length - 1 && (
-                    <div
-                      className={cn(
-                        "h-0.5 flex-1 mx-2",
-                        isCompleted ? "bg-success" : "bg-muted"
-                      )}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </TooltipProvider>
+                );
+              })}
+            </div>
+          </TooltipProvider>
 
-        {/* Content */}
-        <div className="min-h-[400px]">
-          {currentStep === 1 && (
-            <EtapaRelatorio
-              dados={dados}
-              onNext={handleNext}
-              onFaturaCreated={handleFaturaCreated}
-            />
-          )}
-          {currentStep === 2 && (
-            <EtapaNF
-              dados={dados}
-              faturaId={faturaId}
-              onNext={handleNext}
-              onBack={handleBack}
-              onNFEmitida={handleNFEmitida}
-            />
-          )}
-          {currentStep === 3 && (
-            <EtapaPagamento
-              dados={dados}
-              faturaId={faturaId}
-              onNext={handleNext}
-              onBack={handleBack}
-              onPaymentConfigured={handlePaymentConfigured}
-            />
-          )}
-          {currentStep === 4 && (
-            <EtapaEnvio
-              dados={dados}
-              faturaId={faturaId}
-              numeroNF={numeroNF}
-              paymentData={paymentData}
-              onClose={() => onOpenChange(false)}
-              onBack={handleBack}
-            />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+          {/* Content */}
+          <div className="min-h-[400px]">
+            {currentStep === 1 && (
+              <EtapaRelatorio
+                dados={dados}
+                onNext={handleNext}
+                onFaturaCreated={handleFaturaCreated}
+              />
+            )}
+            {currentStep === 2 && (
+              <EtapaNF
+                dados={dados}
+                faturaId={faturaId}
+                onNext={handleNext}
+                onBack={handleBack}
+                onNFEmitida={handleNFEmitida}
+              />
+            )}
+            {currentStep === 3 && (
+              <EtapaPagamento
+                dados={dados}
+                faturaId={faturaId}
+                onNext={handleNext}
+                onBack={handleBack}
+                onPaymentConfigured={handlePaymentConfigured}
+              />
+            )}
+            {currentStep === 4 && (
+              <EtapaEnvio
+                dados={dados}
+                faturaId={faturaId}
+                numeroNF={numeroNF}
+                paymentData={paymentData}
+                onClose={() => onOpenChange(false)}
+                onBack={handleBack}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AlertDialog de confirmação de saída */}
+      <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deseja sair do faturamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O progresso atual será perdido. Você precisará recomeçar o processo de faturamento desde o início.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelExit}>
+              Continuar Editando
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmExit} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Sair e Descartar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
