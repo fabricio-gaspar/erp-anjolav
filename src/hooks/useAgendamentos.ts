@@ -37,8 +37,8 @@ export function useAgendamentos(filtroData?: { inicio: string; fim: string }) {
         .from("agendamentos")
         .select(`
           *,
-          cliente:clientes(razao_social),
-          motorista:motoristas(nome)
+          cliente:clientes!fk_agendamentos_cliente(razao_social),
+          motorista:motoristas!fk_agendamentos_motorista(nome)
         `)
         .order("data")
         .order("horario");
@@ -62,8 +62,8 @@ export function useAgendamentos(filtroData?: { inicio: string; fim: string }) {
         .insert(agendamento)
         .select(`
           *,
-          cliente:clientes(razao_social),
-          motorista:motoristas(nome)
+          cliente:clientes!fk_agendamentos_cliente(razao_social),
+          motorista:motoristas!fk_agendamentos_motorista(nome)
         `)
         .single();
       if (error) throw error;

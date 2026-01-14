@@ -6,7 +6,7 @@ import { Building2, Home, Check, Loader2, Search } from "lucide-react";
 import { useClientes, useClienteById } from "@/hooks/useClientes";
 import { buscarCnpj, BrasilApiCnpjResponse } from "@/services/apiServices";
 import { toast } from "sonner";
-
+import { useConfiguracaoAutomatica } from "@/hooks/useConfiguracaoAutomatica";
 interface ClienteDadosBasicosProps {
   clienteId: string | null;
   onNext: () => void;
@@ -26,6 +26,7 @@ export const ClienteDadosBasicos = ({
 }: ClienteDadosBasicosProps) => {
   const { createCliente, updateCliente } = useClientes();
   const { data: clienteExistente, isLoading: isLoadingCliente } = useClienteById(clienteId);
+  const { criarConfiguracaoComAgendamentos } = useConfiguracaoAutomatica();
 
   const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>("cnpj");
   const [classificacao, setClassificacao] = useState<Classificacao>("industrial");
@@ -179,8 +180,12 @@ export const ClienteDadosBasicos = ({
       );
     } else {
       createCliente.mutate(clienteData, {
-        onSuccess: (data) => {
+        onSuccess: async (data) => {
           onClienteSaved(data.id);
+          
+          // Criar configuração padrão e agendamentos automaticamente
+          await criarConfiguracaoComAgendamentos(data.id, classificacao);
+          
           if (goNext) onNext();
         },
       });

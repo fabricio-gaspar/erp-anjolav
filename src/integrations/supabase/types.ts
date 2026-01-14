@@ -72,6 +72,20 @@ export type Database = {
             referencedRelation: "motoristas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_agendamentos_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_agendamentos_motorista"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "motoristas"
+            referencedColumns: ["id"]
+          },
         ]
       }
       asaas_charges: {
@@ -372,6 +386,13 @@ export type Database = {
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_configuracoes_cliente_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
         ]
       }
       configuracoes_fiscais: {
@@ -563,6 +584,13 @@ export type Database = {
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_configuracoes_pagamento_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: true
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
         ]
       }
       contas_pagar: {
@@ -727,6 +755,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "enderecos_clientes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_enderecos_clientes"
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
@@ -1447,6 +1482,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_precos_especiais_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_precos_especiais_produto"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "precos_especiais_cliente_id_fkey"
             columns: ["cliente_id"]
