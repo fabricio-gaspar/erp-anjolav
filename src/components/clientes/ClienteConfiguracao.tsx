@@ -2,17 +2,18 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Copy, Clock, Loader2, FileText, Table2, Grid } from "lucide-react";
+import { Check, Copy, Clock, Loader2, FileText, Table2, Grid, Calendar } from "lucide-react";
 import { useConfiguracaoCliente } from "@/hooks/useClientes";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { gerarAgendamentosDoCliente, Frequencia } from "@/lib/agendamentoUtils";
+import { useAgendamentosRecorrentes } from "@/hooks/useAgendamentosRecorrentes";
 
 interface ClienteConfiguracaoProps {
   clienteId: string | null;
   onSave: () => void;
 }
 
-type Frequencia = "diaria" | "semanal" | "quinzenal" | "mensal";
 type TipoRelatorio = "detalhado" | "mapa_pecas" | "mapa_mensal";
 
 const diasSemana = [
@@ -48,6 +49,7 @@ const tiposRelatorio = [
 
 export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoProps) => {
   const { configuracao, isLoading, upsertConfiguracao } = useConfiguracaoCliente(clienteId);
+  const { regenerarAgendamentos, isLoading: isGeneratingAgendamentos } = useAgendamentosRecorrentes();
 
   const [codigoAcesso, setCodigoAcesso] = useState("Não gerado");
   const [linkAcesso, setLinkAcesso] = useState("");
@@ -128,14 +130,27 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
         tipo_relatorio: tipoRelatorio,
       },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
+          // Gerar agendamentos automáticos baseado na configuração
+          if (diasRetirada.length > 0 || diasEntrega.length > 0) {
+            const agendamentos = gerarAgendamentosDoCliente(clienteId, {
+              frequencia,
+              dias_retirada: diasRetirada,
+              dias_entrega: diasEntrega,
+              horario_retirada: horarioRetirada || null,
+              horario_entrega: horarioEntrega || null,
+            });
+
+            await regenerarAgendamentos(clienteId, agendamentos);
+          }
+
           onSave();
         },
       }
     );
   };
 
-  const isSaving = upsertConfiguracao.isPending;
+  const isSaving = upsertConfiguracao.isPending || isGeneratingAgendamentos;
 
   if (isLoading && clienteId) {
     return (
