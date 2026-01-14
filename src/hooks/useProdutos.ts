@@ -127,7 +127,7 @@ export function usePrecosEspeciais(clienteId: string | null) {
         .from("precos_especiais")
         .select(`
           *,
-          produto:produtos(*)
+          produto:produtos!fk_precos_especiais_produto(nome, unidade)
         `)
         .eq("cliente_id", clienteId);
       if (error) throw error;
