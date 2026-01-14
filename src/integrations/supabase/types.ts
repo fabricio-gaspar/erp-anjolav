@@ -59,20 +59,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "agendamentos_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "agendamentos_motorista_id_fkey"
-            columns: ["motorista_id"]
-            isOneToOne: false
-            referencedRelation: "motoristas"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_agendamentos_cliente"
             columns: ["cliente_id"]
             isOneToOne: false
@@ -380,13 +366,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "configuracoes_cliente_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: true
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_configuracoes_cliente_cliente"
             columns: ["cliente_id"]
             isOneToOne: true
@@ -578,13 +557,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "configuracoes_pagamento_cliente_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: true
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_configuracoes_pagamento_cliente"
             columns: ["cliente_id"]
             isOneToOne: true
@@ -753,13 +725,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "enderecos_clientes_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fk_enderecos_clientes"
             columns: ["cliente_id"]
@@ -1491,20 +1456,6 @@ export type Database = {
           },
           {
             foreignKeyName: "fk_precos_especiais_produto"
-            columns: ["produto_id"]
-            isOneToOne: false
-            referencedRelation: "produtos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "precos_especiais_cliente_id_fkey"
-            columns: ["cliente_id"]
-            isOneToOne: false
-            referencedRelation: "clientes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "precos_especiais_produto_id_fkey"
             columns: ["produto_id"]
             isOneToOne: false
             referencedRelation: "produtos"
