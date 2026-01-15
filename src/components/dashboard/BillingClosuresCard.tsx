@@ -2,9 +2,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CalendarClock, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useFechamentosProximos } from "@/hooks/useFechamentosProximos";
+import { useNavigate } from "react-router-dom";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+const condicaoLabels: Record<string, string> = {
+  a_vista: "À Vista",
+  mensal_15: "15 dias",
+  mensal_30: "30 dias",
+  mensal_45: "45 dias",
+};
 
 export function BillingClosuresCard() {
   const { data: fechamentos = [], isLoading } = useFechamentosProximos(3);
+  const navigate = useNavigate();
+
+  const handleClienteClick = (clienteId: string) => {
+    navigate(`/clientes?edit=${clienteId}`);
+  };
 
   if (isLoading) {
     return (
@@ -51,32 +65,43 @@ export function BillingClosuresCard() {
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {fechamentos.map((f) => (
-          <div
-            key={f.id}
-            className="flex items-center justify-between text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0"
-          >
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">
-                {f.nome_fantasia || f.razao_social}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Dia {f.dia_fechamento}
-              </p>
-            </div>
-            <Badge
-              variant={f.diasRestantes === 0 ? "destructive" : "outline"}
-              className="ml-2 shrink-0"
-            >
-              {f.diasRestantes === 0
-                ? "Hoje"
-                : f.diasRestantes === 1
-                ? "Amanhã"
-                : `${f.diasRestantes} dias`}
-            </Badge>
+      <CardContent className="p-0">
+        <ScrollArea className="max-h-[180px] px-6 pb-4">
+          <div className="space-y-2">
+            {fechamentos.map((f) => (
+              <div
+                key={f.id}
+                onClick={() => handleClienteClick(f.id)}
+                className="flex items-center justify-between text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0 cursor-pointer hover:bg-muted/50 -mx-2 px-2 py-1 rounded-md transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">
+                    {f.nome_fantasia || f.razao_social}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>Dia {f.dia_fechamento}</span>
+                    {f.condicao_pagamento && (
+                      <>
+                        <span>•</span>
+                        <span>{condicaoLabels[f.condicao_pagamento] || f.condicao_pagamento}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <Badge
+                  variant={f.diasRestantes === 0 ? "destructive" : "outline"}
+                  className="ml-2 shrink-0"
+                >
+                  {f.diasRestantes === 0
+                    ? "Hoje"
+                    : f.diasRestantes === 1
+                    ? "Amanhã"
+                    : `${f.diasRestantes} dias`}
+                </Badge>
+              </div>
+            ))}
           </div>
-        ))}
+        </ScrollArea>
       </CardContent>
     </Card>
   );

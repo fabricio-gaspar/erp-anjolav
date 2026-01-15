@@ -7,6 +7,7 @@ interface ClienteFechamento {
   nome_fantasia: string | null;
   dia_fechamento: number;
   diasRestantes: number;
+  condicao_pagamento: string | null;
 }
 
 export function useFechamentosProximos(diasAntecedencia: number = 3) {
@@ -16,7 +17,7 @@ export function useFechamentosProximos(diasAntecedencia: number = 3) {
       // Buscar configurações de pagamento que têm dia_fechamento definido
       const { data: configs, error: configsError } = await supabase
         .from("configuracoes_pagamento_cliente")
-        .select("cliente_id, dia_fechamento")
+        .select("cliente_id, dia_fechamento, condicao_pagamento")
         .not("dia_fechamento", "is", null);
 
       if (configsError) throw configsError;
@@ -33,7 +34,9 @@ export function useFechamentosProximos(diasAntecedencia: number = 3) {
       if (clientesError) throw clientesError;
 
       // Calcular dias restantes para cada fechamento
+      // Normalizar para meia-noite para evitar inconsistências de horário
       const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
       const diaAtual = hoje.getDate();
       const mesAtual = hoje.getMonth();
       const anoAtual = hoje.getFullYear();
@@ -48,15 +51,17 @@ export function useFechamentosProximos(diasAntecedencia: number = 3) {
         
         // Calcular data do próximo fechamento
         let dataFechamento = new Date(anoAtual, mesAtual, diaFechamento);
+        dataFechamento.setHours(0, 0, 0, 0);
         
         // Se o dia de fechamento já passou neste mês, considerar o próximo mês
         if (diaFechamento < diaAtual) {
           dataFechamento = new Date(anoAtual, mesAtual + 1, diaFechamento);
+          dataFechamento.setHours(0, 0, 0, 0);
         }
 
         // Calcular diferença em dias
         const diffTime = dataFechamento.getTime() - hoje.getTime();
-        const diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diasRestantes = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
         // Incluir apenas os que estão dentro da antecedência configurada
         if (diasRestantes >= 0 && diasRestantes <= diasAntecedencia) {
@@ -66,6 +71,7 @@ export function useFechamentosProximos(diasAntecedencia: number = 3) {
             nome_fantasia: cliente.nome_fantasia,
             dia_fechamento: diaFechamento,
             diasRestantes,
+            condicao_pagamento: config.condicao_pagamento,
           });
         }
       }
