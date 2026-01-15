@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -21,7 +22,15 @@ import { ConfiguracoesSistema } from "@/components/configuracoes/ConfiguracoesSi
 import { ConfiguracoesGeral } from "@/components/configuracoes/ConfiguracoesGeral";
 
 const Configuracoes = () => {
-  const [activeTab, setActiveTab] = useState("equipe");
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(tabFromUrl || "equipe");
+
+  useEffect(() => {
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   return (
     <AppLayout title="Configurações" subtitle="Gerencie as configurações do sistema">

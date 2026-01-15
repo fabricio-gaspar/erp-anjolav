@@ -1,4 +1,5 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   LayoutDashboard,
   Users,
@@ -195,6 +196,23 @@ const SearchBar = () => {
 
 const UserSection = () => {
   const { isCollapsed } = useSidebarContext();
+  const navigate = useNavigate();
+
+  const handleMeuPerfil = () => {
+    navigate("/configuracoes?tab=equipe");
+  };
+
+  const handlePreferencias = () => {
+    navigate("/configuracoes?tab=geral");
+  };
+
+  const handleNotificacoes = () => {
+    navigate("/configuracoes?tab=sistema");
+  };
+
+  const handleSair = () => {
+    toast.info("Funcionalidade de logout será implementada com autenticação");
+  };
 
   const userButton = (
     <button className={cn(
@@ -244,20 +262,20 @@ const UserSection = () => {
           <p className="text-xs text-muted-foreground">admin@anjolav.com</p>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={handleMeuPerfil}>
           <User className="w-4 h-4 mr-2" />
           Meu Perfil
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={handlePreferencias}>
           <Settings className="w-4 h-4 mr-2" />
           Preferências
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={handleNotificacoes}>
           <Bell className="w-4 h-4 mr-2" />
           Notificações
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive focus:text-destructive">
+        <DropdownMenuItem onClick={handleSair} className="text-destructive focus:text-destructive">
           <LogOut className="w-4 h-4 mr-2" />
           Sair
         </DropdownMenuItem>
