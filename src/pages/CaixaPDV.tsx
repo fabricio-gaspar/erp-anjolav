@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Search,
-  History,
+  FileSearch,
   ArrowDownCircle,
   ArrowUpCircle,
   Lock,
@@ -32,6 +32,7 @@ import { AbrirCaixaModal } from "@/components/caixa/AbrirCaixaModal";
 import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
 import { SangriaModal } from "@/components/caixa/SangriaModal";
 import { SuprimentoModal } from "@/components/caixa/SuprimentoModal";
+import { ConsultarOSModal } from "@/components/caixa/ConsultarOSModal";
 import { toast } from "sonner";
 
 interface CartItem {
@@ -88,6 +89,7 @@ const CaixaPDV = () => {
   const [showFecharCaixaModal, setShowFecharCaixaModal] = useState(false);
   const [showSangriaModal, setShowSangriaModal] = useState(false);
   const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
+  const [showConsultarOSModal, setShowConsultarOSModal] = useState(false);
 
   const { precos: precosEspeciais } = usePrecosEspeciais(selectedClientId);
 
@@ -349,6 +351,11 @@ const CaixaPDV = () => {
       e.preventDefault();
       handleOpenPagamento();
     }
+    // F5 - Consultar OS
+    if (e.key === "F5") {
+      e.preventDefault();
+      setShowConsultarOSModal(true);
+    }
     // F8 - Limpar carrinho
     if (e.key === "F8") {
       e.preventDefault();
@@ -357,8 +364,9 @@ const CaixaPDV = () => {
     // ESC - Fechar modais
     if (e.key === "Escape") {
       if (showPagamentoModal) setShowPagamentoModal(false);
+      if (showConsultarOSModal) setShowConsultarOSModal(false);
     }
-  }, [cart, selectedClientId, caixaAberto, showPagamentoModal]);
+  }, [cart, selectedClientId, caixaAberto, showPagamentoModal, showConsultarOSModal]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -427,9 +435,14 @@ const CaixaPDV = () => {
             <div className="flex items-center gap-2">
               {caixaAberto ? (
                 <>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <History className="w-4 h-4" />
-                    Histórico (F5)
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1"
+                    onClick={() => setShowConsultarOSModal(true)}
+                  >
+                    <FileSearch className="w-4 h-4" />
+                    Consultar OS (F5)
                   </Button>
                   <Button 
                     variant="outline" 
@@ -863,6 +876,20 @@ const CaixaPDV = () => {
           />
         </>
       )}
+
+      {/* Modal Consultar OS */}
+      <ConsultarOSModal
+        open={showConsultarOSModal}
+        onOpenChange={setShowConsultarOSModal}
+        onImprimirROL={(osId) => {
+          console.log("Imprimir ROL:", osId);
+          toast.info("Função de impressão de ROL em desenvolvimento");
+        }}
+        onImprimirEtiquetas={(osId) => {
+          console.log("Imprimir Etiquetas:", osId);
+          toast.info("Função de impressão de etiquetas em desenvolvimento");
+        }}
+      />
     </AppLayout>
   );
 };
