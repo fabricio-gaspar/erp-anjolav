@@ -16,6 +16,15 @@ export interface OrdemServico {
   observacoes: string | null;
   created_at: string;
   updated_at: string;
+  // Campos de pagamento
+  valor_total: number | null;
+  valor_desconto: number | null;
+  forma_pagamento: string | null;
+  status_pagamento: "pendente" | "parcial" | "pago" | null;
+  pago_na_entrada: boolean | null;
+  valor_pago: number | null;
+  urgente: boolean | null;
+  percentual_urgencia: number | null;
   // Relacionamentos
   cliente?: {
     razao_social: string;
@@ -49,7 +58,7 @@ export interface ItemOrdemServico {
 }
 
 export type OrdemServicoInsert = Omit<OrdemServico, "id" | "numero" | "created_at" | "updated_at" | "cliente" | "motorista" | "veiculo">;
-export type OrdemServicoUpdate = Partial<OrdemServicoInsert>;
+export type OrdemServicoUpdate = Partial<Omit<OrdemServicoInsert, "cliente_id">>;
 
 export function useOrdensServico() {
   const queryClient = useQueryClient();

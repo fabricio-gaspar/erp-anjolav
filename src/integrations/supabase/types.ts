@@ -1370,13 +1370,21 @@ export type Database = {
           data_entrega: string | null
           data_previsao_entrega: string | null
           data_retirada: string
+          forma_pagamento: string | null
           id: string
           motorista_id: string | null
           numero: string
           observacoes: string | null
+          pago_na_entrada: boolean | null
+          percentual_urgencia: number | null
           prioridade: string | null
           status: string
+          status_pagamento: string | null
           updated_at: string
+          urgente: boolean | null
+          valor_desconto: number | null
+          valor_pago: number | null
+          valor_total: number | null
           veiculo_id: string | null
         }
         Insert: {
@@ -1385,13 +1393,21 @@ export type Database = {
           data_entrega?: string | null
           data_previsao_entrega?: string | null
           data_retirada?: string
+          forma_pagamento?: string | null
           id?: string
           motorista_id?: string | null
           numero: string
           observacoes?: string | null
+          pago_na_entrada?: boolean | null
+          percentual_urgencia?: number | null
           prioridade?: string | null
           status?: string
+          status_pagamento?: string | null
           updated_at?: string
+          urgente?: boolean | null
+          valor_desconto?: number | null
+          valor_pago?: number | null
+          valor_total?: number | null
           veiculo_id?: string | null
         }
         Update: {
@@ -1400,13 +1416,21 @@ export type Database = {
           data_entrega?: string | null
           data_previsao_entrega?: string | null
           data_retirada?: string
+          forma_pagamento?: string | null
           id?: string
           motorista_id?: string | null
           numero?: string
           observacoes?: string | null
+          pago_na_entrada?: boolean | null
+          percentual_urgencia?: number | null
           prioridade?: string | null
           status?: string
+          status_pagamento?: string | null
           updated_at?: string
+          urgente?: boolean | null
+          valor_desconto?: number | null
+          valor_pago?: number | null
+          valor_total?: number | null
           veiculo_id?: string | null
         }
         Relationships: [

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,12 +17,22 @@ import {
   Loader2,
   FileText,
   AlertTriangle,
+  DoorOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
+import { useCaixaAberto, useAddMovimentacao } from "@/hooks/useCaixa";
+import { useOrdensServico, useItensOrdemServico } from "@/hooks/useOrdensServico";
 import { ItemDetalhesModal } from "@/components/caixa/ItemDetalhesModal";
+import { PagamentoModal, DadosPagamento } from "@/components/caixa/PagamentoModal";
+import { ImpressaoPosVendaModal } from "@/components/caixa/ImpressaoPosVendaModal";
+import { AbrirCaixaModal } from "@/components/caixa/AbrirCaixaModal";
+import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
+import { SangriaModal } from "@/components/caixa/SangriaModal";
+import { SuprimentoModal } from "@/components/caixa/SuprimentoModal";
+import { toast } from "sonner";
 
 interface CartItem {
   id: string;
@@ -39,11 +49,22 @@ interface CartItem {
   observacoes?: string;
 }
 
+interface OSRecemCriada {
+  id: string;
+  numero: string;
+  valorTotal: number;
+  previsaoEntrega: Date;
+}
+
 const alphabet = ["TODOS", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 
 const CaixaPDV = () => {
   const { produtos, isLoading: isLoadingProdutos } = useProdutos();
   const { clientes, isLoading: isLoadingClientes } = useClientes();
+  const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto();
+  const { createOrdemServico } = useOrdensServico();
+  const { addItem } = useItensOrdemServico(null);
+  const addMovimentacao = useAddMovimentacao();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLetter, setSelectedLetter] = useState("TODOS");
@@ -55,6 +76,18 @@ const CaixaPDV = () => {
   // Estado para modal de detalhes
   const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
   const [selectedCartItem, setSelectedCartItem] = useState<CartItem | null>(null);
+  
+  // Estados para modais de pagamento e impressão
+  const [showPagamentoModal, setShowPagamentoModal] = useState(false);
+  const [showImpressaoModal, setShowImpressaoModal] = useState(false);
+  const [osRecemCriada, setOsRecemCriada] = useState<OSRecemCriada | null>(null);
+  const [isProcessingVenda, setIsProcessingVenda] = useState(false);
+  
+  // Estados para modais de caixa
+  const [showAbrirCaixaModal, setShowAbrirCaixaModal] = useState(false);
+  const [showFecharCaixaModal, setShowFecharCaixaModal] = useState(false);
+  const [showSangriaModal, setShowSangriaModal] = useState(false);
+  const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
 
   const { precos: precosEspeciais } = usePrecosEspeciais(selectedClientId);
 
@@ -112,6 +145,11 @@ const CaixaPDV = () => {
   };
 
   const addToCart = (produto: Produto) => {
+    if (!caixaAberto) {
+      toast.error("Abra o caixa para iniciar vendas");
+      return;
+    }
+    
     const preco = getPrecoForProduto(produto);
     setCart((prev) => {
       const existing = prev.find((item) => item.id === produto.id);
@@ -203,6 +241,130 @@ const CaixaPDV = () => {
     })));
   };
 
+  // Função para abrir modal de pagamento
+  const handleOpenPagamento = () => {
+    if (!caixaAberto) {
+      toast.error("Abra o caixa primeiro");
+      return;
+    }
+    if (cart.length === 0) {
+      toast.error("Adicione produtos ao carrinho");
+      return;
+    }
+    if (!selectedClientId) {
+      toast.error("Selecione um cliente");
+      return;
+    }
+    setShowPagamentoModal(true);
+  };
+
+  // Função para finalizar venda
+  const handleFinalizarVenda = async (dados: DadosPagamento) => {
+    if (!selectedClientId || !caixaAberto) return;
+    
+    setIsProcessingVenda(true);
+    
+    try {
+      // 1. Criar a OS
+      const os = await createOrdemServico.mutateAsync({
+        cliente_id: selectedClientId,
+        data_retirada: new Date().toISOString().split('T')[0],
+        data_previsao_entrega: dados.previsaoEntrega.toISOString().split('T')[0],
+        data_entrega: null,
+        status: "retirada",
+        prioridade: dados.urgente ? "urgente" : "normal",
+        observacoes: null,
+        motorista_id: null,
+        veiculo_id: null,
+        valor_total: dados.valorTotal,
+        valor_desconto: dados.valorDesconto,
+        forma_pagamento: dados.formaPagamento,
+        status_pagamento: dados.pagoAgora ? "pago" : "pendente",
+        pago_na_entrada: dados.pagoAgora,
+        valor_pago: dados.pagoAgora ? dados.valorTotal : 0,
+        urgente: dados.urgente,
+        percentual_urgencia: dados.percentualUrgencia,
+      });
+
+      // 2. Inserir todos os itens
+      for (const item of cart) {
+        await addItem.mutateAsync({
+          ordem_servico_id: os.id,
+          produto_id: item.id,
+          quantidade: item.quantidade,
+          preco_unitario: item.preco,
+          subtotal: item.preco * item.quantidade,
+          cor_item: item.cor_item || null,
+          marca_item: item.marca_item || null,
+          avarias: item.avarias || null,
+          posicao_prateleira: item.posicao_prateleira || null,
+          observacoes: item.observacoes || null,
+        });
+      }
+
+      // 3. Registrar movimentação no caixa (se pago agora)
+      if (dados.pagoAgora && dados.formaPagamento) {
+        await addMovimentacao.mutateAsync({
+          caixa_id: caixaAberto.id,
+          tipo: "VENDA",
+          valor: dados.valorTotal,
+          forma_pagamento: dados.formaPagamento,
+          descricao: `Venda OS ${os.numero}`,
+        });
+      }
+
+      // 4. Preparar dados para modal de impressão
+      setOsRecemCriada({
+        id: os.id,
+        numero: os.numero,
+        valorTotal: dados.valorTotal,
+        previsaoEntrega: dados.previsaoEntrega,
+      });
+
+      // 5. Fechar modal de pagamento e abrir modal de impressão
+      setShowPagamentoModal(false);
+      setShowImpressaoModal(true);
+      
+    } catch (error) {
+      console.error("Erro ao finalizar venda:", error);
+      toast.error("Erro ao finalizar venda");
+    } finally {
+      setIsProcessingVenda(false);
+    }
+  };
+
+  // Função após impressão (ou pular)
+  const handleImpressaoComplete = () => {
+    setOsRecemCriada(null);
+    setCart([]);
+    setSelectedClientId(null);
+    setClientSearch("");
+    toast.success("Venda finalizada com sucesso!");
+  };
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // F4 - Pagamento
+    if (e.key === "F4") {
+      e.preventDefault();
+      handleOpenPagamento();
+    }
+    // F8 - Limpar carrinho
+    if (e.key === "F8") {
+      e.preventDefault();
+      clearCart();
+    }
+    // ESC - Fechar modais
+    if (e.key === "Escape") {
+      if (showPagamentoModal) setShowPagamentoModal(false);
+    }
+  }, [cart, selectedClientId, caixaAberto, showPagamentoModal]);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   const totalItems = cart.reduce((sum, item) => sum + item.quantidade, 0);
   const totalValue = cart.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
 
@@ -211,6 +373,13 @@ const CaixaPDV = () => {
     day: "2-digit",
     month: "long",
   });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
+  };
 
   return (
     <AppLayout title="Dashboard">
@@ -230,36 +399,95 @@ const CaixaPDV = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-success text-success gap-1">
-                <span className="w-2 h-2 rounded-full bg-success" />
-                Caixa Aberto
-              </Badge>
-              <span className="text-sm text-muted-foreground">| Fabricio Gaspar</span>
-              <div className="bg-success text-success-foreground px-3 py-1 rounded-lg">
-                <span className="text-xs">Vendas Hoje</span>
-                <p className="font-bold">R$ 0,00</p>
-              </div>
+              {isLoadingCaixa ? (
+                <Badge variant="outline" className="gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Carregando...
+                </Badge>
+              ) : caixaAberto ? (
+                <>
+                  <Badge variant="outline" className="border-success text-success gap-1">
+                    <span className="w-2 h-2 rounded-full bg-success" />
+                    Caixa Aberto
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">| {caixaAberto.operador}</span>
+                  <div className="bg-success text-success-foreground px-3 py-1 rounded-lg">
+                    <span className="text-xs">Vendas Hoje</span>
+                    <p className="font-bold">{formatCurrency(caixaAberto.valor_vendas)}</p>
+                  </div>
+                </>
+              ) : (
+                <Badge variant="outline" className="border-destructive text-destructive gap-1">
+                  <span className="w-2 h-2 rounded-full bg-destructive" />
+                  Caixa Fechado
+                </Badge>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="gap-1">
-                <History className="w-4 h-4" />
-                Histórico (F5)
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1 text-warning border-warning">
-                <ArrowDownCircle className="w-4 h-4" />
-                Sangria
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1 text-success border-success">
-                <ArrowUpCircle className="w-4 h-4" />
-                Suprimento
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1 text-destructive border-destructive">
-                <Lock className="w-4 h-4" />
-                Fechar Caixa
-              </Button>
+              {caixaAberto ? (
+                <>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <History className="w-4 h-4" />
+                    Histórico (F5)
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1 text-warning border-warning"
+                    onClick={() => setShowSangriaModal(true)}
+                  >
+                    <ArrowDownCircle className="w-4 h-4" />
+                    Sangria
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1 text-success border-success"
+                    onClick={() => setShowSuprimentoModal(true)}
+                  >
+                    <ArrowUpCircle className="w-4 h-4" />
+                    Suprimento
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1 text-destructive border-destructive"
+                    onClick={() => setShowFecharCaixaModal(true)}
+                  >
+                    <Lock className="w-4 h-4" />
+                    Fechar Caixa
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  size="sm" 
+                  className="gap-1"
+                  onClick={() => setShowAbrirCaixaModal(true)}
+                >
+                  <DoorOpen className="w-4 h-4" />
+                  Abrir Caixa
+                </Button>
+              )}
             </div>
           </div>
+
+          {/* Aviso de caixa fechado */}
+          {!isLoadingCaixa && !caixaAberto && (
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-warning" />
+                <div>
+                  <p className="font-medium text-warning">Caixa Fechado</p>
+                  <p className="text-sm text-muted-foreground">Abra o caixa para iniciar as vendas do dia</p>
+                </div>
+              </div>
+              <Button onClick={() => setShowAbrirCaixaModal(true)}>
+                <DoorOpen className="w-4 h-4 mr-2" />
+                Abrir Caixa
+              </Button>
+            </div>
+          )}
 
           {/* Search */}
           <div className="relative mb-4">
@@ -311,7 +539,11 @@ const CaixaPDV = () => {
                     <button
                       key={produto.id}
                       onClick={() => addToCart(produto)}
-                      className="bg-card border rounded-lg p-3 text-left hover:shadow-md hover:border-primary transition-all relative"
+                      disabled={!caixaAberto}
+                      className={cn(
+                        "bg-card border rounded-lg p-3 text-left hover:shadow-md hover:border-primary transition-all relative",
+                        !caixaAberto && "opacity-50 cursor-not-allowed"
+                      )}
                     >
                       {produto.codigo && (
                         <span className="absolute top-2 right-2 text-[10px] font-mono bg-muted px-1 rounded text-muted-foreground">
@@ -541,11 +773,12 @@ const CaixaPDV = () => {
                 onClick={clearCart}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Cancelar
+                Cancelar (F8)
               </Button>
               <Button
                 className="flex-1 bg-primary hover:bg-primary/90"
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || !caixaAberto}
+                onClick={handleOpenPagamento}
               >
                 <CreditCard className="w-4 h-4 mr-2" />
                 Pagamento (F4)
@@ -571,6 +804,64 @@ const CaixaPDV = () => {
           }}
           onSave={saveDetalhes}
         />
+      )}
+
+      {/* Modal de Pagamento */}
+      <PagamentoModal
+        open={showPagamentoModal}
+        onOpenChange={setShowPagamentoModal}
+        cart={cart}
+        cliente={selectedClient ? {
+          id: selectedClient.id,
+          razao_social: selectedClient.razao_social,
+          nome_fantasia: selectedClient.nome_fantasia,
+          cpf_cnpj: selectedClient.cpf_cnpj,
+        } : null}
+        totalOriginal={totalValue}
+        totalItems={totalItems}
+        onConfirm={handleFinalizarVenda}
+        isLoading={isProcessingVenda}
+      />
+
+      {/* Modal de Impressão Pós-Venda */}
+      {osRecemCriada && (
+        <ImpressaoPosVendaModal
+          open={showImpressaoModal}
+          onOpenChange={setShowImpressaoModal}
+          osId={osRecemCriada.id}
+          osNumero={osRecemCriada.numero}
+          clienteNome={selectedClient?.nome_fantasia || selectedClient?.razao_social || "Cliente"}
+          valorTotal={osRecemCriada.valorTotal}
+          totalPecas={totalItems}
+          previsaoEntrega={osRecemCriada.previsaoEntrega}
+          onComplete={handleImpressaoComplete}
+        />
+      )}
+
+      {/* Modais de Caixa */}
+      <AbrirCaixaModal
+        open={showAbrirCaixaModal}
+        onOpenChange={setShowAbrirCaixaModal}
+      />
+
+      {caixaAberto && (
+        <>
+          <FecharCaixaModal
+            open={showFecharCaixaModal}
+            onOpenChange={setShowFecharCaixaModal}
+            caixa={caixaAberto}
+          />
+          <SangriaModal
+            open={showSangriaModal}
+            onOpenChange={setShowSangriaModal}
+            caixaId={caixaAberto.id}
+          />
+          <SuprimentoModal
+            open={showSuprimentoModal}
+            onOpenChange={setShowSuprimentoModal}
+            caixaId={caixaAberto.id}
+          />
+        </>
       )}
     </AppLayout>
   );
