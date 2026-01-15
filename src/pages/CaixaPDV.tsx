@@ -33,6 +33,8 @@ import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
 import { SangriaModal } from "@/components/caixa/SangriaModal";
 import { SuprimentoModal } from "@/components/caixa/SuprimentoModal";
 import { ConsultarOSModal } from "@/components/caixa/ConsultarOSModal";
+import { ReceberPagamentoModal } from "@/components/caixa/ReceberPagamentoModal";
+import { OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { toast } from "sonner";
 
 interface CartItem {
@@ -90,7 +92,8 @@ const CaixaPDV = () => {
   const [showSangriaModal, setShowSangriaModal] = useState(false);
   const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
   const [showConsultarOSModal, setShowConsultarOSModal] = useState(false);
-
+  const [showReceberPagamentoModal, setShowReceberPagamentoModal] = useState(false);
+  const [osParaReceber, setOsParaReceber] = useState<OrdemServicoConsulta | null>(null);
   const { precos: precosEspeciais } = usePrecosEspeciais(selectedClientId);
 
   const selectedClient = useMemo(() => {
@@ -881,6 +884,10 @@ const CaixaPDV = () => {
       <ConsultarOSModal
         open={showConsultarOSModal}
         onOpenChange={setShowConsultarOSModal}
+        onReceberPagamento={(ordem) => {
+          setOsParaReceber(ordem);
+          setShowReceberPagamentoModal(true);
+        }}
         onImprimirROL={(osId) => {
           console.log("Imprimir ROL:", osId);
           toast.info("Função de impressão de ROL em desenvolvimento");
@@ -890,6 +897,22 @@ const CaixaPDV = () => {
           toast.info("Função de impressão de etiquetas em desenvolvimento");
         }}
       />
+
+      {/* Modal Receber Pagamento */}
+      {osParaReceber && (
+        <ReceberPagamentoModal
+          open={showReceberPagamentoModal}
+          onOpenChange={setShowReceberPagamentoModal}
+          osId={osParaReceber.id}
+          osNumero={osParaReceber.numero}
+          clienteNome={osParaReceber.cliente?.nome_fantasia || osParaReceber.cliente?.razao_social || "Cliente"}
+          valorTotal={osParaReceber.valor_total || 0}
+          valorPago={osParaReceber.valor_pago || 0}
+          onSuccess={() => {
+            setOsParaReceber(null);
+          }}
+        />
+      )}
     </AppLayout>
   );
 };

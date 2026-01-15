@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -31,11 +31,17 @@ import {
   AlertTriangle,
   Loader2,
   Zap,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { useConsultaOS, getStatusConfig, OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ConsultarOSModalProps {
   open: boolean;
@@ -43,6 +49,13 @@ interface ConsultarOSModalProps {
   onReceberPagamento?: (ordem: OrdemServicoConsulta) => void;
   onImprimirROL?: (ordemId: string) => void;
   onImprimirEtiquetas?: (ordemId: string) => void;
+}
+
+interface EditingPosition {
+  itemId: string;
+  corredor: string;
+  secao: string;
+  prateleira: string;
 }
 
 export function ConsultarOSModal({
@@ -55,11 +68,15 @@ export function ConsultarOSModal({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [expandedOS, setExpandedOS] = useState<string | null>(null);
+  const [editingPosition, setEditingPosition] = useState<EditingPosition | null>(null);
+  const [isSavingPosition, setIsSavingPosition] = useState(false);
 
   const { data: ordens, isLoading } = useConsultaOS(searchTerm, statusFilter);
+  const queryClient = useQueryClient();
 
   const toggleExpand = (ordemId: string) => {
     setExpandedOS(expandedOS === ordemId ? null : ordemId);
+    setEditingPosition(null);
   };
 
   const formatCurrency = (value: number | null) => {
@@ -78,6 +95,56 @@ export function ConsultarOSModal({
     const total = ordem.valor_total || 0;
     const pago = ordem.valor_pago || 0;
     return total - pago;
+  };
+
+  const startEditingPosition = (itemId: string, currentPosition: string | null) => {
+    if (currentPosition) {
+      const parts = currentPosition.split("-");
+      setEditingPosition({
+        itemId,
+        corredor: parts[0] || "",
+        secao: parts[1] || "",
+        prateleira: parts[2] || "",
+      });
+    } else {
+      setEditingPosition({
+        itemId,
+        corredor: "",
+        secao: "",
+        prateleira: "",
+      });
+    }
+  };
+
+  const cancelEditingPosition = () => {
+    setEditingPosition(null);
+  };
+
+  const savePosition = async () => {
+    if (!editingPosition) return;
+
+    const newPosition = editingPosition.corredor && editingPosition.secao && editingPosition.prateleira
+      ? `${editingPosition.corredor}-${editingPosition.secao}-${editingPosition.prateleira}`
+      : null;
+
+    setIsSavingPosition(true);
+    try {
+      const { error } = await supabase
+        .from("itens_ordem_servico")
+        .update({ posicao_prateleira: newPosition })
+        .eq("id", editingPosition.itemId);
+
+      if (error) throw error;
+
+      toast.success("Posição atualizada com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["consulta-os"] });
+      setEditingPosition(null);
+    } catch (error) {
+      console.error("Erro ao atualizar posição:", error);
+      toast.error("Erro ao atualizar posição. Tente novamente.");
+    } finally {
+      setIsSavingPosition(false);
+    }
   };
 
   return (
@@ -242,50 +309,132 @@ export function ConsultarOSModal({
                             Itens da OS ({ordem.itens.length})
                           </h4>
                           <div className="space-y-2">
-                            {ordem.itens.map((item) => (
-                              <div
-                                key={item.id}
-                                className="flex items-center justify-between p-3 bg-background rounded-lg border"
-                              >
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">
-                                      {item.produto?.nome || "Produto"}
-                                    </span>
-                                    <span className="text-sm text-muted-foreground">
-                                      x{item.quantidade}
-                                    </span>
+                            {ordem.itens.map((item) => {
+                              const isEditing = editingPosition?.itemId === item.id;
+
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between p-3 bg-background rounded-lg border"
+                                >
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">
+                                        {item.produto?.nome || "Produto"}
+                                      </span>
+                                      <span className="text-sm text-muted-foreground">
+                                        x{item.quantidade}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                      {item.cor_item && (
+                                        <span className="text-xs px-2 py-0.5 bg-muted rounded">
+                                          {item.cor_item}
+                                        </span>
+                                      )}
+                                      {item.marca_item && (
+                                        <span className="text-xs px-2 py-0.5 bg-muted rounded">
+                                          {item.marca_item}
+                                        </span>
+                                      )}
+                                      {item.avarias && (
+                                        <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded flex items-center gap-1">
+                                          <AlertTriangle className="w-3 h-3" />
+                                          {item.avarias}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="flex flex-wrap gap-2 mt-1">
-                                    {item.cor_item && (
-                                      <span className="text-xs px-2 py-0.5 bg-muted rounded">
-                                        {item.cor_item}
-                                      </span>
-                                    )}
-                                    {item.marca_item && (
-                                      <span className="text-xs px-2 py-0.5 bg-muted rounded">
-                                        {item.marca_item}
-                                      </span>
-                                    )}
-                                    {item.avarias && (
-                                      <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded flex items-center gap-1">
-                                        <AlertTriangle className="w-3 h-3" />
-                                        {item.avarias}
-                                      </span>
-                                    )}
-                                  </div>
+
+                                  {/* Shelf Position - Editable */}
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        value={editingPosition.corredor}
+                                        onChange={(e) =>
+                                          setEditingPosition({
+                                            ...editingPosition,
+                                            corredor: e.target.value.toUpperCase(),
+                                          })
+                                        }
+                                        className="w-12 h-8 text-center text-sm p-1"
+                                        placeholder="Cor"
+                                        maxLength={3}
+                                      />
+                                      <span className="text-muted-foreground">-</span>
+                                      <Input
+                                        value={editingPosition.secao}
+                                        onChange={(e) =>
+                                          setEditingPosition({
+                                            ...editingPosition,
+                                            secao: e.target.value,
+                                          })
+                                        }
+                                        className="w-12 h-8 text-center text-sm p-1"
+                                        placeholder="Sec"
+                                        maxLength={3}
+                                      />
+                                      <span className="text-muted-foreground">-</span>
+                                      <Input
+                                        value={editingPosition.prateleira}
+                                        onChange={(e) =>
+                                          setEditingPosition({
+                                            ...editingPosition,
+                                            prateleira: e.target.value,
+                                          })
+                                        }
+                                        className="w-12 h-8 text-center text-sm p-1"
+                                        placeholder="Prat"
+                                        maxLength={3}
+                                      />
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8"
+                                        onClick={savePosition}
+                                        disabled={isSavingPosition}
+                                      >
+                                        <Check className="w-4 h-4 text-green-600" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8"
+                                        onClick={cancelEditingPosition}
+                                      >
+                                        <X className="w-4 h-4 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2">
+                                      {item.posicao_prateleira ? (
+                                        <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg border border-primary/20">
+                                          <MapPin className="w-4 h-4 text-primary" />
+                                          <span className="font-mono font-bold text-primary">
+                                            {item.posicao_prateleira}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">
+                                          Sem posição
+                                        </span>
+                                      )}
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          startEditingPosition(item.id, item.posicao_prateleira);
+                                        }}
+                                      >
+                                        <Pencil className="w-4 h-4 text-muted-foreground" />
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
-                                {/* Shelf Position - Highlighted */}
-                                {item.posicao_prateleira && (
-                                  <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg border border-primary/20">
-                                    <MapPin className="w-4 h-4 text-primary" />
-                                    <span className="font-mono font-bold text-primary">
-                                      {item.posicao_prateleira}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
 

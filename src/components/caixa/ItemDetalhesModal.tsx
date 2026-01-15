@@ -16,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Palette, Tag, MapPin, MessageSquare } from "lucide-react";
+import { AlertTriangle, Palette, Tag, MapPin, MessageSquare, Plus, X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
 
 const CORES_PREDEFINIDAS = [
   "Branco",
@@ -34,6 +35,24 @@ const CORES_PREDEFINIDAS = [
   "Estampado",
   "Listrado",
   "Outra",
+];
+
+const MARCAS_PREDEFINIDAS = [
+  "Camesa",
+  "Buddemeyer",
+  "Karsten",
+  "Santista",
+  "Artex",
+  "Dohler",
+  "Trussardi",
+  "MMartan",
+  "Altenburg",
+  "Teka",
+  "Sultan",
+  "Zelo",
+  "Casa Moysés",
+  "Lepper",
+  "Kacyumara",
 ];
 
 interface ItemDetalhes {
@@ -63,7 +82,9 @@ export function ItemDetalhesModal({
 }: ItemDetalhesModalProps) {
   const [corSelecionada, setCorSelecionada] = useState(detalhes.cor_item || "");
   const [corOutra, setCorOutra] = useState("");
-  const [marca, setMarca] = useState(detalhes.marca_item || "");
+  const [marcaSelecionada, setMarcaSelecionada] = useState(detalhes.marca_item || "");
+  const [marcaOutra, setMarcaOutra] = useState("");
+  const [showMarcaInput, setShowMarcaInput] = useState(false);
   const [corredor, setCorredor] = useState("");
   const [secao, setSecao] = useState("");
   const [prateleira, setPrateleira] = useState("");
@@ -91,14 +112,42 @@ export function ItemDetalhesModal({
         setCorOutra("");
       }
       
-      setMarca(detalhes.marca_item || "");
+      // Check if brand is custom
+      if (detalhes.marca_item && !MARCAS_PREDEFINIDAS.includes(detalhes.marca_item)) {
+        setMarcaSelecionada(detalhes.marca_item);
+        setMarcaOutra(detalhes.marca_item);
+        setShowMarcaInput(true);
+      } else {
+        setMarcaSelecionada(detalhes.marca_item || "");
+        setMarcaOutra("");
+        setShowMarcaInput(false);
+      }
+      
       setAvarias(detalhes.avarias || "");
       setObservacoes(detalhes.observacoes || "");
     }
   }, [open, detalhes]);
 
+  const handleMarcaSelect = (marca: string) => {
+    setMarcaSelecionada(marca);
+    setShowMarcaInput(false);
+    setMarcaOutra("");
+  };
+
+  const handleAddCustomMarca = () => {
+    setShowMarcaInput(true);
+    setMarcaSelecionada("");
+  };
+
+  const handleCustomMarcaConfirm = () => {
+    if (marcaOutra.trim()) {
+      setMarcaSelecionada(marcaOutra.trim());
+    }
+  };
+
   const handleSave = () => {
     const cor = corSelecionada === "Outra" ? corOutra : corSelecionada;
+    const marca = showMarcaInput ? marcaOutra.trim() : marcaSelecionada;
     const posicao = corredor && secao && prateleira 
       ? `${corredor}-${secao}-${prateleira}` 
       : undefined;
@@ -113,7 +162,7 @@ export function ItemDetalhesModal({
     onOpenChange(false);
   };
 
-  const hasContent = corSelecionada || marca || avarias || observacoes || (corredor && secao && prateleira);
+  const hasContent = corSelecionada || marcaSelecionada || avarias || observacoes || (corredor && secao && prateleira);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -165,11 +214,54 @@ export function ItemDetalhesModal({
               <Tag className="w-4 h-4" />
               Marca
             </Label>
-            <Input
-              placeholder="Ex: Camesa, Buddemeyer, Karsten..."
-              value={marca}
-              onChange={(e) => setMarca(e.target.value)}
-            />
+            <div className="flex flex-wrap gap-1.5">
+              {MARCAS_PREDEFINIDAS.map((marca) => (
+                <Badge
+                  key={marca}
+                  variant={marcaSelecionada === marca && !showMarcaInput ? "default" : "outline"}
+                  className="cursor-pointer hover:bg-primary/20 transition-colors"
+                  onClick={() => handleMarcaSelect(marca)}
+                >
+                  {marca}
+                </Badge>
+              ))}
+              <Badge
+                variant="outline"
+                className="cursor-pointer hover:bg-primary/20 transition-colors border-dashed"
+                onClick={handleAddCustomMarca}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Outra
+              </Badge>
+            </div>
+            {showMarcaInput && (
+              <div className="flex gap-2 mt-2">
+                <Input
+                  placeholder="Digite a marca..."
+                  value={marcaOutra}
+                  onChange={(e) => setMarcaOutra(e.target.value)}
+                  onBlur={handleCustomMarcaConfirm}
+                  onKeyDown={(e) => e.key === "Enter" && handleCustomMarcaConfirm()}
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowMarcaInput(false);
+                    setMarcaOutra("");
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+            {marcaSelecionada && (
+              <p className="text-sm text-muted-foreground">
+                Selecionada: <span className="font-medium text-foreground">{marcaSelecionada}</span>
+              </p>
+            )}
           </div>
 
           {/* Posição na Prateleira */}
