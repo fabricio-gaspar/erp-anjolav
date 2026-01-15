@@ -6,8 +6,9 @@ import { ProductionBottleneck } from "@/components/dashboard/ProductionBottlenec
 import { OperationalCosts } from "@/components/dashboard/OperationalCosts";
 import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
+import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   FileText, 
   AlertCircle, 
   Users, 
@@ -229,7 +230,7 @@ const Dashboard = () => {
         {/* Painel 2: Financeiro + Produção */}
         <section className="content-panel">
           <SectionHeader icon={Wallet} title="Visão Financeira" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
             <FinanceCard
               title="Contas a Receber"
               subtitle="Em desenvolvimento"
@@ -252,6 +253,7 @@ const Dashboard = () => {
                 dueDate: format(new Date(c.vencimento), "dd/MM", { locale: ptBR }),
               }))}
             />
+            <BillingClosuresCard />
           </div>
 
           <div className="section-divider" />
