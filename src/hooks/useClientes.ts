@@ -45,6 +45,7 @@ export interface ConfiguracaoPagamentoCliente {
   tipo_faturamento: string | null;
   forma_pagamento: string | null;
   dia_vencimento: number | null;
+  dia_fechamento: number | null;
   condicao_pagamento: string | null;
   created_at: string;
   updated_at: string;

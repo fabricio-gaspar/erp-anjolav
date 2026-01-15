@@ -22,6 +22,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
   const [tipoFaturamento, setTipoFaturamento] = useState<TipoFaturamento>("avulso");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null);
   const [diaVencimento, setDiaVencimento] = useState("");
+  const [diaFechamento, setDiaFechamento] = useState("");
   const [condicaoPagamento, setCondicaoPagamento] = useState("mensal_30");
 
   // Carregar dados existentes
@@ -30,6 +31,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       setTipoFaturamento((configuracao.tipo_faturamento as TipoFaturamento) || "avulso");
       setFormaPagamento((configuracao.forma_pagamento as FormaPagamento) || null);
       setDiaVencimento(configuracao.dia_vencimento?.toString() || "");
+      setDiaFechamento(configuracao.dia_fechamento?.toString() || "");
       setCondicaoPagamento(configuracao.condicao_pagamento || "mensal_30");
     }
   }, [configuracao]);
@@ -40,6 +42,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       setTipoFaturamento("avulso");
       setFormaPagamento(null);
       setDiaVencimento("");
+      setDiaFechamento("");
       setCondicaoPagamento("mensal_30");
     }
   }, [clienteId]);
@@ -56,6 +59,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         tipo_faturamento: tipoFaturamento,
         forma_pagamento: formaPagamento,
         dia_vencimento: diaVencimento ? parseInt(diaVencimento) : null,
+        dia_fechamento: diaFechamento ? parseInt(diaFechamento) : null,
         condicao_pagamento: condicaoPagamento,
       },
       {
@@ -154,8 +158,20 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         </div>
       </div>
 
-      {/* Dia de Vencimento + Condição de Pagamento */}
+      {/* Dia de Fechamento + Dia de Vencimento */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">
+            Dia de Fechamento
+          </label>
+          <Input
+            placeholder="Ex: 25"
+            value={diaFechamento}
+            onChange={(e) => setDiaFechamento(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">Dia do mês para gerar o faturamento (1 a 31)</p>
+        </div>
+
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">
             Dia de Vencimento <span className="text-destructive">*</span>
@@ -167,7 +183,10 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
           />
           <p className="text-xs text-muted-foreground">Dia do mês em que a fatura vence (1 a 31)</p>
         </div>
+      </div>
 
+      {/* Condição de Pagamento */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Condição de Pagamento</label>
           <Select value={condicaoPagamento} onValueChange={setCondicaoPagamento}>
@@ -199,6 +218,10 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
             <span className="font-medium">
               {formaPagamento ? formaPagamento.charAt(0).toUpperCase() + formaPagamento.slice(1) : "-"}
             </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Dia de Fechamento:</span>
+            <span className="font-medium">Dia {diaFechamento || "-"}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Dia de Vencimento:</span>

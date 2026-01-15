@@ -529,6 +529,7 @@ export type Database = {
           cliente_id: string
           condicao_pagamento: string | null
           created_at: string
+          dia_fechamento: number | null
           dia_vencimento: number | null
           forma_pagamento: string | null
           id: string
@@ -539,6 +540,7 @@ export type Database = {
           cliente_id: string
           condicao_pagamento?: string | null
           created_at?: string
+          dia_fechamento?: number | null
           dia_vencimento?: number | null
           forma_pagamento?: string | null
           id?: string
@@ -549,6 +551,7 @@ export type Database = {
           cliente_id?: string
           condicao_pagamento?: string | null
           created_at?: string
+          dia_fechamento?: number | null
           dia_vencimento?: number | null
           forma_pagamento?: string | null
           id?: string
