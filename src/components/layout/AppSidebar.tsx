@@ -1,5 +1,6 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard,
   Users,
@@ -197,6 +198,7 @@ const SearchBar = () => {
 const UserSection = () => {
   const { isCollapsed } = useSidebarContext();
   const navigate = useNavigate();
+  const { user, funcionario, signOut } = useAuth();
 
   const handleMeuPerfil = () => {
     navigate("/configuracoes?tab=equipe");
@@ -210,9 +212,16 @@ const UserSection = () => {
     navigate("/configuracoes?tab=sistema");
   };
 
-  const handleSair = () => {
-    toast.info("Funcionalidade de logout será implementada com autenticação");
+  const handleSair = async () => {
+    await signOut();
+    navigate("/login");
   };
+
+  // Display name: use funcionario name, or email from user, or default
+  const displayName = funcionario?.nome || user?.email?.split("@")[0] || "Usuário";
+  const displayRole = funcionario?.cargo || "Operador";
+  const displayEmail = user?.email || "user@anjolav.com";
+  const avatarUrl = funcionario?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face";
 
   const userButton = (
     <button className={cn(
@@ -222,7 +231,7 @@ const UserSection = () => {
       <div className="relative">
         <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
           <img 
-            src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face" 
+            src={avatarUrl} 
             alt="Avatar"
             className="w-full h-full object-cover"
           />
@@ -230,8 +239,8 @@ const UserSection = () => {
       </div>
       {!isCollapsed && (
         <div className="flex-1 min-w-0 text-left">
-          <p className="text-sm font-medium text-white truncate">Culaccino_</p>
-          <p className="text-xs text-white/60 truncate">UX Designer</p>
+          <p className="text-sm font-medium text-white truncate">{displayName}</p>
+          <p className="text-xs text-white/60 truncate">{displayRole}</p>
         </div>
       )}
       {!isCollapsed && (
@@ -258,8 +267,8 @@ const UserSection = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side={isCollapsed ? "right" : "top"} className="w-56">
         <div className="px-2 py-1.5">
-          <p className="text-sm font-medium">Culaccino_</p>
-          <p className="text-xs text-muted-foreground">admin@anjolav.com</p>
+          <p className="text-sm font-medium">{displayName}</p>
+          <p className="text-xs text-muted-foreground">{displayEmail}</p>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleMeuPerfil}>
