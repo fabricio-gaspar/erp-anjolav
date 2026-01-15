@@ -15,11 +15,14 @@ import {
   Minus,
   CreditCard,
   Loader2,
+  FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
+import { ItemDetalhesModal } from "@/components/caixa/ItemDetalhesModal";
 
 interface CartItem {
   id: string;
@@ -28,6 +31,12 @@ interface CartItem {
   unidade: string;
   quantidade: number;
   precoOriginal: number;
+  // Novos campos de detalhes
+  cor_item?: string;
+  marca_item?: string;
+  avarias?: string;
+  posicao_prateleira?: string;
+  observacoes?: string;
 }
 
 const alphabet = ["TODOS", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
@@ -42,6 +51,10 @@ const CaixaPDV = () => {
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showClientList, setShowClientList] = useState(false);
+  
+  // Estado para modal de detalhes
+  const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
+  const [selectedCartItem, setSelectedCartItem] = useState<CartItem | null>(null);
 
   const { precos: precosEspeciais } = usePrecosEspeciais(selectedClientId);
 
@@ -138,6 +151,31 @@ const CaixaPDV = () => {
 
   const clearCart = () => {
     setCart([]);
+  };
+
+  const openDetalhesModal = (item: CartItem) => {
+    setSelectedCartItem(item);
+    setDetalhesModalOpen(true);
+  };
+
+  const saveDetalhes = (detalhes: {
+    cor_item?: string;
+    marca_item?: string;
+    avarias?: string;
+    posicao_prateleira?: string;
+    observacoes?: string;
+  }) => {
+    if (!selectedCartItem) return;
+    setCart(prev => prev.map(item => 
+      item.id === selectedCartItem.id
+        ? { ...item, ...detalhes }
+        : item
+    ));
+    setSelectedCartItem(null);
+  };
+
+  const hasItemDetalhes = (item: CartItem) => {
+    return !!(item.cor_item || item.marca_item || item.avarias || item.posicao_prateleira || item.observacoes);
   };
 
   const selectClient = (clientId: string) => {
@@ -380,50 +418,104 @@ const CaixaPDV = () => {
               </div>
             ) : (
               <div className="space-y-2">
-                {cart.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {item.nome}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        R$ {item.preco.toFixed(2)} × {item.quantidade}
-                      </p>
+                {cart.map((item) => {
+                  const temDetalhes = hasItemDetalhes(item);
+                  const temAvarias = !!item.avarias;
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "p-2 rounded-lg transition-colors",
+                        temAvarias 
+                          ? "bg-warning/10 border border-warning/30" 
+                          : "bg-muted/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1">
+                            <p className="text-sm font-medium text-foreground truncate">
+                              {item.nome}
+                            </p>
+                            {temDetalhes && (
+                              <FileText className="w-3 h-3 text-primary flex-shrink-0" />
+                            )}
+                            {temAvarias && (
+                              <AlertTriangle className="w-3 h-3 text-warning flex-shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            R$ {item.preco.toFixed(2)} × {item.quantidade}
+                          </p>
+                          {/* Resumo de detalhes */}
+                          {temDetalhes && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.cor_item && (
+                                <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded">
+                                  🎨 {item.cor_item}
+                                </span>
+                              )}
+                              {item.posicao_prateleira && (
+                                <span className="text-[10px] bg-muted text-muted-foreground px-1.5 rounded">
+                                  📍 {item.posicao_prateleira}
+                                </span>
+                              )}
+                              {item.marca_item && (
+                                <span className="text-[10px] bg-muted text-muted-foreground px-1.5 rounded">
+                                  🏷️ {item.marca_item}
+                                </span>
+                              )}
+                              {item.avarias && (
+                                <span className="text-[10px] bg-warning/20 text-warning px-1.5 rounded truncate max-w-[100px]">
+                                  ⚠️ {item.avarias}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-primary"
+                            onClick={() => openDetalhesModal(item)}
+                            title="Detalhes do item"
+                          >
+                            <FileText className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => updateQuantity(item.id, -1)}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="w-6 text-center text-sm font-medium">
+                            {item.quantidade}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => updateQuantity(item.id, 1)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => removeFromCart(item.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => updateQuantity(item.id, -1)}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                      <span className="w-6 text-center text-sm font-medium">
-                        {item.quantidade}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => updateQuantity(item.id, 1)}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive"
-                        onClick={() => removeFromCart(item.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -462,6 +554,24 @@ const CaixaPDV = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de Detalhes do Item */}
+      {selectedCartItem && (
+        <ItemDetalhesModal
+          open={detalhesModalOpen}
+          onOpenChange={setDetalhesModalOpen}
+          itemNome={selectedCartItem.nome}
+          quantidade={selectedCartItem.quantidade}
+          detalhes={{
+            cor_item: selectedCartItem.cor_item,
+            marca_item: selectedCartItem.marca_item,
+            avarias: selectedCartItem.avarias,
+            posicao_prateleira: selectedCartItem.posicao_prateleira,
+            observacoes: selectedCartItem.observacoes,
+          }}
+          onSave={saveDetalhes}
+        />
+      )}
     </AppLayout>
   );
 };

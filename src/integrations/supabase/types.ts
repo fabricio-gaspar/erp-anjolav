@@ -1133,30 +1133,42 @@ export type Database = {
       }
       itens_ordem_servico: {
         Row: {
+          avarias: string | null
+          cor_item: string | null
           created_at: string
           id: string
+          marca_item: string | null
           observacoes: string | null
           ordem_servico_id: string
+          posicao_prateleira: string | null
           preco_unitario: number
           produto_id: string
           quantidade: number
           subtotal: number
         }
         Insert: {
+          avarias?: string | null
+          cor_item?: string | null
           created_at?: string
           id?: string
+          marca_item?: string | null
           observacoes?: string | null
           ordem_servico_id: string
+          posicao_prateleira?: string | null
           preco_unitario: number
           produto_id: string
           quantidade?: number
           subtotal: number
         }
         Update: {
+          avarias?: string | null
+          cor_item?: string | null
           created_at?: string
           id?: string
+          marca_item?: string | null
           observacoes?: string | null
           ordem_servico_id?: string
+          posicao_prateleira?: string | null
           preco_unitario?: number
           produto_id?: string
           quantidade?: number

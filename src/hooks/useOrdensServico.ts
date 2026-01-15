@@ -37,6 +37,10 @@ export interface ItemOrdemServico {
   preco_unitario: number;
   subtotal: number;
   observacoes: string | null;
+  cor_item: string | null;
+  marca_item: string | null;
+  avarias: string | null;
+  posicao_prateleira: string | null;
   created_at: string;
   produto?: {
     nome: string;
