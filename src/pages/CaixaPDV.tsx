@@ -578,7 +578,7 @@ const CaixaPDV = () => {
         </div>
 
         {/* Right Panel - Cart */}
-        <div className="w-80 flex flex-col bg-card border rounded-lg overflow-hidden">
+        <div className="w-96 flex flex-col bg-card border rounded-lg overflow-hidden">
           {/* Client Search */}
           <div className="p-4 border-b relative">
             {selectedClient ? (
@@ -765,10 +765,10 @@ const CaixaPDV = () => {
               </span>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3 justify-center">
               <Button
                 variant="outline"
-                className="flex-1 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                className="flex-1 max-w-[45%] text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
                 disabled={cart.length === 0}
                 onClick={clearCart}
               >
@@ -776,7 +776,7 @@ const CaixaPDV = () => {
                 Cancelar (F8)
               </Button>
               <Button
-                className="flex-1 bg-primary hover:bg-primary/90"
+                className="flex-1 max-w-[45%] bg-primary hover:bg-primary/90"
                 disabled={cart.length === 0 || !caixaAberto}
                 onClick={handleOpenPagamento}
               >
