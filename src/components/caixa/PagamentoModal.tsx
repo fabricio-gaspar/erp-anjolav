@@ -11,6 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { 
   Loader2, 
   Banknote, 
@@ -19,7 +25,7 @@ import {
   Clock,
   Zap,
   Percent,
-  Calendar
+  CalendarIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDays, format, isWeekend, nextMonday } from "date-fns";
@@ -94,6 +100,10 @@ export function PagamentoModal({
   const [urgente, setUrgente] = useState(false);
   const [descontoTipo, setDescontoTipo] = useState<"percentual" | "valor">("percentual");
   const [descontoInput, setDescontoInput] = useState("");
+  const [previsaoEntrega, setPrevisaoEntrega] = useState<Date>(() => {
+    const data = addDays(new Date(), DIAS_ENTREGA_PADRAO);
+    return isWeekend(data) ? nextMonday(data) : data;
+  });
 
   // Reset form when modal opens
   useEffect(() => {
@@ -103,20 +113,20 @@ export function PagamentoModal({
       setUrgente(false);
       setDescontoTipo("percentual");
       setDescontoInput("");
+      // Reset delivery date
+      const data = addDays(new Date(), DIAS_ENTREGA_PADRAO);
+      setPrevisaoEntrega(isWeekend(data) ? nextMonday(data) : data);
     }
   }, [open]);
 
-  // Calculate delivery date (skip weekends)
-  const previsaoEntrega = useMemo(() => {
+  // Update delivery date when urgency changes
+  useEffect(() => {
     const diasEntrega = urgente ? 1 : DIAS_ENTREGA_PADRAO;
     let data = addDays(new Date(), diasEntrega);
-    
-    // Skip to Monday if falls on weekend
     if (isWeekend(data)) {
       data = nextMonday(data);
     }
-    
-    return data;
+    setPrevisaoEntrega(data);
   }, [urgente]);
 
   // Calculate values
@@ -211,15 +221,39 @@ export function PagamentoModal({
             <Switch checked={urgente} onCheckedChange={setUrgente} />
           </div>
 
-          {/* Previsão de Entrega */}
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-            <Calendar className="w-5 h-5 text-primary" />
-            <div>
-              <p className="text-sm text-muted-foreground">Previsão de Entrega</p>
-              <p className="font-semibold text-primary">
-                {format(previsaoEntrega, "EEEE, dd 'de' MMMM", { locale: ptBR })}
-              </p>
-            </div>
+          {/* Previsão de Entrega - Editável */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4" />
+              Previsão de Entrega
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-medium",
+                    "border-primary/20 bg-primary/5 hover:bg-primary/10"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                  <span className="text-primary">
+                    {format(previsaoEntrega, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={previsaoEntrega}
+                  onSelect={(date) => date && setPrevisaoEntrega(date)}
+                  disabled={(date) => date < new Date()}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Desconto */}
