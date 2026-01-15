@@ -13,6 +13,7 @@ export interface Funcionario {
   email: string | null;
   login: string;
   ativo: boolean;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +27,7 @@ export interface CreateFuncionarioData {
   email?: string;
   login: string;
   senha: string;
+  avatar_url?: string;
 }
 
 export interface UpdateFuncionarioData {
@@ -38,6 +40,7 @@ export interface UpdateFuncionarioData {
   email?: string;
   login?: string;
   ativo?: boolean;
+  avatar_url?: string;
 }
 
 // Get all employees
@@ -131,6 +134,7 @@ export const useCreateFuncionario = () => {
           cpf: data.cpf || null,
           email: data.email || null,
           login: data.login,
+          avatar_url: data.avatar_url || null,
           ativo: true,
         })
         .select()

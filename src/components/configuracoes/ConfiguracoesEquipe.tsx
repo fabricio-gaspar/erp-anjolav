@@ -40,6 +40,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { FuncionarioAvatarHeader } from "./FuncionarioAvatarHeader";
+import { AvatarUpload } from "@/components/ui/AvatarUpload";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Users, 
   Plus, 
@@ -73,6 +77,17 @@ import { useMotoristas, type Motorista, type MotoristaInsert } from "@/hooks/use
 import { useVeiculos, type Veiculo, type VeiculoInsert } from "@/hooks/useVeiculos";
 import { format, differenceInDays, parseISO, isValid } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+
+// Helper function for initials
+const getInitials = (name: string): string => {
+  if (!name) return "?";
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) {
+    return words[0].substring(0, 2).toUpperCase();
+  }
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+};
 
 // ===== CONSTANTS =====
 const CARGOS = [
@@ -341,6 +356,9 @@ function FuncionariosTab({
     login: "",
     senha: "",
   });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const filteredData = useMemo(() => {
     return funcionarios.filter(f => {
@@ -364,25 +382,60 @@ function FuncionariosTab({
       login: "",
       senha: "",
     });
+    setAvatarFile(null);
+    setAvatarPreview(null);
+  };
+
+  const handleAvatarChange = (file: File | null, previewUrl: string | null) => {
+    setAvatarFile(file);
+    setAvatarPreview(previewUrl);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nome.trim() || !formData.login.trim() || !formData.senha.trim()) return;
 
-    await createFuncionario.mutateAsync({
-      nome: formData.nome,
-      cargo: formData.cargo,
-      departamento: formData.departamento,
-      telefone: formData.telefone || undefined,
-      cpf: formData.cpf || undefined,
-      email: formData.email || undefined,
-      login: formData.login,
-      senha: formData.senha,
-    });
+    try {
+      setIsUploading(true);
+      let avatarUrl: string | undefined = undefined;
 
-    resetForm();
-    setIsFormOpen(false);
+      // Upload avatar if file exists
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const filePath = `funcionarios/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, avatarFile);
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          toast.error('Erro ao fazer upload da foto');
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+          avatarUrl = publicUrl;
+        }
+      }
+
+      await createFuncionario.mutateAsync({
+        nome: formData.nome,
+        cargo: formData.cargo,
+        departamento: formData.departamento,
+        telefone: formData.telefone || undefined,
+        cpf: formData.cpf || undefined,
+        email: formData.email || undefined,
+        login: formData.login,
+        senha: formData.senha,
+        avatar_url: avatarUrl,
+      });
+
+      resetForm();
+      setIsFormOpen(false);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -420,6 +473,15 @@ function FuncionariosTab({
 
           <CollapsibleContent className="pt-4">
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Avatar Header */}
+              <FuncionarioAvatarHeader
+                nome={formData.nome}
+                cargo={formData.cargo}
+                departamento={formData.departamento}
+                avatarUrl={avatarPreview}
+                onAvatarChange={handleAvatarChange}
+              />
+
               {/* Dados Pessoais */}
               <div>
                 <h4 className="text-sm font-semibold text-orange-600 mb-3 flex items-center gap-2">
@@ -541,8 +603,8 @@ function FuncionariosTab({
                 <Button type="button" variant="outline" onClick={() => { resetForm(); setIsFormOpen(false); }}>
                   Cancelar
                 </Button>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 gap-2" disabled={createFuncionario.isPending}>
-                  {createFuncionario.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 gap-2" disabled={createFuncionario.isPending || isUploading}>
+                  {(createFuncionario.isPending || isUploading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   Cadastrar
                 </Button>
               </div>
@@ -592,6 +654,7 @@ function FuncionariosTab({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-20">Status</TableHead>
+                <TableHead className="w-14">Foto</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Cargo / Depto</TableHead>
                 <TableHead>Telefone</TableHead>
@@ -606,6 +669,14 @@ function FuncionariosTab({
                     <Badge variant={func.ativo ? "default" : "secondary"} className={func.ativo ? "bg-emerald-500 hover:bg-emerald-600" : ""}>
                       {func.ativo ? "Ativo" : "Inativo"}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={func.avatar_url || undefined} alt={func.nome} />
+                      <AvatarFallback className="bg-purple-100 text-purple-700 font-semibold">
+                        {getInitials(func.nome)}
+                      </AvatarFallback>
+                    </Avatar>
                   </TableCell>
                   <TableCell className="font-medium">{func.nome}</TableCell>
                   <TableCell className="text-muted-foreground">
@@ -681,20 +752,9 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
     email: "",
     login: "",
   });
-
-  useState(() => {
-    if (funcionario) {
-      setFormData({
-        nome: funcionario.nome,
-        cargo: funcionario.cargo,
-        departamento: funcionario.departamento || "",
-        telefone: funcionario.telefone || "",
-        cpf: funcionario.cpf || "",
-        email: funcionario.email || "",
-        login: funcionario.login,
-      });
-    }
-  });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Update form when funcionario changes
   useMemo(() => {
@@ -708,35 +768,79 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
         email: funcionario.email || "",
         login: funcionario.login,
       });
+      setAvatarUrl(funcionario.avatar_url || null);
+      setAvatarFile(null);
     }
   }, [funcionario]);
+
+  const handleAvatarChange = (file: File | null, previewUrl: string | null) => {
+    setAvatarFile(file);
+    if (previewUrl) {
+      setAvatarUrl(previewUrl);
+    } else if (!file) {
+      setAvatarUrl(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!funcionario) return;
     
-    await onSave.mutateAsync({
-      id: funcionario.id,
-      nome: formData.nome,
-      cargo: formData.cargo,
-      departamento: formData.departamento || undefined,
-      telefone: formData.telefone || undefined,
-      cpf: formData.cpf || undefined,
-      email: formData.email || undefined,
-      login: formData.login,
-    });
-    
-    onClose();
+    try {
+      setIsUploading(true);
+      let finalAvatarUrl: string | undefined = avatarUrl || undefined;
+
+      // Upload new avatar if file exists
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const filePath = `funcionarios/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, avatarFile);
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          toast.error('Erro ao fazer upload da foto');
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+          finalAvatarUrl = publicUrl;
+        }
+      }
+
+      await onSave.mutateAsync({
+        id: funcionario.id,
+        nome: formData.nome,
+        cargo: formData.cargo,
+        departamento: formData.departamento || undefined,
+        telefone: formData.telefone || undefined,
+        cpf: formData.cpf || undefined,
+        email: formData.email || undefined,
+        login: formData.login,
+        avatar_url: finalAvatarUrl,
+      });
+      
+      onClose();
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Editar Funcionário</DialogTitle>
-          <DialogDescription>Atualize os dados do funcionário</DialogDescription>
-        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Avatar Header */}
+          <FuncionarioAvatarHeader
+            nome={formData.nome}
+            cargo={formData.cargo}
+            departamento={formData.departamento}
+            avatarUrl={avatarUrl}
+            onAvatarChange={handleAvatarChange}
+          />
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Nome Completo *</Label>
@@ -779,8 +883,8 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={onSave.isPending}>
-              {onSave.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            <Button type="submit" disabled={onSave.isPending || isUploading}>
+              {(onSave.isPending || isUploading) && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Salvar
             </Button>
           </DialogFooter>
