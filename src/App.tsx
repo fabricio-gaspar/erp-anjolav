@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Clientes from "./pages/Clientes";
 import Produtos from "./pages/Produtos";
@@ -22,6 +24,9 @@ import ContasReceber from "./pages/ContasReceber";
 import ContasPagar from "./pages/ContasPagar";
 import DashboardCobrancas from "./pages/DashboardCobrancas";
 import Configuracoes from "./pages/Configuracoes";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,34 +34,121 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <SidebarProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/clientes" element={<Clientes />} />
-            <Route path="/produtos" element={<Produtos />} />
-            <Route path="/producao" element={<FluxoProducao />} />
-            <Route path="/caixa" element={<CaixaPDV />} />
-            <Route path="/faturamento" element={<Faturamento />} />
-            <Route path="/lancamentos" element={<Lancamentos />} />
-            <Route path="/relatorios/clientes" element={<RelatoriosCliente />} />
-            <Route path="/relatorios/proximidade" element={<RelatorioProximidade />} />
-            {/* Placeholder routes */}
-            <Route path="/ordens" element={<OrdensServico />} />
-            <Route path="/agenda" element={<Agenda />} />
-            <Route path="/financeiro" element={<DashboardFinanceiro />} />
-            <Route path="/receber" element={<ContasReceber />} />
-            <Route path="/pagar" element={<ContasPagar />} />
-            <Route path="/asaas" element={<DashboardCobrancas />} />
-            <Route path="/relatorios/caixa" element={<HistoricoCaixas />} />
-            <Route path="/relatorios/financeiro" element={<RelatorioFinanceiro />} />
-            <Route path="/configuracoes" element={<Configuracoes />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </SidebarProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <SidebarProvider>
+            <Toaster />
+            <Sonner />
+            <Routes>
+              {/* Auth routes - public */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+
+              {/* Protected routes - Dashboard, Configurações, Financeiro */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/configuracoes"
+                element={
+                  <ProtectedRoute>
+                    <Configuracoes />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/financeiro"
+                element={
+                  <ProtectedRoute>
+                    <DashboardFinanceiro />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/caixa"
+                element={
+                  <ProtectedRoute>
+                    <CaixaPDV />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/faturamento"
+                element={
+                  <ProtectedRoute>
+                    <Faturamento />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/lancamentos"
+                element={
+                  <ProtectedRoute>
+                    <Lancamentos />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/receber"
+                element={
+                  <ProtectedRoute>
+                    <ContasReceber />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/pagar"
+                element={
+                  <ProtectedRoute>
+                    <ContasPagar />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/asaas"
+                element={
+                  <ProtectedRoute>
+                    <DashboardCobrancas />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/relatorios/caixa"
+                element={
+                  <ProtectedRoute>
+                    <HistoricoCaixas />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/relatorios/financeiro"
+                element={
+                  <ProtectedRoute>
+                    <RelatorioFinanceiro />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Public routes - operacional */}
+              <Route path="/clientes" element={<Clientes />} />
+              <Route path="/produtos" element={<Produtos />} />
+              <Route path="/producao" element={<FluxoProducao />} />
+              <Route path="/ordens" element={<OrdensServico />} />
+              <Route path="/agenda" element={<Agenda />} />
+              <Route path="/relatorios/clientes" element={<RelatoriosCliente />} />
+              <Route path="/relatorios/proximidade" element={<RelatorioProximidade />} />
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </SidebarProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
