@@ -66,6 +66,14 @@ export function NovaOS({ onSuccess }: NovaOSProps) {
         status: "retirada",
         data_previsao_entrega: null,
         data_entrega: null,
+        valor_total: 0,
+        valor_desconto: 0,
+        forma_pagamento: null,
+        status_pagamento: "pendente",
+        pago_na_entrada: false,
+        valor_pago: 0,
+        urgente: prioridade === "urgente",
+        percentual_urgencia: 0,
       });
 
       // Registrar no histórico de produção
