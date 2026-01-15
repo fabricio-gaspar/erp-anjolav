@@ -17,7 +17,7 @@ export function BillingClosuresCard() {
   const navigate = useNavigate();
 
   const handleClienteClick = (clienteId: string) => {
-    navigate(`/clientes?edit=${clienteId}`);
+    navigate(`/faturamento?cliente=${clienteId}`);
   };
 
   if (isLoading) {

@@ -1,7 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,6 +30,8 @@ import {
   FileText,
   Package,
   Receipt,
+  X,
+  User,
 } from "lucide-react";
 import { useFaturas } from "@/hooks/useFaturas";
 import { useLancamentosPendentes, useLancamentosComItens, type Lancamento } from "@/hooks/useLancamentos";
@@ -36,6 +40,9 @@ import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns
 import { ptBR } from "date-fns/locale";
 
 const Faturamento = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const clienteFiltroId = searchParams.get("cliente");
+  
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedLancamentos, setSelectedLancamentos] = useState<string[]>([]);
   const [faturamentoModalOpen, setFaturamentoModalOpen] = useState(false);
@@ -52,10 +59,36 @@ const Faturamento = () => {
   const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
-  // Group lancamentos by cliente
+  // Filter lancamentos by cliente when URL param is present
+  const lancamentosFiltrados = useMemo(() => {
+    if (!clienteFiltroId) return lancamentos;
+    return lancamentos.filter((l) => l.cliente_id === clienteFiltroId);
+  }, [lancamentos, clienteFiltroId]);
+
+  // Get filtered client info
+  const clienteFiltroInfo = useMemo(() => {
+    if (!clienteFiltroId || lancamentosFiltrados.length === 0) return null;
+    return lancamentosFiltrados[0]?.cliente;
+  }, [clienteFiltroId, lancamentosFiltrados]);
+
+  // Pre-select all lancamentos when filtering by cliente
+  useEffect(() => {
+    if (clienteFiltroId && lancamentosFiltrados.length > 0 && !isLoadingLancamentos) {
+      const ids = lancamentosFiltrados.map((l) => l.id);
+      setSelectedLancamentos(ids);
+    }
+  }, [clienteFiltroId, lancamentosFiltrados, isLoadingLancamentos]);
+
+  // Clear filter handler
+  const handleClearFilter = () => {
+    setSearchParams({});
+    setSelectedLancamentos([]);
+  };
+
+  // Group lancamentos by cliente (use filtered list)
   const lancamentosPorCliente = useMemo(() => {
     const groups: Record<string, Lancamento[]> = {};
-    lancamentos.forEach((l) => {
+    lancamentosFiltrados.forEach((l) => {
       const clienteId = l.cliente_id;
       if (!groups[clienteId]) {
         groups[clienteId] = [];
@@ -63,7 +96,7 @@ const Faturamento = () => {
       groups[clienteId].push(l);
     });
     return groups;
-  }, [lancamentos]);
+  }, [lancamentosFiltrados]);
 
   const handleToggleLancamento = (id: string) => {
     setSelectedLancamentos((prev) =>
@@ -81,24 +114,24 @@ const Faturamento = () => {
   };
 
   const totalSelecionado = useMemo(() => {
-    return lancamentos
+    return lancamentosFiltrados
       .filter((l) => selectedLancamentos.includes(l.id))
       .reduce((sum, l) => sum + Number(l.valor_total), 0);
-  }, [lancamentos, selectedLancamentos]);
+  }, [lancamentosFiltrados, selectedLancamentos]);
 
   const clienteSelecionado = useMemo(() => {
     if (selectedLancamentos.length === 0) return null;
-    const firstLancamento = lancamentos.find((l) => selectedLancamentos.includes(l.id));
+    const firstLancamento = lancamentosFiltrados.find((l) => selectedLancamentos.includes(l.id));
     if (!firstLancamento) return null;
 
     // Check if all selected are from same cliente
-    const allSameCliente = lancamentos
+    const allSameCliente = lancamentosFiltrados
       .filter((l) => selectedLancamentos.includes(l.id))
       .every((l) => l.cliente_id === firstLancamento.cliente_id);
 
     if (!allSameCliente) return null;
     return firstLancamento.cliente;
-  }, [lancamentos, selectedLancamentos]);
+  }, [lancamentosFiltrados, selectedLancamentos]);
 
   const handleGerarFatura = () => {
     if (!clienteSelecionado || selectedLancamentos.length === 0) return;
@@ -192,6 +225,37 @@ const Faturamento = () => {
           {/* Tab: Lançamentos Pendentes */}
           <TabsContent value="lancamentos" className="mt-4">
             <div className="space-y-4">
+              {/* Client Filter Banner */}
+              {clienteFiltroId && (
+                <Card className="p-4 bg-primary/10 border-primary/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                        <User className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Filtrando por cliente</p>
+                        <p className="font-semibold">
+                          {clienteFiltroInfo?.razao_social || "Cliente"}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="ml-2">
+                        {lancamentosFiltrados.length} lançamento(s) pendente(s)
+                      </Badge>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearFilter}
+                      className="gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Limpar filtro
+                    </Button>
+                  </div>
+                </Card>
+              )}
+
               {/* Selection Summary */}
               {selectedLancamentos.length > 0 && (
                 <Card className="p-4 bg-primary/5 border-primary/20">
@@ -235,11 +299,20 @@ const Faturamento = () => {
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
-                ) : lancamentos.length === 0 ? (
+                ) : lancamentosFiltrados.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <Package className="w-12 h-12 mb-4 opacity-50" />
                     <p>Nenhum lançamento pendente</p>
-                    <p className="text-sm">Os lançamentos finalizados aparecem aqui</p>
+                    <p className="text-sm">
+                      {clienteFiltroId 
+                        ? "Este cliente não possui lançamentos pendentes" 
+                        : "Os lançamentos finalizados aparecem aqui"}
+                    </p>
+                    {clienteFiltroId && (
+                      <Button variant="link" onClick={handleClearFilter} className="mt-2">
+                        Ver todos os clientes
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <Table>
