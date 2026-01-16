@@ -60,6 +60,7 @@ interface FaturamentoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   dados: DadosFaturamento | null;
+  faturaExistente?: Fatura | null;
   onComplete?: (fatura: Fatura) => void;
 }
 
@@ -74,6 +75,7 @@ export function FaturamentoModal({
   open,
   onOpenChange,
   dados,
+  faturaExistente,
   onComplete,
 }: FaturamentoModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -133,6 +135,49 @@ export function FaturamentoModal({
   const handlePaymentConfigured = (type: string, data: Record<string, unknown>) => {
     setPaymentData({ type, data });
   };
+
+  // Inicializar com fatura existente quando disponível
+  useEffect(() => {
+    if (open && faturaExistente) {
+      setFaturaId(faturaExistente.id);
+      setNumeroNF(faturaExistente.numero_nf || null);
+      
+      if (faturaExistente.forma_pagamento) {
+        setPaymentData({
+          type: faturaExistente.forma_pagamento,
+          data: {
+            boleto_url: faturaExistente.boleto_url,
+            boleto_linha_digitavel: faturaExistente.boleto_linha_digitavel,
+            pix_qr_code: faturaExistente.pix_qr_code,
+            pix_copia_cola: faturaExistente.pix_copia_cola,
+          },
+        });
+      }
+
+      // Determinar etapa inicial baseado no status
+      if (faturaExistente.data_envio) {
+        // Já foi enviada - vai para etapa 4 (completa)
+        setCurrentStep(4);
+        setStepsCompleted([true, true, true, true]);
+      } else if (faturaExistente.forma_pagamento) {
+        // Pagamento configurado - vai para etapa 4 (envio)
+        setCurrentStep(4);
+        setStepsCompleted([true, true, true, false]);
+      } else if (faturaExistente.numero_nf) {
+        // Nota emitida - vai para etapa 3 (pagamento)
+        setCurrentStep(3);
+        setStepsCompleted([true, true, false, false]);
+      } else if (faturaExistente.relatorio_gerado) {
+        // Relatório gerado - vai para etapa 2 (NF)
+        setCurrentStep(2);
+        setStepsCompleted([true, false, false, false]);
+      } else {
+        // Pendente - começa da etapa 1 mas já tem a fatura
+        setCurrentStep(1);
+        setStepsCompleted([false, false, false, false]);
+      }
+    }
+  }, [open, faturaExistente]);
 
   // Reset estados internos quando o modal fecha
   useEffect(() => {

@@ -17,6 +17,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Filter,
   Calendar,
   TrendingUp,
@@ -32,12 +39,74 @@ import {
   Receipt,
   X,
   User,
+  MoreHorizontal,
+  Check,
+  Ban,
 } from "lucide-react";
-import { useFaturas } from "@/hooks/useFaturas";
+import { useFaturas, type Fatura } from "@/hooks/useFaturas";
 import { useLancamentosPendentes, useLancamentosComItens, type Lancamento } from "@/hooks/useLancamentos";
-import { FaturamentoModal, type DadosFaturamento } from "@/components/faturamento/FaturamentoModal";
+import { FaturamentoModal, type DadosFaturamento, type LancamentoItem } from "@/components/faturamento/FaturamentoModal";
+import { DetalhesFaturaModal } from "@/components/faturamento/DetalhesFaturaModal";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+
+// Helper para mapear status para config visual
+const getStatusConfig = (status: string) => {
+  switch (status) {
+    case "pendente":
+      return { label: "Pendente", variant: "warning" as const };
+    case "relatorio_gerado":
+      return { label: "Relatório Gerado", variant: "info" as const };
+    case "nota_emitida":
+      return { label: "Nota Emitida", variant: "info" as const };
+    case "pagamento_configurado":
+      return { label: "Aguardando Envio", variant: "info" as const };
+    case "enviada":
+    case "enviado":
+      return { label: "Enviada", variant: "default" as const };
+    case "pago":
+      return { label: "Pago", variant: "success" as const };
+    case "cancelado":
+      return { label: "Cancelado", variant: "danger" as const };
+    default:
+      return { label: status, variant: "default" as const };
+  }
+};
+
+// Helper para reconstruir DadosFaturamento de uma fatura existente
+const reconstruirDadosFaturamento = (fatura: Fatura): DadosFaturamento => {
+  const itensSnapshot = (fatura.itens_snapshot as Array<{
+    id: string;
+    produto: string;
+    quantidade: number;
+    unidade: string;
+    valor_unitario: number;
+    valor_total: number;
+  }>) || [];
+
+  const itens: LancamentoItem[] = itensSnapshot.map((item) => ({
+    id: item.id,
+    produto: item.produto,
+    quantidade: item.quantidade,
+    unidade: item.unidade,
+    valorUnitario: item.valor_unitario,
+    valorTotal: item.valor_total,
+  }));
+
+  return {
+    clienteId: fatura.cliente_id,
+    clienteNome: fatura.cliente?.razao_social || "Cliente",
+    clienteDocumento: fatura.cliente?.cpf_cnpj || "",
+    clienteEmail: fatura.cliente?.email || null,
+    clienteTelefone: fatura.cliente?.telefone || null,
+    itens,
+    valorTotal: Number(fatura.valor_total),
+    periodoInicio: fatura.periodo_inicio,
+    periodoFim: fatura.periodo_fim,
+    observacao: fatura.observacao_fatura || undefined,
+  };
+};
 
 const Faturamento = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -48,11 +117,16 @@ const Faturamento = () => {
   const [faturamentoModalOpen, setFaturamentoModalOpen] = useState(false);
   // Estado "congelado" para o wizard - não muda enquanto o modal está aberto
   const [wizardDados, setWizardDados] = useState<DadosFaturamento | null>(null);
+  // Estado para continuar fatura existente
+  const [faturaParaContinuar, setFaturaParaContinuar] = useState<Fatura | null>(null);
+  // Estado para modal de detalhes
+  const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
+  const [faturaDetalhes, setFaturaDetalhes] = useState<Fatura | null>(null);
 
   const periodoInicio = format(startOfMonth(currentDate), "yyyy-MM-dd");
   const periodoFim = format(endOfMonth(currentDate), "yyyy-MM-dd");
 
-  const { faturas, summary, isLoading: isLoadingFaturas } = useFaturas(periodoInicio, periodoFim);
+  const { faturas, summary, isLoading: isLoadingFaturas, updateFatura } = useFaturas(periodoInicio, periodoFim);
   const { lancamentos, isLoading: isLoadingLancamentos } = useLancamentosPendentes();
   const { data: lancamentosComItens, isLoading: isLoadingItens } = useLancamentosComItens(selectedLancamentos);
 
@@ -187,6 +261,7 @@ const Faturamento = () => {
   const handleFaturamentoConcluido = () => {
     setSelectedLancamentos([]);
     setWizardDados(null);
+    setFaturaParaContinuar(null);
     setFaturamentoModalOpen(false);
   };
 
@@ -194,8 +269,39 @@ const Faturamento = () => {
     if (!open) {
       // Limpa o wizard ao fechar
       setWizardDados(null);
+      setFaturaParaContinuar(null);
     }
     setFaturamentoModalOpen(open);
+  };
+
+  // Handler para continuar fatura existente
+  const handleContinuarFatura = (fatura: Fatura) => {
+    const dados = reconstruirDadosFaturamento(fatura);
+    setWizardDados(dados);
+    setFaturaParaContinuar(fatura);
+    setFaturamentoModalOpen(true);
+  };
+
+  // Handler para ver detalhes
+  const handleVerDetalhes = (fatura: Fatura) => {
+    setFaturaDetalhes(fatura);
+    setDetalhesModalOpen(true);
+  };
+
+  // Handler para marcar como pago
+  const handleMarcarPago = (fatura: Fatura) => {
+    updateFatura.mutate({
+      id: fatura.id,
+      status: "pago",
+    });
+  };
+
+  // Handler para cancelar fatura
+  const handleCancelarFatura = (fatura: Fatura) => {
+    updateFatura.mutate({
+      id: fatura.id,
+      status: "cancelado",
+    });
   };
 
   const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
@@ -492,62 +598,120 @@ const Faturamento = () => {
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold">CLIENTE</TableHead>
                         <TableHead className="font-semibold">VALOR</TableHead>
+                        <TableHead className="font-semibold">PROGRESSO</TableHead>
                         <TableHead className="font-semibold">STATUS</TableHead>
                         <TableHead className="font-semibold">Nº NF</TableHead>
                         <TableHead className="font-semibold text-right">AÇÕES</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {faturas.map((fatura) => (
-                        <TableRow key={fatura.id} className="hover:bg-muted/30">
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-foreground">
-                                {fatura.cliente?.razao_social || "Cliente"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {format(new Date(fatura.periodo_inicio), "dd/MM")} - {format(new Date(fatura.periodo_fim), "dd/MM/yyyy")}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-semibold">
-                            {formatCurrency(Number(fatura.valor_total))}
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge
-                              variant={
-                                fatura.status === "pago"
-                                  ? "success"
-                                  : fatura.status === "nota_emitida"
-                                  ? "info"
-                                  : "warning"
-                              }
-                            >
-                              {fatura.status === "pago"
-                                ? "Pago"
-                                : fatura.status === "nota_emitida"
-                                ? "Nota Emitida"
-                                : "Pendente"}
-                            </StatusBadge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground font-mono">
-                            {fatura.numero_nf || "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Eye className="w-4 h-4 text-muted-foreground" />
-                              </Button>
-                              {fatura.status === "pendente" && (
-                                <Button size="sm" className="gap-1 bg-success hover:bg-success/90">
-                                  <Play className="w-3 h-3" />
-                                  Continuar
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {faturas.map((fatura) => {
+                        const statusConfig = getStatusConfig(fatura.status);
+                        const isPaidOrCancelled = fatura.status === "pago" || (fatura.status as string) === "cancelado";
+                        const canContinue = !isPaidOrCancelled && !fatura.data_envio;
+                        
+                        return (
+                          <TableRow key={fatura.id} className="hover:bg-muted/30">
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-foreground">
+                                  {fatura.cliente?.razao_social || "Cliente"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(fatura.periodo_inicio), "dd/MM")} - {format(new Date(fatura.periodo_fim), "dd/MM/yyyy")}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              {formatCurrency(Number(fatura.valor_total))}
+                            </TableCell>
+                            <TableCell>
+                              {/* Indicador de progresso com 4 bolinhas */}
+                              <div className="flex items-center gap-1">
+                                <div 
+                                  className={cn(
+                                    "w-2.5 h-2.5 rounded-full",
+                                    fatura.relatorio_gerado ? "bg-success" : "bg-muted-foreground/30"
+                                  )} 
+                                  title="Relatório"
+                                />
+                                <div 
+                                  className={cn(
+                                    "w-2.5 h-2.5 rounded-full",
+                                    fatura.numero_nf ? "bg-success" : "bg-muted-foreground/30"
+                                  )} 
+                                  title="Nota Fiscal"
+                                />
+                                <div 
+                                  className={cn(
+                                    "w-2.5 h-2.5 rounded-full",
+                                    fatura.forma_pagamento ? "bg-success" : "bg-muted-foreground/30"
+                                  )} 
+                                  title="Pagamento"
+                                />
+                                <div 
+                                  className={cn(
+                                    "w-2.5 h-2.5 rounded-full",
+                                    fatura.data_envio ? "bg-success" : "bg-muted-foreground/30"
+                                  )} 
+                                  title="Envio"
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge variant={statusConfig.variant}>
+                                {statusConfig.label}
+                              </StatusBadge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground font-mono">
+                              {fatura.numero_nf || "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {canContinue && (
+                                  <Button 
+                                    size="sm" 
+                                    className="gap-1 bg-success hover:bg-success/90"
+                                    onClick={() => handleContinuarFatura(fatura)}
+                                  >
+                                    <Play className="w-3 h-3" />
+                                    Continuar
+                                  </Button>
+                                )}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreHorizontal className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleVerDetalhes(fatura)}>
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      Ver Detalhes
+                                    </DropdownMenuItem>
+                                    {!isPaidOrCancelled && (
+                                      <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => handleMarcarPago(fatura)}>
+                                          <Check className="w-4 h-4 mr-2" />
+                                          Marcar como Pago
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem 
+                                          onClick={() => handleCancelarFatura(fatura)}
+                                          className="text-destructive focus:text-destructive"
+                                        >
+                                          <Ban className="w-4 h-4 mr-2" />
+                                          Cancelar Fatura
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 )}
@@ -561,7 +725,15 @@ const Faturamento = () => {
           open={faturamentoModalOpen}
           onOpenChange={handleModalClose}
           dados={wizardDados}
+          faturaExistente={faturaParaContinuar}
           onComplete={handleFaturamentoConcluido}
+        />
+
+        {/* Modal de Detalhes */}
+        <DetalhesFaturaModal
+          open={detalhesModalOpen}
+          onOpenChange={setDetalhesModalOpen}
+          fatura={faturaDetalhes}
         />
       </div>
     </AppLayout>
