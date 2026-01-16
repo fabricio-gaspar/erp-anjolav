@@ -256,15 +256,26 @@ const Dashboard = () => {
             <BillingClosuresCard />
           </div>
 
+        </section>
+
+        {/* Painel 3: Agenda do Dia (Movido para cima) */}
+        <section className="content-panel">
+          <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+            <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
+            <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
+          </div>
+
           <div className="section-divider" />
 
+          <SectionHeader icon={Activity} title="Gargalos de Produção" />
           <ProductionBottleneck
             items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
             recommendation={recommendation}
           />
         </section>
 
-        {/* Painel 3: Operação */}
+        {/* Painel 4: OS em Processamento */}
         <section className="content-panel">
           <SectionHeader icon={FileText} title="OS em Processamento" />
           <ProcessingSummary
@@ -274,14 +285,6 @@ const Dashboard = () => {
                 : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
             }
           />
-
-          <div className="section-divider" />
-
-          <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-            <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
-            <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
-          </div>
         </section>
       </div>
     </AppLayout>
