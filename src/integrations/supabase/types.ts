@@ -1487,6 +1487,89 @@ export type Database = {
           },
         ]
       }
+      paradas_rota: {
+        Row: {
+          agendamento_id: string | null
+          assinatura_url: string | null
+          cliente_id: string | null
+          created_at: string
+          foto_comprovante_url: string | null
+          hora_chegada: string | null
+          hora_saida: string | null
+          id: string
+          motivo_nao_entrega: string | null
+          observacoes: string | null
+          ordem: number
+          ordem_servico_id: string | null
+          rota_id: string
+          status: string
+          tipo: string
+        }
+        Insert: {
+          agendamento_id?: string | null
+          assinatura_url?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          foto_comprovante_url?: string | null
+          hora_chegada?: string | null
+          hora_saida?: string | null
+          id?: string
+          motivo_nao_entrega?: string | null
+          observacoes?: string | null
+          ordem: number
+          ordem_servico_id?: string | null
+          rota_id: string
+          status?: string
+          tipo: string
+        }
+        Update: {
+          agendamento_id?: string | null
+          assinatura_url?: string | null
+          cliente_id?: string | null
+          created_at?: string
+          foto_comprovante_url?: string | null
+          hora_chegada?: string | null
+          hora_saida?: string | null
+          id?: string
+          motivo_nao_entrega?: string | null
+          observacoes?: string | null
+          ordem?: number
+          ordem_servico_id?: string | null
+          rota_id?: string
+          status?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paradas_rota_agendamento_id_fkey"
+            columns: ["agendamento_id"]
+            isOneToOne: false
+            referencedRelation: "agendamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paradas_rota_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paradas_rota_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paradas_rota_rota_id_fkey"
+            columns: ["rota_id"]
+            isOneToOne: false
+            referencedRelation: "rotas_entrega"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       precos_especiais: {
         Row: {
           cliente_id: string
@@ -1693,6 +1776,66 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      rotas_entrega: {
+        Row: {
+          created_at: string
+          data: string
+          hora_retorno: string | null
+          hora_saida: string | null
+          id: string
+          km_final: number | null
+          km_inicial: number | null
+          motorista_id: string | null
+          observacoes: string | null
+          status: string
+          updated_at: string
+          veiculo_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          hora_retorno?: string | null
+          hora_saida?: string | null
+          id?: string
+          km_final?: number | null
+          km_inicial?: number | null
+          motorista_id?: string | null
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          veiculo_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          hora_retorno?: string | null
+          hora_saida?: string | null
+          id?: string
+          km_final?: number | null
+          km_inicial?: number | null
+          motorista_id?: string | null
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          veiculo_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rotas_entrega_motorista_id_fkey"
+            columns: ["motorista_id"]
+            isOneToOne: false
+            referencedRelation: "motoristas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rotas_entrega_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

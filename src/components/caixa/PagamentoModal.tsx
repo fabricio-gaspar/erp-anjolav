@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { addDays, format, isWeekend, nextMonday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { LogisticaSection } from "@/components/delivery/LogisticaSection";
 
 interface CartItem {
   id: string;
@@ -71,6 +72,10 @@ export interface DadosPagamento {
   valorDesconto: number;
   valorTotal: number;
   previsaoEntrega: Date;
+  // Novos campos de logística
+  tipoLogistica: "buscar" | "entregar";
+  motoristaId?: string;
+  veiculoId?: string;
 }
 
 type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO";
@@ -104,6 +109,10 @@ export function PagamentoModal({
     const data = addDays(new Date(), DIAS_ENTREGA_PADRAO);
     return isWeekend(data) ? nextMonday(data) : data;
   });
+  // Estados de logística
+  const [tipoLogistica, setTipoLogistica] = useState<"buscar" | "entregar">("buscar");
+  const [motoristaId, setMotoristaId] = useState("");
+  const [veiculoId, setVeiculoId] = useState("");
 
   // Reset form when modal opens
   useEffect(() => {
@@ -113,6 +122,9 @@ export function PagamentoModal({
       setUrgente(false);
       setDescontoTipo("percentual");
       setDescontoInput("");
+      setTipoLogistica("buscar");
+      setMotoristaId("");
+      setVeiculoId("");
       // Reset delivery date
       const data = addDays(new Date(), DIAS_ENTREGA_PADRAO);
       setPrevisaoEntrega(isWeekend(data) ? nextMonday(data) : data);
@@ -179,6 +191,9 @@ export function PagamentoModal({
       valorDesconto: calculos.valorDesconto,
       valorTotal: calculos.valorTotal,
       previsaoEntrega,
+      tipoLogistica,
+      motoristaId: tipoLogistica === "entregar" ? motoristaId : undefined,
+      veiculoId: tipoLogistica === "entregar" ? veiculoId : undefined,
     });
   };
 
@@ -301,7 +316,20 @@ export function PagamentoModal({
 
           <Separator />
 
-          {/* Momento do Pagamento */}
+          {/* Seção de Logística */}
+          <LogisticaSection
+            clienteId={cliente?.id || null}
+            tipoLogistica={tipoLogistica}
+            onTipoChange={setTipoLogistica}
+            dataEntrega={previsaoEntrega}
+            onDataEntregaChange={setPrevisaoEntrega}
+            motoristaId={motoristaId}
+            onMotoristaChange={setMotoristaId}
+            veiculoId={veiculoId}
+            onVeiculoChange={setVeiculoId}
+          />
+
+          <Separator />
           <div className="space-y-3">
             <Label className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
