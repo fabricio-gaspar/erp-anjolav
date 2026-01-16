@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -23,6 +24,11 @@ import {
   FileText,
   Info,
   Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  FileKey,
+  X,
+  Calendar,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -30,6 +36,7 @@ import {
   useDescricoesServicosFiscais,
   type ConfiguracaoFiscalInsert,
 } from "@/hooks/useConfiguracoesFiscais";
+import { useCertificadoUpload } from "@/hooks/useCertificadoUpload";
 import type { Json } from "@/integrations/supabase/types";
 
 // Interface para formulário (camelCase)
@@ -233,9 +240,79 @@ export function ConfiguracoesFiscal() {
   const [editingConfigId, setEditingConfigId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Upload de certificado
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { uploadCertificado, removerCertificado, isUploading, uploadProgress } = useCertificadoUpload();
 
   const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const nomeArquivo = file.name.toLowerCase();
+      if (!nomeArquivo.endsWith('.pfx') && !nomeArquivo.endsWith('.p12')) {
+        toast({
+          title: "Arquivo inválido",
+          description: "Selecione um arquivo .pfx ou .p12",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedFile(file);
+      handleInputChange("certificadoNome", file.name);
+    }
+  };
+
+  const handleUploadCertificado = async () => {
+    if (!selectedFile || !editingConfigId) {
+      toast({
+        title: "Erro",
+        description: "Selecione um arquivo e esteja editando uma configuração",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.senhaCertificado) {
+      toast({
+        title: "Senha obrigatória",
+        description: "Informe a senha do certificado digital",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await uploadCertificado.mutateAsync({
+        file: selectedFile,
+        senha: formData.senhaCertificado,
+        cnpj: formData.cnpj,
+        configId: editingConfigId,
+      });
+      setSelectedFile(null);
+    } catch (error) {
+      // Erro já tratado pelo hook
+    }
+  };
+
+  const handleRemoverCertificado = async () => {
+    if (!editingConfigId) return;
+    
+    const config = configuracoes.find(c => c.id === editingConfigId);
+    if (!config?.certificado_url) return;
+
+    if (confirm("Tem certeza que deseja remover o certificado digital?")) {
+      await removerCertificado.mutateAsync({
+        configId: editingConfigId,
+        certificadoUrl: config.certificado_url,
+      });
+      handleInputChange("certificadoNome", "");
+      handleInputChange("validadeCertificado", "");
+    }
   };
 
   const handleSaveConfig = async () => {
@@ -636,21 +713,128 @@ export function ConfiguracoesFiscal() {
             </h3>
           </div>
 
-          <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/30 transition-colors mb-4">
-            <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Fazer Upload do Certificado (em breve)</span>
-          </div>
+          {/* Input file oculto */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept=".pfx,.p12"
+            onChange={handleFileSelect}
+          />
+
+          {/* Área de Upload */}
+          {formData.certificadoNome ? (
+            <div className="border-2 border-green-500 bg-green-50 dark:bg-green-950/30 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                    <FileKey className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-green-800 dark:text-green-200">{formData.certificadoNome}</p>
+                    <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+                      <Calendar className="w-3 h-3" />
+                      <span>
+                        Validade: {formData.validadeCertificado 
+                          ? new Date(formData.validadeCertificado).toLocaleDateString("pt-BR") 
+                          : "Não informada"}
+                      </span>
+                      {formData.validadeCertificado && new Date(formData.validadeCertificado) < new Date() && (
+                        <Badge variant="destructive" className="text-xs">Expirado</Badge>
+                      )}
+                      {formData.validadeCertificado && 
+                        new Date(formData.validadeCertificado) > new Date() && 
+                        new Date(formData.validadeCertificado) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-500">
+                          Expira em breve
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
+                    Substituir
+                  </Button>
+                  {editingConfigId && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={handleRemoverCertificado}
+                      disabled={isUploading}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div 
+              className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/30 hover:border-primary transition-colors mb-4"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
+                Clique para selecionar o certificado digital
+              </span>
+              <p className="text-xs text-muted-foreground mt-1">
+                Arquivos aceitos: .pfx ou .p12 (máx. 5MB)
+              </p>
+            </div>
+          )}
+
+          {/* Progress bar durante upload */}
+          {isUploading && (
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Enviando certificado...</span>
+              </div>
+              <Progress value={uploadProgress} className="h-2" />
+            </div>
+          )}
+
+          {/* Arquivo selecionado mas não enviado */}
+          {selectedFile && !formData.certificadoNome && (
+            <div className="border border-primary/50 bg-primary/5 rounded-lg p-3 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileKey className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">{selectedFile.name}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {(selectedFile.size / 1024).toFixed(1)} KB
+                  </Badge>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSelectedFile(null)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
             <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
             <p className="text-xs text-blue-700 dark:text-blue-300">
-              O certificado digital será armazenado de forma segura e criptografado no sistema.
+              O certificado digital será armazenado de forma segura. A senha é necessária apenas durante o upload.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="text-xs text-muted-foreground">Senha do Certificado</Label>
+              <Label className="text-xs text-muted-foreground">
+                Senha do Certificado <span className="text-destructive">*</span>
+              </Label>
               <Input
                 type="password"
                 placeholder="Senha do certificado digital"
@@ -665,9 +849,35 @@ export function ConfiguracoesFiscal() {
                 placeholder="dd/mm/aaaa"
                 value={formData.validadeCertificado}
                 onChange={(e) => handleInputChange("validadeCertificado", e.target.value)}
+                className={formData.validadeCertificado && new Date(formData.validadeCertificado) < new Date() 
+                  ? "border-destructive" 
+                  : ""}
               />
             </div>
           </div>
+
+          {/* Botão de upload */}
+          {selectedFile && editingConfigId && (
+            <div className="mt-4">
+              <Button
+                onClick={handleUploadCertificado}
+                disabled={isUploading || !formData.senhaCertificado}
+                className="gap-2"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Enviar Certificado
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* URLs de WebService */}
