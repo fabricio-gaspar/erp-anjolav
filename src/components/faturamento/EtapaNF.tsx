@@ -27,6 +27,7 @@ import {
   Eye,
   FileText,
   List,
+  MapPin,
 } from "lucide-react";
 import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
@@ -39,6 +40,7 @@ import {
   gerarChaveAcesso,
   validarDadosFiscaisCliente,
 } from "@/lib/faturamentoUtils";
+import { NATUREZAS_OPERACAO, type NaturezaOperacao, validarCpfCnpj } from "@/lib/validacoesFiscais";
 import type { DadosFaturamento } from "./FaturamentoModal";
 
 interface EtapaNFProps {
@@ -59,6 +61,7 @@ export function EtapaNF({
   const [isEmitting, setIsEmitting] = useState(false);
   const [tipoDescricao, setTipoDescricao] = useState<"itens" | "padrao">("itens");
   const [descricaoPadraoSelecionada, setDescricaoPadraoSelecionada] = useState<string>("");
+  const [naturezaOperacao, setNaturezaOperacao] = useState<NaturezaOperacao>("tributacao_municipio");
   
   const { configuracaoAtiva, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
   const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
@@ -81,10 +84,23 @@ export function EtapaNF({
     ).join('\n')}`;
   };
 
-  // Validar dados fiscais do cliente
+  // Validar dados fiscais do cliente com validação aprimorada
   const validacaoCliente = cliente
     ? validarDadosFiscaisCliente(cliente, endereco)
     : { valid: false, erros: ["Cliente não encontrado"] };
+  
+  // Validação adicional do CPF/CNPJ
+  const validacaoDocumento = cliente?.cpf_cnpj 
+    ? validarCpfCnpj(cliente.cpf_cnpj)
+    : { valid: false, tipo: null, erro: "Documento não informado" };
+  
+  if (!validacaoDocumento.valid && validacaoDocumento.erro && !validacaoCliente.erros.includes(validacaoDocumento.erro)) {
+    validacaoCliente.erros.push(validacaoDocumento.erro);
+    validacaoCliente.valid = false;
+  }
+  
+  // Verificar modo de emissão
+  const modoEmissao = (configuracaoAtiva as any)?.modo_emissao || "simulacao";
 
   const handleEmitirNF = async () => {
     if (!faturaId || !configuracaoAtiva || !cliente) return;
@@ -136,6 +152,8 @@ export function EtapaNF({
         snapshot_cliente: snapshotCliente,
         snapshot_emitente: snapshotEmitente,
         descricao_servico: descricaoServico,
+        natureza_operacao: naturezaOperacao,
+        status_sefaz: modoEmissao === "simulacao" ? "nao_enviada" : "processando",
         // Em produção, aqui teria o link_pdf_nf após integração real
       });
 

@@ -381,6 +381,7 @@ export type Database = {
           ativo: boolean
           certificado_url: string | null
           cnpj: string | null
+          codigo_municipio_ibge: string | null
           codigo_servico: string | null
           created_at: string
           csc_dados: Json | null
@@ -388,11 +389,14 @@ export type Database = {
           id: string
           inscricao_estadual: string | null
           inscricao_municipal: string | null
+          modo_emissao: string | null
           nome: string
           razao_social: string | null
           regime_tributario: string | null
+          senha_certificado_encrypted: string | null
           series_numeracao: Json | null
           updated_at: string
+          url_api_nfse: string | null
           urls_webservice: Json | null
           validade_certificado: string | null
         }
@@ -402,6 +406,7 @@ export type Database = {
           ativo?: boolean
           certificado_url?: string | null
           cnpj?: string | null
+          codigo_municipio_ibge?: string | null
           codigo_servico?: string | null
           created_at?: string
           csc_dados?: Json | null
@@ -409,11 +414,14 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           inscricao_municipal?: string | null
+          modo_emissao?: string | null
           nome: string
           razao_social?: string | null
           regime_tributario?: string | null
+          senha_certificado_encrypted?: string | null
           series_numeracao?: Json | null
           updated_at?: string
+          url_api_nfse?: string | null
           urls_webservice?: Json | null
           validade_certificado?: string | null
         }
@@ -423,6 +431,7 @@ export type Database = {
           ativo?: boolean
           certificado_url?: string | null
           cnpj?: string | null
+          codigo_municipio_ibge?: string | null
           codigo_servico?: string | null
           created_at?: string
           csc_dados?: Json | null
@@ -430,11 +439,14 @@ export type Database = {
           id?: string
           inscricao_estadual?: string | null
           inscricao_municipal?: string | null
+          modo_emissao?: string | null
           nome?: string
           razao_social?: string | null
           regime_tributario?: string | null
+          senha_certificado_encrypted?: string | null
           series_numeracao?: Json | null
           updated_at?: string
+          url_api_nfse?: string | null
           urls_webservice?: Json | null
           validade_certificado?: string | null
         }
@@ -791,27 +803,32 @@ export type Database = {
           data_vencimento: string | null
           descricao_servico: string | null
           destinatario_envio: string | null
+          erros_sefaz: Json | null
           forma_pagamento: string | null
           id: string
           imposto_calculado: Json | null
           itens_snapshot: Json | null
           link_pdf_nf: string | null
           mensagem_enviada: string | null
+          natureza_operacao: string | null
           numero_nf: string | null
           observacao_fatura: string | null
           periodo_fim: string
           periodo_inicio: string
           pix_copia_cola: string | null
           pix_qr_code: string | null
+          protocolo_nfse: string | null
           relatorio_data: string | null
           relatorio_gerado: boolean | null
           snapshot_cliente: Json | null
           snapshot_emitente: Json | null
           status: string
+          status_sefaz: string | null
           tipo_relatorio: string | null
           updated_at: string
           valor_total: number
           vencimento_ajustado_por: string | null
+          xml_nfse: string | null
         }
         Insert: {
           asaas_charge_id?: string | null
@@ -827,27 +844,32 @@ export type Database = {
           data_vencimento?: string | null
           descricao_servico?: string | null
           destinatario_envio?: string | null
+          erros_sefaz?: Json | null
           forma_pagamento?: string | null
           id?: string
           imposto_calculado?: Json | null
           itens_snapshot?: Json | null
           link_pdf_nf?: string | null
           mensagem_enviada?: string | null
+          natureza_operacao?: string | null
           numero_nf?: string | null
           observacao_fatura?: string | null
           periodo_fim: string
           periodo_inicio: string
           pix_copia_cola?: string | null
           pix_qr_code?: string | null
+          protocolo_nfse?: string | null
           relatorio_data?: string | null
           relatorio_gerado?: boolean | null
           snapshot_cliente?: Json | null
           snapshot_emitente?: Json | null
           status?: string
+          status_sefaz?: string | null
           tipo_relatorio?: string | null
           updated_at?: string
           valor_total?: number
           vencimento_ajustado_por?: string | null
+          xml_nfse?: string | null
         }
         Update: {
           asaas_charge_id?: string | null
@@ -863,27 +885,32 @@ export type Database = {
           data_vencimento?: string | null
           descricao_servico?: string | null
           destinatario_envio?: string | null
+          erros_sefaz?: Json | null
           forma_pagamento?: string | null
           id?: string
           imposto_calculado?: Json | null
           itens_snapshot?: Json | null
           link_pdf_nf?: string | null
           mensagem_enviada?: string | null
+          natureza_operacao?: string | null
           numero_nf?: string | null
           observacao_fatura?: string | null
           periodo_fim?: string
           periodo_inicio?: string
           pix_copia_cola?: string | null
           pix_qr_code?: string | null
+          protocolo_nfse?: string | null
           relatorio_data?: string | null
           relatorio_gerado?: boolean | null
           snapshot_cliente?: Json | null
           snapshot_emitente?: Json | null
           status?: string
+          status_sefaz?: string | null
           tipo_relatorio?: string | null
           updated_at?: string
           valor_total?: number
           vencimento_ajustado_por?: string | null
+          xml_nfse?: string | null
         }
         Relationships: [
           {
