@@ -100,10 +100,18 @@ const CaixaPDV = () => {
     return clientes.find(c => c.id === selectedClientId);
   }, [clientes, selectedClientId]);
 
-  // Filter only active products
+  // Filter only active products with ID2 (Residencial) or ambos
   const produtosAtivos = useMemo(() => {
-    return produtos.filter(p => p.status === "ativo");
+    return produtos.filter(p => 
+      p.status === "ativo" && 
+      (p.unidade_negocio === "ID2" || p.unidade_negocio === "ambos" || !p.unidade_negocio)
+    );
   }, [produtos]);
+
+  // Filter only residential clients for PDV
+  const clientesFiltradosPorTipo = useMemo(() => {
+    return clientes.filter(c => c.classificacao === "residencial");
+  }, [clientes]);
 
   // Get price for product (special price or default)
   const getPrecoForProduto = (produto: Produto): number => {
@@ -129,15 +137,15 @@ const CaixaPDV = () => {
   }, [produtosAtivos, searchTerm, selectedLetter]);
 
   const filteredClientes = useMemo(() => {
-    if (!clientSearch) return clientes.slice(0, 10);
+    if (!clientSearch) return clientesFiltradosPorTipo.slice(0, 10);
     const term = clientSearch.toLowerCase();
-    return clientes.filter(c => 
+    return clientesFiltradosPorTipo.filter(c => 
       c.razao_social.toLowerCase().includes(term) ||
       c.nome_fantasia?.toLowerCase().includes(term) ||
       c.cpf_cnpj?.includes(term) ||
       c.telefone?.includes(term)
     ).slice(0, 10);
-  }, [clientes, clientSearch]);
+  }, [clientesFiltradosPorTipo, clientSearch]);
 
   const getUnidadeLabel = (unidade: string | null) => {
     switch (unidade) {

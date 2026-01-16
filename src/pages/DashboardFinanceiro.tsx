@@ -1,50 +1,56 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, AlertCircle, Clock, Calendar } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-interface MovimentacaoVencida {
-  id: string;
-  tipo: "fatura" | "despesa";
-  descricao: string;
-  cliente: string;
-  dataVencimento: string;
-  valor: number;
-}
-
-const mockMovimentacoes: MovimentacaoVencida[] = [
-  {
-    id: "1",
-    tipo: "fatura",
-    descricao: "Fatura NFS-e 1-202500000001488 - FABRICIO GASPAR",
-    cliente: "FABRICIO GASPAR",
-    dataVencimento: "03/01/2026",
-    valor: 5.0,
-  },
-];
+import { TrendingUp, TrendingDown, AlertCircle, Clock, Calendar, Loader2 } from "lucide-react";
+import { useDashboardFinanceiro } from "@/hooks/useDashboardFinanceiro";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const DashboardFinanceiro = () => {
-  // Mock data
-  const saldoAtual = 0;
-  const receitasTotais = 0;
-  const despesasTotais = 0;
-  const margemLucro = 0;
-
-  const aReceberHoje = 5.0;
-  const aReceberProximos7Dias = 0;
-  const aPagarHoje = 0;
-  const aPagarProximos7Dias = 0;
-
-  const vencidas = 5.0;
-  const vencidasCount = 1;
-  const vencemHoje = 0;
-  const vencemHojeCount = 0;
-  const proximos7Dias = 0;
-  const proximos7DiasCount = 0;
+  const {
+    saldoAtual,
+    receitasTotais,
+    receitasCount,
+    despesasTotais,
+    despesasCount,
+    margemLucro,
+    aReceberVencido,
+    aReceberHoje,
+    aReceberProximos7Dias,
+    aPagarVencido,
+    aPagarHoje,
+    aPagarProximos7Dias,
+    vencidasTotal,
+    vencidasCount,
+    vencemHoje,
+    vencemHojeCount,
+    proximos7Dias,
+    proximos7DiasCount,
+    movimentacoesVencidas,
+    isLoading,
+  } = useDashboardFinanceiro();
 
   const formatCurrency = (value: number) => {
     return `R$ ${value.toFixed(2).replace(".", ",")}`;
   };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return format(parseISO(dateStr), "dd/MM/yyyy", { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <AppLayout title="Dashboard Financeiro" subtitle="Visão geral de finanças e fluxo de caixa">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-2 text-muted-foreground">Carregando dados financeiros...</span>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout title="Dashboard Financeiro" subtitle="Visão geral de finanças e fluxo de caixa">
@@ -70,7 +76,7 @@ const DashboardFinanceiro = () => {
             <p className="text-2xl font-bold text-success mt-1">
               {formatCurrency(receitasTotais)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Apenas Pagas (0)</p>
+            <p className="text-xs text-muted-foreground mt-1">Apenas Pagas ({receitasCount})</p>
           </Card>
 
           {/* Despesas Totais */}
@@ -81,7 +87,7 @@ const DashboardFinanceiro = () => {
             <p className="text-2xl font-bold text-destructive mt-1">
               {formatCurrency(despesasTotais)}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Apenas Pagas (0)</p>
+            <p className="text-xs text-muted-foreground mt-1">Apenas Pagas ({despesasCount})</p>
           </Card>
 
           {/* Margem de Lucro */}
@@ -108,7 +114,7 @@ const DashboardFinanceiro = () => {
                 <div>
                   <p className="text-xs text-muted-foreground">Vencidos / Hoje</p>
                   <p className="text-3xl font-bold text-foreground mt-1">
-                    {formatCurrency(aReceberHoje)}
+                    {formatCurrency(aReceberVencido + aReceberHoje)}
                   </p>
                 </div>
                 <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
@@ -136,7 +142,7 @@ const DashboardFinanceiro = () => {
                 <div>
                   <p className="text-xs text-muted-foreground">Vencidos / Hoje</p>
                   <p className="text-3xl font-bold text-foreground mt-1">
-                    {formatCurrency(aPagarHoje)}
+                    {formatCurrency(aPagarVencido + aPagarHoje)}
                   </p>
                 </div>
                 <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
@@ -155,15 +161,15 @@ const DashboardFinanceiro = () => {
 
         {/* Alert Banner */}
         {vencidasCount > 0 && (
-          <Card className="bg-amber-50 border-amber-200 p-4">
+          <Card className="bg-amber-50 border-amber-200 p-4 dark:bg-amber-900/20 dark:border-amber-700">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-amber-800">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
                   ⚠ Atenção: {vencidasCount} movimentações vencidas!
                 </p>
-                <p className="text-sm text-amber-700 mt-1">
-                  Total vencido: <span className="font-semibold">{formatCurrency(vencidas)}</span>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                  Total vencido: <span className="font-semibold">{formatCurrency(vencidasTotal)}</span>
                 </p>
               </div>
             </div>
@@ -178,7 +184,7 @@ const DashboardFinanceiro = () => {
               <AlertCircle className="w-4 h-4 text-destructive" />
               <span className="text-sm font-medium text-muted-foreground">Vencidas</span>
             </div>
-            <p className="text-2xl font-bold text-destructive">{formatCurrency(vencidas)}</p>
+            <p className="text-2xl font-bold text-destructive">{formatCurrency(vencidasTotal)}</p>
             <p className="text-xs text-muted-foreground mt-1">{vencidasCount} lançamentos</p>
           </Card>
 
@@ -204,7 +210,7 @@ const DashboardFinanceiro = () => {
         </div>
 
         {/* Movimentações Vencidas */}
-        {mockMovimentacoes.length > 0 && (
+        {movimentacoesVencidas.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-destructive" />
@@ -212,21 +218,29 @@ const DashboardFinanceiro = () => {
             </div>
 
             <div className="space-y-2">
-              {mockMovimentacoes.map((mov) => (
+              {movimentacoesVencidas.map((mov) => (
                 <Card key={mov.id} className="p-4 hover:bg-muted/30 transition-colors">
                   <div className="flex items-center justify-between">
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center mt-0.5">
-                        <TrendingUp className="w-4 h-4 text-success" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center mt-0.5 ${
+                        mov.tipo === "fatura" ? "bg-success/10" : "bg-destructive/10"
+                      }`}>
+                        {mov.tipo === "fatura" ? (
+                          <TrendingUp className="w-4 h-4 text-success" />
+                        ) : (
+                          <TrendingDown className="w-4 h-4 text-destructive" />
+                        )}
                       </div>
                       <div>
                         <p className="font-medium text-foreground">{mov.descricao}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {mov.cliente} • {mov.dataVencimento}
+                          {mov.cliente} • {formatDate(mov.dataVencimento)}
                         </p>
                       </div>
                     </div>
-                    <span className="text-lg font-bold text-destructive">
+                    <span className={`text-lg font-bold ${
+                      mov.tipo === "fatura" ? "text-success" : "text-destructive"
+                    }`}>
                       {formatCurrency(mov.valor)}
                     </span>
                   </div>
