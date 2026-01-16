@@ -59,10 +59,14 @@ const Faturamento = () => {
   const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
 
-  // Filter lancamentos by cliente when URL param is present
+  // Filter lancamentos by cliente when URL param is present AND only show industrial clients
   const lancamentosFiltrados = useMemo(() => {
-    if (!clienteFiltroId) return lancamentos;
-    return lancamentos.filter((l) => l.cliente_id === clienteFiltroId);
+    // First filter to only industrial clients
+    const industrialOnly = lancamentos.filter(l => l.cliente?.classificacao === "industrial");
+    
+    // Then apply URL filter if present
+    if (!clienteFiltroId) return industrialOnly;
+    return industrialOnly.filter((l) => l.cliente_id === clienteFiltroId);
   }, [lancamentos, clienteFiltroId]);
 
   // Get filtered client info
