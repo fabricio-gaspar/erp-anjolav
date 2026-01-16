@@ -28,6 +28,12 @@ export interface Fatura {
   snapshot_emitente: Json | null;
   descricao_servico: string | null;
   imposto_calculado: Json | null;
+  // Campos NFS-e real
+  protocolo_nfse: string | null;
+  xml_nfse: string | null;
+  status_sefaz: string | null;
+  erros_sefaz: Json | null;
+  natureza_operacao: string | null;
   // Etapa 3 - Pagamento
   forma_pagamento: string | null;
   data_vencimento: string | null;
@@ -73,6 +79,12 @@ export interface FaturaInsert {
   snapshot_emitente?: Json | null;
   descricao_servico?: string | null;
   imposto_calculado?: Json | null;
+  // Campos NFS-e real
+  protocolo_nfse?: string | null;
+  xml_nfse?: string | null;
+  status_sefaz?: string | null;
+  erros_sefaz?: Json | null;
+  natureza_operacao?: string | null;
   // Etapa 3
   forma_pagamento?: string | null;
   data_vencimento?: string | null;
@@ -108,6 +120,12 @@ export interface FaturaUpdate {
   snapshot_emitente?: Json | null;
   descricao_servico?: string | null;
   imposto_calculado?: Json | null;
+  // Campos NFS-e real
+  protocolo_nfse?: string | null;
+  xml_nfse?: string | null;
+  status_sefaz?: string | null;
+  erros_sefaz?: Json | null;
+  natureza_operacao?: string | null;
   // Etapa 3
   forma_pagamento?: string | null;
   data_vencimento?: string | null;
