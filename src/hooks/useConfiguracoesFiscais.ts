@@ -22,6 +22,11 @@ export interface ConfiguracaoFiscal {
   series_numeracao: Json;
   csc_dados: Json;
   regime_tributario: string | null;
+  // Novos campos para integração NFS-e
+  codigo_municipio_ibge: string | null;
+  url_api_nfse: string | null;
+  senha_certificado_encrypted: string | null;
+  modo_emissao: "simulacao" | "homologacao" | "producao" | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,7 +38,12 @@ export interface DescricaoServicoFiscal {
   created_at: string;
 }
 
-export type ConfiguracaoFiscalInsert = Omit<ConfiguracaoFiscal, "id" | "created_at" | "updated_at">;
+export type ConfiguracaoFiscalInsert = Omit<ConfiguracaoFiscal, "id" | "created_at" | "updated_at"> & {
+  codigo_municipio_ibge?: string | null;
+  url_api_nfse?: string | null;
+  senha_certificado_encrypted?: string | null;
+  modo_emissao?: "simulacao" | "homologacao" | "producao" | null;
+};
 export type ConfiguracaoFiscalUpdate = Partial<ConfiguracaoFiscalInsert>;
 
 export function useConfiguracoesFiscais() {

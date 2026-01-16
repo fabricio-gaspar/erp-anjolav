@@ -62,6 +62,10 @@ interface FormData {
   idCsc: string;
   tokenCsc: string;
   regimeTributario: string;
+  // Novos campos para integração NFS-e
+  codigoMunicipioIbge: string;
+  urlApiNfse: string;
+  modoEmissao: "simulacao" | "homologacao" | "producao";
 }
 
 const defaultFormData: FormData = {
@@ -93,6 +97,10 @@ const defaultFormData: FormData = {
   idCsc: "1",
   tokenCsc: "",
   regimeTributario: "simples-nacional",
+  // Novos campos
+  codigoMunicipioIbge: "",
+  urlApiNfse: "",
+  modoEmissao: "simulacao",
 };
 
 // Converte dados do banco para formulário
@@ -114,6 +122,9 @@ function databaseToForm(config: {
   series_numeracao: Json;
   csc_dados: Json;
   regime_tributario: string | null;
+  codigo_municipio_ibge?: string | null;
+  url_api_nfse?: string | null;
+  modo_emissao?: string | null;
 }): FormData {
   const endereco = (config.endereco || {}) as Record<string, string>;
   const urls = (config.urls_webservice || {}) as Record<string, string>;
@@ -149,6 +160,10 @@ function databaseToForm(config: {
     idCsc: csc.id_csc || "1",
     tokenCsc: csc.token_csc || "",
     regimeTributario: config.regime_tributario || "simples-nacional",
+    // Novos campos
+    codigoMunicipioIbge: config.codigo_municipio_ibge || "",
+    urlApiNfse: config.url_api_nfse || "",
+    modoEmissao: (config.modo_emissao as "simulacao" | "homologacao" | "producao") || "simulacao",
   };
 }
 
@@ -190,6 +205,11 @@ function formToDatabase(form: FormData): ConfiguracaoFiscalInsert {
       token_csc: form.tokenCsc,
     },
     regime_tributario: form.regimeTributario || null,
+    // Novos campos para integração NFS-e
+    codigo_municipio_ibge: form.codigoMunicipioIbge || null,
+    url_api_nfse: form.urlApiNfse || null,
+    senha_certificado_encrypted: null, // Será setado pelo upload do certificado
+    modo_emissao: form.modoEmissao,
   };
 }
 
@@ -498,7 +518,7 @@ export function ConfiguracoesFiscal() {
         {/* Configurações de NFS-e */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-foreground mb-4">Configurações de NFS-e</h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
               <Label className="text-xs text-muted-foreground">Alíquota ISS (%)</Label>
               <Input
@@ -529,6 +549,68 @@ export function ConfiguracoesFiscal() {
                   <SelectItem value="producao">Produção</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+          
+          {/* Novos campos para integração NFS-e */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div>
+              <Label className="text-xs text-muted-foreground">Código IBGE do Município</Label>
+              <Input
+                placeholder="Ex: 3550605 (São Roque)"
+                value={formData.codigoMunicipioIbge}
+                onChange={(e) => handleInputChange("codigoMunicipioIbge", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                7 dígitos - Código do município no IBGE
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">URL Base API NFS-e</Label>
+              <Input
+                placeholder="https://saoroque.govbr.cloud/NFSe.Api/NotaNacional"
+                value={formData.urlApiNfse}
+                onChange={(e) => handleInputChange("urlApiNfse", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                URL da API da prefeitura para emissão
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Modo de Emissão</Label>
+              <Select
+                value={formData.modoEmissao}
+                onValueChange={(value) => handleInputChange("modoEmissao", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o modo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="simulacao">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+                      Simulação (Prévia)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="homologacao">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Homologação (Testes)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="producao">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                      Produção (Real)
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {formData.modoEmissao === "simulacao" && "Apenas gera prévia, sem envio"}
+                {formData.modoEmissao === "homologacao" && "Testa envio para prefeitura"}
+                {formData.modoEmissao === "producao" && "Emite notas fiscais reais"}
+              </p>
             </div>
           </div>
         </div>
