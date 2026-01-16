@@ -19,6 +19,7 @@ export interface Lancamento {
     cpf_cnpj: string | null;
     email: string | null;
     telefone: string | null;
+    classificacao: string;
   };
   itens?: ItemLancamento[];
 }
@@ -62,7 +63,7 @@ export function useLancamentos(status?: string) {
         .from("lancamentos")
         .select(`
           *,
-          cliente:clientes(id, razao_social, nome_fantasia, cpf_cnpj, email, telefone)
+          cliente:clientes(id, razao_social, nome_fantasia, cpf_cnpj, email, telefone, classificacao)
         `)
         .order("created_at", { ascending: false });
 
@@ -168,7 +169,7 @@ export function useLancamentosComItens(lancamentoIds: string[]) {
         .from("lancamentos")
         .select(`
           *,
-          cliente:clientes(id, razao_social, nome_fantasia, cpf_cnpj, email, telefone),
+          cliente:clientes(id, razao_social, nome_fantasia, cpf_cnpj, email, telefone, classificacao),
           itens:itens_lancamento(*)
         `)
         .in("id", lancamentoIds);
