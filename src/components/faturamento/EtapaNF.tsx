@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -28,8 +29,10 @@ import {
   FileText,
   List,
   MapPin,
+  Gavel,
 } from "lucide-react";
 import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
+import { NFSePreviewNacional } from "./NFSePreviewNacional";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
 import { useClienteById, useEnderecoCliente } from "@/hooks/useClientes";
 import { useFaturas } from "@/hooks/useFaturas";
@@ -338,28 +341,44 @@ export function EtapaNF({
             </Badge>
           </div>
 
-          {/* Botões de Prévia PDF */}
-          <div className="flex gap-2 mb-4">
-            <Button 
-              variant="outline" 
-              onClick={handlePreviewPdf}
-              className="gap-2"
-              disabled={!cliente}
+          {/* Seletor de Natureza de Operação */}
+          <Card className="p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Gavel className="w-4 h-4 text-muted-foreground" />
+              <h4 className="font-medium text-sm">NATUREZA DA OPERAÇÃO</h4>
+            </div>
+            <Select 
+              value={naturezaOperacao} 
+              onValueChange={(value) => setNaturezaOperacao(value as any)}
             >
-              <Eye className="w-4 h-4" />
-              Visualizar Prévia
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={handlePrintPreview}
-              className="gap-2"
-              disabled={!cliente}
-            >
-              <FileDown className="w-4 h-4" />
-              Imprimir Prévia
-            </Button>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6">
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a natureza da operação" />
+              </SelectTrigger>
+              <SelectContent>
+                {NATUREZAS_OPERACAO.map((nat) => (
+                  <SelectItem key={nat.value} value={nat.value}>
+                    {nat.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Card>
+
+          {/* Tabs: Dados e Prévia */}
+          <Tabs defaultValue="dados" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="dados" className="gap-2">
+                <FileText className="w-4 h-4" />
+                Dados da Nota
+              </TabsTrigger>
+              <TabsTrigger value="previa" className="gap-2">
+                <Eye className="w-4 h-4" />
+                Prévia Visual
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dados" className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
             {/* Emitente */}
             <Card className="p-4">
               <div className="flex items-center gap-2 mb-3">
@@ -483,48 +502,96 @@ export function EtapaNF({
             </RadioGroup>
           </Card>
 
-          {/* Serviços */}
-          <Card className="p-4">
-            <h4 className="font-medium text-sm mb-3">DESCRIÇÃO DOS SERVIÇOS</h4>
-            
-            {tipoDescricao === "padrao" && descricaoPadraoSelecionada ? (
-              <div className="p-3 rounded-lg bg-muted/50 border">
-                <p className="text-sm font-medium">{descricaoPadraoSelecionada}</p>
-              </div>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Serviços de lavanderia industrial conforme itens abaixo:
-                </p>
-                <div className="space-y-2">
-                  {dados.itens.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className="flex justify-between text-sm py-1 border-b last:border-0"
-                    >
-                      <span>
-                        {index + 1}. {item.produto} - {item.quantidade} {item.unidade}
-                      </span>
-                      <span className="font-medium">{formatCurrency(item.valorTotal)}</span>
+              {/* Serviços */}
+              <Card className="p-4">
+                <h4 className="font-medium text-sm mb-3">DESCRIÇÃO DOS SERVIÇOS</h4>
+                
+                {tipoDescricao === "padrao" && descricaoPadraoSelecionada ? (
+                  <div className="p-3 rounded-lg bg-muted/50 border">
+                    <p className="text-sm font-medium">{descricaoPadraoSelecionada}</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Serviços de lavanderia industrial conforme itens abaixo:
+                    </p>
+                    <div className="space-y-2">
+                      {dados.itens.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className="flex justify-between text-sm py-1 border-b last:border-0"
+                        >
+                          <span>
+                            {index + 1}. {item.produto} - {item.quantidade} {item.unidade}
+                          </span>
+                          <span className="font-medium">{formatCurrency(item.valorTotal)}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </>
+                )}
+
+                <Separator className="my-4" />
+
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-muted-foreground">
+                    <p>Código do Serviço: {configuracaoAtiva.codigo_servico || "7.04"}</p>
+                    <p>Alíquota ISS: {configuracaoAtiva.aliquota_iss || 5}%</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm text-muted-foreground">Valor Total</span>
+                    <p className="text-xl font-bold">{formatCurrency(dados.valorTotal)}</p>
+                  </div>
                 </div>
-              </>
-            )}
+              </Card>
+            </TabsContent>
 
-            <Separator className="my-4" />
-
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">
-                <p>Código do Serviço: {configuracaoAtiva.codigo_servico || "7.04"}</p>
-                <p>Alíquota ISS: {configuracaoAtiva.aliquota_iss || 5}%</p>
-              </div>
-              <div className="text-right">
-                <span className="text-sm text-muted-foreground">Valor Total</span>
-                <p className="text-xl font-bold">{formatCurrency(dados.valorTotal)}</p>
-              </div>
-            </div>
-          </Card>
+            <TabsContent value="previa">
+              {cliente && (
+                <NFSePreviewNacional
+                  emitente={{
+                    razao_social: configuracaoAtiva.razao_social,
+                    cnpj: configuracaoAtiva.cnpj,
+                    inscricao_municipal: configuracaoAtiva.inscricao_municipal,
+                    inscricao_estadual: configuracaoAtiva.inscricao_estadual,
+                    endereco: enderecoConfig ? {
+                      logradouro: enderecoConfig.logradouro,
+                      numero: enderecoConfig.numero,
+                      bairro: enderecoConfig.bairro,
+                      cidade: enderecoConfig.cidade,
+                      uf: enderecoConfig.uf,
+                      cep: enderecoConfig.cep,
+                    } : null,
+                    codigo_servico: configuracaoAtiva.codigo_servico,
+                    aliquota_iss: configuracaoAtiva.aliquota_iss,
+                    codigo_municipio_ibge: (configuracaoAtiva as any).codigo_municipio_ibge,
+                  }}
+                  tomador={{
+                    razao_social: cliente.razao_social,
+                    cpf_cnpj: cliente.cpf_cnpj,
+                    tipo_pessoa: cliente.tipo_pessoa,
+                    inscricao_municipal: cliente.inscricao_municipal,
+                    inscricao_estadual: cliente.inscricao_estadual,
+                    email: cliente.email,
+                    telefone: cliente.telefone,
+                    endereco: endereco ? {
+                      logradouro: endereco.logradouro,
+                      numero: endereco.numero,
+                      bairro: endereco.bairro,
+                      cidade: endereco.cidade,
+                      uf: endereco.uf,
+                      cep: endereco.cep,
+                    } : null,
+                  }}
+                  dados={dados}
+                  ambiente={modoEmissao as "producao" | "homologacao" | "simulacao"}
+                  naturezaOperacao={naturezaOperacao}
+                  descricaoServico={gerarDescricaoServico()}
+                  onPrint={handlePrintPreview}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
         </>
       )}
 
