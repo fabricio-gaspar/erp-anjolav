@@ -46,6 +46,7 @@ const columns: KanbanColumn[] = [
   { id: "passadoria", title: "PASSADORIA", icon: Wind, iconColor: "text-purple-500", nextStatus: "embalagem" },
   { id: "embalagem", title: "EMBALAGEM", icon: Package, iconColor: "text-success", nextStatus: "expedicao" },
   { id: "expedicao", title: "PRONTO ENTREGA", icon: CheckCircle, iconColor: "text-success", nextStatus: "entregue" },
+  { id: "entregue", title: "ENTREGUE", icon: CheckCircle, iconColor: "text-emerald-600" },
 ];
 
 const FluxoProducao = () => {
@@ -66,7 +67,16 @@ const FluxoProducao = () => {
     });
 
     ordensServico
-      .filter((os) => !["cancelada", "entregue"].includes(os.status))
+      .filter((os) => {
+        if (os.status === "cancelada") return false;
+        // Mostrar entregues apenas do dia atual
+        if (os.status === "entregue") {
+          const hoje = new Date().toISOString().split("T")[0];
+          const dataOS = os.updated_at?.split("T")[0];
+          return dataOS === hoje;
+        }
+        return true;
+      })
       .filter(
         (os) =>
           os.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
