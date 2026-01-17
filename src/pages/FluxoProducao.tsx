@@ -46,7 +46,6 @@ const columns: KanbanColumn[] = [
   { id: "passadoria", title: "PASSADORIA", icon: Wind, iconColor: "text-purple-500", nextStatus: "embalagem" },
   { id: "embalagem", title: "EMBALAGEM", icon: Package, iconColor: "text-success", nextStatus: "expedicao" },
   { id: "expedicao", title: "PRONTO ENTREGA", icon: CheckCircle, iconColor: "text-success", nextStatus: "entregue" },
-  { id: "entregue", title: "ENTREGUE", icon: CheckCircle, iconColor: "text-muted-foreground" },
 ];
 
 const FluxoProducao = () => {
@@ -59,7 +58,7 @@ const FluxoProducao = () => {
   const osIds = useMemo(() => ordensServico.map((os) => os.id), [ordensServico]);
   const { data: historicosPorOS = {} } = useHistoricoMultiplasOS(osIds);
 
-  // Agrupar OS por status
+  // Agrupar OS por status (excluindo "entregue" e "cancelada" do fluxo)
   const osByStatus = useMemo(() => {
     const grouped: Record<string, typeof ordensServico> = {};
     columns.forEach((col) => {
@@ -67,7 +66,7 @@ const FluxoProducao = () => {
     });
 
     ordensServico
-      .filter((os) => os.status !== "cancelada")
+      .filter((os) => !["cancelada", "entregue"].includes(os.status))
       .filter(
         (os) =>
           os.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||

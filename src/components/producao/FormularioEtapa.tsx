@@ -92,7 +92,7 @@ export function FormularioEtapa({
   const [maquinaUtilizada, setMaquinaUtilizada] = useState("");
   const [temperatura, setTemperatura] = useState("");
   const [tipoLavagem, setTipoLavagem] = useState("");
-  const [produtosUtilizados, setProdutosUtilizados] = useState("");
+  const [pesoKg, setPesoKg] = useState("");
   const [tempoEstimado, setTempoEstimado] = useState("");
 
   const [tipoAcabamento, setTipoAcabamento] = useState("");
@@ -201,7 +201,7 @@ export function FormularioEtapa({
             maquina_utilizada: maquinaUtilizada,
             temperatura: Number(temperatura) || 0,
             tipo_lavagem: tipoLavagem,
-            produtos_utilizados: produtosUtilizados,
+            peso_kg: Number(pesoKg) || 0,
             tempo_estimado_min: Number(tempoEstimado) || 0,
           };
           break;
@@ -216,8 +216,6 @@ export function FormularioEtapa({
           dadosFormulario = {
             tipo_acabamento: tipoAcabamento,
             quantidade_passada: Number(quantidadePecas) || 0,
-            nivel_qualidade: nivelQualidade,
-            observacoes_qualidade: observacoesQualidade || null,
           };
           break;
         case "embalagem":
@@ -438,22 +436,23 @@ export function FormularioEtapa({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Tempo Estimado (min)</Label>
+                <Label>Peso (kg) *</Label>
                 <Input
                   type="number"
-                  placeholder="45"
-                  value={tempoEstimado}
-                  onChange={(e) => setTempoEstimado(e.target.value)}
+                  step="0.1"
+                  placeholder="0.0"
+                  value={pesoKg}
+                  onChange={(e) => setPesoKg(e.target.value)}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Produtos Utilizados</Label>
-              <Textarea
-                placeholder="Ex: Sabão neutro, amaciante, alvejante..."
-                value={produtosUtilizados}
-                onChange={(e) => setProdutosUtilizados(e.target.value)}
-                rows={2}
+              <Label>Tempo Estimado (min)</Label>
+              <Input
+                type="number"
+                placeholder="45"
+                value={tempoEstimado}
+                onChange={(e) => setTempoEstimado(e.target.value)}
               />
             </div>
           </>
@@ -532,30 +531,6 @@ export function FormularioEtapa({
                   onChange={(e) => setQuantidadePecas(e.target.value)}
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Nível de Qualidade</Label>
-              <Select value={nivelQualidade} onValueChange={setNivelQualidade}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Avalie a qualidade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">⭐⭐⭐⭐⭐ Excelente</SelectItem>
-                  <SelectItem value="4">⭐⭐⭐⭐ Muito Bom</SelectItem>
-                  <SelectItem value="3">⭐⭐⭐ Bom</SelectItem>
-                  <SelectItem value="2">⭐⭐ Regular</SelectItem>
-                  <SelectItem value="1">⭐ Precisa Retrabalho</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Observações de Qualidade</Label>
-              <Textarea
-                placeholder="Detalhes sobre qualidade, manchas restantes, etc..."
-                value={observacoesQualidade}
-                onChange={(e) => setObservacoesQualidade(e.target.value)}
-                rows={2}
-              />
             </div>
           </>
         );
