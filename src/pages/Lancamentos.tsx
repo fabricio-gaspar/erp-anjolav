@@ -103,6 +103,12 @@ const Lancamentos = () => {
   const [selectedProdutoId, setSelectedProdutoId] = useState<string | null>(null);
   const [produtoSearchOpen, setProdutoSearchOpen] = useState(false);
   const [quantidade, setQuantidade] = useState<number>(1);
+  
+  // Metragem state for metro-based billing
+  const [modoMetragem, setModoMetragem] = useState<"direto" | "dimensoes">("direto");
+  const [metragemDireta, setMetragemDireta] = useState<string>("");
+  const [comprimento, setComprimento] = useState<string>("");
+  const [largura, setLargura] = useState<string>("");
 
   const [dataEmissao, setDataEmissao] = useState("2026-01-09");
   const [dataEntrega, setDataEntrega] = useState("2026-01-09");
@@ -182,24 +188,63 @@ const Lancamentos = () => {
     setItems([]);
     setSelectedProdutoId(null);
     setQuantidade(1);
+    resetMetragem();
   }, [selectedClienteId]);
+
+  // Helper to check if product uses metro
+  const isUnidadeMetro = (unidade: string | null | undefined): boolean => {
+    if (!unidade) return false;
+    const u = unidade.toLowerCase();
+    return u === "m" || u === "m²" || u === "m2" || u === "metro" || u === "metros" || u.includes("metro");
+  };
+
+  // Calculate metragem based on mode
+  const metragemCalculada = useMemo(() => {
+    if (modoMetragem === "direto") {
+      return parseFloat(metragemDireta) || 0;
+    } else {
+      const c = parseFloat(comprimento) || 0;
+      const l = parseFloat(largura) || 0;
+      return c * l;
+    }
+  }, [modoMetragem, metragemDireta, comprimento, largura]);
+
+  // Reset metragem fields
+  const resetMetragem = () => {
+    setModoMetragem("direto");
+    setMetragemDireta("");
+    setComprimento("");
+    setLargura("");
+  };
 
   // Handle add item
   const handleAdicionarItem = () => {
-    if (!produtoSelecionado || quantidade <= 0) return;
+    if (!produtoSelecionado) return;
+
+    const usaMetro = isUnidadeMetro(produtoSelecionado.unidade);
+    const qtd = usaMetro ? metragemCalculada : quantidade;
+    
+    if (qtd <= 0) return;
+
+    // Build description with dimensions if applicable
+    let descricaoProduto = produtoSelecionado.nome;
+    if (usaMetro && modoMetragem === "dimensoes" && comprimento && largura) {
+      descricaoProduto = `${produtoSelecionado.nome} (${comprimento}m × ${largura}m)`;
+    }
 
     const novoItem: LancamentoItem = {
       id: crypto.randomUUID(),
-      produto: produtoSelecionado.nome,
-      quantidade: quantidade,
+      produto: descricaoProduto,
+      quantidade: qtd,
       unidade: produtoSelecionado.unidade,
       valorUnitario: produtoSelecionado.precoEspecial,
-      valorTotal: produtoSelecionado.precoEspecial * quantidade,
+      valorTotal: produtoSelecionado.precoEspecial * qtd,
     };
 
     setItems([...items, novoItem]);
     setSelectedProdutoId(null);
     setQuantidade(1);
+    resetMetragem();
   };
 
   // Filter conferencias by search
@@ -603,34 +648,127 @@ const Lancamentos = () => {
                     )}
                   </div>
 
-                  {/* Quantidade */}
-                  <div>
-                    <Label className="text-sm font-medium text-foreground">
-                      Quantidade ({produtoSelecionado?.unidade || "un"})
-                    </Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      className="mt-1.5"
-                      min={1}
-                      value={quantidade}
-                      onChange={(e) => setQuantidade(Number(e.target.value))}
-                      disabled={!produtoSelecionado}
-                    />
-                    {produtoSelecionado && quantidade > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Subtotal: <span className="font-medium text-foreground">
-                          {formatCurrency(produtoSelecionado.precoEspecial * quantidade)}
-                        </span>
-                      </p>
-                    )}
-                  </div>
+                  {/* Quantidade / Metragem */}
+                  {produtoSelecionado && isUnidadeMetro(produtoSelecionado.unidade) ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <Scale className="w-4 h-4 text-primary" />
+                          Metragem ({produtoSelecionado.unidade})
+                        </Label>
+                        <div className="flex rounded-md border bg-muted/30">
+                          <button
+                            type="button"
+                            onClick={() => setModoMetragem("direto")}
+                            className={`px-3 py-1 text-xs font-medium rounded-l-md transition-colors ${
+                              modoMetragem === "direto" 
+                                ? "bg-primary text-primary-foreground" 
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            Direto
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setModoMetragem("dimensoes")}
+                            className={`px-3 py-1 text-xs font-medium rounded-r-md transition-colors ${
+                              modoMetragem === "dimensoes" 
+                                ? "bg-primary text-primary-foreground" 
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            Dimensões
+                          </button>
+                        </div>
+                      </div>
+
+                      {modoMetragem === "direto" ? (
+                        <div>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Ex: 12.50"
+                            value={metragemDireta}
+                            onChange={(e) => setMetragemDireta(e.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Informe a metragem total em {produtoSelecionado.unidade}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Comprimento (m)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ex: 2.50"
+                              value={comprimento}
+                              onChange={(e) => setComprimento(e.target.value)}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Largura (m)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ex: 1.80"
+                              value={largura}
+                              onChange={(e) => setLargura(e.target.value)}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {metragemCalculada > 0 && (
+                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-md">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">
+                              {modoMetragem === "dimensoes" 
+                                ? `${comprimento}m × ${largura}m = ` 
+                                : "Total: "}
+                              <span className="font-medium text-foreground">
+                                {metragemCalculada.toFixed(2)} {produtoSelecionado.unidade}
+                              </span>
+                            </span>
+                            <span className="font-semibold text-primary">
+                              {formatCurrency(produtoSelecionado.precoEspecial * metragemCalculada)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <Label className="text-sm font-medium text-foreground">
+                        Quantidade ({produtoSelecionado?.unidade || "un"})
+                      </Label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        className="mt-1.5"
+                        min={1}
+                        value={quantidade}
+                        onChange={(e) => setQuantidade(Number(e.target.value))}
+                        disabled={!produtoSelecionado}
+                      />
+                      {produtoSelecionado && quantidade > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Subtotal: <span className="font-medium text-foreground">
+                            {formatCurrency(produtoSelecionado.precoEspecial * quantidade)}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Adicionar Item Button */}
                   <Button
                     className="w-full gap-2 mt-2"
                     onClick={handleAdicionarItem}
-                    disabled={!produtoSelecionado || quantidade <= 0}
+                    disabled={!produtoSelecionado || (isUnidadeMetro(produtoSelecionado?.unidade) ? metragemCalculada <= 0 : quantidade <= 0)}
                   >
                     <Plus className="w-4 h-4" />
                     Adicionar Item
