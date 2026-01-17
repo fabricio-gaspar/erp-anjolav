@@ -201,14 +201,14 @@ export function useAgendaDia() {
     queryKey: ["agenda_entregas", hoje],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ordens_servico")
+        .from("agendamentos")
         .select(`
           *,
           cliente:clientes(razao_social)
         `)
-        .eq("data_previsao_entrega", hoje)
-        .eq("status", "expedicao")
-        .order("created_at");
+        .eq("tipo", "entrega")
+        .eq("data", hoje)
+        .order("horario");
       if (error) throw error;
       return data;
     },
