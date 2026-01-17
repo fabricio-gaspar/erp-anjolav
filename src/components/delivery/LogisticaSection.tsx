@@ -171,11 +171,12 @@ export function LogisticaSection({
                 <User className="w-4 h-4" />
                 Motorista
               </Label>
-              <Select value={motoristaId} onValueChange={onMotoristaChange}>
+              <Select value={motoristaId || "none"} onValueChange={(val) => onMotoristaChange(val === "none" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
                   {motoristasAtivos.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.nome}
@@ -190,11 +191,12 @@ export function LogisticaSection({
                 <Truck className="w-4 h-4" />
                 Veículo
               </Label>
-              <Select value={veiculoId} onValueChange={onVeiculoChange}>
+              <Select value={veiculoId || "none"} onValueChange={(val) => onVeiculoChange(val === "none" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar..." />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
                   {veiculosAtivos.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
                       {v.placa}

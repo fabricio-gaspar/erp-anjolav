@@ -132,11 +132,12 @@ export function NovaRotaModal({
               <User className="w-4 h-4" />
               Motorista
             </Label>
-            <Select value={motoristaId} onValueChange={setMotoristaId}>
+            <Select value={motoristaId || "none"} onValueChange={(val) => setMotoristaId(val === "none" ? "" : val)}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o motorista" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
                 {isLoadingMotoristas ? (
                   <div className="p-2 text-center text-sm text-muted-foreground">
                     Carregando...
@@ -162,11 +163,12 @@ export function NovaRotaModal({
               <Truck className="w-4 h-4" />
               Veículo
             </Label>
-            <Select value={veiculoId} onValueChange={setVeiculoId}>
+            <Select value={veiculoId || "none"} onValueChange={(val) => setVeiculoId(val === "none" ? "" : val)}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o veículo" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
                 {isLoadingVeiculos ? (
                   <div className="p-2 text-center text-sm text-muted-foreground">
                     Carregando...
