@@ -1037,12 +1037,12 @@ function MotoristasTab({
                   <LinkIcon className="w-4 h-4" />
                   Vincular a Funcionário (opcional)
                 </Label>
-                <Select value={formData.funcionario_id} onValueChange={(v) => setFormData({ ...formData, funcionario_id: v })}>
+                <Select value={formData.funcionario_id || "none"} onValueChange={(v) => setFormData({ ...formData, funcionario_id: v === "none" ? "" : v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um funcionário..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="none">Nenhum</SelectItem>
                     {funcionarios.filter(f => f.ativo).map((f) => (
                       <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
                     ))}
@@ -1244,10 +1244,10 @@ function EditMotoristaModal({ open, onClose, motorista, funcionarios, onSave }: 
             </div>
             <div className="space-y-2 col-span-2">
               <Label>Funcionário Vinculado</Label>
-              <Select value={formData.funcionario_id} onValueChange={(v) => setFormData({ ...formData, funcionario_id: v })}>
+              <Select value={formData.funcionario_id || "none"} onValueChange={(v) => setFormData({ ...formData, funcionario_id: v === "none" ? "" : v })}>
                 <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value="none">Nenhum</SelectItem>
                   {funcionarios.filter(f => f.ativo).map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
