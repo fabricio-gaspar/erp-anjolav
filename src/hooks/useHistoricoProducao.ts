@@ -200,7 +200,8 @@ export function useAgendaDia() {
   const { data: entregas = [], isLoading: isLoadingEntregas } = useQuery({
     queryKey: ["agenda_entregas", hoje],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 1. Buscar agendamentos de entrega do dia
+      const { data: agendamentosEntrega, error: errAgend } = await supabase
         .from("agendamentos")
         .select(`
           *,
@@ -208,9 +209,45 @@ export function useAgendaDia() {
         `)
         .eq("tipo", "entrega")
         .eq("data", hoje)
+        .neq("status", "realizado")
         .order("horario");
-      if (error) throw error;
-      return data;
+      if (errAgend) throw errAgend;
+
+      // 2. Buscar OS prontas para entrega (status: expedicao)
+      const { data: osProntasEntrega, error: errOS } = await supabase
+        .from("ordens_servico")
+        .select(`
+          *,
+          cliente:clientes(razao_social)
+        `)
+        .eq("status", "expedicao")
+        .order("created_at");
+      if (errOS) throw errOS;
+
+      // 3. Formatar agendamentos
+      const entregasAgendadas = (agendamentosEntrega || []).map(a => ({
+        ...a,
+        origem: 'agendamento' as const,
+        pronto_entrega: false,
+        os_numero: null,
+      }));
+
+      // 4. Formatar OS prontas para entrega
+      const entregasProntas = (osProntasEntrega || []).map(os => ({
+        id: os.id,
+        cliente: os.cliente,
+        cliente_id: os.cliente_id,
+        horario: null,
+        data: hoje,
+        tipo: 'entrega',
+        status: 'agendado',
+        origem: 'producao' as const,
+        pronto_entrega: true,
+        os_numero: os.numero,
+        data_previsao: os.data_previsao_entrega,
+      }));
+
+      return [...entregasProntas, ...entregasAgendadas];
     },
   });
 
