@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Filter,
   Calendar,
   TrendingUp,
@@ -42,14 +52,29 @@ import {
   MoreHorizontal,
   Check,
   Ban,
+  Plus,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { useFaturas, type Fatura } from "@/hooks/useFaturas";
-import { useLancamentosPendentes, useLancamentosComItens, type Lancamento } from "@/hooks/useLancamentos";
+import { 
+  useLancamentosPendentes, 
+  useLancamentosComItens, 
+  useItensLancamento,
+  useCreateItemLancamento,
+  useUpdateItemLancamento,
+  useDeleteItemLancamento,
+  type Lancamento,
+  type ItemLancamento,
+} from "@/hooks/useLancamentos";
 import { FaturamentoModal, type DadosFaturamento, type LancamentoItem } from "@/components/faturamento/FaturamentoModal";
 import { DetalhesFaturaModal } from "@/components/faturamento/DetalhesFaturaModal";
+import { VisualizarItensModal } from "@/components/faturamento/VisualizarItensModal";
+import { EditarLancamentoModal } from "@/components/faturamento/EditarLancamentoModal";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 // Helper para mapear status para config visual
 const getStatusConfig = (status: string) => {
@@ -110,6 +135,7 @@ const reconstruirDadosFaturamento = (fatura: Fatura): DadosFaturamento => {
 
 const Faturamento = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const clienteFiltroId = searchParams.get("cliente");
   
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -123,12 +149,24 @@ const Faturamento = () => {
   const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
   const [faturaDetalhes, setFaturaDetalhes] = useState<Fatura | null>(null);
 
+  // Estados para gestão de lançamentos
+  const [visualizarItensOpen, setVisualizarItensOpen] = useState(false);
+  const [editarLancamentoOpen, setEditarLancamentoOpen] = useState(false);
+  const [lancamentoSelecionado, setLancamentoSelecionado] = useState<Lancamento | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [lancamentoParaExcluir, setLancamentoParaExcluir] = useState<Lancamento | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
   const periodoInicio = format(startOfMonth(currentDate), "yyyy-MM-dd");
   const periodoFim = format(endOfMonth(currentDate), "yyyy-MM-dd");
 
   const { faturas, summary, isLoading: isLoadingFaturas, updateFatura } = useFaturas(periodoInicio, periodoFim);
-  const { lancamentos, isLoading: isLoadingLancamentos } = useLancamentosPendentes();
+  const { lancamentos, isLoading: isLoadingLancamentos, updateLancamento, deleteLancamento } = useLancamentosPendentes();
   const { data: lancamentosComItens, isLoading: isLoadingItens } = useLancamentosComItens(selectedLancamentos);
+  
+  // Itens do lançamento selecionado para visualização/edição
+  const { data: itensLancamentoSelecionado = [], isLoading: isLoadingItensLancamento } = useItensLancamento(lancamentoSelecionado?.id || null);
+  const createItemLancamento = useCreateItemLancamento();
 
   const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
@@ -304,6 +342,88 @@ const Faturamento = () => {
     });
   };
 
+  // Handlers para gestão de lançamentos
+  const handleVisualizarItens = (lancamento: Lancamento) => {
+    setLancamentoSelecionado(lancamento);
+    setVisualizarItensOpen(true);
+  };
+
+  const handleEditarLancamento = (lancamento: Lancamento) => {
+    setLancamentoSelecionado(lancamento);
+    setEditarLancamentoOpen(true);
+  };
+
+  const handleConfirmarExclusao = (lancamento: Lancamento) => {
+    setLancamentoParaExcluir(lancamento);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleExcluirLancamento = async () => {
+    if (!lancamentoParaExcluir) return;
+    deleteLancamento.mutate(lancamentoParaExcluir.id);
+    setDeleteConfirmOpen(false);
+    setLancamentoParaExcluir(null);
+  };
+
+  const handleSalvarLancamento = async (
+    lancamentoId: string,
+    data: { observacao: string | null; data_lancamento: string; valor_total: number },
+    itensAtualizados: ItemLancamento[],
+    itensRemovidos: string[],
+    itensNovos: Omit<ItemLancamento, 'id' | 'created_at'>[]
+  ) => {
+    setIsSaving(true);
+    try {
+      // Update lancamento
+      updateLancamento.mutate({
+        id: lancamentoId,
+        observacao: data.observacao,
+        data_lancamento: data.data_lancamento,
+        valor_total: data.valor_total,
+      });
+
+      // Delete removed items
+      for (const itemId of itensRemovidos) {
+        await supabase.from("itens_lancamento").delete().eq("id", itemId);
+      }
+
+      // Update existing items
+      for (const item of itensAtualizados) {
+        await supabase
+          .from("itens_lancamento")
+          .update({
+            quantidade: item.quantidade,
+            preco_unitario: item.preco_unitario,
+            subtotal: item.subtotal,
+          })
+          .eq("id", item.id);
+      }
+
+      // Create new items
+      for (const item of itensNovos) {
+        await supabase.from("itens_lancamento").insert({
+          lancamento_id: item.lancamento_id,
+          produto_nome: item.produto_nome,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          preco_unitario: item.preco_unitario,
+          subtotal: item.subtotal,
+        });
+      }
+
+      toast.success("Lançamento atualizado com sucesso");
+    } catch (error: any) {
+      toast.error("Erro ao salvar: " + error.message);
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleNovoLancamento = () => {
+    navigate("/lancamentos?retorno=faturamento");
+  };
+
   const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
 
   return (
@@ -433,6 +553,7 @@ const Faturamento = () => {
                         <TableHead className="font-semibold">DATA</TableHead>
                         <TableHead className="font-semibold">VALOR</TableHead>
                         <TableHead className="font-semibold">OBS</TableHead>
+                        <TableHead className="font-semibold w-24">AÇÕES</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -453,7 +574,7 @@ const Faturamento = () => {
                                   className={someSelected && !allSelected ? "opacity-50" : ""}
                                 />
                               </TableCell>
-                              <TableCell colSpan={4} className="py-2">
+                              <TableCell colSpan={5} className="py-2">
                                 <div className="flex items-center gap-2">
                                   <span className="font-semibold">{cliente?.razao_social || "Cliente"}</span>
                                   <span className="text-xs text-muted-foreground">
@@ -486,8 +607,39 @@ const Faturamento = () => {
                                 <TableCell className="font-medium">
                                   {formatCurrency(Number(lancamento.valor_total))}
                                 </TableCell>
-                                <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                                <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">
                                   {lancamento.observacao || "-"}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => handleVisualizarItens(lancamento)}
+                                      title="Ver itens"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => handleEditarLancamento(lancamento)}
+                                      title="Editar"
+                                    >
+                                      <Edit className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      onClick={() => handleConfirmarExclusao(lancamento)}
+                                      title="Excluir"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -497,6 +649,14 @@ const Faturamento = () => {
                     </TableBody>
                   </Table>
                 )}
+              </div>
+
+              {/* Botão Novo Lançamento */}
+              <div className="flex justify-end">
+                <Button onClick={handleNovoLancamento} variant="outline" className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Novo Lançamento
+                </Button>
               </div>
             </div>
           </TabsContent>
@@ -735,6 +895,51 @@ const Faturamento = () => {
           onOpenChange={setDetalhesModalOpen}
           fatura={faturaDetalhes}
         />
+
+        {/* Modal de Visualização de Itens */}
+        <VisualizarItensModal
+          open={visualizarItensOpen}
+          onOpenChange={setVisualizarItensOpen}
+          lancamento={lancamentoSelecionado}
+          itens={itensLancamentoSelecionado}
+          isLoading={isLoadingItensLancamento}
+        />
+
+        {/* Modal de Edição de Lançamento */}
+        <EditarLancamentoModal
+          open={editarLancamentoOpen}
+          onOpenChange={setEditarLancamentoOpen}
+          lancamento={lancamentoSelecionado}
+          itens={itensLancamentoSelecionado}
+          onSave={handleSalvarLancamento}
+          isSaving={isSaving}
+        />
+
+        {/* Dialog de Confirmação de Exclusão */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir Lançamento</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.
+                {lancamentoParaExcluir && (
+                  <span className="block mt-2 font-medium">
+                    Cliente: {lancamentoParaExcluir.cliente?.razao_social} - {formatCurrency(Number(lancamentoParaExcluir.valor_total))}
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleExcluirLancamento}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
