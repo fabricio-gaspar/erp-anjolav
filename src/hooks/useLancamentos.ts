@@ -108,6 +108,35 @@ export function useLancamentos(status?: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
+      toast.success("Lançamento atualizado com sucesso");
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar lançamento: " + error.message);
+    },
+  });
+
+  const deleteLancamento = useMutation({
+    mutationFn: async (id: string) => {
+      // First delete items
+      const { error: itemsError } = await supabase
+        .from("itens_lancamento")
+        .delete()
+        .eq("lancamento_id", id);
+      if (itemsError) throw itemsError;
+
+      // Then delete lancamento
+      const { error } = await supabase
+        .from("lancamentos")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
+      toast.success("Lançamento excluído com sucesso");
+    },
+    onError: (error) => {
+      toast.error("Erro ao excluir lançamento: " + error.message);
     },
   });
 
@@ -117,7 +146,51 @@ export function useLancamentos(status?: string) {
     error,
     createLancamento,
     updateLancamento,
+    deleteLancamento,
   };
+}
+
+export function useUpdateItemLancamento() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (item: ItemLancamento) => {
+      const { data, error } = await supabase
+        .from("itens_lancamento")
+        .update({
+          quantidade: item.quantidade,
+          preco_unitario: item.preco_unitario,
+          subtotal: item.subtotal,
+        })
+        .eq("id", item.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["itens_lancamento"] });
+      queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
+    },
+  });
+}
+
+export function useDeleteItemLancamento() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("itens_lancamento")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["itens_lancamento"] });
+      queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
+    },
+  });
 }
 
 export function useLancamentosPendentes() {
