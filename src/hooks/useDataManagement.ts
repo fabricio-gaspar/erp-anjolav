@@ -186,3 +186,79 @@ export async function deleteAllData(): Promise<{ deleted: number; errors: string
 
   return { deleted: totalDeleted, errors };
 }
+
+// Ordem de inserção respeitando dependências de FK (inversa da exclusão)
+const insertionOrder = [
+  // Primeiro: tabelas principais (sem FK)
+  "clientes",
+  "produtos",
+  "funcionarios",
+  "veiculos",
+  "motoristas",
+  // Segundo: tabelas que dependem das principais
+  "contratos_aluguel",
+  "ordens_servico",
+  "agendamentos",
+  "faturas",
+  "lancamentos",
+  "contas_pagar",
+  "caixas",
+  "asaas_charges",
+  // Terceiro: tabelas dependentes (filhas)
+  "enderecos_clientes",
+  "configuracoes_cliente",
+  "configuracoes_pagamento_cliente",
+  "precos_especiais",
+  "modulo_permissoes",
+  "caixa_movimentacoes",
+  "asaas_webhook_events",
+  "lancamentos_fatura",
+  "itens_contrato_aluguel",
+  "itens_ordem_servico",
+  "itens_lancamento",
+  "historico_producao",
+  "historico_envios",
+];
+
+export async function importAllData(
+  backupData: Record<string, any[]>
+): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  let totalImported = 0;
+  let totalSkipped = 0;
+  const errors: string[] = [];
+
+  for (const table of insertionOrder) {
+    const tableData = backupData[table];
+    
+    if (!tableData || !Array.isArray(tableData) || tableData.length === 0) {
+      continue;
+    }
+
+    try {
+      // Inserir em lotes de 100 para evitar timeout
+      const batchSize = 100;
+      for (let i = 0; i < tableData.length; i += batchSize) {
+        const batch = tableData.slice(i, i + batchSize);
+        
+        const { error, count } = await supabase
+          .from(table as any)
+          .upsert(batch, { 
+            onConflict: 'id',
+            ignoreDuplicates: false 
+          });
+
+        if (error) {
+          errors.push(`${table}: ${error.message}`);
+          totalSkipped += batch.length;
+        } else {
+          totalImported += batch.length;
+        }
+      }
+    } catch (err) {
+      errors.push(`${table}: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      totalSkipped += tableData.length;
+    }
+  }
+
+  return { imported: totalImported, skipped: totalSkipped, errors };
+}
