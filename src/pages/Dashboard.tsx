@@ -187,8 +187,10 @@ const Dashboard = () => {
   const entregasAgenda = entregas.map((e: any) => ({
     id: e.id,
     clientName: e.cliente?.razao_social || "Cliente",
-    time: undefined,
-    status: "pending" as const,
+    time: e.horario || undefined,
+    status: e.pronto_entrega ? ("in_progress" as const) : ("pending" as const),
+    prontoEntrega: e.pronto_entrega || false,
+    osNumero: e.os_numero || null,
   }));
 
   // Recomendação baseada em dados
