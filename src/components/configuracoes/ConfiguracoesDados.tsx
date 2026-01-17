@@ -44,7 +44,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useDataManagement, exportEntityData, exportAllData, deleteAllData, EntityStats } from "@/hooks/useDataManagement";
+import { useDataManagement, exportEntityData, exportAllData, deleteAllData, importAllData, EntityStats } from "@/hooks/useDataManagement";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bomb } from "lucide-react";
@@ -67,6 +67,7 @@ export function ConfiguracoesDados() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
 
   const filteredEntities = useMemo(() => {
     if (!data?.entities) return [];
@@ -219,20 +220,53 @@ export function ConfiguracoesDados() {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
 
+      setIsImporting(true);
       try {
         const text = await file.text();
-        const data = JSON.parse(text);
+        const backupData = JSON.parse(text);
         
+        // Validar se é um backup válido
+        if (typeof backupData !== 'object' || Array.isArray(backupData)) {
+          throw new Error("Formato de backup inválido. Esperado um objeto JSON.");
+        }
+
+        const tableCount = Object.keys(backupData).length;
+        const recordCount = Object.values(backupData).reduce(
+          (sum: number, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
+          0
+        );
+
         toast({
-          title: "Arquivo carregado",
-          description: `Backup contém ${Object.keys(data).length} entidades. Funcionalidade de importação em desenvolvimento.`,
+          title: "Iniciando importação...",
+          description: `Importando ${recordCount} registros de ${tableCount} tabelas.`,
         });
+
+        const result = await importAllData(backupData);
+
+        if (result.errors.length > 0) {
+          console.error("Erros na importação:", result.errors);
+          toast({
+            title: "Importação parcial",
+            description: `${result.imported} registros importados. ${result.skipped} ignorados. ${result.errors.length} erros.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Backup importado com sucesso!",
+            description: `${result.imported} registros restaurados.`,
+          });
+        }
+
+        refetch();
       } catch (error) {
+        console.error("Erro ao importar backup:", error);
         toast({
-          title: "Erro ao ler arquivo",
-          description: "O arquivo selecionado não é um JSON válido.",
+          title: "Erro ao importar backup",
+          description: error instanceof Error ? error.message : "O arquivo selecionado não é um JSON válido.",
           variant: "destructive",
         });
+      } finally {
+        setIsImporting(false);
       }
     };
     input.click();
@@ -333,9 +367,13 @@ export function ConfiguracoesDados() {
             )}
             Exportar Backup Completo
           </Button>
-          <Button variant="outline" onClick={handleImportBackup}>
-            <Upload className="w-4 h-4 mr-2" />
-            Importar Backup Completo
+          <Button variant="outline" onClick={handleImportBackup} disabled={isImporting}>
+            {isImporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4 mr-2" />
+            )}
+            {isImporting ? "Importando..." : "Importar Backup Completo"}
           </Button>
         </div>
       </Card>
