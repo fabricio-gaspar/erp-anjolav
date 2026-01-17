@@ -117,8 +117,8 @@ interface NavGroupProps {
   defaultOpen?: boolean;
 }
 
-const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = false }: NavGroupProps) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavGroupProps) => {
+  const [isOpen, setIsOpen] = useState(true);
   const { isCollapsed } = useSidebarContext();
   const location = useLocation();
   
