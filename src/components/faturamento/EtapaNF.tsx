@@ -32,7 +32,7 @@ import {
   Gavel,
 } from "lucide-react";
 import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
-import { NFSePreviewNacional } from "./NFSePreviewNacional";
+import { NFSePreviewOficial, type NFSeOficialData } from "./NFSePreviewOficial";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
 import { useClienteById, useEnderecoCliente } from "@/hooks/useClientes";
 import { useFaturas } from "@/hooks/useFaturas";
@@ -548,45 +548,49 @@ export function EtapaNF({
 
             <TabsContent value="previa">
               {cliente && (
-                <NFSePreviewNacional
-                  emitente={{
-                    razao_social: configuracaoAtiva.razao_social,
-                    cnpj: configuracaoAtiva.cnpj,
-                    inscricao_municipal: configuracaoAtiva.inscricao_municipal,
-                    inscricao_estadual: configuracaoAtiva.inscricao_estadual,
-                    endereco: enderecoConfig ? {
-                      logradouro: enderecoConfig.logradouro,
-                      numero: enderecoConfig.numero,
-                      bairro: enderecoConfig.bairro,
-                      cidade: enderecoConfig.cidade,
-                      uf: enderecoConfig.uf,
-                      cep: enderecoConfig.cep,
-                    } : null,
-                    codigo_servico: configuracaoAtiva.codigo_servico,
-                    aliquota_iss: configuracaoAtiva.aliquota_iss,
-                    codigo_municipio_ibge: (configuracaoAtiva as any).codigo_municipio_ibge,
+                <NFSePreviewOficial
+                  data={{
+                    emitente: {
+                      razao_social: configuracaoAtiva.razao_social,
+                      cnpj: configuracaoAtiva.cnpj,
+                      inscricao_municipal: configuracaoAtiva.inscricao_municipal,
+                      inscricao_estadual: configuracaoAtiva.inscricao_estadual,
+                      endereco: enderecoConfig ? {
+                        logradouro: enderecoConfig.logradouro,
+                        numero: enderecoConfig.numero,
+                        bairro: enderecoConfig.bairro,
+                        cidade: enderecoConfig.cidade,
+                        uf: enderecoConfig.uf,
+                        cep: enderecoConfig.cep,
+                      } : null,
+                      codigo_servico: configuracaoAtiva.codigo_servico,
+                      aliquota_iss: configuracaoAtiva.aliquota_iss,
+                    },
+                    tomador: {
+                      razao_social: cliente.razao_social,
+                      cpf_cnpj: cliente.cpf_cnpj,
+                      tipo_pessoa: cliente.tipo_pessoa,
+                      inscricao_municipal: cliente.inscricao_municipal,
+                      inscricao_estadual: cliente.inscricao_estadual,
+                      email: cliente.email,
+                      telefone: cliente.telefone,
+                      endereco: endereco ? {
+                        logradouro: endereco.logradouro,
+                        numero: endereco.numero,
+                        bairro: endereco.bairro,
+                        cidade: endereco.cidade,
+                        uf: endereco.uf,
+                        cep: endereco.cep,
+                      } : null,
+                    },
+                    descricao_servico: gerarDescricaoServico(),
+                    valor_servico: dados.valorTotal,
+                    aliquota_iss: configuracaoAtiva.aliquota_iss || 0,
+                    valor_iss: dados.valorTotal * ((configuracaoAtiva.aliquota_iss || 0) / 100),
+                    natureza_operacao: naturezaOperacao,
+                    ambiente: modoEmissao as "producao" | "homologacao",
+                    isPrevia: true,
                   }}
-                  tomador={{
-                    razao_social: cliente.razao_social,
-                    cpf_cnpj: cliente.cpf_cnpj,
-                    tipo_pessoa: cliente.tipo_pessoa,
-                    inscricao_municipal: cliente.inscricao_municipal,
-                    inscricao_estadual: cliente.inscricao_estadual,
-                    email: cliente.email,
-                    telefone: cliente.telefone,
-                    endereco: endereco ? {
-                      logradouro: endereco.logradouro,
-                      numero: endereco.numero,
-                      bairro: endereco.bairro,
-                      cidade: endereco.cidade,
-                      uf: endereco.uf,
-                      cep: endereco.cep,
-                    } : null,
-                  }}
-                  dados={dados}
-                  ambiente={modoEmissao as "producao" | "homologacao" | "simulacao"}
-                  naturezaOperacao={naturezaOperacao}
-                  descricaoServico={gerarDescricaoServico()}
                   onPrint={handlePrintPreview}
                 />
               )}

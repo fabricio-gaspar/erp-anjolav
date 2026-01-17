@@ -20,7 +20,7 @@ import { Users, Calendar, FileText, Grid, Table2, Eye, Loader2 } from "lucide-re
 import { cn } from "@/lib/utils";
 import { useClientes, useConfiguracaoCliente } from "@/hooks/useClientes";
 import { useRelatorioCliente } from "@/hooks/useRelatorioCliente";
-import { MapaPecasCliente } from "@/components/relatorios/MapaPecasCliente";
+import { MapaMensalPecas } from "@/components/relatorios/MapaMensalPecas";
 import { RelatorioDetalhadoCliente } from "@/components/relatorios/RelatorioDetalhadoCliente";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -319,8 +319,8 @@ const RelatoriosCliente = () => {
             </DialogTitle>
           </DialogHeader>
 
-          {reportType === "mapa_pecas" && lancamentos && (
-            <MapaPecasCliente
+          {(reportType === "mapa_pecas" || reportType === "mapa_mensal") && lancamentos && (
+            <MapaMensalPecas
               clienteNome={selectedClientData?.razao_social || ""}
               clienteDocumento={selectedClientData?.cpf_cnpj}
               lancamentos={lancamentos}
@@ -341,12 +341,6 @@ const RelatoriosCliente = () => {
             />
           )}
 
-          {reportType === "mapa_mensal" && (
-            <div className="py-12 text-center text-muted-foreground">
-              <Grid className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Mapa mensal em desenvolvimento</p>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </AppLayout>
