@@ -342,27 +342,28 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
         {/* Logo */}
         <div className={cn(
-          "h-14 flex items-center transition-all",
-          effectiveCollapsed ? "px-2 justify-center" : "px-4"
+          "h-14 flex items-center justify-center transition-all",
+          effectiveCollapsed ? "px-2" : "px-3"
         )}>
-          <div className="flex items-center gap-3">
-            {logoUrl ? (
-              <img 
-                src={logoUrl} 
-                alt={nomeEmpresa}
-                className="h-9 max-w-[140px] object-contain"
-              />
-            ) : (
-              <>
-                <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">{primeiraLetra}</span>
-                </div>
-                {!effectiveCollapsed && (
-                  <span className="font-bold text-base text-white">{nomeEmpresa}</span>
-                )}
-              </>
-            )}
-          </div>
+          {logoUrl ? (
+            <img 
+              src={logoUrl} 
+              alt={nomeEmpresa}
+              className={cn(
+                "object-contain",
+                effectiveCollapsed ? "h-8 max-w-[40px]" : "h-9 max-w-[180px]"
+              )}
+            />
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center">
+                <span className="text-white font-bold text-lg">{primeiraLetra}</span>
+              </div>
+              {!effectiveCollapsed && (
+                <span className="font-bold text-base text-white">{nomeEmpresa}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Search */}
