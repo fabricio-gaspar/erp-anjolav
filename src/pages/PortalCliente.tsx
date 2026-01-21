@@ -4,12 +4,35 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Package, Truck, Calendar, FileText, Phone, Mail, Clock, CheckCircle2, AlertCircle, Plus } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Loader2, 
+  Package, 
+  Truck, 
+  Calendar, 
+  FileText, 
+  Phone, 
+  Mail, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle, 
+  Plus 
+} from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
 import { LancarProdutosModal } from "@/components/portal/LancarProdutosModal";
 import { useLancamentosCliente } from "@/hooks/useLancamentoCliente";
+import { 
+  usePortalOrdens, 
+  usePortalFaturas, 
+  usePortalEstatisticas,
+  usePortalAlertas 
+} from "@/hooks/usePortalData";
+import { AlertasPortal } from "@/components/portal/AlertasPortal";
+import { EstatisticasCliente } from "@/components/portal/EstatisticasCliente";
+import { AcompanhamentoProducao } from "@/components/portal/AcompanhamentoProducao";
+import { CentralDocumentos } from "@/components/portal/CentralDocumentos";
 
 const PortalCliente = () => {
   const { codigo } = useParams<{ codigo: string }>();
@@ -34,38 +57,6 @@ const PortalCliente = () => {
     retry: false,
   });
 
-  // Buscar últimos lançamentos do cliente
-  const { data: lancamentos = [] } = useQuery({
-    queryKey: ["portal-lancamentos", config?.cliente_id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("lancamentos")
-        .select("*, itens:itens_lancamento(*)")
-        .eq("cliente_id", config?.cliente_id)
-        .order("data_lancamento", { ascending: false })
-        .limit(5);
-      return data || [];
-    },
-    enabled: !!config?.cliente_id,
-  });
-
-  // Buscar próximos agendamentos
-  const { data: agendamentos = [] } = useQuery({
-    queryKey: ["portal-agendamentos", config?.cliente_id],
-    queryFn: async () => {
-      const hoje = new Date().toISOString().split("T")[0];
-      const { data } = await supabase
-        .from("agendamentos")
-        .select("*")
-        .eq("cliente_id", config?.cliente_id)
-        .gte("data", hoje)
-        .order("data", { ascending: true })
-        .limit(4);
-      return data || [];
-    },
-    enabled: !!config?.cliente_id,
-  });
-
   // Buscar configurações gerais da empresa
   const { data: configGeral } = useQuery({
     queryKey: ["configuracoes-gerais-portal"],
@@ -79,20 +70,44 @@ const PortalCliente = () => {
     },
   });
 
+  // Hooks do portal (novos)
+  const clienteId = config?.cliente_id || null;
+  const { data: ordens = [], isLoading: isLoadingOrdens } = usePortalOrdens(clienteId);
+  const { data: faturas = [], isLoading: isLoadingFaturas } = usePortalFaturas(clienteId);
+  const { data: estatisticas, isLoading: isLoadingEstatisticas } = usePortalEstatisticas(clienteId);
+  const alertas = usePortalAlertas(clienteId, ordens, faturas);
+
+  // Buscar próximos agendamentos
+  const { data: agendamentos = [] } = useQuery({
+    queryKey: ["portal-agendamentos", clienteId],
+    queryFn: async () => {
+      const hoje = new Date().toISOString().split("T")[0];
+      const { data } = await supabase
+        .from("agendamentos")
+        .select("*")
+        .eq("cliente_id", clienteId)
+        .gte("data", hoje)
+        .order("data", { ascending: true })
+        .limit(4);
+      return data || [];
+    },
+    enabled: !!clienteId,
+  });
+
   // Buscar lançamentos feitos pelo cliente no portal
-  const { data: lancamentosCliente = [] } = useLancamentosCliente(config?.cliente_id || null);
+  const { data: lancamentosCliente = [] } = useLancamentosCliente(clienteId);
 
   // Buscar produtos disponíveis para o cliente
   const { data: produtos = [] } = useQuery({
-    queryKey: ["portal-produtos", config?.cliente_id],
+    queryKey: ["portal-produtos", clienteId],
     queryFn: async () => {
-      if (!config?.cliente_id) return [];
+      if (!clienteId) return [];
 
       // Primeiro buscar preços especiais do cliente
       const { data: precosEspeciais } = await supabase
         .from("precos_especiais")
         .select("produto_id")
-        .eq("cliente_id", config.cliente_id);
+        .eq("cliente_id", clienteId);
 
       const produtoIds = precosEspeciais?.map((p) => p.produto_id) || [];
 
@@ -112,7 +127,7 @@ const PortalCliente = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!config?.cliente_id,
+    enabled: !!clienteId,
   });
 
   if (isLoadingConfig) {
@@ -163,23 +178,12 @@ const PortalCliente = () => {
     return horario.substring(0, 5);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "faturado":
-        return <Badge className="bg-primary/10 text-primary border-primary/20">Faturado</Badge>;
-      case "pendente":
-        return <Badge variant="outline" className="text-muted-foreground">Pendente</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
   const getLancamentoClienteStatus = (status: string) => {
     switch (status) {
       case "pendente":
         return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" />Aguardando</Badge>;
       case "conferido":
-        return <Badge className="bg-success text-success-foreground"><CheckCircle2 className="w-3 h-3 mr-1" />Conferido</Badge>;
+        return <Badge className="bg-green-600 text-white"><CheckCircle2 className="w-3 h-3 mr-1" />Conferido</Badge>;
       case "divergente":
         return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" />Divergência</Badge>;
       default:
@@ -202,57 +206,45 @@ const PortalCliente = () => {
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
-      <header className="bg-background border-b">
-        <div className="max-w-5xl mx-auto px-4 py-6">
+      <header className="bg-background border-b sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {configGeral?.logo_url && (
                 <img 
                   src={configGeral.logo_url} 
                   alt="Logo" 
-                  className="h-12 w-auto object-contain"
+                  className="h-10 w-auto object-contain"
                 />
               )}
               <div>
-                <h1 className="text-xl font-bold text-foreground">{nomeEmpresa}</h1>
-                <p className="text-sm text-muted-foreground">Portal do Cliente</p>
+                <h1 className="text-lg font-bold text-foreground">{nomeEmpresa}</h1>
+                <p className="text-xs text-muted-foreground">Portal do Cliente</p>
               </div>
             </div>
+            <Badge variant="outline" className="hidden sm:flex">
+              {nomeExibicao}
+            </Badge>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {/* Welcome Card */}
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Bem-vindo(a),</p>
-                <h2 className="text-xl font-bold text-foreground">
-                  {nomeExibicao}
-                </h2>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Botão de Lançar Produtos */}
-        <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Plus className="w-5 h-5 text-primary" />
-                  Lançar Produtos para Conferência
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Registre os itens que está enviando para facilitar a conferência na chegada
-                </p>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Bem-vindo(a),</p>
+                  <h2 className="text-xl font-bold text-foreground">
+                    {nomeExibicao}
+                  </h2>
+                </div>
               </div>
               <Button onClick={() => setShowLancarModal(true)} className="gap-2">
                 <Plus className="w-4 h-4" />
@@ -262,8 +254,36 @@ const PortalCliente = () => {
           </CardContent>
         </Card>
 
-        {/* Lançamentos do Cliente Pendentes */}
-        {lancamentosCliente.length > 0 && (
+        {/* Alertas */}
+        {alertas.length > 0 && <AlertasPortal alertas={alertas} />}
+
+        {/* Estatísticas */}
+        <EstatisticasCliente 
+          estatisticas={estatisticas} 
+          isLoading={isLoadingEstatisticas} 
+        />
+
+        <Separator />
+
+        {/* Acompanhamento de Produção */}
+        <AcompanhamentoProducao 
+          ordens={ordens} 
+          isLoading={isLoadingOrdens} 
+        />
+
+        <Separator />
+
+        {/* Central de Documentos */}
+        <CentralDocumentos 
+          faturas={faturas} 
+          isLoading={isLoadingFaturas} 
+        />
+
+        <Separator />
+
+        {/* Lançamentos do Cliente Pendentes + Próximos Agendamentos */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Lançamentos do Cliente */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -272,67 +292,40 @@ const PortalCliente = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {lancamentosCliente.slice(0, 5).map((lancamento) => (
-                  <div
-                    key={lancamento.id}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+              {lancamentosCliente.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Nenhum lançamento registrado
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowLancarModal(true)}
                   >
-                    <div>
-                      <p className="font-medium text-sm">
-                        {format(new Date(lancamento.created_at), "dd/MM/yyyy 'às' HH:mm", {
-                          locale: ptBR,
-                        })}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {lancamento.itens?.length || 0} itens •{" "}
-                        {lancamento.itens?.reduce((acc, item) => acc + item.quantidade, 0) || 0}{" "}
-                        peças
-                      </p>
-                    </div>
-                    {getLancamentoClienteStatus(lancamento.status)}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Últimos Serviços */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" />
-                Últimos Serviços
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {lancamentos.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhum serviço encontrado.
-                </p>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Lançar Produtos
+                  </Button>
+                </div>
               ) : (
                 <div className="space-y-3">
-                  {lancamentos.map((lancamento: any) => (
+                  {lancamentosCliente.slice(0, 5).map((lancamento) => (
                     <div
                       key={lancamento.id}
                       className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                     >
                       <div>
                         <p className="font-medium text-sm">
-                          {formatarData(lancamento.data_lancamento)}
+                          {format(new Date(lancamento.created_at), "dd/MM/yyyy 'às' HH:mm", {
+                            locale: ptBR,
+                          })}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {lancamento.itens?.length || 0} itens
+                          {lancamento.itens?.length || 0} itens •{" "}
+                          {lancamento.itens?.reduce((acc, item) => acc + item.quantidade, 0) || 0}{" "}
+                          peças
                         </p>
                       </div>
-                      <div className="text-right">
-                        {getStatusBadge(lancamento.status)}
-                        <p className="text-sm font-semibold mt-1">
-                          R$ {Number(lancamento.valor_total || 0).toFixed(2)}
-                        </p>
-                      </div>
+                      {getLancamentoClienteStatus(lancamento.status)}
                     </div>
                   ))}
                 </div>
@@ -381,22 +374,6 @@ const PortalCliente = () => {
             </CardContent>
           </Card>
         </div>
-
-        {/* Actions */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" className="gap-2">
-                <FileText className="w-4 h-4" />
-                Ver Relatório do Mês
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <Package className="w-4 h-4" />
-                Histórico de Serviços
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Contact */}
         <Card className="bg-muted/50">
