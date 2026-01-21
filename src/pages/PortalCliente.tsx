@@ -4,12 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Package, Truck, Calendar, FileText, Phone, Mail, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Package, Truck, Calendar, FileText, Phone, Mail, Clock, CheckCircle2, AlertCircle, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useState } from "react";
+import { LancarProdutosModal } from "@/components/portal/LancarProdutosModal";
+import { useLancamentosCliente } from "@/hooks/useLancamentoCliente";
 
 const PortalCliente = () => {
   const { codigo } = useParams<{ codigo: string }>();
+  const [showLancarModal, setShowLancarModal] = useState(false);
 
   // Buscar configuração do cliente pelo código de acesso
   const { data: config, isLoading: isLoadingConfig, error } = useQuery({
@@ -75,6 +79,42 @@ const PortalCliente = () => {
     },
   });
 
+  // Buscar lançamentos feitos pelo cliente no portal
+  const { data: lancamentosCliente = [] } = useLancamentosCliente(config?.cliente_id || null);
+
+  // Buscar produtos disponíveis para o cliente
+  const { data: produtos = [] } = useQuery({
+    queryKey: ["portal-produtos", config?.cliente_id],
+    queryFn: async () => {
+      if (!config?.cliente_id) return [];
+
+      // Primeiro buscar preços especiais do cliente
+      const { data: precosEspeciais } = await supabase
+        .from("precos_especiais")
+        .select("produto_id")
+        .eq("cliente_id", config.cliente_id);
+
+      const produtoIds = precosEspeciais?.map((p) => p.produto_id) || [];
+
+      // Se tiver preços especiais, buscar esses produtos
+      // Senão, buscar todos os produtos ativos
+      let query = supabase
+        .from("produtos")
+        .select("id, nome, unidade")
+        .eq("status", "ativo")
+        .order("nome");
+
+      if (produtoIds.length > 0) {
+        query = query.in("id", produtoIds);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!config?.cliente_id,
+  });
+
   if (isLoadingConfig) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center">
@@ -112,6 +152,7 @@ const PortalCliente = () => {
 
   const cliente = config.cliente as any;
   const nomeEmpresa = configGeral?.nome_empresa || "Lavanderia";
+  const nomeExibicao = cliente?.nome_fantasia || cliente?.razao_social;
 
   const formatarData = (data: string) => {
     return format(new Date(data), "dd/MM/yyyy", { locale: ptBR });
@@ -130,6 +171,19 @@ const PortalCliente = () => {
         return <Badge variant="outline" className="text-muted-foreground">Pendente</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getLancamentoClienteStatus = (status: string) => {
+    switch (status) {
+      case "pendente":
+        return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" />Aguardando</Badge>;
+      case "conferido":
+        return <Badge className="bg-success text-success-foreground"><CheckCircle2 className="w-3 h-3 mr-1" />Conferido</Badge>;
+      case "divergente":
+        return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" />Divergência</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -180,12 +234,69 @@ const PortalCliente = () => {
               <div>
                 <p className="text-sm text-muted-foreground">Bem-vindo(a),</p>
                 <h2 className="text-xl font-bold text-foreground">
-                  {cliente?.razao_social || cliente?.nome_fantasia}
+                  {nomeExibicao}
                 </h2>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Botão de Lançar Produtos */}
+        <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-primary" />
+                  Lançar Produtos para Conferência
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Registre os itens que está enviando para facilitar a conferência na chegada
+                </p>
+              </div>
+              <Button onClick={() => setShowLancarModal(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Lançar Produtos
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Lançamentos do Cliente Pendentes */}
+        {lancamentosCliente.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                Meus Lançamentos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {lancamentosCliente.slice(0, 5).map((lancamento) => (
+                  <div
+                    key={lancamento.id}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-sm">
+                        {format(new Date(lancamento.created_at), "dd/MM/yyyy 'às' HH:mm", {
+                          locale: ptBR,
+                        })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {lancamento.itens?.length || 0} itens •{" "}
+                        {lancamento.itens?.reduce((acc, item) => acc + item.quantidade, 0) || 0}{" "}
+                        peças
+                      </p>
+                    </div>
+                    {getLancamentoClienteStatus(lancamento.status)}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Últimos Serviços */}
@@ -322,6 +433,17 @@ const PortalCliente = () => {
           <p>&copy; {new Date().getFullYear()} {nomeEmpresa}. Todos os direitos reservados.</p>
         </div>
       </footer>
+
+      {/* Modal de Lançamento de Produtos */}
+      {cliente && (
+        <LancarProdutosModal
+          open={showLancarModal}
+          onClose={() => setShowLancarModal(false)}
+          clienteId={cliente.id}
+          clienteNome={nomeExibicao}
+          produtos={produtos}
+        />
+      )}
     </div>
   );
 };

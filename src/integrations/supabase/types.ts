@@ -1161,6 +1161,41 @@ export type Database = {
           },
         ]
       }
+      itens_lancamento_cliente: {
+        Row: {
+          created_at: string | null
+          id: string
+          lancamento_id: string
+          observacoes: string | null
+          produto_id: string
+          quantidade: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lancamento_id: string
+          observacoes?: string | null
+          produto_id: string
+          quantidade: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lancamento_id?: string
+          observacoes?: string | null
+          produto_id?: string
+          quantidade?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_lancamento_cliente_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_cliente"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itens_ordem_servico: {
         Row: {
           avarias: string | null
@@ -1274,6 +1309,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      lancamentos_cliente: {
+        Row: {
+          cliente_id: string
+          created_at: string | null
+          data_lancamento: string | null
+          id: string
+          observacoes: string | null
+          ordem_servico_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string | null
+          data_lancamento?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string | null
+          data_lancamento?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       lancamentos_fatura: {
         Row: {

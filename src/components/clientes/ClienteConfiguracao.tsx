@@ -88,12 +88,33 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
     }
   }, [clienteId]);
 
-  const handleGerarCodigo = () => {
+  const handleGerarCodigo = async () => {
     const codigo = Math.random().toString(36).substring(2, 10).toUpperCase();
-    setCodigoAcesso(codigo);
-    // Usar URL dinâmica baseada no ambiente atual
     const baseUrl = window.location.origin;
-    setLinkAcesso(`${baseUrl}/portal/${codigo}`);
+    const link = `${baseUrl}/portal/${codigo}`;
+    setCodigoAcesso(codigo);
+    setLinkAcesso(link);
+
+    // Salvar imediatamente no banco
+    if (clienteId) {
+      try {
+        await upsertConfiguracao.mutateAsync({
+          cliente_id: clienteId,
+          codigo_acesso: codigo,
+          link_acesso: link,
+          tipo_relatorio: tipoRelatorio,
+          frequencia: frequencia,
+          dias_retirada: diasRetirada,
+          dias_entrega: diasEntrega,
+          horario_retirada: horarioRetirada || null,
+          horario_entrega: horarioEntrega || null,
+        });
+        toast.success("Código de acesso gerado e salvo!");
+      } catch (error) {
+        console.error("Erro ao salvar código:", error);
+        toast.error("Erro ao salvar código de acesso");
+      }
+    }
   };
 
   const handleCopyLink = () => {
