@@ -254,126 +254,131 @@ const PortalCliente = () => {
           </CardContent>
         </Card>
 
-        {/* Alertas */}
-        {alertas.length > 0 && <AlertasPortal alertas={alertas} />}
+        {/* Container principal com fundo branco */}
+        <Card className="bg-background/95 border-border/50 shadow-sm">
+          <CardContent className="p-6 space-y-6">
+            {/* Alertas */}
+            {alertas.length > 0 && <AlertasPortal alertas={alertas} />}
 
-        {/* Estatísticas */}
-        <EstatisticasCliente 
-          estatisticas={estatisticas} 
-          isLoading={isLoadingEstatisticas} 
-        />
+            {/* Estatísticas */}
+            <EstatisticasCliente 
+              estatisticas={estatisticas} 
+              isLoading={isLoadingEstatisticas} 
+            />
 
-        <Separator />
+            <Separator />
 
-        {/* Acompanhamento de Produção */}
-        <AcompanhamentoProducao 
-          ordens={ordens} 
-          isLoading={isLoadingOrdens} 
-        />
+            {/* Acompanhamento de Produção */}
+            <AcompanhamentoProducao 
+              ordens={ordens} 
+              isLoading={isLoadingOrdens} 
+            />
 
-        <Separator />
+            <Separator />
 
-        {/* Central de Documentos */}
-        <CentralDocumentos 
-          faturas={faturas} 
-          isLoading={isLoadingFaturas} 
-        />
+            {/* Central de Documentos */}
+            <CentralDocumentos 
+              faturas={faturas} 
+              isLoading={isLoadingFaturas} 
+            />
 
-        <Separator />
+            <Separator />
 
-        {/* Lançamentos do Cliente Pendentes + Próximos Agendamentos */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Lançamentos do Cliente */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Package className="w-5 h-5 text-primary" />
-                Meus Lançamentos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {lancamentosCliente.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Nenhum lançamento registrado
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setShowLancarModal(true)}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Lançar Produtos
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {lancamentosCliente.slice(0, 5).map((lancamento) => (
-                    <div
-                      key={lancamento.id}
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-sm">
-                          {format(new Date(lancamento.created_at), "dd/MM/yyyy 'às' HH:mm", {
-                            locale: ptBR,
-                          })}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {lancamento.itens?.length || 0} itens •{" "}
-                          {lancamento.itens?.reduce((acc, item) => acc + item.quantidade, 0) || 0}{" "}
-                          peças
-                        </p>
-                      </div>
-                      {getLancamentoClienteStatus(lancamento.status)}
+            {/* Lançamentos do Cliente Pendentes + Próximos Agendamentos */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Lançamentos do Cliente */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Package className="w-5 h-5 text-primary" />
+                    Meus Lançamentos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {lancamentosCliente.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Nenhum lançamento registrado
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowLancarModal(true)}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Lançar Produtos
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Próximos Agendamentos */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                Próximos Agendamentos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {agendamentos.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhum agendamento programado.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {agendamentos.map((agendamento: any) => (
-                    <div
-                      key={agendamento.id}
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        {getTipoAgendamento(agendamento.tipo)}
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-sm">
-                          {formatarData(agendamento.data)}
-                        </p>
-                        {agendamento.horario && (
-                          <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
-                            <Clock className="w-3 h-3" />
-                            {formatarHorario(agendamento.horario)}
-                          </p>
-                        )}
-                      </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {lancamentosCliente.slice(0, 5).map((lancamento) => (
+                        <div
+                          key={lancamento.id}
+                          className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                        >
+                          <div>
+                            <p className="font-medium text-sm">
+                              {format(new Date(lancamento.created_at), "dd/MM/yyyy 'às' HH:mm", {
+                                locale: ptBR,
+                              })}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {lancamento.itens?.length || 0} itens •{" "}
+                              {lancamento.itens?.reduce((acc, item) => acc + item.quantidade, 0) || 0}{" "}
+                              peças
+                            </p>
+                          </div>
+                          {getLancamentoClienteStatus(lancamento.status)}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Próximos Agendamentos */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    Próximos Agendamentos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {agendamentos.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Nenhum agendamento programado.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {agendamentos.map((agendamento: any) => (
+                        <div
+                          key={agendamento.id}
+                          className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            {getTipoAgendamento(agendamento.tipo)}
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-sm">
+                              {formatarData(agendamento.data)}
+                            </p>
+                            {agendamento.horario && (
+                              <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
+                                <Clock className="w-3 h-3" />
+                                {formatarHorario(agendamento.horario)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Contact */}
         <Card className="bg-muted/50">
