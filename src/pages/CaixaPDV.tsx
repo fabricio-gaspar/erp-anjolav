@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,11 @@ import {
   FileText,
   AlertTriangle,
   DoorOpen,
+  Maximize,
+  Minimize,
+  History,
+  Keyboard,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
@@ -34,8 +39,12 @@ import { SangriaModal } from "@/components/caixa/SangriaModal";
 import { SuprimentoModal } from "@/components/caixa/SuprimentoModal";
 import { ConsultarOSModal } from "@/components/caixa/ConsultarOSModal";
 import { ReceberPagamentoModal } from "@/components/caixa/ReceberPagamentoModal";
+import { HistoricoVendasModal } from "@/components/caixa/HistoricoVendasModal";
+import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
 import { OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface CartItem {
   id: string;
@@ -69,6 +78,10 @@ const CaixaPDV = () => {
   const { addItem } = useItensOrdemServico(null);
   const addMovimentacao = useAddMovimentacao();
   
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const clientSearchRef = useRef<HTMLInputElement>(null);
+  const barcodeTimeoutRef = useRef<NodeJS.Timeout>();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLetter, setSelectedLetter] = useState("TODOS");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -94,7 +107,20 @@ const CaixaPDV = () => {
   const [showConsultarOSModal, setShowConsultarOSModal] = useState(false);
   const [showReceberPagamentoModal, setShowReceberPagamentoModal] = useState(false);
   const [osParaReceber, setOsParaReceber] = useState<OrdemServicoConsulta | null>(null);
+  
+  // Novos estados para funcionalidades profissionais
+  const [showHistoricoVendas, setShowHistoricoVendas] = useState(false);
+  const [showAjudaAtalhos, setShowAjudaAtalhos] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [barcodeBuffer, setBarcodeBuffer] = useState("");
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
   const { precos: precosEspeciais } = usePrecosEspeciais(selectedClientId);
+  
+  // Último cliente usado (persistido no localStorage)
+  const [ultimoClienteId, setUltimoClienteId] = useState<string | null>(() => {
+    return localStorage.getItem("pdv_ultimo_cliente");
+  });
 
   const selectedClient = useMemo(() => {
     return clientes.find(c => c.id === selectedClientId);
@@ -348,6 +374,11 @@ const CaixaPDV = () => {
 
   // Função após impressão (ou pular)
   const handleImpressaoComplete = () => {
+    // Salvar último cliente usado
+    if (selectedClientId) {
+      localStorage.setItem("pdv_ultimo_cliente", selectedClientId);
+      setUltimoClienteId(selectedClientId);
+    }
     setOsRecemCriada(null);
     setCart([]);
     setSelectedClientId(null);
@@ -355,8 +386,86 @@ const CaixaPDV = () => {
     toast.success("Venda finalizada com sucesso!");
   };
 
+  // Atualizar hora a cada segundo
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Detectar leitura de código de barras (digitação rápida)
+  useEffect(() => {
+    const handleBarcodeInput = (e: KeyboardEvent) => {
+      // Ignorar se um modal está aberto ou se está em um input
+      if (showPagamentoModal || showConsultarOSModal || showAjudaAtalhos) return;
+      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") return;
+
+      // Detectar digitação rápida de números (scanner)
+      if (/^[0-9]$/.test(e.key)) {
+        setBarcodeBuffer((prev) => prev + e.key);
+        clearTimeout(barcodeTimeoutRef.current);
+        barcodeTimeoutRef.current = setTimeout(() => {
+          if (barcodeBuffer.length >= 3) {
+            const produto = produtos.find((p) => p.codigo === barcodeBuffer);
+            if (produto) {
+              addToCart(produto);
+              toast.success(`${produto.nome} adicionado`);
+            } else {
+              toast.error(`Produto não encontrado: ${barcodeBuffer}`);
+            }
+          }
+          setBarcodeBuffer("");
+        }, 150);
+      }
+    };
+
+    window.addEventListener("keypress", handleBarcodeInput);
+    return () => window.removeEventListener("keypress", handleBarcodeInput);
+  }, [barcodeBuffer, produtos, showPagamentoModal, showConsultarOSModal, showAjudaAtalhos]);
+
+  // Toggle fullscreen
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  // Usar último cliente
+  const useLastClient = useCallback(() => {
+    if (ultimoClienteId) {
+      selectClient(ultimoClienteId);
+      toast.success("Último cliente selecionado");
+    } else {
+      toast.info("Nenhum cliente anterior disponível");
+    }
+  }, [ultimoClienteId]);
+
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Ignorar se está digitando em um input (exceto para F-keys)
+    const isTyping = document.activeElement?.tagName === "INPUT" || 
+                     document.activeElement?.tagName === "TEXTAREA";
+    
+    // F1 - Ajuda
+    if (e.key === "F1") {
+      e.preventDefault();
+      setShowAjudaAtalhos(true);
+    }
+    // F2 - Foco no cliente
+    if (e.key === "F2") {
+      e.preventDefault();
+      clientSearchRef.current?.focus();
+    }
+    // F3 - Foco na busca de produtos
+    if (e.key === "F3") {
+      e.preventDefault();
+      searchInputRef.current?.focus();
+    }
     // F4 - Pagamento
     if (e.key === "F4") {
       e.preventDefault();
@@ -367,22 +476,79 @@ const CaixaPDV = () => {
       e.preventDefault();
       setShowConsultarOSModal(true);
     }
+    // F6 - Histórico de vendas
+    if (e.key === "F6") {
+      e.preventDefault();
+      if (caixaAberto) {
+        setShowHistoricoVendas(true);
+      } else {
+        toast.error("Abra o caixa para ver o histórico");
+      }
+    }
+    // F7 - Sangria/Suprimento (abre sangria por padrão)
+    if (e.key === "F7") {
+      e.preventDefault();
+      if (caixaAberto) {
+        setShowSangriaModal(true);
+      }
+    }
     // F8 - Limpar carrinho
     if (e.key === "F8") {
       e.preventDefault();
       clearCart();
     }
+    // F9 - Último cliente
+    if (e.key === "F9") {
+      e.preventDefault();
+      useLastClient();
+    }
+    // F10 - Fechar caixa
+    if (e.key === "F10") {
+      e.preventDefault();
+      if (caixaAberto) {
+        setShowFecharCaixaModal(true);
+      }
+    }
+    // F11 - Tela cheia
+    if (e.key === "F11") {
+      e.preventDefault();
+      toggleFullscreen();
+    }
+    // + / - para quantidade do último item (apenas se não estiver digitando)
+    if (!isTyping && cart.length > 0) {
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        const lastItem = cart[cart.length - 1];
+        updateQuantity(lastItem.id, 1);
+      }
+      if (e.key === "-") {
+        e.preventDefault();
+        const lastItem = cart[cart.length - 1];
+        updateQuantity(lastItem.id, -1);
+      }
+    }
     // ESC - Fechar modais
     if (e.key === "Escape") {
       if (showPagamentoModal) setShowPagamentoModal(false);
       if (showConsultarOSModal) setShowConsultarOSModal(false);
+      if (showHistoricoVendas) setShowHistoricoVendas(false);
+      if (showAjudaAtalhos) setShowAjudaAtalhos(false);
     }
-  }, [cart, selectedClientId, caixaAberto, showPagamentoModal, showConsultarOSModal]);
+  }, [cart, selectedClientId, caixaAberto, showPagamentoModal, showConsultarOSModal, showHistoricoVendas, showAjudaAtalhos, toggleFullscreen, useLastClient]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  // Escutar mudanças de fullscreen
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantidade, 0);
   const totalValue = cart.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
@@ -921,6 +1087,27 @@ const CaixaPDV = () => {
           }}
         />
       )}
+
+      {/* Modal Histórico de Vendas */}
+      {caixaAberto && (
+        <HistoricoVendasModal
+          open={showHistoricoVendas}
+          onOpenChange={setShowHistoricoVendas}
+          caixaId={caixaAberto.id}
+          onImprimirROL={(osId) => {
+            toast.info("Impressão ROL em desenvolvimento");
+          }}
+          onImprimirEtiquetas={(osId) => {
+            toast.info("Impressão etiquetas em desenvolvimento");
+          }}
+        />
+      )}
+
+      {/* Modal Ajuda Atalhos */}
+      <AjudaAtalhosModal
+        open={showAjudaAtalhos}
+        onOpenChange={setShowAjudaAtalhos}
+      />
     </AppLayout>
   );
 };

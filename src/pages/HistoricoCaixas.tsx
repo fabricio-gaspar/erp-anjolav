@@ -33,6 +33,7 @@ import { RelatorioMovimentacoes } from "@/components/caixa/RelatorioMovimentacoe
 import { RelatorioPecas } from "@/components/caixa/RelatorioPecas";
 import { RelatorioOperadores } from "@/components/caixa/RelatorioOperadores";
 import { RelatorioDiferencas } from "@/components/caixa/RelatorioDiferencas";
+import { RelatorioItens } from "@/components/caixa/RelatorioItens";
 
 const HistoricoCaixas = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
@@ -168,14 +169,18 @@ const HistoricoCaixas = () => {
         {/* Tabs */}
         <Card className="p-6">
           <Tabs defaultValue="resumo" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="resumo" className="gap-2">
                 <Lock className="w-4 h-4" />
-                <span className="hidden sm:inline">Resumo Mensal</span>
+                <span className="hidden sm:inline">Resumo</span>
               </TabsTrigger>
               <TabsTrigger value="movimentacoes" className="gap-2">
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Movimentações</span>
+              </TabsTrigger>
+              <TabsTrigger value="itens" className="gap-2">
+                <Package className="w-4 h-4" />
+                <span className="hidden sm:inline">Itens</span>
               </TabsTrigger>
               <TabsTrigger value="pecas" className="gap-2">
                 <Package className="w-4 h-4" />
@@ -327,6 +332,11 @@ const HistoricoCaixas = () => {
             {/* Movimentações Tab */}
             <TabsContent value="movimentacoes">
               <RelatorioMovimentacoes startDate={startDate} endDate={endDate} />
+            </TabsContent>
+
+            {/* Itens Tab */}
+            <TabsContent value="itens">
+              <RelatorioItens startDate={startDate} endDate={endDate} />
             </TabsContent>
 
             {/* Peças Tab */}
