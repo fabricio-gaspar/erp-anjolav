@@ -279,7 +279,10 @@ const PortalCliente = () => {
             {/* Central de Documentos */}
             <CentralDocumentos 
               faturas={faturas} 
-              isLoading={isLoadingFaturas} 
+              isLoading={isLoadingFaturas}
+              clienteNome={cliente?.razao_social || cliente?.nome_fantasia || ""}
+              empresaNome={configGeral?.nome_empresa || undefined}
+              logoUrl={configGeral?.logo_url || undefined}
             />
 
             <Separator />

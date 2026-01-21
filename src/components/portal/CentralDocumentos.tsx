@@ -6,41 +6,48 @@ import {
   Receipt, 
   CreditCard, 
   QrCode,
-  ChevronDown,
-  ChevronUp,
   FolderOpen
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { DocumentoCard } from "./DocumentoCard";
+import { VisualizarNFModal } from "./VisualizarNFModal";
+import { VisualizarBoletoModal } from "./VisualizarBoletoModal";
+import { VisualizarRelatorioModal } from "./VisualizarRelatorioModal";
 import type { FaturaPortal } from "@/hooks/usePortalData";
 
 interface CentralDocumentosProps {
   faturas: FaturaPortal[];
   isLoading: boolean;
+  clienteNome?: string;
+  empresaNome?: string;
+  logoUrl?: string;
 }
 
 function getStatusFatura(status: string) {
   switch (status) {
     case "pago":
-      return { label: "Pago", variant: "default" as const, className: "bg-green-600" };
+      return { label: "Pago", variant: "default" as const, className: "bg-emerald-600" };
     case "nota_emitida":
       return { label: "NF Emitida", variant: "secondary" as const };
     case "enviado":
-      return { label: "Enviado", variant: "default" as const, className: "bg-blue-600" };
+      return { label: "Enviado", variant: "default" as const, className: "bg-sky-600" };
     default:
       return { label: "Pendente", variant: "outline" as const };
   }
 }
 
-export function CentralDocumentos({ faturas, isLoading }: CentralDocumentosProps) {
+export function CentralDocumentos({ 
+  faturas, 
+  isLoading, 
+  clienteNome = "",
+  empresaNome,
+  logoUrl 
+}: CentralDocumentosProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>("faturas");
+  const [modalRelatorio, setModalRelatorio] = useState<FaturaPortal | null>(null);
+  const [modalNF, setModalNF] = useState<FaturaPortal | null>(null);
+  const [modalBoleto, setModalBoleto] = useState<FaturaPortal | null>(null);
 
   if (isLoading) {
     return (
@@ -56,8 +63,6 @@ export function CentralDocumentos({ faturas, isLoading }: CentralDocumentosProps
   const faturasComNF = faturas.filter(f => f.numero_nf || f.link_pdf_nf);
   const faturasComBoleto = faturas.filter(f => f.boleto_url || f.boleto_linha_digitavel);
   const faturasComPix = faturas.filter(f => f.pix_copia_cola);
-  const faturasPendentes = faturas.filter(f => f.status !== "pago");
-  const faturasPagas = faturas.filter(f => f.status === "pago");
 
   const sections = [
     {
@@ -65,32 +70,32 @@ export function CentralDocumentos({ faturas, isLoading }: CentralDocumentosProps
       title: "Faturas",
       icon: FileText,
       count: faturas.length,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
+      color: "text-sky-600",
+      bgColor: "bg-sky-100 dark:bg-sky-900/30",
     },
     {
       id: "notas",
       title: "Notas Fiscais",
       icon: Receipt,
       count: faturasComNF.length,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
+      color: "text-violet-600",
+      bgColor: "bg-violet-100 dark:bg-violet-900/30",
     },
     {
       id: "boletos",
       title: "Boletos",
       icon: CreditCard,
       count: faturasComBoleto.length,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
+      color: "text-amber-600",
+      bgColor: "bg-amber-100 dark:bg-amber-900/30",
     },
     {
       id: "pix",
       title: "PIX",
       icon: QrCode,
       count: faturasComPix.length,
-      color: "text-green-600",
-      bgColor: "bg-green-100",
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
     },
   ];
 
@@ -147,11 +152,13 @@ export function CentralDocumentos({ faturas, isLoading }: CentralDocumentosProps
                   <DocumentoCard
                     key={fatura.id}
                     icon={FileText}
-                    iconColor="text-blue-600"
-                    iconBg="bg-blue-100"
+                    iconColor="text-sky-600"
+                    iconBg="bg-sky-100 dark:bg-sky-900/30"
                     titulo={`Fatura ${format(new Date(fatura.periodo_inicio), "MMM/yyyy", { locale: ptBR })}`}
                     subtitulo={`R$ ${Number(fatura.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} • ${format(new Date(fatura.periodo_inicio), "dd/MM")} a ${format(new Date(fatura.periodo_fim), "dd/MM")}`}
                     status={status}
+                    onVisualize={() => setModalRelatorio(fatura)}
+                    visualizeLabel="Ver Relatório"
                   />
                 );
               })}
@@ -170,10 +177,12 @@ export function CentralDocumentos({ faturas, isLoading }: CentralDocumentosProps
                   <DocumentoCard
                     key={fatura.id}
                     icon={Receipt}
-                    iconColor="text-purple-600"
-                    iconBg="bg-purple-100"
+                    iconColor="text-violet-600"
+                    iconBg="bg-violet-100 dark:bg-violet-900/30"
                     titulo={`NF ${fatura.numero_nf || "Pendente"}`}
                     subtitulo={fatura.data_emissao_nf ? `Emitida em ${format(new Date(fatura.data_emissao_nf), "dd/MM/yyyy")}` : undefined}
+                    onVisualize={() => setModalNF(fatura)}
+                    visualizeLabel="Ver NF"
                     downloadUrl={fatura.link_pdf_nf || undefined}
                     downloadLabel="Baixar NF"
                     copiavel={fatura.chave_acesso ? { valor: fatura.chave_acesso, label: "Copiar Chave" } : undefined}
@@ -197,11 +206,13 @@ export function CentralDocumentos({ faturas, isLoading }: CentralDocumentosProps
                     <DocumentoCard
                       key={fatura.id}
                       icon={CreditCard}
-                      iconColor="text-orange-600"
-                      iconBg="bg-orange-100"
+                      iconColor="text-amber-600"
+                      iconBg="bg-amber-100 dark:bg-amber-900/30"
                       titulo={`Boleto - R$ ${Number(fatura.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                       subtitulo={fatura.data_vencimento ? `Vencimento: ${format(new Date(fatura.data_vencimento), "dd/MM/yyyy")}` : undefined}
                       status={status}
+                      onVisualize={() => setModalBoleto(fatura)}
+                      visualizeLabel="Ver Boleto"
                       downloadUrl={fatura.boleto_url || undefined}
                       downloadLabel="Baixar Boleto"
                       copiavel={fatura.boleto_linha_digitavel ? { valor: fatura.boleto_linha_digitavel, label: "Copiar Linha Digitável" } : undefined}
@@ -226,11 +237,13 @@ export function CentralDocumentos({ faturas, isLoading }: CentralDocumentosProps
                     <DocumentoCard
                       key={fatura.id}
                       icon={QrCode}
-                      iconColor="text-green-600"
-                      iconBg="bg-green-100"
+                      iconColor="text-emerald-600"
+                      iconBg="bg-emerald-100 dark:bg-emerald-900/30"
                       titulo={`PIX - R$ ${Number(fatura.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                       subtitulo={fatura.data_vencimento ? `Vencimento: ${format(new Date(fatura.data_vencimento), "dd/MM/yyyy")}` : undefined}
                       status={status}
+                      onVisualize={() => setModalBoleto(fatura)}
+                      visualizeLabel="Ver PIX"
                       copiavel={fatura.pix_copia_cola ? { valor: fatura.pix_copia_cola, label: "Copiar Código PIX" } : undefined}
                     />
                   );
@@ -239,6 +252,34 @@ export function CentralDocumentos({ faturas, isLoading }: CentralDocumentosProps
             </div>
           )}
         </div>
+      )}
+
+      {/* Modais de visualização */}
+      {modalRelatorio && (
+        <VisualizarRelatorioModal
+          open={!!modalRelatorio}
+          onOpenChange={() => setModalRelatorio(null)}
+          fatura={modalRelatorio}
+          clienteNome={clienteNome}
+          empresaNome={empresaNome}
+          logoUrl={logoUrl}
+        />
+      )}
+
+      {modalNF && (
+        <VisualizarNFModal
+          open={!!modalNF}
+          onOpenChange={() => setModalNF(null)}
+          fatura={modalNF}
+        />
+      )}
+
+      {modalBoleto && (
+        <VisualizarBoletoModal
+          open={!!modalBoleto}
+          onOpenChange={() => setModalBoleto(null)}
+          fatura={modalBoleto}
+        />
       )}
     </div>
   );

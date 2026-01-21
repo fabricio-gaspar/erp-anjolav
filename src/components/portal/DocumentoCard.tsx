@@ -1,4 +1,4 @@
-import { LucideIcon, Download, Copy, ExternalLink, Check } from "lucide-react";
+import { LucideIcon, Download, Copy, Check, Eye } from "lucide-react";
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,8 @@ interface DocumentoCardProps {
   };
   downloadUrl?: string;
   downloadLabel?: string;
+  onVisualize?: () => void;
+  visualizeLabel?: string;
 }
 
 export function DocumentoCard({
@@ -42,6 +44,8 @@ export function DocumentoCard({
   copiavel,
   downloadUrl,
   downloadLabel,
+  onVisualize,
+  visualizeLabel,
 }: DocumentoCardProps) {
   const [copiado, setCopiado] = useState(false);
 
@@ -79,6 +83,18 @@ export function DocumentoCard({
 
             {/* Ações */}
             <div className="flex flex-wrap gap-2 mt-3">
+              {onVisualize && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="h-7 text-xs"
+                  onClick={onVisualize}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  {visualizeLabel || "Visualizar"}
+                </Button>
+              )}
+
               {copiavel && (
                 <Button
                   size="sm"
