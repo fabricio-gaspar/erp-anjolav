@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -13,6 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Database,
   Image,
@@ -29,9 +38,21 @@ import {
   Loader2,
   Building2,
   Trash2,
+  Bell,
+  Users,
+  Eye,
+  EyeOff,
+  FileText,
+  Calendar,
+  DollarSign,
+  Settings2,
+  Edit2,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { useNotificacoesConfig } from "@/hooks/useNotificacoesConfig";
+import { usePortalConfig } from "@/hooks/usePortalConfig";
 import { buscarCepComFallback, geocodeEndereco, montarEnderecoCompleto, montarEnderecoSimplificado } from "@/services/apiServices";
 import { AddressMap } from "@/components/ui/AddressMap";
 import { supabase } from "@/integrations/supabase/client";
@@ -871,6 +892,316 @@ export function ConfiguracoesGeral() {
           Salvar Configurações WhatsApp
         </Button>
       </Card>
+
+      {/* Notificações Automáticas */}
+      <NotificacoesSection />
+
+      {/* Portal do Cliente */}
+      <PortalClienteSection />
     </div>
+  );
+}
+
+// Componente separado para Notificações
+function NotificacoesSection() {
+  const { notificacoes, isLoading, updateNotificacao } = useNotificacoesConfig();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTemplate, setEditTemplate] = useState("");
+
+  const eventoLabels: Record<string, string> = {
+    os_retirada: "OS Retirada",
+    os_producao: "OS em Produção",
+    os_pronto: "OS Pronta",
+    os_entregue: "OS Entregue",
+    fatura_vencimento: "Lembrete Vencimento",
+    fatura_emitida: "Fatura Emitida",
+  };
+
+  const handleEdit = (id: string, template: string) => {
+    setEditingId(id);
+    setEditTemplate(template);
+  };
+
+  const handleSave = async (id: string) => {
+    await updateNotificacao.mutateAsync({ id, template: editTemplate });
+    setEditingId(null);
+  };
+
+  const handleToggle = async (id: string, ativo: boolean) => {
+    await updateNotificacao.mutateAsync({ id, ativo });
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </Card>
+    );
+  }
+
+  const whatsappNotifs = notificacoes.filter(n => n.canal === "whatsapp");
+  const emailNotifs = notificacoes.filter(n => n.canal === "email");
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Bell className="w-5 h-5 text-orange-500" />
+        <h2 className="font-semibold text-foreground">Notificações Automáticas</h2>
+      </div>
+
+      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+        <div className="flex items-center gap-2">
+          <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            Configure templates de mensagens automáticas para cada evento. Use variáveis como {"{cliente}"}, {"{numero}"}, {"{valor}"} para dados dinâmicos.
+          </p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="whatsapp" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="whatsapp" className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            WhatsApp ({whatsappNotifs.length})
+          </TabsTrigger>
+          <TabsTrigger value="email" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            E-mail ({emailNotifs.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="whatsapp">
+          <div className="space-y-3">
+            {whatsappNotifs.map((notif) => (
+              <div key={notif.id} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{eventoLabels[notif.evento] || notif.evento}</Badge>
+                    {notif.ativo ? (
+                      <Badge className="bg-green-100 text-green-700">Ativo</Badge>
+                    ) : (
+                      <Badge variant="secondary">Inativo</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={notif.ativo}
+                      onCheckedChange={(checked) => handleToggle(notif.id, checked)}
+                      disabled={updateNotificacao.isPending}
+                    />
+                    {editingId === notif.id ? (
+                      <Button size="sm" onClick={() => handleSave(notif.id)} disabled={updateNotificacao.isPending}>
+                        <Save className="w-4 h-4 mr-1" />
+                        Salvar
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => handleEdit(notif.id, notif.template)}>
+                        <Edit2 className="w-4 h-4 mr-1" />
+                        Editar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {editingId === notif.id ? (
+                  <Textarea
+                    value={editTemplate}
+                    onChange={(e) => setEditTemplate(e.target.value)}
+                    rows={4}
+                    className="font-mono text-sm"
+                    skipUppercase
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted/50 p-2 rounded">
+                    {notif.template}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="email">
+          <div className="space-y-3">
+            {emailNotifs.map((notif) => (
+              <div key={notif.id} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{eventoLabels[notif.evento] || notif.evento}</Badge>
+                    {notif.ativo ? (
+                      <Badge className="bg-green-100 text-green-700">Ativo</Badge>
+                    ) : (
+                      <Badge variant="secondary">Inativo</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={notif.ativo}
+                      onCheckedChange={(checked) => handleToggle(notif.id, checked)}
+                      disabled={updateNotificacao.isPending}
+                    />
+                    {editingId === notif.id ? (
+                      <Button size="sm" onClick={() => handleSave(notif.id)} disabled={updateNotificacao.isPending}>
+                        <Save className="w-4 h-4 mr-1" />
+                        Salvar
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => handleEdit(notif.id, notif.template)}>
+                        <Edit2 className="w-4 h-4 mr-1" />
+                        Editar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {editingId === notif.id ? (
+                  <Textarea
+                    value={editTemplate}
+                    onChange={(e) => setEditTemplate(e.target.value)}
+                    rows={4}
+                    className="font-mono text-sm"
+                    skipUppercase
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted/50 p-2 rounded">
+                    {notif.template}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </Card>
+  );
+}
+
+// Componente separado para Portal do Cliente
+function PortalClienteSection() {
+  const { portalConfig, isLoading, updatePortalConfig } = usePortalConfig();
+  const [localConfig, setLocalConfig] = useState({
+    portal_ativo: true,
+    modulos_visiveis: {
+      os: true,
+      documentos: true,
+      agendamento: true,
+      historico: true,
+      financeiro: false,
+    },
+    texto_boas_vindas: "",
+  });
+
+  useEffect(() => {
+    if (portalConfig) {
+      setLocalConfig({
+        portal_ativo: portalConfig.portal_ativo,
+        modulos_visiveis: portalConfig.modulos_visiveis,
+        texto_boas_vindas: portalConfig.texto_boas_vindas || "",
+      });
+    }
+  }, [portalConfig]);
+
+  const handleSave = async () => {
+    await updatePortalConfig.mutateAsync(localConfig);
+  };
+
+  const handleModuloToggle = (modulo: keyof typeof localConfig.modulos_visiveis) => {
+    setLocalConfig(prev => ({
+      ...prev,
+      modulos_visiveis: {
+        ...prev.modulos_visiveis,
+        [modulo]: !prev.modulos_visiveis[modulo],
+      },
+    }));
+  };
+
+  const moduloLabels: Record<string, { label: string; icon: React.ReactNode }> = {
+    os: { label: "Acompanhar Ordens de Serviço", icon: <FileText className="w-4 h-4" /> },
+    documentos: { label: "Ver Documentos e Notas Fiscais", icon: <FileText className="w-4 h-4" /> },
+    agendamento: { label: "Solicitar Agendamentos", icon: <Calendar className="w-4 h-4" /> },
+    historico: { label: "Ver Histórico de Serviços", icon: <Settings2 className="w-4 h-4" /> },
+    financeiro: { label: "Ver Informações Financeiras", icon: <DollarSign className="w-4 h-4" /> },
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Users className="w-5 h-5 text-green-600" />
+        <h2 className="font-semibold text-foreground">Portal do Cliente</h2>
+      </div>
+
+      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+        <div className="flex items-center gap-2">
+          <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            Configure quais módulos ficam visíveis para os clientes no portal de autoatendimento.
+          </p>
+        </div>
+      </div>
+
+      {/* Ativar/Desativar Portal */}
+      <div className="flex items-center justify-between p-4 border rounded-lg mb-4">
+        <div>
+          <p className="font-medium text-foreground">Portal Ativo</p>
+          <p className="text-sm text-muted-foreground">Permite que clientes acessem o portal</p>
+        </div>
+        <Switch
+          checked={localConfig.portal_ativo}
+          onCheckedChange={(checked) => setLocalConfig(prev => ({ ...prev, portal_ativo: checked }))}
+        />
+      </div>
+
+      {/* Módulos Visíveis */}
+      <div className="space-y-3 mb-4">
+        <Label className="text-sm font-medium">Módulos Visíveis</Label>
+        {Object.entries(moduloLabels).map(([key, { label, icon }]) => (
+          <div key={key} className="flex items-center justify-between p-3 border rounded-lg">
+            <div className="flex items-center gap-2">
+              {icon}
+              <span className="text-sm text-foreground">{label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {localConfig.modulos_visiveis[key as keyof typeof localConfig.modulos_visiveis] ? (
+                <Eye className="w-4 h-4 text-green-600" />
+              ) : (
+                <EyeOff className="w-4 h-4 text-muted-foreground" />
+              )}
+              <Switch
+                checked={localConfig.modulos_visiveis[key as keyof typeof localConfig.modulos_visiveis]}
+                onCheckedChange={() => handleModuloToggle(key as keyof typeof localConfig.modulos_visiveis)}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Texto de Boas-Vindas */}
+      <div className="mb-4">
+        <Label className="text-sm font-medium">Texto de Boas-Vindas</Label>
+        <Textarea
+          value={localConfig.texto_boas_vindas}
+          onChange={(e) => setLocalConfig(prev => ({ ...prev, texto_boas_vindas: e.target.value }))}
+          placeholder="Bem-vindo ao Portal do Cliente! Aqui você pode acompanhar suas ordens de serviço e documentos."
+          rows={3}
+          className="mt-2"
+          skipUppercase
+        />
+      </div>
+
+      <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700" disabled={updatePortalConfig.isPending}>
+        {updatePortalConfig.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+        Salvar Configurações do Portal
+      </Button>
+    </Card>
   );
 }
