@@ -25,7 +25,8 @@ import {
   Clock,
   Zap,
   Percent,
-  CalendarIcon
+  CalendarIcon,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDays, format, isWeekend, nextMonday } from "date-fns";
@@ -76,6 +77,10 @@ export interface DadosPagamento {
   tipoLogistica: "buscar" | "entregar";
   motoristaId?: string;
   veiculoId?: string;
+  // Novos campos de parcelamento e troco
+  parcelas?: number;
+  valorRecebido?: number;
+  troco?: number;
 }
 
 type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO";
@@ -86,6 +91,8 @@ const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; icon: React.Reac
   { value: "CARTAO_CREDITO", label: "Crédito", icon: <CreditCard className="w-5 h-5" /> },
   { value: "CARTAO_DEBITO", label: "Débito", icon: <CreditCard className="w-5 h-5" /> },
 ];
+
+const PARCELAS_OPCOES = [1, 2, 3, 4, 5, 6, 10, 12];
 
 const DIAS_ENTREGA_PADRAO = 3;
 const PERCENTUAL_URGENCIA_PADRAO = 30;
@@ -113,6 +120,9 @@ export function PagamentoModal({
   const [tipoLogistica, setTipoLogistica] = useState<"buscar" | "entregar">("buscar");
   const [motoristaId, setMotoristaId] = useState("");
   const [veiculoId, setVeiculoId] = useState("");
+  // Novos estados para parcelamento e troco
+  const [parcelas, setParcelas] = useState(1);
+  const [valorRecebido, setValorRecebido] = useState("");
 
   // Reset form when modal opens
   useEffect(() => {
@@ -125,6 +135,8 @@ export function PagamentoModal({
       setTipoLogistica("buscar");
       setMotoristaId("");
       setVeiculoId("");
+      setParcelas(1);
+      setValorRecebido("");
       // Reset delivery date
       const data = addDays(new Date(), DIAS_ENTREGA_PADRAO);
       setPrevisaoEntrega(isWeekend(data) ? nextMonday(data) : data);
@@ -140,6 +152,13 @@ export function PagamentoModal({
     }
     setPrevisaoEntrega(data);
   }, [urgente]);
+
+  // Reset parcelas when payment method changes
+  useEffect(() => {
+    if (formaPagamento !== "CARTAO_CREDITO") {
+      setParcelas(1);
+    }
+  }, [formaPagamento]);
 
   // Calculate values
   const calculos = useMemo(() => {
@@ -168,6 +187,18 @@ export function PagamentoModal({
     };
   }, [totalOriginal, descontoInput, descontoTipo, urgente]);
 
+  // Calcular troco
+  const troco = useMemo(() => {
+    if (formaPagamento !== "DINHEIRO" || !valorRecebido) return 0;
+    const recebido = parseFloat(valorRecebido.replace(",", ".")) || 0;
+    return Math.max(0, recebido - calculos.valorTotal);
+  }, [valorRecebido, calculos.valorTotal, formaPagamento]);
+
+  // Valor da parcela
+  const valorParcela = useMemo(() => {
+    return calculos.valorTotal / parcelas;
+  }, [calculos.valorTotal, parcelas]);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -177,11 +208,18 @@ export function PagamentoModal({
 
   const canSubmit = useMemo(() => {
     if (pagoAgora && !formaPagamento) return false;
+    // Para dinheiro, verificar se valor recebido é suficiente
+    if (pagoAgora && formaPagamento === "DINHEIRO") {
+      const recebido = parseFloat(valorRecebido.replace(",", ".")) || 0;
+      if (recebido < calculos.valorTotal) return false;
+    }
     return true;
-  }, [pagoAgora, formaPagamento]);
+  }, [pagoAgora, formaPagamento, valorRecebido, calculos.valorTotal]);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+
+    const recebido = parseFloat(valorRecebido.replace(",", ".")) || 0;
 
     await onConfirm({
       pagoAgora,
@@ -194,12 +232,15 @@ export function PagamentoModal({
       tipoLogistica,
       motoristaId: tipoLogistica === "entregar" ? motoristaId : undefined,
       veiculoId: tipoLogistica === "entregar" ? veiculoId : undefined,
+      parcelas: formaPagamento === "CARTAO_CREDITO" ? parcelas : 1,
+      valorRecebido: formaPagamento === "DINHEIRO" ? recebido : undefined,
+      troco: formaPagamento === "DINHEIRO" ? troco : undefined,
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">Finalizar Venda</DialogTitle>
         </DialogHeader>
@@ -390,6 +431,84 @@ export function PagamentoModal({
             </div>
           )}
 
+          {/* Parcelamento (apenas para crédito) */}
+          {pagoAgora && formaPagamento === "CARTAO_CREDITO" && (
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Calculator className="w-4 h-4" />
+                Parcelas
+              </Label>
+              <div className="grid grid-cols-4 gap-2">
+                {PARCELAS_OPCOES.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setParcelas(n)}
+                    className={cn(
+                      "p-2 rounded-lg border-2 text-center transition-all",
+                      parcelas === n
+                        ? "border-primary bg-primary/5"
+                        : "border-muted hover:border-muted-foreground/30"
+                    )}
+                  >
+                    <p className="font-bold text-sm">{n}x</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatCurrency(calculos.valorTotal / n)}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Gaveta de Troco (apenas para dinheiro) */}
+          {pagoAgora && formaPagamento === "DINHEIRO" && (
+            <div className="p-4 rounded-lg bg-success/5 border border-success/30 space-y-3">
+              <Label className="flex items-center gap-2 text-success">
+                <Banknote className="w-4 h-4" />
+                Valor Recebido
+              </Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Input
+                    type="text"
+                    value={valorRecebido}
+                    onChange={(e) => setValorRecebido(e.target.value)}
+                    placeholder="0,00"
+                    className="text-lg font-bold text-center h-12"
+                    autoFocus
+                  />
+                  <div className="flex gap-1 mt-2">
+                    {[10, 20, 50, 100].map((v) => (
+                      <Button
+                        key={v}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => {
+                          const current = parseFloat(valorRecebido.replace(",", ".")) || 0;
+                          setValorRecebido((current + v).toFixed(2).replace(".", ","));
+                        }}
+                      >
+                        +{v}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col items-center justify-center bg-success/10 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">TROCO</p>
+                  <p className={cn(
+                    "text-2xl font-bold",
+                    troco > 0 ? "text-success" : "text-muted-foreground"
+                  )}>
+                    {formatCurrency(troco)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Separator />
 
           {/* Resumo de Valores */}
@@ -415,6 +534,12 @@ export function PagamentoModal({
               <span>TOTAL</span>
               <span className="text-primary">{formatCurrency(calculos.valorTotal)}</span>
             </div>
+            {pagoAgora && formaPagamento === "CARTAO_CREDITO" && parcelas > 1 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>{parcelas}x de</span>
+                <span>{formatCurrency(valorParcela)}</span>
+              </div>
+            )}
           </div>
         </div>
 
