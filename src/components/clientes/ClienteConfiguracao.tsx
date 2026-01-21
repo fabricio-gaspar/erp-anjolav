@@ -91,7 +91,9 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
   const handleGerarCodigo = () => {
     const codigo = Math.random().toString(36).substring(2, 10).toUpperCase();
     setCodigoAcesso(codigo);
-    setLinkAcesso(`https://portal.anjolav.com.br/${codigo}`);
+    // Usar URL dinâmica baseada no ambiente atual
+    const baseUrl = window.location.origin;
+    setLinkAcesso(`${baseUrl}/portal/${codigo}`);
   };
 
   const handleCopyLink = () => {
