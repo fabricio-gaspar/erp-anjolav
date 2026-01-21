@@ -2,6 +2,24 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Sparkles,
   RefreshCw,
@@ -26,9 +44,25 @@ import {
   Clock,
   AlertCircle,
   Settings2,
+  History,
+  Cog,
+  Mail,
+  MessageSquare,
+  Check,
+  X,
+  PlayCircle,
+  PauseCircle,
+  Trash2,
+  HardDrive,
+  Calendar,
+  Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useHistoricoEnvios, useHistoricoEnviosMultiple } from "@/hooks/useHistoricoEnvios";
+import { useAutomacoesConfig } from "@/hooks/useAutomacoesConfig";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 type ServiceStatusType = "online" | "offline" | "slow" | "not_configured" | "untested";
 
@@ -642,6 +676,12 @@ export function ConfiguracoesSistema() {
         </div>
       </Card>
 
+      {/* Histórico de Envios */}
+      <HistoricoEnviosSection />
+
+      {/* Automações */}
+      <AutomacoesSection />
+
       {/* Dicas de Performance */}
       <Card className="p-4 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
         <div className="flex items-start gap-2">
@@ -710,5 +750,264 @@ export function ConfiguracoesSistema() {
         </div>
       </Card>
     </div>
+  );
+}
+
+// Componente separado para Histórico de Envios
+function HistoricoEnviosSection() {
+  const [faturaIds, setFaturaIds] = useState<string[]>([]);
+  const [isLoadingFaturas, setIsLoadingFaturas] = useState(true);
+  const [filtroCanal, setFiltroCanal] = useState<string>("todos");
+  const [filtroStatus, setFiltroStatus] = useState<string>("todos");
+
+  // Carregar IDs das faturas recentes
+  useEffect(() => {
+    const loadFaturas = async () => {
+      setIsLoadingFaturas(true);
+      try {
+        const { data } = await supabase
+          .from("faturas")
+          .select("id")
+          .order("created_at", { ascending: false })
+          .limit(100);
+        
+        if (data) {
+          setFaturaIds(data.map(f => f.id));
+        }
+      } catch (error) {
+        console.error("Erro ao carregar faturas:", error);
+      } finally {
+        setIsLoadingFaturas(false);
+      }
+    };
+    loadFaturas();
+  }, []);
+
+  const { data: envios = [], isLoading } = useHistoricoEnviosMultiple(faturaIds);
+
+  const enviosFiltrados = envios.filter(e => {
+    if (filtroCanal !== "todos" && e.canal !== filtroCanal) return false;
+    if (filtroStatus !== "todos" && e.status !== filtroStatus) return false;
+    return true;
+  }).slice(0, 20);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "enviado":
+        return <Badge className="bg-blue-100 text-blue-700">Enviado</Badge>;
+      case "entregue":
+        return <Badge className="bg-green-100 text-green-700">Entregue</Badge>;
+      case "lido":
+        return <Badge className="bg-emerald-100 text-emerald-700">Lido</Badge>;
+      case "erro":
+        return <Badge className="bg-red-100 text-red-700">Erro</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getCanalIcon = (canal: string) => {
+    switch (canal) {
+      case "whatsapp":
+        return <MessageSquare className="w-4 h-4 text-green-600" />;
+      case "email":
+        return <Mail className="w-4 h-4 text-blue-600" />;
+      default:
+        return <MessageSquare className="w-4 h-4" />;
+    }
+  };
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <History className="w-5 h-5 text-purple-600" />
+          <h2 className="font-semibold text-foreground">Histórico de Envios</h2>
+        </div>
+        <div className="flex gap-2">
+          <Select value={filtroCanal} onValueChange={setFiltroCanal}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Canal" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="whatsapp">WhatsApp</SelectItem>
+              <SelectItem value="email">E-mail</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="enviado">Enviado</SelectItem>
+              <SelectItem value="entregue">Entregue</SelectItem>
+              <SelectItem value="lido">Lido</SelectItem>
+              <SelectItem value="erro">Erro</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {(isLoading || isLoadingFaturas) ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : enviosFiltrados.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <History className="w-12 h-12 mx-auto mb-2 opacity-50" />
+          <p>Nenhum envio encontrado</p>
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">Canal</TableHead>
+                <TableHead>Destinatário</TableHead>
+                <TableHead>Documentos</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {enviosFiltrados.map((envio) => (
+                <TableRow key={envio.id}>
+                  <TableCell>{getCanalIcon(envio.canal)}</TableCell>
+                  <TableCell className="font-medium text-sm">{envio.destinatario}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {envio.documentos_enviados?.join(", ") || "-"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {format(new Date(envio.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(envio.status)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Estatísticas resumidas */}
+      <div className="grid grid-cols-4 gap-4 mt-4">
+        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-center">
+          <p className="text-2xl font-bold text-blue-600">{envios.filter(e => e.canal === "email").length}</p>
+          <p className="text-xs text-muted-foreground">E-mails</p>
+        </div>
+        <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg text-center">
+          <p className="text-2xl font-bold text-green-600">{envios.filter(e => e.canal === "whatsapp").length}</p>
+          <p className="text-xs text-muted-foreground">WhatsApp</p>
+        </div>
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg text-center">
+          <p className="text-2xl font-bold text-emerald-600">{envios.filter(e => e.status === "entregue" || e.status === "lido").length}</p>
+          <p className="text-xs text-muted-foreground">Entregues</p>
+        </div>
+        <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg text-center">
+          <p className="text-2xl font-bold text-red-600">{envios.filter(e => e.status === "erro").length}</p>
+          <p className="text-xs text-muted-foreground">Erros</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// Componente separado para Automações
+function AutomacoesSection() {
+  const { automacoes, isLoading, updateAutomacao } = useAutomacoesConfig();
+
+  const automacaoLabels: Record<string, { title: string; description: string; icon: React.ReactNode }> = {
+    backup: {
+      title: "Backup Automático",
+      description: "Cria backups periódicos dos dados do sistema",
+      icon: <HardDrive className="w-5 h-5 text-blue-600" />,
+    },
+    fechamento: {
+      title: "Fechamento Mensal",
+      description: "Gera faturas automaticamente no início do mês",
+      icon: <Calendar className="w-5 h-5 text-green-600" />,
+    },
+    limpeza: {
+      title: "Limpeza de Dados Antigos",
+      description: "Remove logs e histórico com mais de 90 dias",
+      icon: <Trash2 className="w-5 h-5 text-amber-600" />,
+    },
+  };
+
+  const handleToggle = async (id: string, ativo: boolean) => {
+    await updateAutomacao.mutateAsync({ id, ativo });
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Cog className="w-5 h-5 text-cyan-600" />
+        <h2 className="font-semibold text-foreground">Automações</h2>
+      </div>
+
+      <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-4">
+        <p className="text-sm text-amber-700 dark:text-amber-300">
+          ⚠️ As automações são executadas em segundo plano pelo sistema. Ative apenas as que você realmente precisa.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        {automacoes.map((automacao) => {
+          const info = automacaoLabels[automacao.tipo];
+          if (!info) return null;
+
+          return (
+            <div
+              key={automacao.id}
+              className="flex items-center justify-between p-4 border rounded-lg bg-background"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                  {info.icon}
+                </div>
+                <div>
+                  <p className="font-medium text-sm text-foreground">{info.title}</p>
+                  <p className="text-xs text-muted-foreground">{info.description}</p>
+                  {automacao.ultima_execucao && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Última execução: {format(new Date(automacao.ultima_execucao), "dd/MM/yy HH:mm", { locale: ptBR })}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {automacao.ativo ? (
+                  <Badge className="bg-green-100 text-green-700">
+                    <PlayCircle className="w-3 h-3 mr-1" />
+                    Ativa
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary">
+                    <PauseCircle className="w-3 h-3 mr-1" />
+                    Inativa
+                  </Badge>
+                )}
+                <Switch
+                  checked={automacao.ativo}
+                  onCheckedChange={(checked) => handleToggle(automacao.id, checked)}
+                  disabled={updateAutomacao.isPending}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }

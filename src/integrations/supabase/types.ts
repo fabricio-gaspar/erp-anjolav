@@ -169,6 +169,39 @@ export type Database = {
           },
         ]
       }
+      automacoes_config: {
+        Row: {
+          ativo: boolean | null
+          configuracao: Json | null
+          created_at: string | null
+          id: string
+          proxima_execucao: string | null
+          tipo: string
+          ultima_execucao: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          configuracao?: Json | null
+          created_at?: string | null
+          id?: string
+          proxima_execucao?: string | null
+          tipo: string
+          ultima_execucao?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          configuracao?: Json | null
+          created_at?: string | null
+          id?: string
+          proxima_execucao?: string | null
+          tipo?: string
+          ultima_execucao?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       caixa_movimentacoes: {
         Row: {
           caixa_id: string
@@ -1461,6 +1494,39 @@ export type Database = {
           },
         ]
       }
+      notificacoes_config: {
+        Row: {
+          ativo: boolean | null
+          canal: string
+          created_at: string | null
+          evento: string
+          id: string
+          template: string
+          updated_at: string | null
+          variaveis: Json | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          canal: string
+          created_at?: string | null
+          evento: string
+          id?: string
+          template: string
+          updated_at?: string | null
+          variaveis?: Json | null
+        }
+        Update: {
+          ativo?: boolean | null
+          canal?: string
+          created_at?: string | null
+          evento?: string
+          id?: string
+          template?: string
+          updated_at?: string | null
+          variaveis?: Json | null
+        }
+        Relationships: []
+      }
       ordens_servico: {
         Row: {
           cliente_id: string
@@ -1637,6 +1703,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      portal_config: {
+        Row: {
+          cor_primaria: string | null
+          created_at: string | null
+          id: string
+          logo_url: string | null
+          modulos_visiveis: Json | null
+          portal_ativo: boolean | null
+          texto_boas_vindas: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cor_primaria?: string | null
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          modulos_visiveis?: Json | null
+          portal_ativo?: boolean | null
+          texto_boas_vindas?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cor_primaria?: string | null
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          modulos_visiveis?: Json | null
+          portal_ativo?: boolean | null
+          texto_boas_vindas?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       precos_especiais: {
         Row: {
