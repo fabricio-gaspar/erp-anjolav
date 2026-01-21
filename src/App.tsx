@@ -28,6 +28,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
+import PortalCliente from "./pages/PortalCliente";
 
 const queryClient = new QueryClient();
 
@@ -143,6 +144,9 @@ const App = () => (
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/relatorios/clientes" element={<RelatoriosCliente />} />
               <Route path="/relatorios/proximidade" element={<RelatorioProximidade />} />
+
+              {/* Portal do Cliente - Rota pública */}
+              <Route path="/portal/:codigo" element={<PortalCliente />} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>
