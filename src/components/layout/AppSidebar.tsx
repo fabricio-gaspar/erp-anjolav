@@ -31,6 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useSidebarContext } from "@/contexts/SidebarContext";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import {
   Tooltip,
   TooltipContent,
@@ -320,9 +321,14 @@ interface AppSidebarProps {
 
 export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   const { isCollapsed } = useSidebarContext();
+  const { configuracao } = useConfiguracoesGerais();
   
   // In mobile, always show expanded
   const effectiveCollapsed = isMobile ? false : isCollapsed;
+
+  const nomeEmpresa = configuracao?.nome_empresa || "AnjoLav";
+  const logoUrl = configuracao?.logo_url;
+  const primeiraLetra = nomeEmpresa.charAt(0).toUpperCase();
 
   return (
     <TooltipProvider>
@@ -340,11 +346,19 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
           effectiveCollapsed ? "px-2 justify-center" : "px-4"
         )}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center">
-              <span className="text-white font-bold text-lg">A</span>
+            <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center overflow-hidden">
+              {logoUrl ? (
+                <img 
+                  src={logoUrl} 
+                  alt={nomeEmpresa}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-white font-bold text-lg">{primeiraLetra}</span>
+              )}
             </div>
             {!effectiveCollapsed && (
-              <span className="font-bold text-base text-white">AnjoLav</span>
+              <span className="font-bold text-base text-white">{nomeEmpresa}</span>
             )}
           </div>
         </div>
