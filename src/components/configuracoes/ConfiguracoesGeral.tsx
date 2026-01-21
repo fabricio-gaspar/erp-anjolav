@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +28,13 @@ import {
   Search,
   Loader2,
   Building2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { buscarCepComFallback, geocodeEndereco, montarEnderecoCompleto, montarEnderecoSimplificado } from "@/services/apiServices";
 import { AddressMap } from "@/components/ui/AddressMap";
+import { supabase } from "@/integrations/supabase/client";
 
 const templateVariables = [
   "{{cliente}}",
@@ -95,9 +97,12 @@ Titular: {{banco_titular}}`;
 
 export function ConfiguracoesGeral() {
   const { configuracao, saveConfiguracao, isLoading } = useConfiguracoesGerais();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   // Identidade Visual
   const [nomeEmpresa, setNomeEmpresa] = useState("AnjoLav");
@@ -147,6 +152,7 @@ export function ConfiguracoesGeral() {
       setTemplateBoleto(configuracao.template_boleto || defaultBoletoTemplate);
       setTemplateTransferencia(configuracao.template_transferencia || defaultTransferenciaTemplate);
       setWhatsappNumero(configuracao.whatsapp_numero || "");
+      setLogoUrl(configuracao.logo_url || null);
       setEnderecoData({
         cep: configuracao.endereco_cep || "",
         logradouro: configuracao.endereco_logradouro || "",
@@ -172,7 +178,67 @@ export function ConfiguracoesGeral() {
     saveConfiguracao.mutate({
       nome_empresa: nomeEmpresa,
       cor_primaria: corPrimaria,
+      logo_url: logoUrl,
     });
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione um arquivo de imagem.");
+      return;
+    }
+
+    // Validar tamanho (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 2MB.");
+      return;
+    }
+
+    setIsUploadingLogo(true);
+
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `logo-${Date.now()}.${fileExt}`;
+      const filePath = `logos/${fileName}`;
+
+      // Upload para o bucket company-assets
+      const { error: uploadError } = await supabase.storage
+        .from("company-assets")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Obter URL pública
+      const { data: urlData } = supabase.storage
+        .from("company-assets")
+        .getPublicUrl(filePath);
+
+      const newLogoUrl = urlData.publicUrl;
+      setLogoUrl(newLogoUrl);
+
+      // Salvar no banco
+      saveConfiguracao.mutate({ logo_url: newLogoUrl });
+
+      toast.success("Logo carregada com sucesso!");
+    } catch (error) {
+      console.error("Erro ao fazer upload da logo:", error);
+      toast.error("Erro ao carregar logo. Tente novamente.");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoUrl(null);
+    saveConfiguracao.mutate({ logo_url: null });
+    toast.success("Logo removida.");
   };
 
   const handleSavePayment = () => {
@@ -348,16 +414,48 @@ export function ConfiguracoesGeral() {
           </div>
 
           <div className="flex items-start gap-4 mb-4">
-            <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">
-              <Image className="w-6 h-6 text-muted-foreground" />
+            <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed overflow-hidden">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+              ) : (
+                <Image className="w-6 h-6 text-muted-foreground" />
+              )}
             </div>
-            <div>
-              <Button variant="outline" size="sm">
-                <Upload className="w-4 h-4 mr-2" />
-                Carregar Nova Logo
-              </Button>
-              <p className="text-xs text-muted-foreground mt-1">
-                Recomendado: PNG ou JPG transparente (500x500px).
+            <div className="space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingLogo}
+                >
+                  {isUploadingLogo ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  {isUploadingLogo ? "Carregando..." : "Carregar Nova Logo"}
+                </Button>
+                {logoUrl && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleRemoveLogo}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Remover
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Recomendado: PNG ou JPG transparente (500x500px). Máx. 2MB.
               </p>
             </div>
           </div>

@@ -136,14 +136,63 @@ const App = () => (
                 }
               />
 
-              {/* Public routes - operacional */}
-              <Route path="/clientes" element={<Clientes />} />
-              <Route path="/produtos" element={<Produtos />} />
-              <Route path="/producao" element={<FluxoProducao />} />
-              <Route path="/ordens" element={<OrdensServico />} />
-              <Route path="/agenda" element={<Agenda />} />
-              <Route path="/relatorios/clientes" element={<RelatoriosCliente />} />
-              <Route path="/relatorios/proximidade" element={<RelatorioProximidade />} />
+              {/* Protected operational routes */}
+              <Route
+                path="/clientes"
+                element={
+                  <ProtectedRoute>
+                    <Clientes />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/produtos"
+                element={
+                  <ProtectedRoute>
+                    <Produtos />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/producao"
+                element={
+                  <ProtectedRoute>
+                    <FluxoProducao />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ordens"
+                element={
+                  <ProtectedRoute>
+                    <OrdensServico />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/agenda"
+                element={
+                  <ProtectedRoute>
+                    <Agenda />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/relatorios/clientes"
+                element={
+                  <ProtectedRoute>
+                    <RelatoriosCliente />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/relatorios/proximidade"
+                element={
+                  <ProtectedRoute>
+                    <RelatorioProximidade />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Portal do Cliente - Rota pública */}
               <Route path="/portal/:codigo" element={<PortalCliente />} />

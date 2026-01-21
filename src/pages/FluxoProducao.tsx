@@ -4,6 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Search,
   Calendar,
@@ -21,11 +29,12 @@ import {
   Scale,
   Shirt,
   User,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOrdensServico } from "@/hooks/useOrdensServico";
 import { useHistoricoMultiplasOS } from "@/hooks/useHistoricoProducaoResumo";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FormularioEtapa } from "@/components/producao/FormularioEtapa";
 import { MiniHistorico, extrairDadosHistorico } from "@/components/producao/MiniHistorico";
@@ -52,6 +61,8 @@ const columns: KanbanColumn[] = [
 const FluxoProducao = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOS, setSelectedOS] = useState<{ id: string; status: string; next: string } | null>(null);
+  const [filtroPrevisao, setFiltroPrevisao] = useState<Date | null>(null);
+  const [filtroPrioridade, setFiltroPrioridade] = useState<string | null>(null);
 
   const { ordensServico, isLoading, error } = useOrdensServico();
 
@@ -82,6 +93,17 @@ const FluxoProducao = () => {
           os.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
           os.cliente?.razao_social?.toLowerCase().includes(searchTerm.toLowerCase())
       )
+      // Filtro de previsão de entrega
+      .filter((os) => {
+        if (!filtroPrevisao) return true;
+        if (!os.data_previsao_entrega) return false;
+        return isSameDay(new Date(os.data_previsao_entrega), filtroPrevisao);
+      })
+      // Filtro de prioridade
+      .filter((os) => {
+        if (!filtroPrioridade) return true;
+        return os.prioridade === filtroPrioridade;
+      })
       .forEach((os) => {
         if (grouped[os.status]) {
           grouped[os.status].push(os);
@@ -89,7 +111,7 @@ const FluxoProducao = () => {
       });
 
     return grouped;
-  }, [ordensServico, searchTerm]);
+  }, [ordensServico, searchTerm, filtroPrevisao, filtroPrioridade]);
 
   const totalEmProcessamento = ordensServico.filter(
     (os) => !["entregue", "cancelada"].includes(os.status)
@@ -134,14 +156,93 @@ const FluxoProducao = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2 h-9 hidden sm:flex">
-              <Calendar className="w-4 h-4" />
-              <span className="hidden md:inline">Data Previsão</span>
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2 h-9 hidden sm:flex">
-              <Filter className="w-4 h-4" />
-              <span className="hidden md:inline">Prioridade</span>
-            </Button>
+            {/* Filtro de Data Previsão */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant={filtroPrevisao ? "default" : "outline"} 
+                  size="sm" 
+                  className="gap-2 h-9 hidden sm:flex"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span className="hidden md:inline">
+                    {filtroPrevisao 
+                      ? format(filtroPrevisao, "dd/MM", { locale: ptBR }) 
+                      : "Data Previsão"}
+                  </span>
+                  {filtroPrevisao && (
+                    <X 
+                      className="w-3 h-3 ml-1" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFiltroPrevisao(null);
+                      }} 
+                    />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={filtroPrevisao || undefined}
+                  onSelect={(date) => setFiltroPrevisao(date || null)}
+                  initialFocus
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* Filtro de Prioridade */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant={filtroPrioridade ? "default" : "outline"} 
+                  size="sm" 
+                  className="gap-2 h-9 hidden sm:flex"
+                >
+                  <Filter className="w-4 h-4" />
+                  <span className="hidden md:inline">
+                    {filtroPrioridade 
+                      ? filtroPrioridade.charAt(0).toUpperCase() + filtroPrioridade.slice(1)
+                      : "Prioridade"}
+                  </span>
+                  {filtroPrioridade && (
+                    <X 
+                      className="w-3 h-3 ml-1" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFiltroPrioridade(null);
+                      }} 
+                    />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => setFiltroPrioridade("urgente")}>
+                  <span className="w-2 h-2 rounded-full bg-destructive mr-2" />
+                  Urgente
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFiltroPrioridade("alta")}>
+                  <span className="w-2 h-2 rounded-full bg-warning mr-2" />
+                  Alta
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFiltroPrioridade("normal")}>
+                  <span className="w-2 h-2 rounded-full bg-success mr-2" />
+                  Normal
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFiltroPrioridade("baixa")}>
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground mr-2" />
+                  Baixa
+                </DropdownMenuItem>
+                {filtroPrioridade && (
+                  <DropdownMenuItem onClick={() => setFiltroPrioridade(null)}>
+                    <X className="w-3 h-3 mr-2" />
+                    Limpar filtro
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
               variant="outline"
               size="icon"
