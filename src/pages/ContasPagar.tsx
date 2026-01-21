@@ -20,6 +20,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DollarSign,
   CheckCircle,
   TrendingDown,
@@ -28,64 +38,36 @@ import {
   Pencil,
   Trash2,
   Check,
+  Loader2,
 } from "lucide-react";
+import { useContasPagar, ContaPagar } from "@/hooks/useContasPagar";
+import { NovaContaPagarModal } from "@/components/contas/NovaContaPagarModal";
+import { EditarContaPagarModal } from "@/components/contas/EditarContaPagarModal";
+import { format } from "date-fns";
 
-interface ContaPagar {
-  id: string;
-  descricao: string;
-  fornecedor: string;
-  valor: number;
-  vencimento: string;
-  status: "pendente" | "pago" | "vencido";
-  categoria?: string;
-}
-
-const mockContas: ContaPagar[] = [
-  {
-    id: "1",
-    descricao: "Conta de Energia - Janeiro/2026",
-    fornecedor: "ENEL DISTRIBUIÇÃO",
-    valor: 450.0,
-    vencimento: "15/01/2026",
-    status: "pendente",
-    categoria: "Utilidades",
-  },
-  {
-    id: "2",
-    descricao: "Aluguel do Galpão",
-    fornecedor: "IMOBILIÁRIA CENTRAL",
-    valor: 2500.0,
-    vencimento: "10/01/2026",
-    status: "pago",
-    categoria: "Aluguel",
-  },
-  {
-    id: "3",
-    descricao: "Fornecedor de Produtos Químicos",
-    fornecedor: "QUÍMICA INDUSTRIAL LTDA",
-    valor: 1200.0,
-    vencimento: "05/01/2026",
-    status: "vencido",
-    categoria: "Insumos",
-  },
-];
-
-const ContasPagar = () => {
+const ContasPagarPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [isNovaContaOpen, setIsNovaContaOpen] = useState(false);
+  const [contaParaEditar, setContaParaEditar] = useState<ContaPagar | null>(null);
+  const [contaParaExcluir, setContaParaExcluir] = useState<ContaPagar | null>(null);
 
-  const totalAPagar = mockContas
-    .filter((c) => c.status === "pendente" || c.status === "vencido")
-    .reduce((sum, c) => sum + c.valor, 0);
+  const { 
+    contas, 
+    isLoading, 
+    deleteConta, 
+    marcarComoPago,
+    totalPendente,
+    totalPago,
+    totalVencido,
+  } = useContasPagar();
 
-  const totalPago = mockContas
-    .filter((c) => c.status === "pago")
-    .reduce((sum, c) => sum + c.valor, 0);
+  const totalAPagar = totalPendente + totalVencido;
 
-  const filteredContas = mockContas.filter((conta) => {
+  const filteredContas = contas.filter((conta) => {
     const matchesSearch =
       conta.descricao.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conta.fornecedor.toLowerCase().includes(searchQuery.toLowerCase());
+      (conta.fornecedor || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
       statusFilter === "todos" || conta.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -94,6 +76,35 @@ const ContasPagar = () => {
   const formatCurrency = (value: number) => {
     return `R$ ${value.toFixed(2).replace(".", ",")}`;
   };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString + "T00:00:00"), "dd/MM/yyyy");
+    } catch {
+      return dateString;
+    }
+  };
+
+  const handleBaixar = (conta: ContaPagar) => {
+    marcarComoPago.mutate(conta.id);
+  };
+
+  const handleExcluir = () => {
+    if (contaParaExcluir) {
+      deleteConta.mutate(contaParaExcluir.id);
+      setContaParaExcluir(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <AppLayout title="Contas a Pagar" subtitle="Gerencie suas despesas e pagamentos">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout title="Contas a Pagar" subtitle="Gerencie suas despesas e pagamentos">
@@ -139,7 +150,10 @@ const ContasPagar = () => {
               <TrendingDown className="w-5 h-5 text-destructive" />
               <h3 className="font-semibold text-lg">Contas a Pagar</h3>
             </div>
-            <Button className="gap-2 bg-destructive hover:bg-destructive/90">
+            <Button 
+              className="gap-2 bg-destructive hover:bg-destructive/90"
+              onClick={() => setIsNovaContaOpen(true)}
+            >
               <Plus className="w-4 h-4" />
               Nova Despesa
             </Button>
@@ -205,12 +219,12 @@ const ContasPagar = () => {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {conta.fornecedor}
+                      {conta.fornecedor || "-"}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
-                      {formatCurrency(conta.valor)}
+                      {formatCurrency(Number(conta.valor))}
                     </TableCell>
-                    <TableCell>{conta.vencimento}</TableCell>
+                    <TableCell>{formatDate(conta.vencimento)}</TableCell>
                     <TableCell>
                       <StatusBadge
                         variant={
@@ -234,15 +248,31 @@ const ContasPagar = () => {
                           <Button
                             size="sm"
                             className="gap-1 bg-success hover:bg-success/90 h-8"
+                            onClick={() => handleBaixar(conta)}
+                            disabled={marcarComoPago.isPending}
                           >
-                            <Check className="w-3 h-3" />
+                            {marcarComoPago.isPending ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Check className="w-3 h-3" />
+                            )}
                             Baixar
                           </Button>
                         )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => setContaParaEditar(conta)}
+                        >
                           <Pencil className="w-4 h-4 text-muted-foreground" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => setContaParaExcluir(conta)}
+                        >
                           <Trash2 className="w-4 h-4 text-muted-foreground" />
                         </Button>
                       </div>
@@ -254,8 +284,42 @@ const ContasPagar = () => {
           </Table>
         </Card>
       </div>
+
+      {/* Modals */}
+      <NovaContaPagarModal 
+        open={isNovaContaOpen} 
+        onOpenChange={setIsNovaContaOpen} 
+      />
+
+      <EditarContaPagarModal
+        open={!!contaParaEditar}
+        onOpenChange={(open) => !open && setContaParaEditar(null)}
+        conta={contaParaEditar}
+      />
+
+      {/* Confirmação de Exclusão */}
+      <AlertDialog open={!!contaParaExcluir} onOpenChange={(open) => !open && setContaParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a conta "{contaParaExcluir?.descricao}"? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleExcluir}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };
 
-export default ContasPagar;
+export default ContasPagarPage;
