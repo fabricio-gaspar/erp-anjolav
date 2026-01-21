@@ -263,3 +263,63 @@ export function usePortalAlertas(
 
   return alertas;
 }
+
+export interface LancamentoComItensPortal {
+  id: string;
+  data_lancamento: string;
+  data_entrega: string | null;
+  valor_total: number;
+  itens: {
+    id: string;
+    produto_nome: string;
+    quantidade: number;
+    preco_unitario: number;
+    subtotal: number;
+    unidade: string;
+  }[];
+}
+
+export function usePortalRelatorio(faturaId: string | null) {
+  return useQuery({
+    queryKey: ["portal-relatorio", faturaId],
+    queryFn: async () => {
+      if (!faturaId) return [];
+
+      // Buscar lancamentos via lancamentos_fatura
+      const { data: links, error: linksError } = await supabase
+        .from("lancamentos_fatura")
+        .select("lancamento_id")
+        .eq("fatura_id", faturaId);
+
+      if (linksError) throw linksError;
+
+      if (!links || links.length === 0) return [];
+
+      const lancamentoIds = links.map((l) => l.lancamento_id);
+
+      // Buscar detalhes dos lancamentos
+      const { data: lancamentos, error: lancError } = await supabase
+        .from("lancamentos")
+        .select(`
+          id,
+          data_lancamento,
+          data_entrega,
+          valor_total,
+          itens:itens_lancamento(
+            id,
+            produto_nome,
+            quantidade,
+            preco_unitario,
+            subtotal,
+            unidade
+          )
+        `)
+        .in("id", lancamentoIds)
+        .order("data_lancamento", { ascending: true });
+
+      if (lancError) throw lancError;
+      return (lancamentos || []) as LancamentoComItensPortal[];
+    },
+    enabled: !!faturaId,
+  });
+}
