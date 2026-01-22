@@ -113,14 +113,10 @@ export const useCreateFuncionario = () => {
         });
 
         if (authError) {
-          // If user already exists, throw a clear error
-          if (authError.message.includes("already registered")) {
-            throw new Error(
-              `O email "${data.email}" já está cadastrado no sistema. ` +
-              `Use outro email ou recupere a senha do usuário existente.`
-            );
+          // If user already exists, try to find them
+          if (!authError.message.includes("already registered")) {
+            throw authError;
           }
-          throw authError;
         } else if (authData.user) {
           userId = authData.user.id;
         }
