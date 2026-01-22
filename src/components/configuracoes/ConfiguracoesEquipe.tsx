@@ -345,6 +345,8 @@ function FuncionariosTab({
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<Funcionario | null>(null);
+  const [resetPasswordItem, setResetPasswordItem] = useState<Funcionario | null>(null);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   
   const [formData, setFormData] = useState({
     nome: "",
@@ -447,6 +449,33 @@ function FuncionariosTab({
 
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     await toggleStatus.mutateAsync({ id, ativo: !currentStatus });
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordItem?.email) {
+      toast.error("Este funcionário não possui email cadastrado");
+      setResetPasswordItem(null);
+      return;
+    }
+
+    try {
+      setIsResettingPassword(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(resetPasswordItem.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        toast.error("Erro ao enviar email: " + error.message);
+      } else {
+        toast.success(`Email de redefinição enviado para ${resetPasswordItem.email}`);
+      }
+    } catch (err) {
+      console.error("Error resetting password:", err);
+      toast.error("Erro inesperado ao enviar email de redefinição");
+    } finally {
+      setIsResettingPassword(false);
+      setResetPasswordItem(null);
+    }
   };
 
   return (
@@ -686,13 +715,18 @@ function FuncionariosTab({
                   <TableCell className="text-primary font-medium">{func.login}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditItem(func)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditItem(func)} title="Editar">
                         <Pencil className="w-4 h-4 text-muted-foreground" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(func.id, func.ativo)} disabled={toggleStatus.isPending}>
+                      {func.email && func.user_id && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setResetPasswordItem(func)} title="Redefinir Senha">
+                          <Key className="w-4 h-4 text-blue-500" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(func.id, func.ativo)} disabled={toggleStatus.isPending} title={func.ativo ? "Desativar" : "Ativar"}>
                         {func.ativo ? <X className="w-4 h-4 text-orange-500" /> : <Check className="w-4 h-4 text-emerald-500" />}
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteId(func.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteId(func.id)} title="Excluir">
                         <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>
                     </div>
@@ -726,6 +760,35 @@ function FuncionariosTab({
             <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
               {deleteFuncionario.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Password Dialog */}
+      <AlertDialog open={!!resetPasswordItem} onOpenChange={() => setResetPasswordItem(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5 text-blue-500" />
+              Redefinir Senha
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Um email de redefinição de senha será enviado para{" "}
+              <strong className="text-foreground">{resetPasswordItem?.email}</strong>.
+              <br />
+              O funcionário receberá um link para criar uma nova senha.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResettingPassword}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleResetPassword} 
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={isResettingPassword}
+            >
+              {isResettingPassword && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Enviar Email
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
