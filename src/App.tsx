@@ -81,7 +81,7 @@ const App = () => (
               />
               <Route
                 path="/faturamento"
-                element={<Navigate to="/lancamentos?tab=pendentes" replace />}
+                element={<Navigate to="/lancamentos?tab=faturas" replace />}
               />
               <Route
                 path="/lancamentos"
