@@ -12,6 +12,8 @@ export interface TemplateVariables {
   link_boleto?: string;
   numero_nf?: string;
   periodo?: string;
+  link_portal?: string;
+  codigo_portal?: string;
 }
 
 // Template padrão para WhatsApp
@@ -49,6 +51,8 @@ export function substituirVariaveis(template: string, vars: TemplateVariables): 
   resultado = resultado.replace(/\{\{valor\}\}/g, vars.valor);
   resultado = resultado.replace(/\{\{vencimento\}\}/g, vars.vencimento);
   resultado = resultado.replace(/\{\{periodo\}\}/g, vars.periodo || "");
+  resultado = resultado.replace(/\{\{link_portal\}\}/g, vars.link_portal || "");
+  resultado = resultado.replace(/\{\{codigo_portal\}\}/g, vars.codigo_portal || "");
   
   // Substituições condicionais
   if (vars.numero_nf) {
@@ -70,6 +74,19 @@ export function substituirVariaveis(template: string, vars: TemplateVariables): 
     resultado = resultado.replace(/\{\{link_boleto\}\}/g, vars.link_boleto);
   } else {
     resultado = resultado.replace(/\{\{#link_boleto\}\}.*?\{\{\/link_boleto\}\}/gs, "");
+  }
+  
+  // Substituições condicionais para portal
+  if (vars.link_portal) {
+    resultado = resultado.replace(/\{\{#link_portal\}\}(.*?)\{\{\/link_portal\}\}/gs, `$1`);
+  } else {
+    resultado = resultado.replace(/\{\{#link_portal\}\}.*?\{\{\/link_portal\}\}/gs, "");
+  }
+  
+  if (vars.codigo_portal) {
+    resultado = resultado.replace(/\{\{#codigo_portal\}\}(.*?)\{\{\/codigo_portal\}\}/gs, `$1`);
+  } else {
+    resultado = resultado.replace(/\{\{#codigo_portal\}\}.*?\{\{\/codigo_portal\}\}/gs, "");
   }
   
   // Remove linhas vazias extras

@@ -71,6 +71,8 @@ const templateVariables = [
   "{{banco_conta}}",
   "{{banco_titular}}",
   "{{empresa}}",
+  "{{link_portal}}",
+  "{{codigo_portal}}",
 ];
 
 const defaultPixTemplate = `Prezado(a) {{cliente}},
@@ -84,7 +86,11 @@ Vencimento: {{vencimento}}
 {{link_nota}}
 
 💳 Pagamento via PIX:
-Chave PIX: {{chave_pix}}`;
+Chave PIX: {{chave_pix}}
+
+🌐 Acesse seu Portal:
+{{link_portal}}
+Código de Acesso: {{codigo_portal}}`;
 
 const defaultBoletoTemplate = `Prezado(a) {{cliente}},
 
@@ -98,7 +104,11 @@ Vencimento: {{vencimento}}
 
 📋 Pagamento via Boleto:
 Linha Digitável: {{linha_digitavel}}
-Link do Boleto: {{link_boleto}}`;
+Link do Boleto: {{link_boleto}}
+
+🌐 Acesse seu Portal:
+{{link_portal}}
+Código de Acesso: {{codigo_portal}}`;
 
 const defaultTransferenciaTemplate = `Prezado(a) {{cliente}},
 
@@ -114,7 +124,11 @@ Vencimento: {{vencimento}}
 Banco: {{banco_nome}}
 Agência: {{banco_agencia}}
 Conta: {{banco_conta}}
-Titular: {{banco_titular}}`;
+Titular: {{banco_titular}}
+
+🌐 Acesse seu Portal:
+{{link_portal}}
+Código de Acesso: {{codigo_portal}}`;
 
 export function ConfiguracoesGeral() {
   const { configuracao, saveConfiguracao, isLoading } = useConfiguracoesGerais();
