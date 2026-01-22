@@ -30,37 +30,23 @@ import {
   Calendar as CalendarIcon, 
   TrendingUp, 
   TrendingDown,
-  Download,
   FileSpreadsheet,
   Users,
   Package,
-  Wallet,
   BarChart3,
-  PieChart,
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
   Filter,
-  Printer
+  Printer,
+  Wallet
 } from "lucide-react";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useClientes } from "@/hooks/useClientes";
 import { useRelatorioFinanceiro } from "@/hooks/useRelatorioFinanceiro";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
+import { RelatorioDRE } from "@/components/relatorios/RelatorioDRE";
 
 type QuickPeriod = "hoje" | "ontem" | "esta_semana" | "este_mes" | "este_ano" | "custom";
 type ViewType = "resumo" | "receitas" | "despesas" | "produtos" | "clientes";
@@ -499,147 +485,15 @@ const RelatorioFinanceiro = () => {
 
               {/* DRE - Resumo */}
               <TabsContent value="resumo" className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Gráfico de Barras */}
-                  <Card className="p-4">
-                    <h3 className="font-semibold text-sm mb-4">Receitas vs Despesas</h3>
-                    <div className="h-[250px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                          <XAxis type="number" tickFormatter={(v) => formatCurrency(v)} fontSize={10} />
-                          <YAxis dataKey="name" type="category" width={80} fontSize={10} />
-                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                          <Bar dataKey="valor" radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </Card>
-
-                  {/* Gráfico de Pizza - Categorias */}
-                  <Card className="p-4">
-                    <h3 className="font-semibold text-sm mb-4">Despesas por Categoria</h3>
-                    {pieData.length === 0 ? (
-                      <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
-                        Sem despesas no período
-                      </div>
-                    ) : (
-                      <div className="h-[250px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <RechartsPieChart>
-                            <Pie
-                              data={pieData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={50}
-                              outerRadius={80}
-                              paddingAngle={2}
-                              dataKey="value"
-                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                              labelLine={false}
-                              fontSize={9}
-                            >
-                              {pieData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                          </RechartsPieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </Card>
-                </div>
-
-                {/* DRE Detalhado */}
-                <Card className="p-4">
-                  <h3 className="font-semibold text-sm mb-4">
-                    DRE - Demonstrativo do Resultado
-                    <span className="text-xs font-normal text-muted-foreground ml-2">
-                      {format(dataInicio, "dd/MM/yyyy")} a {format(dataFim, "dd/MM/yyyy")}
-                    </span>
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Receitas */}
-                    <div className="rounded-lg overflow-hidden border">
-                      <div className="bg-emerald-50 px-4 py-2 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-emerald-600" />
-                          <span className="font-semibold text-emerald-700 text-sm">RECEITAS</span>
-                        </div>
-                        <Badge variant="secondary" className="text-xs">{receitasFiltradas.length}</Badge>
-                      </div>
-                      <div className="p-3 max-h-[200px] overflow-y-auto">
-                        {receitasFiltradas.length === 0 ? (
-                          <p className="text-center text-muted-foreground text-xs py-4">
-                            Nenhuma receita no período
-                          </p>
-                        ) : (
-                          <div className="space-y-1">
-                            {receitasFiltradas.slice(0, 10).map((receita) => (
-                              <div key={receita.id} className="flex justify-between text-xs py-1 border-b last:border-0">
-                                <div>
-                                  <span className="text-foreground">{receita.cliente_nome}</span>
-                                  <span className="text-muted-foreground ml-2">{format(new Date(receita.data), "dd/MM")}</span>
-                                </div>
-                                <span className="text-emerald-600 font-medium">{formatCurrency(receita.valor)}</span>
-                              </div>
-                            ))}
-                            {receitasFiltradas.length > 10 && (
-                              <p className="text-xs text-center text-muted-foreground pt-2">
-                                +{receitasFiltradas.length - 10} lançamentos
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="border-t px-4 py-2 flex justify-between items-center bg-muted/30">
-                        <span className="font-semibold text-foreground text-sm">Total</span>
-                        <span className="font-bold text-emerald-600">{formatCurrency(totals.totalReceitas)}</span>
-                      </div>
-                    </div>
-
-                    {/* Despesas */}
-                    <div className="rounded-lg overflow-hidden border">
-                      <div className="bg-red-50 px-4 py-2 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <TrendingDown className="w-4 h-4 text-red-600" />
-                          <span className="font-semibold text-red-700 text-sm">DESPESAS</span>
-                        </div>
-                        <Badge variant="secondary" className="text-xs">{despesasFiltradas.length}</Badge>
-                      </div>
-                      <div className="p-3 max-h-[200px] overflow-y-auto">
-                        {despesasFiltradas.length === 0 ? (
-                          <p className="text-center text-muted-foreground text-xs py-4">
-                            Nenhuma despesa no período
-                          </p>
-                        ) : (
-                          <div className="space-y-1">
-                            {despesasFiltradas.slice(0, 10).map((despesa) => (
-                              <div key={despesa.id} className="flex justify-between text-xs py-1 border-b last:border-0">
-                                <div>
-                                  <span className="text-foreground">{despesa.descricao}</span>
-                                  <span className="text-muted-foreground ml-2">{format(new Date(despesa.data), "dd/MM")}</span>
-                                </div>
-                                <span className="text-red-600 font-medium">{formatCurrency(despesa.valor)}</span>
-                              </div>
-                            ))}
-                            {despesasFiltradas.length > 10 && (
-                              <p className="text-xs text-center text-muted-foreground pt-2">
-                                +{despesasFiltradas.length - 10} lançamentos
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="border-t px-4 py-2 flex justify-between items-center bg-muted/30">
-                        <span className="font-semibold text-foreground text-sm">Total</span>
-                        <span className="font-bold text-red-600">{formatCurrency(totals.totalDespesas)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                <RelatorioDRE
+                  dataInicio={dataInicio}
+                  dataFim={dataFim}
+                  receitas={receitasFiltradas}
+                  despesas={despesasFiltradas}
+                  categorias={categorias}
+                  clientesResumo={clientesResumo}
+                  statusFilter={statusFilter}
+                />
               </TabsContent>
 
               {/* Receitas Detalhadas */}
