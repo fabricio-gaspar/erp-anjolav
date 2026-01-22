@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useFaturas } from "@/hooks/useFaturas";
 import { useHistoricoEnvios } from "@/hooks/useHistoricoEnvios";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { useConfiguracaoCliente } from "@/hooks/useClientes";
 import {
   formatCurrency,
   substituirVariaveis,
@@ -57,6 +58,7 @@ export function EtapaEnvio({
   const { updateFatura } = useFaturas();
   const { createEnvio } = useHistoricoEnvios(faturaId);
   const { configuracao: configGeral } = useConfiguracoesGerais();
+  const { configuracao: configCliente } = useConfiguracaoCliente(dados.clienteId);
 
   // Preparar variáveis para templates
   const templateVars: TemplateVariables = {
@@ -68,6 +70,8 @@ export function EtapaEnvio({
     numero_nf: numeroNF || undefined,
     link_boleto: paymentData?.data?.url as string || undefined,
     periodo: `${format(new Date(dados.periodoInicio), "dd/MM/yyyy", { locale: ptBR })} a ${format(new Date(dados.periodoFim), "dd/MM/yyyy", { locale: ptBR })}`,
+    link_portal: configCliente?.link_acesso || undefined,
+    codigo_portal: configCliente?.codigo_acesso || undefined,
   };
 
   // Usar templates configurados ou padrão
