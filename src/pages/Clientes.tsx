@@ -200,7 +200,16 @@ const Clientes = () => {
                             {getUnidadeNegocioBadge(cliente.classificacao)}
                           </StatusBadge>
                         </TableCell>
-                        <TableCell className="font-medium">{cliente.razao_social}</TableCell>
+                        <TableCell>
+                          <div>
+                            <span className="font-medium">{cliente.razao_social}</span>
+                            {cliente.nome_fantasia && (
+                              <span className="block text-sm text-muted-foreground">
+                                {cliente.nome_fantasia}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{cliente.cpf_cnpj || "-"}</TableCell>
                         <TableCell className="text-muted-foreground">{cliente.telefone || "-"}</TableCell>
                         <TableCell>
