@@ -245,12 +245,12 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
           <label className="text-sm font-medium text-foreground">
             CNPJ Emissor Padrão
           </label>
-          <Select value={cnpjEmissorId} onValueChange={setCnpjEmissorId}>
+           <Select value={cnpjEmissorId || "none"} onValueChange={(val) => setCnpjEmissorId(val === "none" ? "" : val)}>
             <SelectTrigger className="bg-background">
               <SelectValue placeholder="Selecione o CNPJ emissor..." />
             </SelectTrigger>
             <SelectContent className="bg-background">
-              <SelectItem value="">Nenhum (escolher na hora)</SelectItem>
+              <SelectItem value="none">Nenhum (escolher na hora)</SelectItem>
               {configuracoesFiscais.map((config) => (
                 <SelectItem key={config.id} value={config.id}>
                   {config.nome} - {config.cnpj}
@@ -268,12 +268,12 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
           <label className="text-sm font-medium text-foreground">
             Descrição NF Padrão
           </label>
-          <Select value={descricaoNfId} onValueChange={setDescricaoNfId}>
+           <Select value={descricaoNfId || "none"} onValueChange={(val) => setDescricaoNfId(val === "none" ? "" : val)}>
             <SelectTrigger className="bg-background">
               <SelectValue placeholder="Selecione a descrição..." />
             </SelectTrigger>
             <SelectContent className="bg-background">
-              <SelectItem value="">Nenhuma (escolher na hora)</SelectItem>
+              <SelectItem value="none">Nenhuma (escolher na hora)</SelectItem>
               {descricoesAtivas.map((desc) => (
                 <SelectItem key={desc.id} value={desc.id}>
                   {desc.descricao.length > 50 ? desc.descricao.substring(0, 50) + "..." : desc.descricao}
