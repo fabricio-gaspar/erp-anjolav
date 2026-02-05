@@ -572,38 +572,61 @@ export type Database = {
       configuracoes_pagamento_cliente: {
         Row: {
           cliente_id: string
+          cnpj_emissor_id: string | null
           condicao_pagamento: string | null
           created_at: string
+          descricao_nf_id: string | null
           dia_fechamento: number | null
           dia_vencimento: number | null
           forma_pagamento: string | null
           id: string
+          listar_itens_detalhados: boolean | null
           tipo_faturamento: string | null
           updated_at: string
         }
         Insert: {
           cliente_id: string
+          cnpj_emissor_id?: string | null
           condicao_pagamento?: string | null
           created_at?: string
+          descricao_nf_id?: string | null
           dia_fechamento?: number | null
           dia_vencimento?: number | null
           forma_pagamento?: string | null
           id?: string
+          listar_itens_detalhados?: boolean | null
           tipo_faturamento?: string | null
           updated_at?: string
         }
         Update: {
           cliente_id?: string
+          cnpj_emissor_id?: string | null
           condicao_pagamento?: string | null
           created_at?: string
+          descricao_nf_id?: string | null
           dia_fechamento?: number | null
           dia_vencimento?: number | null
           forma_pagamento?: string | null
           id?: string
+          listar_itens_detalhados?: boolean | null
           tipo_faturamento?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "configuracoes_pagamento_cliente_cnpj_emissor_id_fkey"
+            columns: ["cnpj_emissor_id"]
+            isOneToOne: false
+            referencedRelation: "configuracoes_fiscais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "configuracoes_pagamento_cliente_descricao_nf_id_fkey"
+            columns: ["descricao_nf_id"]
+            isOneToOne: false
+            referencedRelation: "descricoes_servicos_fiscais"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_configuracoes_pagamento_cliente"
             columns: ["cliente_id"]

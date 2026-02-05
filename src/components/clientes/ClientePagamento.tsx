@@ -3,9 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Info, Loader2 } from "lucide-react";
+import { Check, Info, Loader2, Building2, FileText } from "lucide-react";
 import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
+import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
 import { toast } from "sonner";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface ClientePagamentoProps {
   clienteId: string | null;
@@ -18,12 +22,17 @@ type FormaPagamento = "boleto" | "pix" | "transferencia";
 
 export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamentoProps) => {
   const { configuracao, isLoading, upsertConfiguracao } = useConfiguracaoPagamentoCliente(clienteId);
+  const { configuracoes: configuracoesFiscais, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
+  const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
 
   const [tipoFaturamento, setTipoFaturamento] = useState<TipoFaturamento>("avulso");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null);
   const [diaVencimento, setDiaVencimento] = useState("");
   const [diaFechamento, setDiaFechamento] = useState("");
   const [condicaoPagamento, setCondicaoPagamento] = useState("mensal_30");
+  const [cnpjEmissorId, setCnpjEmissorId] = useState<string>("");
+  const [descricaoNfId, setDescricaoNfId] = useState<string>("");
+  const [listarItensDetalhados, setListarItensDetalhados] = useState<boolean>(true);
 
   // Carregar dados existentes
   useEffect(() => {
@@ -33,6 +42,9 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       setDiaVencimento(configuracao.dia_vencimento?.toString() || "");
       setDiaFechamento(configuracao.dia_fechamento?.toString() || "");
       setCondicaoPagamento(configuracao.condicao_pagamento || "mensal_30");
+      setCnpjEmissorId(configuracao.cnpj_emissor_id || "");
+      setDescricaoNfId(configuracao.descricao_nf_id || "");
+      setListarItensDetalhados(configuracao.listar_itens_detalhados !== false);
     }
   }, [configuracao]);
 
@@ -44,6 +56,9 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       setDiaVencimento("");
       setDiaFechamento("");
       setCondicaoPagamento("mensal_30");
+      setCnpjEmissorId("");
+      setDescricaoNfId("");
+      setListarItensDetalhados(true);
     }
   }, [clienteId]);
 
@@ -61,6 +76,9 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         dia_vencimento: diaVencimento ? parseInt(diaVencimento) : null,
         dia_fechamento: diaFechamento ? parseInt(diaFechamento) : null,
         condicao_pagamento: condicaoPagamento,
+        cnpj_emissor_id: cnpjEmissorId || null,
+        descricao_nf_id: descricaoNfId || null,
+        listar_itens_detalhados: listarItensDetalhados,
       },
       {
         onSuccess: () => {
@@ -71,8 +89,16 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
   };
 
   const isSaving = upsertConfiguracao.isPending;
+  const isLoadingAll = isLoading || isLoadingFiscal || isLoadingDescricoes;
+  
+  // Filtrar apenas descrições ativas
+  const descricoesAtivas = descricoes?.filter(d => d.ativo) || [];
+  
+  // Encontrar os nomes selecionados para o resumo
+  const cnpjEmissorSelecionado = configuracoesFiscais.find(c => c.id === cnpjEmissorId);
+  const descricaoSelecionada = descricoesAtivas.find(d => d.id === descricaoNfId);
 
-  if (isLoading && clienteId) {
+  if (isLoadingAll && clienteId) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -203,6 +229,94 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         </div>
       </div>
 
+      {/* Configurações Fiscais para Faturamento */}
+      <Separator className="my-6" />
+      <div className="flex items-center gap-2 mb-4">
+        <Building2 className="w-5 h-5 text-primary" />
+        <h3 className="font-semibold text-foreground">Configurações Fiscais para Faturamento</h3>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        Defina os valores padrão que serão usados automaticamente ao faturar este cliente.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* CNPJ Emissor Padrão */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">
+            CNPJ Emissor Padrão
+          </label>
+          <Select value={cnpjEmissorId} onValueChange={setCnpjEmissorId}>
+            <SelectTrigger className="bg-background">
+              <SelectValue placeholder="Selecione o CNPJ emissor..." />
+            </SelectTrigger>
+            <SelectContent className="bg-background">
+              <SelectItem value="">Nenhum (escolher na hora)</SelectItem>
+              {configuracoesFiscais.map((config) => (
+                <SelectItem key={config.id} value={config.id}>
+                  {config.nome} - {config.cnpj}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            CNPJ da empresa que emitirá a NF para este cliente
+          </p>
+        </div>
+
+        {/* Descrição NF Padrão */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">
+            Descrição NF Padrão
+          </label>
+          <Select value={descricaoNfId} onValueChange={setDescricaoNfId}>
+            <SelectTrigger className="bg-background">
+              <SelectValue placeholder="Selecione a descrição..." />
+            </SelectTrigger>
+            <SelectContent className="bg-background">
+              <SelectItem value="">Nenhuma (escolher na hora)</SelectItem>
+              {descricoesAtivas.map((desc) => (
+                <SelectItem key={desc.id} value={desc.id}>
+                  {desc.descricao.length > 50 ? desc.descricao.substring(0, 50) + "..." : desc.descricao}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Descrição padrão do serviço que aparecerá na NF
+          </p>
+        </div>
+      </div>
+
+      {/* Tipo de Descrição */}
+      <div className="mt-6 space-y-3">
+        <label className="text-sm font-medium text-foreground">
+          Formato da Descrição na NF
+        </label>
+        <RadioGroup 
+          value={listarItensDetalhados ? "itens" : "padrao"} 
+          onValueChange={(value) => setListarItensDetalhados(value === "itens")}
+          className="flex gap-4"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="itens" id="itens-radio" />
+            <Label htmlFor="itens-radio" className="cursor-pointer">
+              Listar itens detalhados
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="padrao" id="padrao-radio" />
+            <Label htmlFor="padrao-radio" className="cursor-pointer">
+              Usar descrição padrão
+            </Label>
+          </div>
+        </RadioGroup>
+        <p className="text-xs text-muted-foreground">
+          {listarItensDetalhados 
+            ? "Cada item será listado com nome, quantidade e valor" 
+            : "Será usada a descrição padrão selecionada acima"}
+        </p>
+      </div>
+
       {/* Resumo das Configurações */}
       <Card className="max-w-lg">
         <CardHeader className="pb-3">
@@ -234,6 +348,29 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
               {condicaoPagamento === "mensal_15" && "Quinzenal (15 dias)"}
               {condicaoPagamento === "semanal" && "Semanal (7 dias)"}
               {condicaoPagamento === "a_vista" && "À Vista"}
+            </span>
+          </div>
+          <Separator className="my-2" />
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">CNPJ Emissor:</span>
+            <span className="font-medium">
+              {cnpjEmissorSelecionado ? cnpjEmissorSelecionado.nome : "Não definido"}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Descrição NF:</span>
+            <span className="font-medium truncate max-w-[200px]">
+              {descricaoSelecionada 
+                ? (descricaoSelecionada.descricao.length > 30 
+                    ? descricaoSelecionada.descricao.substring(0, 30) + "..." 
+                    : descricaoSelecionada.descricao)
+                : "Não definida"}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Formato NF:</span>
+            <span className="font-medium">
+              {listarItensDetalhados ? "Itens detalhados" : "Descrição padrão"}
             </span>
           </div>
         </CardContent>

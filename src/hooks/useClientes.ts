@@ -47,6 +47,9 @@ export interface ConfiguracaoPagamentoCliente {
   dia_vencimento: number | null;
   dia_fechamento: number | null;
   condicao_pagamento: string | null;
+  cnpj_emissor_id: string | null;
+  descricao_nf_id: string | null;
+  listar_itens_detalhados: boolean | null;
   created_at: string;
   updated_at: string;
 }
