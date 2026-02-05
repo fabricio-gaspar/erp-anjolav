@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -34,7 +34,7 @@ import {
 import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
 import { NFSePreviewOficial, type NFSeOficialData } from "./NFSePreviewOficial";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
-import { useClienteById, useEnderecoCliente } from "@/hooks/useClientes";
+import { useClienteById, useEnderecoCliente, useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { useFaturas } from "@/hooks/useFaturas";
 import {
   formatCurrency,
@@ -65,17 +65,55 @@ export function EtapaNF({
   const [tipoDescricao, setTipoDescricao] = useState<"itens" | "padrao">("itens");
   const [descricaoPadraoSelecionada, setDescricaoPadraoSelecionada] = useState<string>("");
   const [naturezaOperacao, setNaturezaOperacao] = useState<NaturezaOperacao>("tributacao_municipio");
+  const [initialized, setInitialized] = useState(false);
   
-  const { configuracaoAtiva, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
+  const { configuracaoAtiva, configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
   const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
   const { data: cliente, isLoading: isLoadingCliente } = useClienteById(dados.clienteId);
   const { endereco, isLoading: isLoadingEndereco } = useEnderecoCliente(dados.clienteId);
+  const { configuracao: configPagamento, isLoading: isLoadingConfigPagamento } = useConfiguracaoPagamentoCliente(dados.clienteId);
   const { updateFatura } = useFaturas();
 
-  const isLoading = isLoadingFiscal || isLoadingCliente || isLoadingEndereco || isLoadingDescricoes;
+  const isLoading = isLoadingFiscal || isLoadingCliente || isLoadingEndereco || isLoadingDescricoes || isLoadingConfigPagamento;
+  
+  // Verificar se existe uma configuração fiscal padrão para o cliente
+  const configFiscalPadrao = configPagamento?.cnpj_emissor_id 
+    ? configuracoes?.find(c => c.id === configPagamento.cnpj_emissor_id)
+    : null;
   
   // Filtrar apenas descrições ativas
   const descricoesAtivas = descricoes?.filter(d => d.ativo) || [];
+  
+  // Inicializar valores com base nas preferências do cliente
+  useEffect(() => {
+    if (!initialized && configPagamento && !isLoading) {
+      // Se o cliente tem um CNPJ emissor padrão configurado
+      if (configPagamento.cnpj_emissor_id) {
+        const configFiscalPadrao = configuracoes?.find(c => c.id === configPagamento.cnpj_emissor_id);
+        if (configFiscalPadrao) {
+          // O sistema já usa configuracaoAtiva, mas podemos alertar o usuário
+        }
+      }
+      
+      // Se o cliente tem uma descrição padrão configurada
+      if (configPagamento.descricao_nf_id) {
+        const descricaoPadrao = descricoes?.find(d => d.id === configPagamento.descricao_nf_id);
+        if (descricaoPadrao) {
+          setDescricaoPadraoSelecionada(descricaoPadrao.descricao);
+          setTipoDescricao("padrao");
+        }
+      }
+      
+      // Configurar o tipo de descrição baseado na preferência do cliente
+      if (configPagamento.listar_itens_detalhados === false) {
+        setTipoDescricao("padrao");
+      } else if (configPagamento.listar_itens_detalhados === true) {
+        setTipoDescricao("itens");
+      }
+      
+      setInitialized(true);
+    }
+  }, [configPagamento, isLoading, initialized, descricoes]);
   
   // Gerar descrição baseada na escolha
   const gerarDescricaoServico = () => {
