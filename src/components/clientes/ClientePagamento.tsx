@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Info, Loader2, Building2, FileText } from "lucide-react";
 import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
+import { BOLETO_ENABLED } from "@/lib/featureFlags";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
@@ -155,19 +156,21 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
           <label className="text-sm font-medium text-foreground">
             Forma de Pagamento <span className="text-destructive">*</span>
           </label>
-          <div className="flex gap-0">
-            <Button
-              type="button"
-              variant={formaPagamento === "boleto" ? "default" : "outline"}
-              className={`rounded-r-none ${formaPagamento === "boleto" ? "" : "border-r-0"}`}
-              onClick={() => setFormaPagamento("boleto")}
-            >
-              Boleto
-            </Button>
+           <div className="flex gap-0">
+            {BOLETO_ENABLED && (
+              <Button
+                type="button"
+                variant={formaPagamento === "boleto" ? "default" : "outline"}
+                className={`rounded-r-none ${formaPagamento === "boleto" ? "" : "border-r-0"}`}
+                onClick={() => setFormaPagamento("boleto")}
+              >
+                Boleto
+              </Button>
+            )}
             <Button
               type="button"
               variant={formaPagamento === "pix" ? "default" : "outline"}
-              className="rounded-none border-r-0"
+              className={BOLETO_ENABLED ? "rounded-none border-r-0" : `rounded-r-none ${formaPagamento === "pix" ? "" : "border-r-0"}`}
               onClick={() => setFormaPagamento("pix")}
             >
               PIX

@@ -23,6 +23,7 @@ import { useCreateAsaasCharge } from "@/hooks/useAsaas";
 import { useFaturas, calcularVencimento } from "@/hooks/useFaturas";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/faturamentoUtils";
+import { BOLETO_ENABLED } from "@/lib/featureFlags";
 import type { DadosFaturamento } from "./FaturamentoModal";
 
 interface EtapaPagamentoProps {
@@ -58,7 +59,8 @@ export function EtapaPagamento({
   const { mutateAsync: createCharge } = useCreateAsaasCharge();
   const { updateFatura } = useFaturas();
 
-  const formaPagamento = configPagamento?.forma_pagamento || "boleto";
+  const rawFormaPagamento = configPagamento?.forma_pagamento || "boleto";
+  const formaPagamento = (!BOLETO_ENABLED && rawFormaPagamento === "boleto") ? "pix" : rawFormaPagamento;
   const diaVencimento = configPagamento?.dia_vencimento || 10;
   const isLoading = isLoadingPagamento || isLoadingGeral;
 
@@ -334,7 +336,7 @@ export function EtapaPagamento({
         )}
 
         {/* Boleto */}
-        {formaPagamento === "boleto" && (
+        {BOLETO_ENABLED && formaPagamento === "boleto" && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-blue-600" />
