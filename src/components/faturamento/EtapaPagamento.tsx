@@ -61,11 +61,11 @@ export function EtapaPagamento({
 
   const rawFormaPagamento = configPagamento?.forma_pagamento || "boleto";
   const formaPagamento = (!BOLETO_ENABLED && rawFormaPagamento === "boleto") ? "pix" : rawFormaPagamento;
-  const diaFechamento = configPagamento?.dia_fechamento || 1;
+  const diaFechamento = configPagamento?.dia_fechamento ?? null;
   const condicaoPagamento = configPagamento?.condicao_pagamento || null;
   const isLoading = isLoadingPagamento || isLoadingGeral;
 
-  // Calcular data de vencimento: dia_fechamento + prazo em dias
+  // Calcular data de vencimento: dia_fechamento + prazo em dias (null = avulso, usa hoje)
   const dataVencimento = calcularVencimento(diaFechamento, condicaoPagamento);
 
   const handleGenerateBoleto = async () => {

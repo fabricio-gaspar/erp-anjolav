@@ -8,8 +8,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 const condicaoLabels: Record<string, string> = {
   // Novos valores
   a_vista: "À Vista",
+  "5_dias": "5 dias",
   "7_dias": "7 dias",
+  "10_dias": "10 dias",
   "15_dias": "15 dias",
+  "20_dias": "20 dias",
   "30_dias": "30 dias",
   // Valores antigos (compatibilidade)
   mensal_15: "15 dias",
