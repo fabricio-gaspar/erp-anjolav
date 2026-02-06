@@ -306,8 +306,11 @@ export function useValidateLancamentosForFatura() {
 export function condicaoParaDias(condicao: string | null): number {
   switch (condicao) {
     case "a_vista": return 0;
+    case "5_dias": return 5;
     case "7_dias": return 7;
+    case "10_dias": return 10;
     case "15_dias": return 15;
+    case "20_dias": return 20;
     case "30_dias": return 30;
     // Valores antigos (compatibilidade)
     case "semanal": return 7;
@@ -320,7 +323,7 @@ export function condicaoParaDias(condicao: string | null): number {
 // Hook para calcular vencimento inteligente
 // Agora aceita dia_fechamento + condicao_pagamento OU um dia fixo (compatibilidade)
 export function calcularVencimento(
-  diaFechamentoOuVencimento: number,
+  diaFechamentoOuVencimento: number | null,
   condicaoPagamento?: string | null
 ): Date {
   const hoje = new Date();
@@ -329,6 +332,14 @@ export function calcularVencimento(
   // Novo cálculo: dia_fechamento + prazo em dias
   if (condicaoPagamento !== undefined) {
     const prazoDias = condicaoParaDias(condicaoPagamento);
+
+    // Avulso (dia_fechamento = null): usar data atual como base
+    if (diaFechamentoOuVencimento === null) {
+      const vencimento = new Date(hoje);
+      vencimento.setDate(vencimento.getDate() + prazoDias);
+      return vencimento;
+    }
+
     const mesAtual = hoje.getMonth();
     const anoAtual = hoje.getFullYear();
 
@@ -349,9 +360,10 @@ export function calcularVencimento(
   }
 
   // Fallback: comportamento antigo com dia fixo de vencimento
-  let vencimento = new Date(hoje.getFullYear(), hoje.getMonth(), diaFechamentoOuVencimento);
+  const dia = diaFechamentoOuVencimento ?? 1;
+  let vencimento = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
   if (vencimento <= hoje) {
-    vencimento = new Date(hoje.getFullYear(), hoje.getMonth() + 1, diaFechamentoOuVencimento);
+    vencimento = new Date(hoje.getFullYear(), hoje.getMonth() + 1, dia);
   }
   return vencimento;
 }

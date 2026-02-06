@@ -20,8 +20,8 @@ interface ClientePagamentoProps {
 
 type TipoFaturamento = "mensal" | "avulso";
 type FormaPagamento = "boleto" | "pix" | "transferencia";
-type TipoFechamento = "mensal" | "quinzenal";
-type CondicaoPagamento = "a_vista" | "7_dias" | "15_dias" | "30_dias";
+type TipoFechamento = "mensal" | "quinzenal" | "avulso";
+type CondicaoPagamento = "a_vista" | "5_dias" | "7_dias" | "10_dias" | "15_dias" | "20_dias" | "30_dias";
 
 // Mapear valores antigos para novos ao carregar
 function normalizeCondicao(value: string | null): CondicaoPagamento {
@@ -38,13 +38,17 @@ function normalizeCondicao(value: string | null): CondicaoPagamento {
 }
 
 function diaFechamentoToTipo(dia: number | null): TipoFechamento {
+  if (dia === null) return "avulso";
   return dia === 16 ? "quinzenal" : "mensal";
 }
 
 const condicaoLabels: Record<CondicaoPagamento, string> = {
   a_vista: "À Vista",
+  "5_dias": "5 dias",
   "7_dias": "7 dias",
+  "10_dias": "10 dias",
   "15_dias": "15 dias",
+  "20_dias": "20 dias",
   "30_dias": "30 dias",
 };
 
@@ -93,7 +97,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       return;
     }
 
-    const diaFechamento = tipoFechamento === "quinzenal" ? 16 : 1;
+    const diaFechamento = tipoFechamento === "avulso" ? null : tipoFechamento === "quinzenal" ? 16 : 1;
 
     upsertConfiguracao.mutate(
       {
@@ -234,11 +238,16 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
             <ToggleGroupItem value="quinzenal" className="px-4">
               Quinzenal (dia 16)
             </ToggleGroupItem>
+            <ToggleGroupItem value="avulso" className="px-4">
+              Avulso
+            </ToggleGroupItem>
           </ToggleGroup>
           <p className="text-xs text-muted-foreground">
             {tipoFechamento === "mensal"
               ? "O faturamento será gerado no dia 1 de cada mês"
-              : "O faturamento será gerado no dia 16 de cada mês"}
+              : tipoFechamento === "quinzenal"
+              ? "O faturamento será gerado no dia 16 de cada mês"
+              : "O faturamento será gerado sob demanda"}
           </p>
         </div>
 
@@ -258,11 +267,20 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
             <ToggleGroupItem value="a_vista" className="px-3">
               À Vista
             </ToggleGroupItem>
+            <ToggleGroupItem value="5_dias" className="px-3">
+              5 dias
+            </ToggleGroupItem>
             <ToggleGroupItem value="7_dias" className="px-3">
               7 dias
             </ToggleGroupItem>
+            <ToggleGroupItem value="10_dias" className="px-3">
+              10 dias
+            </ToggleGroupItem>
             <ToggleGroupItem value="15_dias" className="px-3">
               15 dias
+            </ToggleGroupItem>
+            <ToggleGroupItem value="20_dias" className="px-3">
+              20 dias
             </ToggleGroupItem>
             <ToggleGroupItem value="30_dias" className="px-3">
               30 dias
@@ -381,7 +399,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Tipo de Fechamento:</span>
             <span className="font-medium">
-              {tipoFechamento === "mensal" ? "Mensal (dia 1)" : "Quinzenal (dia 16)"}
+              {tipoFechamento === "mensal" ? "Mensal (dia 1)" : tipoFechamento === "quinzenal" ? "Quinzenal (dia 16)" : "Avulso"}
             </span>
           </div>
           <div className="flex justify-between text-sm">
