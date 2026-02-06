@@ -29,6 +29,7 @@ import { usePrecosEspeciais } from "@/hooks/useProdutos";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { dispararNotificacao } from "@/services/notificacaoService";
 
 interface ItemSeparacao {
   produto_id: string;
@@ -266,6 +267,39 @@ export function FormularioEtapa({
       });
 
       toast.success(`OS avançada para ${etapaLabels[proximaEtapa] || proximaEtapa}`);
+
+      // Disparar notificação ao cliente via WhatsApp (se configurado)
+      const eventoMap: Record<string, string> = {
+        separacao: "os_producao",
+        expedicao: "os_pronto",
+        entregue: "os_entregue",
+      };
+      const eventoNotificacao = eventoMap[proximaEtapa];
+      if (eventoNotificacao && osAtual) {
+        try {
+          // Buscar dados do cliente
+          const { data: cliente } = await supabase
+            .from("clientes")
+            .select("razao_social, nome_fantasia, telefone")
+            .eq("id", osAtual.cliente_id)
+            .single();
+
+          if (cliente?.telefone) {
+            const enviado = await dispararNotificacao(eventoNotificacao, {
+              cliente: cliente.nome_fantasia || cliente.razao_social,
+              telefone: cliente.telefone,
+              numero: osAtual.numero,
+            });
+            if (enviado) {
+              toast.success("WhatsApp aberto para notificar o cliente!");
+            }
+          }
+        } catch (notifError) {
+          console.error("Erro ao disparar notificação:", notifError);
+          // Não bloqueia o fluxo principal
+        }
+      }
+
       onSuccess();
     } catch (error) {
       console.error("Erro ao avançar etapa:", error);
