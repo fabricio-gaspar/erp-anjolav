@@ -1,84 +1,91 @@
 
+# Plano: Envio de ROL e Notificacoes Automaticas no PDV e Producao
 
-# Analise: Sistema NFS-e e Desabilitacao do Boleto
+## Problema Atual
+O sistema possui toda a **infraestrutura de configuracao** (templates, WhatsApp, toggles ativo/inativo) mas nao executa nenhum envio real. Os templates ficam ociosos na tabela `notificacoes_config`.
 
-## 1. Analise do Sistema de Nota Fiscal (NFS-e)
+## O que sera implementado
 
-Apos analisar todo o codigo do sistema de emissao de NFS-e, identifiquei que **o sistema atual NAO esta pronto para emissao real**. Ele funciona apenas em modo simulacao. Segue o detalhamento:
+### 1. Envio do ROL ao cliente apos o checkout no PDV
+No modal de pos-venda (`ImpressaoPosVendaModal.tsx`), alem das opcoes de impressao fisica, sera adicionada uma opcao para **enviar o ROL por WhatsApp** ao cliente.
 
-### O que funciona hoje (modo simulacao/demo):
-- Preview visual da NFS-e no padrao de Sao Roque (fiel ao portal)
-- Validacao de CPF/CNPJ com digito verificador
-- Validacao de dados fiscais do cliente (endereco, documento)
-- Snapshots de emitente e tomador para historico
-- Selecao de natureza de operacao
-- Selecao de CNPJ emissor e descricao do servico
-- Geracao de chave de acesso simulada (44 digitos)
-- Download/impressao de previa em PDF
+**Como funcionara:**
+- Nova checkbox "Enviar ROL por WhatsApp" no modal de pos-venda
+- Ao marcar, o sistema monta a mensagem usando o template `os_retirada` configurado
+- Abre o WhatsApp Web (`wa.me/`) com a mensagem pre-preenchida contendo: nome do cliente, numero da OS, total de pecas, valor e previsao de entrega
+- So aparece se o cliente tiver telefone cadastrado
 
-### O que FALTA para emissao real:
-1. **Nao existe integracao com API da prefeitura** - A funcao `handleEmitirNF` (linha 146-208 do EtapaNF.tsx) apenas gera dados simulados e salva no banco. Nao faz nenhuma chamada HTTP para nenhum webservice de NFS-e.
-2. **Numero da NF e aleatorio** - O numero da nota e gerado como `Math.random()` (linha 153), nao vem de um sistema de numeracao sequencial da prefeitura.
-3. **Chave de acesso simulada** - A funcao `gerarChaveAcesso()` usa CNPJ "00000000000000" e DV fixo "0" (faturamentoUtils.ts, linhas 165-181).
-4. **Sem certificado digital na emissao** - Embora o sistema permita upload de certificado A1 (.pfx), ele nunca e usado na emissao.
-5. **Status e sempre "nao_enviada"** - O campo `status_sefaz` fica como "nao_enviada" em simulacao (linha 197).
-6. **Sem edge function de emissao** - Nao existe uma edge function que se comunique com o webservice da prefeitura (ex: ISS Digital de Sao Roque).
+### 2. Notificacao automatica quando a OS ficar pronta (Expedicao)
+No formulario de avanco de etapa (`FormularioEtapa.tsx`), quando a OS avancar para o status **expedicao** (pronta para entrega), o sistema dispara automaticamente uma notificacao ao cliente.
 
-### Conclusao sobre NFS-e:
-Tirar do modo demo **NAO** fara o sistema funcionar para emissao real. Seria necessario criar uma edge function completa que:
-- Assine digitalmente o XML com o certificado A1
-- Envie para a API da prefeitura de Sao Roque
-- Processe a resposta (numero real, protocolo, PDF)
-- Controle numeracao sequencial
+**Como funcionara:**
+- Apos o `updateOrdemServico` confirmar a mudanca para `expedicao`, o sistema verifica se a notificacao `os_pronto` esta ativa na configuracao
+- Se estiver ativa, abre o WhatsApp Web com a mensagem do template `os_pronto` preenchida com os dados do cliente e OS
+- Tambem funciona para `os_producao` (quando entra em producao) e `os_entregue` (quando entregue)
 
-Isso e um desenvolvimento significativo que envolve integracao com webservice SOAP/REST da prefeitura. **Recomendo manter em modo simulacao por enquanto** e focar nisso como um projeto futuro separado.
+### 3. Servico centralizado de notificacoes
+Criar um servico utilitario que consulta a tabela `notificacoes_config`, verifica se o evento esta ativo e monta a mensagem com as variaveis substituidas.
 
 ---
 
-## 2. Plano: Desabilitar Sistema de Boleto
+## Arquivos que serao criados/modificados
 
-A estrategia sera criar uma **constante de feature flag** simples que pode ser ligada/desligada em um unico arquivo. Isso afeta os seguintes pontos:
+### Novo arquivo:
+- `src/services/notificacaoService.ts` - Servico centralizado para montar e disparar notificacoes
 
-### Arquivos que serao modificados:
+### Arquivos modificados:
+- `src/components/caixa/ImpressaoPosVendaModal.tsx` - Adicionar opcao "Enviar WhatsApp" com ROL
+- `src/components/producao/FormularioEtapa.tsx` - Disparar notificacao ao avancar para expedicao/entregue
+- `src/hooks/useNotificacoesConfig.ts` - Adicionar funcao helper para buscar template por evento
 
-**Novo arquivo:**
-- `src/lib/featureFlags.ts` - Arquivo central com as flags de funcionalidades
+---
 
-**Arquivos modificados:**
-- `src/components/clientes/ClientePagamento.tsx` - Esconder opcao "Boleto" no cadastro do cliente
-- `src/components/faturamento/EtapaPagamento.tsx` - Esconder geracao de boleto no wizard de faturamento
-- `src/components/cobrancas/NovaCobrancaModal.tsx` - Esconder opcao "Apenas Boleto" na criacao de cobranca
+## Detalhes tecnicos
 
-### Como vai funcionar:
+### `src/services/notificacaoService.ts`
+Novo servico com funcoes:
+- `getNotificacaoTemplate(evento: string)` - busca o template ativo para o evento
+- `montarMensagem(template: string, variaveis: Record<string, string>)` - substitui {cliente}, {numero}, {valor} etc.
+- `enviarWhatsApp(telefone: string, mensagem: string)` - abre `wa.me/` com mensagem codificada
+- `dispararNotificacao(evento: string, dados: { cliente, telefone, numero, valor?, previsao? })` - funcao principal que verifica config e dispara
 
-Sera criado um arquivo `src/lib/featureFlags.ts` com:
+### `ImpressaoPosVendaModal.tsx`
+Mudancas:
+- Receber prop `clienteTelefone` (opcional)
+- Adicionar checkbox "Enviar comprovante por WhatsApp"
+- No `handlePrint`, apos imprimir, chamar `dispararNotificacao("os_retirada", dados)` se marcado
+- Mostrar checkbox somente se o cliente tiver telefone
 
-```text
-BOLETO_ENABLED = false   // Muda para true quando quiser habilitar
-```
+### `FormularioEtapa.tsx`
+Mudancas:
+- Importar servico de notificacao
+- Apos o `updateOrdemServico` e `registrarMudancaEtapa` com sucesso:
+  - Se `proximaEtapa === "separacao"` ou equivalente a producao: disparar `os_producao`
+  - Se `proximaEtapa === "expedicao"`: disparar `os_pronto`
+  - Se `proximaEtapa === "entregue"`: disparar `os_entregue`
+- Para isso, buscar os dados do cliente (nome e telefone) da OS
 
-Nos componentes, o sistema vai:
-- No cadastro do cliente: esconder o botao "Boleto" das formas de pagamento
-- No wizard de faturamento (Etapa 3): se a forma de pagamento for "boleto", redirecionar para PIX ou transferencia
-- No modal de nova cobranca: esconder "Apenas Boleto" e "Boleto + PIX", deixando apenas "PIX"
+### `CaixaPDV.tsx`
+Mudancas minimas:
+- Passar `clienteTelefone` do cliente selecionado para o `ImpressaoPosVendaModal`
 
-### Para reabilitar depois:
-Basta alterar `BOLETO_ENABLED` para `true` no arquivo de feature flags. Nenhum codigo sera removido, apenas escondido condicionalmente.
+---
 
-### Detalhes tecnicos:
+## Fluxo do usuario
 
-1. Criar `src/lib/featureFlags.ts`:
-   - Exportar constante `BOLETO_ENABLED = false`
+### No PDV (ao finalizar venda):
+1. Modal "OS Criada!" aparece
+2. Opcoes: Imprimir ROL, Imprimir Etiquetas, **Enviar WhatsApp** (novo)
+3. Ao clicar "Imprimir" ou "Enviar", executa as acoes selecionadas
+4. WhatsApp Web abre com mensagem pre-montada
 
-2. `ClientePagamento.tsx`:
-   - Importar flag e esconder botao "Boleto" quando desabilitado
-   - Se cliente ja tinha boleto configurado, manter funcional mas nao permitir nova selecao
+### Na Producao (ao avancar etapa):
+1. Operador avanca OS para "Expedicao" (pronta)
+2. Sistema verifica se notificacao `os_pronto` esta ativa
+3. Se sim, abre WhatsApp Web automaticamente com mensagem para o cliente
+4. Toast confirma "Notificacao enviada ao cliente"
 
-3. `EtapaPagamento.tsx`:
-   - Importar flag e esconder secao de boleto quando desabilitado
-   - Se forma_pagamento do cliente for "boleto" e flag estiver desabilitada, mostrar aviso e oferecer PIX/transferencia
-
-4. `NovaCobrancaModal.tsx`:
-   - Filtrar opcoes "BOLETO" e "BOLETO_PIX" do dropdown quando flag estiver desabilitada
-   - Default passa a ser "PIX" quando boleto desabilitado
-
+### Controle pelo admin:
+- Em Configuracoes > Notificacoes, o admin continua podendo ativar/desativar cada evento
+- Templates editaveis com variaveis dinamicas
+- Se um evento estiver **inativo**, nenhuma acao e disparada
