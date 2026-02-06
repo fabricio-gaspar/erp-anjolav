@@ -48,6 +48,7 @@ import {
   Settings2,
   Edit2,
   Save,
+  Palette,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
@@ -56,6 +57,7 @@ import { usePortalConfig } from "@/hooks/usePortalConfig";
 import { buscarCepComFallback, geocodeEndereco, montarEnderecoCompleto, montarEnderecoSimplificado } from "@/services/apiServices";
 import { AddressMap } from "@/components/ui/AddressMap";
 import { supabase } from "@/integrations/supabase/client";
+import { TEMAS_DISPONIVEIS, aplicarTema, getTemaIdFromCorPrimaria, temaIdToCorPrimaria } from "@/lib/themeUtils";
 
 const templateVariables = [
   "{{cliente}}",
@@ -141,7 +143,7 @@ export function ConfiguracoesGeral() {
 
   // Identidade Visual
   const [nomeEmpresa, setNomeEmpresa] = useState("AnjoLav");
-  const [corPrimaria, setCorPrimaria] = useState("#3b82f6");
+  const [temaAtual, setTemaAtual] = useState("padrao");
 
   // Dados de Pagamento
   const [tipoChave, setTipoChave] = useState("cpf");
@@ -176,7 +178,8 @@ export function ConfiguracoesGeral() {
   useEffect(() => {
     if (configuracao) {
       setNomeEmpresa(configuracao.nome_empresa || "AnjoLav");
-      setCorPrimaria(configuracao.cor_primaria || "#3b82f6");
+      const temaId = getTemaIdFromCorPrimaria(configuracao.cor_primaria);
+      setTemaAtual(temaId);
       setTipoChave(configuracao.pix_tipo_chave || "cpf");
       setChavePix(configuracao.pix_chave || "");
       setNomeBanco(configuracao.banco_nome || "");
@@ -212,7 +215,7 @@ export function ConfiguracoesGeral() {
   const handleSaveIdentidade = () => {
     saveConfiguracao.mutate({
       nome_empresa: nomeEmpresa,
-      cor_primaria: corPrimaria,
+      cor_primaria: temaIdToCorPrimaria(temaAtual),
       logo_url: logoUrl,
     });
   };
@@ -495,35 +498,64 @@ export function ConfiguracoesGeral() {
             </div>
           </div>
 
-          <div className="grid grid-cols-[1fr_auto] gap-4 mb-4">
+          <div className="mb-4">
             <div>
               <Label className="text-xs text-muted-foreground">Nome da Empresa</Label>
               <Input
                 value={nomeEmpresa}
                 onChange={(e) => setNomeEmpresa(e.target.value)}
                 placeholder="Nome da empresa"
+                className="max-w-sm"
               />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Cor Primária</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={corPrimaria}
-                  onChange={(e) => setCorPrimaria(e.target.value)}
-                  className="w-10 h-10 rounded cursor-pointer border-0"
-                />
-                <Input
-                  value={corPrimaria}
-                  onChange={(e) => setCorPrimaria(e.target.value)}
-                  className="w-24"
-                  skipUppercase
-                />
-              </div>
             </div>
           </div>
 
-          <Button onClick={handleSaveIdentidade} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+          {/* Tema do Sistema */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Palette className="w-4 h-4 text-primary" />
+              <Label className="text-sm font-semibold text-foreground">Tema do Sistema</Label>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Escolha um tema para personalizar todo o visual do sistema — sidebar, botões, ícones e links.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {TEMAS_DISPONIVEIS.map((tema) => {
+                const isSelected = temaAtual === tema.id;
+                return (
+                  <button
+                    key={tema.id}
+                    type="button"
+                    onClick={() => {
+                      setTemaAtual(tema.id);
+                      aplicarTema(tema.id);
+                    }}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border-2 transition-all text-left ${
+                      isSelected
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                        : "border-border hover:border-primary/40 hover:bg-accent/50"
+                    }`}
+                  >
+                    <div className="flex gap-1 flex-shrink-0">
+                      {tema.preview.map((cor, i) => (
+                        <div
+                          key={i}
+                          className="w-5 h-5 rounded-full border border-black/10"
+                          style={{ backgroundColor: cor }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-sm font-medium text-foreground flex-1">{tema.nome}</span>
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <Button onClick={handleSaveIdentidade} className="bg-primary hover:bg-primary/90" disabled={saveConfiguracao.isPending}>
             {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
             Salvar Identidade
           </Button>
@@ -672,7 +704,7 @@ export function ConfiguracoesGeral() {
         </div>
 
         <div className="mt-4">
-          <Button onClick={handleSaveEndereco} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+          <Button onClick={handleSaveEndereco} className="bg-primary hover:bg-primary/90" disabled={saveConfiguracao.isPending}>
             {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
             Salvar Endereço da Empresa
           </Button>
@@ -771,7 +803,7 @@ export function ConfiguracoesGeral() {
           </div>
         </div>
 
-        <Button onClick={handleSavePayment} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+        <Button onClick={handleSavePayment} className="bg-primary hover:bg-primary/90" disabled={saveConfiguracao.isPending}>
           {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
           Salvar Dados de Pagamento
         </Button>
@@ -870,7 +902,7 @@ export function ConfiguracoesGeral() {
           </TabsContent>
         </Tabs>
 
-        <Button onClick={handleSaveTemplates} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+        <Button onClick={handleSaveTemplates} className="bg-primary hover:bg-primary/90" disabled={saveConfiguracao.isPending}>
           {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
           Salvar Templates
         </Button>
@@ -901,7 +933,7 @@ export function ConfiguracoesGeral() {
           />
         </div>
 
-        <Button onClick={handleSaveWhatsApp} className="bg-green-600 hover:bg-green-700" disabled={saveConfiguracao.isPending}>
+        <Button onClick={handleSaveWhatsApp} className="bg-primary hover:bg-primary/90" disabled={saveConfiguracao.isPending}>
           {saveConfiguracao.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageSquare className="w-4 h-4 mr-2" />}
           Salvar Configurações WhatsApp
         </Button>
@@ -1212,7 +1244,7 @@ function PortalClienteSection() {
         />
       </div>
 
-      <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700" disabled={updatePortalConfig.isPending}>
+      <Button onClick={handleSave} className="bg-primary hover:bg-primary/90" disabled={updatePortalConfig.isPending}>
         {updatePortalConfig.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
         Salvar Configurações do Portal
       </Button>

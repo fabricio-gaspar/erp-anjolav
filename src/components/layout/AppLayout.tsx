@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
@@ -6,6 +6,8 @@ import { useSidebarContext } from "@/contexts/SidebarContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { aplicarTema, getTemaIdFromCorPrimaria } from "@/lib/themeUtils";
 
 interface AppLayoutProps {
   title?: string;
@@ -21,6 +23,15 @@ export function AppLayout({
   const { isCollapsed } = useSidebarContext();
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { configuracao } = useConfiguracoesGerais();
+
+  // Aplicar tema salvo no banco ao carregar
+  useEffect(() => {
+    if (configuracao?.cor_primaria) {
+      const temaId = getTemaIdFromCorPrimaria(configuracao.cor_primaria);
+      aplicarTema(temaId);
+    }
+  }, [configuracao?.cor_primaria]);
 
   return (
     <div className="min-h-screen bg-slate-50/50 flex w-full overflow-x-hidden">
