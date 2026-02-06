@@ -1021,6 +1021,7 @@ const CaixaPDV = () => {
           osId={osRecemCriada.id}
           osNumero={osRecemCriada.numero}
           clienteNome={selectedClient?.nome_fantasia || selectedClient?.razao_social || "Cliente"}
+          clienteTelefone={selectedClient?.telefone}
           valorTotal={osRecemCriada.valorTotal}
           totalPecas={totalItems}
           previsaoEntrega={osRecemCriada.previsaoEntrega}

@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, CheckCircle, Printer, Tag, FileText } from "lucide-react";
+import { Loader2, CheckCircle, Printer, Tag, FileText, MessageCircle } from "lucide-react";
 import { usePrintOS } from "@/hooks/usePrintOS";
+import { dispararNotificacao } from "@/services/notificacaoService";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 interface ImpressaoPosVendaModalProps {
   open: boolean;
@@ -21,6 +23,7 @@ interface ImpressaoPosVendaModalProps {
   osId: string;
   osNumero: string;
   clienteNome: string;
+  clienteTelefone?: string | null;
   valorTotal: number;
   totalPecas: number;
   previsaoEntrega: Date;
@@ -33,6 +36,7 @@ export function ImpressaoPosVendaModal({
   osId,
   osNumero,
   clienteNome,
+  clienteTelefone,
   valorTotal,
   totalPecas,
   previsaoEntrega,
@@ -40,10 +44,13 @@ export function ImpressaoPosVendaModal({
 }: ImpressaoPosVendaModalProps) {
   const [imprimirROL, setImprimirROL] = useState(true);
   const [imprimirEtiquetas, setImprimirEtiquetas] = useState(true);
+  const [enviarWhatsApp, setEnviarWhatsApp] = useState(false);
   const [quantidadeEtiquetas, setQuantidadeEtiquetas] = useState(totalPecas.toString());
   const [isLoading, setIsLoading] = useState(false);
 
   const { printROL, printEtiquetas } = usePrintOS(osId);
+
+  const temTelefone = !!clienteTelefone?.trim();
 
   // Update quantity when modal opens or totalPecas changes
   useEffect(() => {
@@ -51,6 +58,7 @@ export function ImpressaoPosVendaModal({
       setQuantidadeEtiquetas(totalPecas.toString());
       setImprimirROL(true);
       setImprimirEtiquetas(true);
+      setEnviarWhatsApp(false);
     }
   }, [open, totalPecas]);
 
@@ -73,6 +81,22 @@ export function ImpressaoPosVendaModal({
         const qty = parseInt(quantidadeEtiquetas) || 1;
         await printEtiquetas(qty, osId);
       }
+
+      // Enviar WhatsApp se marcado
+      if (enviarWhatsApp && temTelefone) {
+        const previsaoFormatada = format(previsaoEntrega, "dd/MM/yyyy (EEEE)", { locale: ptBR });
+        const enviado = await dispararNotificacao("os_retirada", {
+          cliente: clienteNome,
+          telefone: clienteTelefone!,
+          numero: osNumero,
+          valor: formatCurrency(valorTotal),
+          previsao: previsaoFormatada,
+          totalPecas: totalPecas.toString(),
+        });
+        if (enviado) {
+          toast.success("WhatsApp aberto com o comprovante!");
+        }
+      }
     } catch (error) {
       console.error("Erro ao imprimir:", error);
     } finally {
@@ -86,6 +110,8 @@ export function ImpressaoPosVendaModal({
     onComplete();
     onOpenChange(false);
   };
+
+  const algumaSelecionada = imprimirROL || imprimirEtiquetas || enviarWhatsApp;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -115,11 +141,11 @@ export function ImpressaoPosVendaModal({
             </p>
           </div>
 
-          {/* Opções de Impressão */}
+          {/* Opções de Impressão e Envio */}
           <div className="space-y-4">
             <Label className="text-base font-semibold flex items-center gap-2">
               <Printer className="w-4 h-4" />
-              O que deseja imprimir?
+              O que deseja fazer?
             </Label>
 
             {/* ROL */}
@@ -172,6 +198,26 @@ export function ImpressaoPosVendaModal({
               </div>
             </div>
 
+            {/* WhatsApp - só aparece se tiver telefone */}
+            {temTelefone && (
+              <div className="flex items-center justify-between p-3 rounded-lg border border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/30">
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="enviar-whatsapp"
+                    checked={enviarWhatsApp}
+                    onCheckedChange={(checked) => setEnviarWhatsApp(checked as boolean)}
+                  />
+                  <label
+                    htmlFor="enviar-whatsapp"
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4 text-green-600" />
+                    <span className="font-medium">Enviar ROL por WhatsApp</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
             <p className="text-xs text-muted-foreground text-center">
               💡 Sugestão: 1 etiqueta por peça para identificação no processo
             </p>
@@ -190,18 +236,18 @@ export function ImpressaoPosVendaModal({
           </Button>
           <Button
             onClick={handlePrint}
-            disabled={isLoading || (!imprimirROL && !imprimirEtiquetas)}
+            disabled={isLoading || !algumaSelecionada}
             className="flex-1"
           >
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Imprimindo...
+                Processando...
               </>
             ) : (
               <>
                 <Printer className="w-4 h-4 mr-2" />
-                Imprimir
+                Confirmar
               </>
             )}
           </Button>
