@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateAsaasCharge } from "@/hooks/useAsaas";
+import { BOLETO_ENABLED } from "@/lib/featureFlags";
 import { Loader2 } from "lucide-react";
 
 interface NovaCobrancaModalProps {
@@ -32,7 +33,7 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
     description: "",
     value: "",
     due_date: "",
-    billing_type: "BOLETO_PIX" as "BOLETO" | "PIX" | "BOLETO_PIX",
+    billing_type: (BOLETO_ENABLED ? "BOLETO_PIX" : "PIX") as "BOLETO" | "PIX" | "BOLETO_PIX",
   });
 
   const createCharge = useCreateAsaasCharge();
@@ -57,7 +58,7 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
       description: "",
       value: "",
       due_date: "",
-      billing_type: "BOLETO_PIX",
+      billing_type: BOLETO_ENABLED ? "BOLETO_PIX" : "PIX",
     });
     onOpenChange(false);
   };
@@ -160,8 +161,8 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="BOLETO_PIX">Boleto + PIX</SelectItem>
-                  <SelectItem value="BOLETO">Apenas Boleto</SelectItem>
+                  {BOLETO_ENABLED && <SelectItem value="BOLETO_PIX">Boleto + PIX</SelectItem>}
+                  {BOLETO_ENABLED && <SelectItem value="BOLETO">Apenas Boleto</SelectItem>}
                   <SelectItem value="PIX">Apenas PIX</SelectItem>
                 </SelectContent>
               </Select>
