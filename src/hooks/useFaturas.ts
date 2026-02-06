@@ -302,15 +302,56 @@ export function useValidateLancamentosForFatura() {
   });
 }
 
-// Hook para calcular vencimento inteligente
-export function calcularVencimento(diaVencimento: number): Date {
-  const hoje = new Date();
-  let vencimento = new Date(hoje.getFullYear(), hoje.getMonth(), diaVencimento);
-  
-  // Se o dia já passou no mês atual, usa próximo mês
-  if (vencimento <= hoje) {
-    vencimento = new Date(hoje.getFullYear(), hoje.getMonth() + 1, diaVencimento);
+// Mapear condição de pagamento para dias de prazo
+export function condicaoParaDias(condicao: string | null): number {
+  switch (condicao) {
+    case "a_vista": return 0;
+    case "7_dias": return 7;
+    case "15_dias": return 15;
+    case "30_dias": return 30;
+    // Valores antigos (compatibilidade)
+    case "semanal": return 7;
+    case "mensal_15": return 15;
+    case "mensal_30": return 30;
+    default: return 30;
   }
-  
+}
+
+// Hook para calcular vencimento inteligente
+// Agora aceita dia_fechamento + condicao_pagamento OU um dia fixo (compatibilidade)
+export function calcularVencimento(
+  diaFechamentoOuVencimento: number,
+  condicaoPagamento?: string | null
+): Date {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  // Novo cálculo: dia_fechamento + prazo em dias
+  if (condicaoPagamento !== undefined) {
+    const prazoDias = condicaoParaDias(condicaoPagamento);
+    const mesAtual = hoje.getMonth();
+    const anoAtual = hoje.getFullYear();
+
+    // Data do próximo fechamento
+    let dataFechamento = new Date(anoAtual, mesAtual, diaFechamentoOuVencimento);
+    dataFechamento.setHours(0, 0, 0, 0);
+
+    // Se o dia de fechamento já passou neste mês, usar próximo mês
+    if (dataFechamento <= hoje) {
+      dataFechamento = new Date(anoAtual, mesAtual + 1, diaFechamentoOuVencimento);
+      dataFechamento.setHours(0, 0, 0, 0);
+    }
+
+    // Adicionar prazo em dias
+    const vencimento = new Date(dataFechamento);
+    vencimento.setDate(vencimento.getDate() + prazoDias);
+    return vencimento;
+  }
+
+  // Fallback: comportamento antigo com dia fixo de vencimento
+  let vencimento = new Date(hoje.getFullYear(), hoje.getMonth(), diaFechamentoOuVencimento);
+  if (vencimento <= hoje) {
+    vencimento = new Date(hoje.getFullYear(), hoje.getMonth() + 1, diaFechamentoOuVencimento);
+  }
   return vencimento;
 }

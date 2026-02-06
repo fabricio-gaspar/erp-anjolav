@@ -61,11 +61,12 @@ export function EtapaPagamento({
 
   const rawFormaPagamento = configPagamento?.forma_pagamento || "boleto";
   const formaPagamento = (!BOLETO_ENABLED && rawFormaPagamento === "boleto") ? "pix" : rawFormaPagamento;
-  const diaVencimento = configPagamento?.dia_vencimento || 10;
+  const diaFechamento = configPagamento?.dia_fechamento || 1;
+  const condicaoPagamento = configPagamento?.condicao_pagamento || null;
   const isLoading = isLoadingPagamento || isLoadingGeral;
 
-  // Calcular data de vencimento inteligente
-  const dataVencimento = calcularVencimento(diaVencimento);
+  // Calcular data de vencimento: dia_fechamento + prazo em dias
+  const dataVencimento = calcularVencimento(diaFechamento, condicaoPagamento);
 
   const handleGenerateBoleto = async () => {
     if (!faturaId) return;
@@ -250,7 +251,7 @@ export function EtapaPagamento({
           <Calendar className="w-4 h-4" />
           <span>
             Vencimento: {format(dataVencimento, "dd/MM/yyyy", { locale: ptBR })}
-            <span className="text-xs ml-2">(Dia {diaVencimento} do cliente)</span>
+            <span className="text-xs ml-2">(Fechamento dia {diaFechamento})</span>
           </span>
         </div>
 

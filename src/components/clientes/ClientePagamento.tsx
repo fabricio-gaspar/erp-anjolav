@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Info, Loader2, Building2, FileText } from "lucide-react";
+import { Check, Info, Loader2, Building2 } from "lucide-react";
 import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { BOLETO_ENABLED } from "@/lib/featureFlags";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
@@ -11,6 +10,7 @@ import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface ClientePagamentoProps {
   clienteId: string | null;
@@ -20,6 +20,33 @@ interface ClientePagamentoProps {
 
 type TipoFaturamento = "mensal" | "avulso";
 type FormaPagamento = "boleto" | "pix" | "transferencia";
+type TipoFechamento = "mensal" | "quinzenal";
+type CondicaoPagamento = "a_vista" | "7_dias" | "15_dias" | "30_dias";
+
+// Mapear valores antigos para novos ao carregar
+function normalizeCondicao(value: string | null): CondicaoPagamento {
+  switch (value) {
+    case "mensal_30": return "30_dias";
+    case "mensal_15": return "15_dias";
+    case "semanal": return "7_dias";
+    case "a_vista": return "a_vista";
+    case "7_dias": return "7_dias";
+    case "15_dias": return "15_dias";
+    case "30_dias": return "30_dias";
+    default: return "30_dias";
+  }
+}
+
+function diaFechamentoToTipo(dia: number | null): TipoFechamento {
+  return dia === 16 ? "quinzenal" : "mensal";
+}
+
+const condicaoLabels: Record<CondicaoPagamento, string> = {
+  a_vista: "À Vista",
+  "7_dias": "7 dias",
+  "15_dias": "15 dias",
+  "30_dias": "30 dias",
+};
 
 export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamentoProps) => {
   const { configuracao, isLoading, upsertConfiguracao } = useConfiguracaoPagamentoCliente(clienteId);
@@ -28,9 +55,8 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
 
   const [tipoFaturamento, setTipoFaturamento] = useState<TipoFaturamento>("avulso");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null);
-  const [diaVencimento, setDiaVencimento] = useState("");
-  const [diaFechamento, setDiaFechamento] = useState("");
-  const [condicaoPagamento, setCondicaoPagamento] = useState("mensal_30");
+  const [tipoFechamento, setTipoFechamento] = useState<TipoFechamento>("mensal");
+  const [condicaoPagamento, setCondicaoPagamento] = useState<CondicaoPagamento>("30_dias");
   const [cnpjEmissorId, setCnpjEmissorId] = useState<string>("");
   const [descricaoNfId, setDescricaoNfId] = useState<string>("");
   const [listarItensDetalhados, setListarItensDetalhados] = useState<boolean>(true);
@@ -40,9 +66,8 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
     if (configuracao) {
       setTipoFaturamento((configuracao.tipo_faturamento as TipoFaturamento) || "avulso");
       setFormaPagamento((configuracao.forma_pagamento as FormaPagamento) || null);
-      setDiaVencimento(configuracao.dia_vencimento?.toString() || "");
-      setDiaFechamento(configuracao.dia_fechamento?.toString() || "");
-      setCondicaoPagamento(configuracao.condicao_pagamento || "mensal_30");
+      setTipoFechamento(diaFechamentoToTipo(configuracao.dia_fechamento));
+      setCondicaoPagamento(normalizeCondicao(configuracao.condicao_pagamento));
       setCnpjEmissorId(configuracao.cnpj_emissor_id || "");
       setDescricaoNfId(configuracao.descricao_nf_id || "");
       setListarItensDetalhados(configuracao.listar_itens_detalhados !== false);
@@ -54,9 +79,8 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
     if (!clienteId) {
       setTipoFaturamento("avulso");
       setFormaPagamento(null);
-      setDiaVencimento("");
-      setDiaFechamento("");
-      setCondicaoPagamento("mensal_30");
+      setTipoFechamento("mensal");
+      setCondicaoPagamento("30_dias");
       setCnpjEmissorId("");
       setDescricaoNfId("");
       setListarItensDetalhados(true);
@@ -69,13 +93,15 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       return;
     }
 
+    const diaFechamento = tipoFechamento === "quinzenal" ? 16 : 1;
+
     upsertConfiguracao.mutate(
       {
         cliente_id: clienteId,
         tipo_faturamento: tipoFaturamento,
         forma_pagamento: formaPagamento,
-        dia_vencimento: diaVencimento ? parseInt(diaVencimento) : null,
-        dia_fechamento: diaFechamento ? parseInt(diaFechamento) : null,
+        dia_vencimento: null,
+        dia_fechamento: diaFechamento,
         condicao_pagamento: condicaoPagamento,
         cnpj_emissor_id: cnpjEmissorId || null,
         descricao_nf_id: descricaoNfId || null,
@@ -187,48 +213,64 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         </div>
       </div>
 
-      {/* Dia de Fechamento + Dia de Vencimento */}
+      {/* Tipo de Fechamento + Prazo para Pagamento */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">
-            Dia de Fechamento
+            Tipo de Fechamento
           </label>
-          <Input
-            placeholder="Ex: 25"
-            value={diaFechamento}
-            onChange={(e) => setDiaFechamento(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">Dia do mês para gerar o faturamento (1 a 31)</p>
+          <ToggleGroup
+            type="single"
+            value={tipoFechamento}
+            onValueChange={(value) => {
+              if (value) setTipoFechamento(value as TipoFechamento);
+            }}
+            variant="outline"
+            className="justify-start"
+          >
+            <ToggleGroupItem value="mensal" className="px-4">
+              Mensal (dia 1)
+            </ToggleGroupItem>
+            <ToggleGroupItem value="quinzenal" className="px-4">
+              Quinzenal (dia 16)
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <p className="text-xs text-muted-foreground">
+            {tipoFechamento === "mensal"
+              ? "O faturamento será gerado no dia 1 de cada mês"
+              : "O faturamento será gerado no dia 16 de cada mês"}
+          </p>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">
-            Dia de Vencimento <span className="text-destructive">*</span>
+            Prazo para Pagamento
           </label>
-          <Input
-            placeholder="Ex: 10"
-            value={diaVencimento}
-            onChange={(e) => setDiaVencimento(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">Dia do mês em que a fatura vence (1 a 31)</p>
-        </div>
-      </div>
-
-      {/* Condição de Pagamento */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Condição de Pagamento</label>
-          <Select value={condicaoPagamento} onValueChange={setCondicaoPagamento}>
-            <SelectTrigger className="bg-background">
-              <SelectValue placeholder="Selecione..." />
-            </SelectTrigger>
-            <SelectContent className="bg-background">
-              <SelectItem value="mensal_30">Mensal (30 dias)</SelectItem>
-              <SelectItem value="mensal_15">Quinzenal (15 dias)</SelectItem>
-              <SelectItem value="semanal">Semanal (7 dias)</SelectItem>
-              <SelectItem value="a_vista">À Vista</SelectItem>
-            </SelectContent>
-          </Select>
+          <ToggleGroup
+            type="single"
+            value={condicaoPagamento}
+            onValueChange={(value) => {
+              if (value) setCondicaoPagamento(value as CondicaoPagamento);
+            }}
+            variant="outline"
+            className="justify-start"
+          >
+            <ToggleGroupItem value="a_vista" className="px-3">
+              À Vista
+            </ToggleGroupItem>
+            <ToggleGroupItem value="7_dias" className="px-3">
+              7 dias
+            </ToggleGroupItem>
+            <ToggleGroupItem value="15_dias" className="px-3">
+              15 dias
+            </ToggleGroupItem>
+            <ToggleGroupItem value="30_dias" className="px-3">
+              30 dias
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <p className="text-xs text-muted-foreground">
+            Prazo após o fechamento para o cliente efetuar o pagamento
+          </p>
         </div>
       </div>
 
@@ -337,21 +379,14 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
             </span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Dia de Fechamento:</span>
-            <span className="font-medium">Dia {diaFechamento || "-"}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Dia de Vencimento:</span>
-            <span className="font-medium">Dia {diaVencimento || "-"}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Condição:</span>
+            <span className="text-muted-foreground">Tipo de Fechamento:</span>
             <span className="font-medium">
-              {condicaoPagamento === "mensal_30" && "Mensal (30 dias)"}
-              {condicaoPagamento === "mensal_15" && "Quinzenal (15 dias)"}
-              {condicaoPagamento === "semanal" && "Semanal (7 dias)"}
-              {condicaoPagamento === "a_vista" && "À Vista"}
+              {tipoFechamento === "mensal" ? "Mensal (dia 1)" : "Quinzenal (dia 16)"}
             </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Prazo para Pagamento:</span>
+            <span className="font-medium">{condicaoLabels[condicaoPagamento]}</span>
           </div>
           <Separator className="my-2" />
           <div className="flex justify-between text-sm">

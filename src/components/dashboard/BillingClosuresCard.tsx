@@ -6,10 +6,16 @@ import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const condicaoLabels: Record<string, string> = {
+  // Novos valores
   a_vista: "À Vista",
+  "7_dias": "7 dias",
+  "15_dias": "15 dias",
+  "30_dias": "30 dias",
+  // Valores antigos (compatibilidade)
   mensal_15: "15 dias",
   mensal_30: "30 dias",
   mensal_45: "45 dias",
+  semanal: "7 dias",
 };
 
 export function BillingClosuresCard() {
