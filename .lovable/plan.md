@@ -1,91 +1,99 @@
 
-# Plano: Envio de ROL e Notificacoes Automaticas no PDV e Producao
 
-## Problema Atual
-O sistema possui toda a **infraestrutura de configuracao** (templates, WhatsApp, toggles ativo/inativo) mas nao executa nenhum envio real. Os templates ficam ociosos na tabela `notificacoes_config`.
+# Simplificar Configuracao de Pagamento do Cliente
 
-## O que sera implementado
+## Resumo da mudanca
 
-### 1. Envio do ROL ao cliente apos o checkout no PDV
-No modal de pos-venda (`ImpressaoPosVendaModal.tsx`), alem das opcoes de impressao fisica, sera adicionada uma opcao para **enviar o ROL por WhatsApp** ao cliente.
+Reestruturar a aba "Pagamento" no cadastro de clientes para refletir a regra de negocio real:
+- **Fechamento**: Mensal (dia 1) ou Quinzenal (dia 16)
+- **Prazo para pagamento**: A Vista, 7 dias, 15 dias ou 30 dias
+- **Dia de Vencimento**: removido como campo manual -- sera calculado automaticamente a partir do tipo de fechamento + prazo
 
-**Como funcionara:**
-- Nova checkbox "Enviar ROL por WhatsApp" no modal de pos-venda
-- Ao marcar, o sistema monta a mensagem usando o template `os_retirada` configurado
-- Abre o WhatsApp Web (`wa.me/`) com a mensagem pre-preenchida contendo: nome do cliente, numero da OS, total de pecas, valor e previsao de entrega
-- So aparece se o cliente tiver telefone cadastrado
+## O que muda na interface
 
-### 2. Notificacao automatica quando a OS ficar pronta (Expedicao)
-No formulario de avanco de etapa (`FormularioEtapa.tsx`), quando a OS avancar para o status **expedicao** (pronta para entrega), o sistema dispara automaticamente uma notificacao ao cliente.
+### Antes (atual)
+- Dia de Fechamento: campo de texto livre (1 a 31)
+- Dia de Vencimento: campo de texto livre (1 a 31)
+- Condicao de Pagamento: dropdown com "Mensal (30 dias)", "Quinzenal (15 dias)", "Semanal (7 dias)", "A Vista"
 
-**Como funcionara:**
-- Apos o `updateOrdemServico` confirmar a mudanca para `expedicao`, o sistema verifica se a notificacao `os_pronto` esta ativa na configuracao
-- Se estiver ativa, abre o WhatsApp Web com a mensagem do template `os_pronto` preenchida com os dados do cliente e OS
-- Tambem funciona para `os_producao` (quando entra em producao) e `os_entregue` (quando entregue)
+### Depois (novo)
+- **Tipo de Fechamento**: dois botoes toggle -- "Mensal" (dia 1) e "Quinzenal" (dia 16)
+  - Ao selecionar "Mensal", o sistema grava `dia_fechamento = 1`
+  - Ao selecionar "Quinzenal", o sistema grava `dia_fechamento = 16`
+- **Prazo para Pagamento**: quatro botoes toggle -- "A Vista", "7 dias", "15 dias", "30 dias"
+  - Grava `condicao_pagamento` como `a_vista`, `7_dias`, `15_dias` ou `30_dias`
+- **Dia de Vencimento**: removido da tela (o calculo de vencimento usara a data de fechamento + prazo)
 
-### 3. Servico centralizado de notificacoes
-Criar um servico utilitario que consulta a tabela `notificacoes_config`, verifica se o evento esta ativo e monta a mensagem com as variaveis substituidas.
+### Resumo visual (card no final)
+Atualizado para mostrar:
+- Tipo de Fechamento: "Mensal (dia 1)" ou "Quinzenal (dia 16)"
+- Prazo: "A Vista", "7 dias", "15 dias" ou "30 dias"
 
 ---
 
-## Arquivos que serao criados/modificados
+## Arquivos que serao modificados
 
-### Novo arquivo:
-- `src/services/notificacaoService.ts` - Servico centralizado para montar e disparar notificacoes
+### 1. `src/components/clientes/ClientePagamento.tsx`
+- Substituir campo de texto "Dia de Fechamento" por toggle "Mensal / Quinzenal"
+- Substituir campo de texto "Dia de Vencimento" -- removido da tela
+- Substituir dropdown "Condicao de Pagamento" por 4 botoes toggle (A Vista, 7, 15, 30 dias)
+- Atualizar logica de `handleSave`:
+  - `dia_fechamento` = 1 (mensal) ou 16 (quinzenal)
+  - `dia_vencimento` = null (nao mais usado diretamente)
+  - `condicao_pagamento` = novo valor selecionado
+- Atualizar card de Resumo com os novos labels
 
-### Arquivos modificados:
-- `src/components/caixa/ImpressaoPosVendaModal.tsx` - Adicionar opcao "Enviar WhatsApp" com ROL
-- `src/components/producao/FormularioEtapa.tsx` - Disparar notificacao ao avancar para expedicao/entregue
-- `src/hooks/useNotificacoesConfig.ts` - Adicionar funcao helper para buscar template por evento
+### 2. `src/components/dashboard/BillingClosuresCard.tsx`
+- Atualizar `condicaoLabels` para incluir os novos valores (`7_dias`, `15_dias`, `30_dias`, `a_vista`)
+
+### 3. `src/hooks/useFechamentosProximos.ts`
+- Adaptar para clientes quinzenais: alem do dia configurado, verificar se ha dois fechamentos por mes (dia 1 e dia 16) para clientes quinzenais
+- Na pratica, o `dia_fechamento` ja e um numero (1 ou 16), entao a logica existente ja funciona corretamente
+
+### 4. `src/hooks/useFaturas.ts` - funcao `calcularVencimento`
+- Ajustar para aceitar o prazo em dias (a_vista=0, 7_dias=7, 15_dias=15, 30_dias=30) a partir da data de fechamento, em vez de usar um dia fixo do mes
+
+### 5. `src/components/faturamento/EtapaPagamento.tsx`
+- Atualizar calculo de vencimento para usar `dia_fechamento` + prazo em dias, em vez de `dia_vencimento` fixo
 
 ---
 
 ## Detalhes tecnicos
 
-### `src/services/notificacaoService.ts`
-Novo servico com funcoes:
-- `getNotificacaoTemplate(evento: string)` - busca o template ativo para o evento
-- `montarMensagem(template: string, variaveis: Record<string, string>)` - substitui {cliente}, {numero}, {valor} etc.
-- `enviarWhatsApp(telefone: string, mensagem: string)` - abre `wa.me/` com mensagem codificada
-- `dispararNotificacao(evento: string, dados: { cliente, telefone, numero, valor?, previsao? })` - funcao principal que verifica config e dispara
+### Mapeamento de valores no banco
 
-### `ImpressaoPosVendaModal.tsx`
-Mudancas:
-- Receber prop `clienteTelefone` (opcional)
-- Adicionar checkbox "Enviar comprovante por WhatsApp"
-- No `handlePrint`, apos imprimir, chamar `dispararNotificacao("os_retirada", dados)` se marcado
-- Mostrar checkbox somente se o cliente tiver telefone
+O campo `condicao_pagamento` (tipo `string`) passara a usar:
 
-### `FormularioEtapa.tsx`
-Mudancas:
-- Importar servico de notificacao
-- Apos o `updateOrdemServico` e `registrarMudancaEtapa` com sucesso:
-  - Se `proximaEtapa === "separacao"` ou equivalente a producao: disparar `os_producao`
-  - Se `proximaEtapa === "expedicao"`: disparar `os_pronto`
-  - Se `proximaEtapa === "entregue"`: disparar `os_entregue`
-- Para isso, buscar os dados do cliente (nome e telefone) da OS
+```text
+Valor antigo       ->  Valor novo
+mensal_30          ->  30_dias
+mensal_15          ->  15_dias
+semanal            ->  7_dias
+a_vista            ->  a_vista (sem mudanca)
+```
 
-### `CaixaPDV.tsx`
-Mudancas minimas:
-- Passar `clienteTelefone` do cliente selecionado para o `ImpressaoPosVendaModal`
+O campo `dia_fechamento` (tipo `integer`) passara a ter apenas dois valores possiveis: `1` ou `16`.
 
----
+O campo `dia_vencimento` continuara existindo no banco mas nao sera mais preenchido pela interface (compatibilidade retroativa).
 
-## Fluxo do usuario
+### Calculo de vencimento
 
-### No PDV (ao finalizar venda):
-1. Modal "OS Criada!" aparece
-2. Opcoes: Imprimir ROL, Imprimir Etiquetas, **Enviar WhatsApp** (novo)
-3. Ao clicar "Imprimir" ou "Enviar", executa as acoes selecionadas
-4. WhatsApp Web abre com mensagem pre-montada
+```text
+data_vencimento = data_fechamento + prazo_dias
 
-### Na Producao (ao avancar etapa):
-1. Operador avanca OS para "Expedicao" (pronta)
-2. Sistema verifica se notificacao `os_pronto` esta ativa
-3. Se sim, abre WhatsApp Web automaticamente com mensagem para o cliente
-4. Toast confirma "Notificacao enviada ao cliente"
+Exemplo 1 (Mensal, 30 dias):
+  Fechamento dia 1 de marco -> Vencimento dia 31 de marco
 
-### Controle pelo admin:
-- Em Configuracoes > Notificacoes, o admin continua podendo ativar/desativar cada evento
-- Templates editaveis com variaveis dinamicas
-- Se um evento estiver **inativo**, nenhuma acao e disparada
+Exemplo 2 (Quinzenal, 7 dias):
+  Fechamento dia 16 de fevereiro -> Vencimento dia 23 de fevereiro
+
+Exemplo 3 (Mensal, A Vista):
+  Fechamento dia 1 de marco -> Vencimento dia 1 de marco (mesmo dia)
+```
+
+### Compatibilidade com dados existentes
+
+Os dados antigos no banco (`mensal_30`, `mensal_15`, `semanal`) continuarao funcionando porque:
+- O `BillingClosuresCard` tera labels para valores antigos E novos
+- A funcao `calcularVencimento` tratara ambos os formatos
+- Novos salvamentos usarao os novos valores
