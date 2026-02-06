@@ -166,7 +166,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
             <Button
               type="button"
               variant={tipoFaturamento === "mensal" ? "default" : "outline"}
-              className={`rounded-r-none ${tipoFaturamento === "mensal" ? "bg-[#7C3BED] hover:bg-[#6B2FD6] border-[#7C3BED]" : "border-r-0"}`}
+              className={`rounded-r-none ${tipoFaturamento === "mensal" ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary" : "border-r-0"}`}
               onClick={() => setTipoFaturamento("mensal")}
             >
               Mensal
@@ -174,7 +174,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
             <Button
               type="button"
               variant={tipoFaturamento === "avulso" ? "default" : "outline"}
-              className={`rounded-l-none ${tipoFaturamento === "avulso" ? "bg-[#7C3BED] hover:bg-[#6B2FD6] border-[#7C3BED]" : ""}`}
+              className={`rounded-l-none ${tipoFaturamento === "avulso" ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary" : ""}`}
               onClick={() => setTipoFaturamento("avulso")}
             >
               Avulso
@@ -191,7 +191,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
               <Button
                 type="button"
                 variant={formaPagamento === "boleto" ? "default" : "outline"}
-                className={`rounded-r-none ${formaPagamento === "boleto" ? "bg-[#7C3BED] hover:bg-[#6B2FD6] border-[#7C3BED]" : "border-r-0"}`}
+                className={`rounded-r-none ${formaPagamento === "boleto" ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary" : "border-r-0"}`}
                 onClick={() => setFormaPagamento("boleto")}
               >
                 Boleto
@@ -201,8 +201,8 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
               type="button"
               variant={formaPagamento === "pix" ? "default" : "outline"}
               className={BOLETO_ENABLED 
-                ? `rounded-none ${formaPagamento === "pix" ? "bg-[#7C3BED] hover:bg-[#6B2FD6] border-[#7C3BED]" : "border-r-0"}`
-                : `rounded-r-none ${formaPagamento === "pix" ? "bg-[#7C3BED] hover:bg-[#6B2FD6] border-[#7C3BED]" : "border-r-0"}`}
+                ? `rounded-none ${formaPagamento === "pix" ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary" : "border-r-0"}`
+                : `rounded-r-none ${formaPagamento === "pix" ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary" : "border-r-0"}`}
               onClick={() => setFormaPagamento("pix")}
             >
               PIX
@@ -210,7 +210,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
             <Button
               type="button"
               variant={formaPagamento === "transferencia" ? "default" : "outline"}
-              className={`rounded-l-none ${formaPagamento === "transferencia" ? "bg-[#7C3BED] hover:bg-[#6B2FD6] border-[#7C3BED]" : ""}`}
+              className={`rounded-l-none ${formaPagamento === "transferencia" ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary" : ""}`}
               onClick={() => setFormaPagamento("transferencia")}
             >
               Transferência
@@ -234,13 +234,13 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
             variant="outline"
             className="justify-start"
           >
-            <ToggleGroupItem value="mensal" className={`px-4 ${tipoFechamento === "mensal" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="mensal" className={`px-4 ${tipoFechamento === "mensal" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               Mensal (dia 1)
             </ToggleGroupItem>
-            <ToggleGroupItem value="quinzenal" className={`px-4 ${tipoFechamento === "quinzenal" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="quinzenal" className={`px-4 ${tipoFechamento === "quinzenal" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               Quinzenal (dia 16)
             </ToggleGroupItem>
-            <ToggleGroupItem value="avulso" className={`px-4 ${tipoFechamento === "avulso" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="avulso" className={`px-4 ${tipoFechamento === "avulso" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               Avulso
             </ToggleGroupItem>
           </ToggleGroup>
@@ -266,25 +266,25 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
             variant="outline"
             className="justify-start flex-wrap"
           >
-            <ToggleGroupItem value="a_vista" className={`px-3 ${condicaoPagamento === "a_vista" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="a_vista" className={`px-3 ${condicaoPagamento === "a_vista" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               À Vista
             </ToggleGroupItem>
-            <ToggleGroupItem value="5_dias" className={`px-3 ${condicaoPagamento === "5_dias" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="5_dias" className={`px-3 ${condicaoPagamento === "5_dias" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               5 dias
             </ToggleGroupItem>
-            <ToggleGroupItem value="7_dias" className={`px-3 ${condicaoPagamento === "7_dias" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="7_dias" className={`px-3 ${condicaoPagamento === "7_dias" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               7 dias
             </ToggleGroupItem>
-            <ToggleGroupItem value="10_dias" className={`px-3 ${condicaoPagamento === "10_dias" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="10_dias" className={`px-3 ${condicaoPagamento === "10_dias" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               10 dias
             </ToggleGroupItem>
-            <ToggleGroupItem value="15_dias" className={`px-3 ${condicaoPagamento === "15_dias" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="15_dias" className={`px-3 ${condicaoPagamento === "15_dias" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               15 dias
             </ToggleGroupItem>
-            <ToggleGroupItem value="20_dias" className={`px-3 ${condicaoPagamento === "20_dias" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="20_dias" className={`px-3 ${condicaoPagamento === "20_dias" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               20 dias
             </ToggleGroupItem>
-            <ToggleGroupItem value="30_dias" className={`px-3 ${condicaoPagamento === "30_dias" ? "bg-[#7C3BED] text-white hover:bg-[#6B2FD6] hover:text-white border-[#7C3BED] data-[state=on]:bg-[#7C3BED] data-[state=on]:text-white" : ""}`}>
+            <ToggleGroupItem value="30_dias" className={`px-3 ${condicaoPagamento === "30_dias" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground" : ""}`}>
               30 dias
             </ToggleGroupItem>
           </ToggleGroup>
@@ -383,33 +383,33 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       </div>
 
       {/* Resumo das Configurações */}
-      <Card className="max-w-lg border-[#7C3BED]/20">
+      <Card className="max-w-lg border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#7C3BED]" />
+            <div className="w-2 h-2 rounded-full bg-primary" />
             Resumo das Configurações
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Tipo de Faturamento:</span>
-            <span className="font-medium text-[#7C3BED]">{tipoFaturamento === "mensal" ? "Mensal" : "Avulso"}</span>
+            <span className="font-medium text-primary">{tipoFaturamento === "mensal" ? "Mensal" : "Avulso"}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Forma de Pagamento:</span>
-            <span className="font-medium text-[#7C3BED]">
+            <span className="font-medium text-primary">
               {formaPagamento ? formaPagamento.charAt(0).toUpperCase() + formaPagamento.slice(1) : "-"}
             </span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Tipo de Fechamento:</span>
-            <span className="font-medium text-[#7C3BED]">
+            <span className="font-medium text-primary">
               {tipoFechamento === "mensal" ? "Mensal (dia 1)" : tipoFechamento === "quinzenal" ? "Quinzenal (dia 16)" : "Avulso"}
             </span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Prazo para Pagamento:</span>
-            <span className="font-medium text-[#7C3BED]">{condicaoLabels[condicaoPagamento]}</span>
+            <span className="font-medium text-primary">{condicaoLabels[condicaoPagamento]}</span>
           </div>
           <Separator className="my-2" />
           <div className="flex justify-between text-sm">
