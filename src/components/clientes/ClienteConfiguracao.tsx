@@ -154,18 +154,17 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
       },
       {
         onSuccess: async () => {
-          // Gerar agendamentos automáticos baseado na configuração
-          if (diasRetirada.length > 0 || diasEntrega.length > 0) {
-            const agendamentos = gerarAgendamentosDoCliente(clienteId, {
-              frequencia,
-              dias_retirada: diasRetirada,
-              dias_entrega: diasEntrega,
-              horario_retirada: horarioRetirada || null,
-              horario_entrega: horarioEntrega || null,
-            });
+          // Regenerar agendamentos automáticos baseado na configuração
+          // Sempre chama regenerar para limpar agendamentos antigos mesmo sem dias selecionados
+          const agendamentos = gerarAgendamentosDoCliente(clienteId, {
+            frequencia,
+            dias_retirada: diasRetirada,
+            dias_entrega: diasEntrega,
+            horario_retirada: horarioRetirada || null,
+            horario_entrega: horarioEntrega || null,
+          });
 
-            await regenerarAgendamentos(clienteId, agendamentos);
-          }
+          await regenerarAgendamentos(clienteId, agendamentos);
 
           onSave();
         },
