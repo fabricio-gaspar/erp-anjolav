@@ -1,62 +1,61 @@
 
-# Simplificar Cards de Produtos
 
-## O que muda
+# Cadastro em Massa de Clientes
 
-Os cards de produtos serao reduzidos ao essencial para caber mais itens na tela. Atualmente cada card mostra muitas informacoes (badge de unidade de negocio, temperatura, tempo de processo, badge de processo, preco). O objetivo e mostrar apenas o necessario para identificar o produto rapidamente.
+## Resumo
 
-## Card simplificado - apenas 3 informacoes
+Inserir 36 novos clientes e atualizar os 4 existentes no banco de dados, incluindo dados basicos e configuracoes de pagamento/faturamento para cada um.
 
-Cada card tera apenas:
+## Clientes ja existentes (serao atualizados)
 
-1. **Nome do produto** (com indicador de status - bolinha verde/amarela)
-2. **Preco** com unidade (ex: R$ 8,00 /Peca)
+4 clientes ja estao cadastrados e terao suas configuracoes de pagamento ajustadas:
+1. ADEGA E RESTAURANTE QUINTA DO OLIVARDO LTDA
+2. ALDEIA PARQUE E POUSADA LTDA
+3. CARBOTEX QUIMICA INDUSTRIA...
+4. COMERCIO DE PRODUTOS ALIMENTICIOS CASA ARAUCARIA LTDA
 
-As informacoes removidas da visualizacao principal:
-- Badge de unidade de negocio (Industrial/Residencial)
-- Temperatura maxima
-- Tempo de processo
-- Badge de tipo de processo (Normal, Delicado, etc.)
+## Clientes novos (serao inseridos)
 
-Essas informacoes continuam disponiveis ao **editar** o produto.
+36 novos clientes serao criados com todos os dados informados.
 
-## Layout do card simplificado
+## Mapeamento dos campos
 
-```text
-+---------------------------+
-| NOME DO PRODUTO        *  |
-| R$ 8,00 /Peca             |
-+---------------------------+
-```
+Os dados fornecidos serao mapeados para as tabelas do sistema assim:
 
-- Bolinha de status (*) no canto superior direito
-- Nome em negrito, 1 linha com truncamento
-- Preco em destaque na cor primaria
-- Acoes (editar, duplicar, excluir) aparecem no hover como ja funciona hoje
+| Campo informado | Tabela/Coluna no banco |
+|---|---|
+| NOME DA EMPRESA | clientes.razao_social |
+| CNPJ | clientes.cpf_cnpj + tipo_pessoa (cpf ou cnpj) |
+| E-MAIL | clientes.email |
+| DIAS DE VENCIMENTO | configuracoes_pagamento_cliente.condicao_pagamento (ex: '10_dias') |
+| CONTRATO MENSAL | configuracoes_pagamento_cliente.tipo_faturamento ('mensal' ou 'avulso') |
+| PLANILHA | configuracoes_pagamento_cliente.listar_itens_detalhados (true/false) |
+| EMISSAO CNPJ | configuracoes_pagamento_cliente.cnpj_emissor_id (referencia a configuracoes_fiscais) |
+| BOLETO CNPJ | configuracoes_pagamento_cliente.forma_pagamento ('boleto' ou 'pix') |
+| ENVIO WHATSAPP | clientes.observacoes (registrado como nota) |
+| SERVICO/DESCRICAO | configuracoes_pagamento_cliente.descricao_nf_id |
 
-## Grid mais denso
+### CNPJs Emissores disponiveis no sistema
 
-O grid sera ajustado para caber mais colunas:
-- Atual: `grid-cols-2 sm:3 md:4 lg:5 xl:6`
-- Novo: `grid-cols-3 sm:4 md:5 lg:6 xl:7`
+- **07.528.955/0001-65** = ANJOLAV (id: 8719604a...)
+- **23.227.029/0001-06** = LAVANDERIA SAO ROQUE (id: 4eed988a...)
 
-## Reducao do padding
+### Forma de pagamento
 
-O padding interno do card sera reduzido de `p-3` para `p-2` e o gap entre cards de `gap-3` para `gap-2`.
+- Quando BOLETO CNPJ = "PIX" -> forma_pagamento = 'pix'
+- Quando BOLETO CNPJ = numero CNPJ -> forma_pagamento = 'boleto'
 
----
+### Classificacao
 
-## Arquivos modificados
+Todos os clientes serao cadastrados como **industrial** (tipo_pessoa = 'cnpj'), exceto SILVANA MORAES que tem CPF e sera tipo_pessoa = 'cpf'.
 
-### `src/components/produtos/ProdutoCard.tsx`
-- Remover as linhas de temperatura e tempo de processo (icones Thermometer e Clock)
-- Remover o badge de processo de lavagem
-- Remover o badge de unidade de negocio (Industrial/Residencial)
-- Manter apenas: nome, bolinha de status e preco
-- Reduzir padding de `p-3` para `p-2`
-- Remover a borda separadora (`border-t`) antes do preco
-- Remover imports nao utilizados (Thermometer, Clock, Badge, PROCESSOS_LAVAGEM)
+## Execucao
 
-### `src/pages/Produtos.tsx`
-- Ajustar grid para mais colunas: `grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7`
-- Reduzir gap de `gap-3` para `gap-2`
+Sera feito via SQL direto no banco de dados usando INSERT e UPDATE, dividido em etapas:
+
+1. **Inserir os 36 novos clientes** na tabela `clientes`
+2. **Inserir configuracoes de pagamento** na tabela `configuracoes_pagamento_cliente` para todos os novos
+3. **Atualizar configuracoes de pagamento** dos 4 clientes existentes
+
+Nenhuma alteracao de codigo ou schema e necessaria - apenas insercao/atualizacao de dados.
+
