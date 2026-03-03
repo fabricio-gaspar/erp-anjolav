@@ -13,16 +13,11 @@ import FluxoProducao from "./pages/FluxoProducao";
 import OrdensServico from "./pages/OrdensServico";
 import Agenda from "./pages/Agenda";
 import CaixaPDV from "./pages/CaixaPDV";
-import Faturamento from "./pages/Faturamento";
 import Lancamentos from "./pages/Lancamentos";
-import RelatoriosCliente from "./pages/RelatoriosCliente";
-import RelatorioFinanceiro from "./pages/RelatorioFinanceiro";
-import RelatorioProximidade from "./pages/RelatorioProximidade";
 import DashboardFinanceiro from "./pages/DashboardFinanceiro";
-import HistoricoCaixas from "./pages/HistoricoCaixas";
-import ContasReceber from "./pages/ContasReceber";
-import ContasPagar from "./pages/ContasPagar";
-import DashboardCobrancas from "./pages/DashboardCobrancas";
+import Contas from "./pages/Contas";
+import RelatoriosCliente from "./pages/RelatoriosCliente";
+import RelatorioProximidade from "./pages/RelatorioProximidade";
 import Configuracoes from "./pages/Configuracoes";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -46,149 +41,28 @@ const App = () => (
               <Route path="/signup" element={<Signup />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
 
-              {/* Protected routes - Dashboard, Configurações, Financeiro */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/configuracoes"
-                element={
-                  <ProtectedRoute>
-                    <Configuracoes />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/financeiro"
-                element={
-                  <ProtectedRoute>
-                    <DashboardFinanceiro />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/caixa"
-                element={
-                  <ProtectedRoute>
-                    <CaixaPDV />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/faturamento"
-                element={<Navigate to="/lancamentos?tab=faturas" replace />}
-              />
-              <Route
-                path="/lancamentos"
-                element={
-                  <ProtectedRoute>
-                    <Lancamentos />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/receber"
-                element={
-                  <ProtectedRoute>
-                    <ContasReceber />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/pagar"
-                element={
-                  <ProtectedRoute>
-                    <ContasPagar />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/asaas"
-                element={
-                  <ProtectedRoute>
-                    <DashboardCobrancas />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/relatorios/caixa"
-                element={
-                  <ProtectedRoute>
-                    <HistoricoCaixas />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/relatorios/financeiro"
-                element={
-                  <ProtectedRoute>
-                    <RelatorioFinanceiro />
-                  </ProtectedRoute>
-                }
-              />
+              {/* Protected routes */}
+              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
+              <Route path="/financeiro" element={<ProtectedRoute><DashboardFinanceiro /></ProtectedRoute>} />
+              <Route path="/caixa" element={<ProtectedRoute><CaixaPDV /></ProtectedRoute>} />
+              <Route path="/lancamentos" element={<ProtectedRoute><Lancamentos /></ProtectedRoute>} />
+              <Route path="/contas" element={<ProtectedRoute><Contas /></ProtectedRoute>} />
+              <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
+              <Route path="/produtos" element={<ProtectedRoute><Produtos /></ProtectedRoute>} />
+              <Route path="/producao" element={<ProtectedRoute><FluxoProducao /></ProtectedRoute>} />
+              <Route path="/ordens" element={<ProtectedRoute><OrdensServico /></ProtectedRoute>} />
+              <Route path="/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
+              <Route path="/relatorios/clientes" element={<ProtectedRoute><RelatoriosCliente /></ProtectedRoute>} />
+              <Route path="/relatorios/proximidade" element={<ProtectedRoute><RelatorioProximidade /></ProtectedRoute>} />
 
-              {/* Protected operational routes */}
-              <Route
-                path="/clientes"
-                element={
-                  <ProtectedRoute>
-                    <Clientes />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/produtos"
-                element={
-                  <ProtectedRoute>
-                    <Produtos />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/producao"
-                element={
-                  <ProtectedRoute>
-                    <FluxoProducao />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ordens"
-                element={
-                  <ProtectedRoute>
-                    <OrdensServico />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/agenda"
-                element={
-                  <ProtectedRoute>
-                    <Agenda />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/relatorios/clientes"
-                element={
-                  <ProtectedRoute>
-                    <RelatoriosCliente />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/relatorios/proximidade"
-                element={
-                  <ProtectedRoute>
-                    <RelatorioProximidade />
-                  </ProtectedRoute>
-                }
-              />
+              {/* Redirects for old routes */}
+              <Route path="/faturamento" element={<Navigate to="/lancamentos?tab=faturas" replace />} />
+              <Route path="/receber" element={<Navigate to="/contas?tab=receber" replace />} />
+              <Route path="/pagar" element={<Navigate to="/contas?tab=pagar" replace />} />
+              <Route path="/asaas" element={<Navigate to="/contas?tab=receber" replace />} />
+              <Route path="/relatorios/caixa" element={<Navigate to="/caixa" replace />} />
+              <Route path="/relatorios/financeiro" element={<Navigate to="/financeiro" replace />} />
 
               {/* Portal do Cliente - Rota pública */}
               <Route path="/portal/:codigo" element={<PortalCliente />} />

@@ -1,5 +1,4 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard,
@@ -11,22 +10,17 @@ import {
   Receipt,
   DollarSign,
   CreditCard,
-  TrendingUp,
-  TrendingDown,
-  Building2,
-  FileText,
-  FileSpreadsheet,
+  Wallet,
   PieChart,
+  FileSpreadsheet,
+  Route,
   Settings,
   LogOut,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Route,
-  Search,
   Bell,
   User,
-  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -51,10 +45,9 @@ interface NavItemProps {
   icon: React.ElementType;
   label: string;
   end?: boolean;
-  badge?: number;
 }
 
-const NavItem = ({ to, icon: Icon, label, end = false, badge }: NavItemProps) => {
+const NavItem = ({ to, icon: Icon, label, end = false }: NavItemProps) => {
   const location = useLocation();
   const { isCollapsed } = useSidebarContext();
   const isActive = end ? location.pathname === to : location.pathname.startsWith(to);
@@ -71,21 +64,8 @@ const NavItem = ({ to, icon: Icon, label, end = false, badge }: NavItemProps) =>
       )}
     >
       <Icon className="w-5 h-5 flex-shrink-0" />
-      
       {!isCollapsed && (
         <span className="flex-1 truncate">{label}</span>
-      )}
-      
-      {!isCollapsed && badge && badge > 0 && (
-        <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-[10px] font-semibold bg-white text-sidebar-primary-foreground rounded-full">
-          {badge > 99 ? "99+" : badge}
-        </span>
-      )}
-      
-      {isCollapsed && badge && badge > 0 && (
-        <span className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 text-[9px] font-bold bg-white text-sidebar-primary-foreground rounded-full">
-          {badge > 9 ? "9+" : badge}
-        </span>
       )}
     </NavLink>
   );
@@ -98,11 +78,6 @@ const NavItem = ({ to, icon: Icon, label, end = false, badge }: NavItemProps) =>
         </TooltipTrigger>
         <TooltipContent side="right" className="flex items-center gap-2 bg-sidebar text-white border-sidebar-border">
           {label}
-          {badge && badge > 0 && (
-            <span className="flex items-center justify-center min-w-4 h-4 px-1 text-[10px] font-semibold bg-white text-sidebar-primary-foreground rounded-full">
-              {badge}
-            </span>
-          )}
         </TooltipContent>
       </Tooltip>
     );
@@ -123,7 +98,6 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavG
   const { isCollapsed } = useSidebarContext();
   const location = useLocation();
   
-  // Auto-open if any child is active
   const hasActiveChild = Array.isArray(children) 
     ? children.some((child: any) => child?.props?.to && location.pathname.startsWith(child.props.to))
     : false;
@@ -163,39 +137,6 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavG
   );
 };
 
-const SearchBar = () => {
-  const { isCollapsed } = useSidebarContext();
-
-  if (isCollapsed) {
-    return (
-      <div className="px-2 py-3">
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>
-            <button className="w-full flex items-center justify-center p-2.5 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 hover:text-white transition-colors">
-              <Search className="w-5 h-5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="bg-sidebar text-white border-sidebar-border">
-            Buscar
-          </TooltipContent>
-        </Tooltip>
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-3 py-3">
-      <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-white/70 bg-white/10 hover:bg-white/15 rounded-lg transition-colors">
-        <Search className="w-4 h-4" />
-        <span className="flex-1 text-left">Buscar</span>
-        <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded bg-white/10 px-1.5 font-mono text-[10px] font-medium text-white/50">
-          ⌘K
-        </kbd>
-      </button>
-    </div>
-  );
-};
-
 const UserSection = () => {
   const { isCollapsed } = useSidebarContext();
   const navigate = useNavigate();
@@ -218,7 +159,6 @@ const UserSection = () => {
     navigate("/login");
   };
 
-  // Display name: use funcionario name, or email from user, or default
   const displayName = funcionario?.nome || user?.email?.split("@")[0] || "Usuário";
   const displayRole = funcionario?.cargo || "Operador";
   const displayEmail = user?.email || "user@anjolav.com";
@@ -259,7 +199,7 @@ const UserSection = () => {
               {userButton}
             </TooltipTrigger>
             <TooltipContent side="right" className="bg-sidebar text-white border-sidebar-border">
-              Culaccino_
+              {displayName}
             </TooltipContent>
           </Tooltip>
         ) : (
@@ -323,7 +263,6 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   const { isCollapsed } = useSidebarContext();
   const { configuracao } = useConfiguracoesGerais();
   
-  // In mobile, always show expanded
   const effectiveCollapsed = isMobile ? false : isCollapsed;
 
   const nomeEmpresa = configuracao?.nome_empresa || "AnjoLav";
@@ -337,7 +276,6 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
         isMobile ? "w-full" : "fixed left-0 top-0 z-40",
         !isMobile && (effectiveCollapsed ? "w-16" : "w-56")
       )}>
-        {/* Collapse Button - hide on mobile */}
         {!isMobile && <CollapseButton />}
 
         {/* Logo */}
@@ -366,50 +304,36 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
           )}
         </div>
 
-        {/* Search */}
-        {!isMobile && <SearchBar />}
-
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto pb-4 space-y-1" onClick={onItemClick}>
+        <nav className="flex-1 overflow-y-auto pb-4 pt-2 space-y-1" onClick={onItemClick}>
           <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end />
 
           <NavGroup title="Comercial" icon={Users} defaultOpen>
-            <NavItem to="/clientes" icon={Users} label="Clientes" badge={3} />
+            <NavItem to="/clientes" icon={Users} label="Clientes" />
             <NavItem to="/produtos" icon={Package} label="Produtos" />
           </NavGroup>
 
           <NavGroup title="Operacional" icon={Factory}>
             <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" />
-            <NavItem to="/producao" icon={Factory} label="Produção" badge={12} />
+            <NavItem to="/producao" icon={Factory} label="Produção" />
             <NavItem to="/agenda" icon={Calendar} label="Agenda" />
           </NavGroup>
 
           <NavGroup title="Financeiro" icon={Wallet}>
-            <NavItem to="/financeiro" icon={DollarSign} label="Dashboard" />
-            <NavItem to="/lancamentos" icon={Receipt} label="Lançamentos" badge={5} />
-            <NavItem to="/faturamento" icon={FileText} label="Faturamento" />
+            <NavItem to="/financeiro" icon={DollarSign} label="Visão Geral" />
+            <NavItem to="/lancamentos" icon={Receipt} label="Lançamentos" />
             <NavItem to="/caixa" icon={CreditCard} label="Caixa PDV" />
-            <NavItem to="/receber" icon={TrendingUp} label="Contas a Receber" badge={2} />
-            <NavItem to="/pagar" icon={TrendingDown} label="Contas a Pagar" />
-            <NavItem to="/asaas" icon={Building2} label="Asaas" />
+            <NavItem to="/contas" icon={Wallet} label="Contas" />
           </NavGroup>
 
           <NavGroup title="Relatórios" icon={PieChart}>
             <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Clientes" />
             <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" />
-            <NavItem to="/relatorios/caixa" icon={Receipt} label="Caixa" />
-            <NavItem to="/relatorios/financeiro" icon={PieChart} label="Financeiro" />
           </NavGroup>
 
           {/* Bottom items */}
           <div className="pt-4 mt-4 border-t border-white/10">
             <NavItem to="/configuracoes" icon={Settings} label="Configurações" />
-            <div className="mx-2">
-              <button className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200">
-                <Bell className="w-5 h-5 flex-shrink-0" />
-                {!effectiveCollapsed && <span className="flex-1 text-left">Notificações</span>}
-              </button>
-            </div>
           </div>
         </nav>
 
