@@ -1,54 +1,112 @@
 
 
-# Atualização dos Endereços de Webservice/API NFS-e - São Roque
+# Análise Completa do Sistema - Simplificação e Melhorias
 
-## Contexto
+## Diagnóstico Atual
 
-A Prefeitura de São Roque (via Cidade360/ISS Digital) comunicou a migração dos endereços de integração NFS-e. O domínio antigo `saoroque.govbr.cloud` sera substituido por `webapp1-saoroque.cidade360.cloud` a partir de 13 de março.
+O sistema possui **17 páginas** e **7 itens no menu Financeiro** — área com maior fragmentação. Para uma lavanderia, o operador precisa de agilidade: abrir OS, acompanhar produção, faturar e receber. O excesso de telas causa confusão.
 
-## O que precisa ser atualizado
+## Problemas Identificados
 
-### 1. Dados no banco de dados (configuracoes_fiscais)
+### 1. Menu Financeiro com muitos itens redundantes (7 itens)
+- **Dashboard Financeiro** (`/financeiro`) e **Relatório Financeiro** (`/relatorios/financeiro`) têm sobreposição de dados
+- **Contas a Receber** (`/receber`) é basicamente a tela de cobranças Asaas — duplicada com **Asaas** (`/asaas`)
+- **Faturamento** (`/faturamento`) redireciona para `/lancamentos?tab=faturas` — item fantasma no menu
+- **Histórico Caixas** (`/relatorios/caixa`) poderia estar dentro do próprio Caixa PDV
 
-A LAVANDERIA SAO ROQUE tem URLs antigas armazenadas no campo `urls_webservice`:
-- **producao**: `HTTPS://SAOROQUE.GOVBR.CLOUD/NFSE.PORTAL.INTEGRACAO/SERVICES.SVC`
-- **webservice_im**: `HTTPS://SAOROQUE.GOVBR.CLOUD/NFSE.PORTAL.INTEGRACAO/SERVICES.SVC?WSDL`
+### 2. Asaas aparece como item separado no menu
+O Asaas (cobranças) e Contas a Receber tratam do mesmo assunto: dinheiro que entra. Ter dois itens confunde.
 
-Atualizar para:
-- **producao**: `https://webapp1-saoroque.cidade360.cloud/Nfse.Portal.Integracao/services.svc`
-- **webservice_im**: `https://webapp1-saoroque.cidade360.cloud/Nfse.Portal.Integracao/services.svc?wsdl`
+### 3. Busca no sidebar não funciona
+O botão de busca (`SearchBar`) é apenas visual — não tem ação real implementada.
 
-### 2. Codigo fonte - Templates de URL (validacoesFiscais.ts)
+### 4. Notificações no sidebar sem funcionalidade
+O botão "Notificações" no rodapé do menu não faz nada.
 
-Atualizar o template `TEMPLATES_API_NFSE` de:
-- `https://saoroque.govbr.cloud/NFSe.Api/NotaNacional`
-- `https://saoroque.govbr.cloud/NFSe.Api/swagger`
+### 5. Badges hardcoded no menu
+Os badges (3, 12, 5, 2) estão fixos no código, não refletem dados reais.
 
-Para:
-- `https://webapp1-saoroque.cidade360.cloud/Nfse.Api/NotaNacional`
-- `https://webapp1-saoroque.cidade360.cloud/Nfse.Api/swagger`
+### 6. Lancamentos.tsx com 1881 linhas
+Arquivo monolítico demais — difícil de manter.
 
-### 3. Codigo fonte - Placeholder no formulario (ConfiguracoesFiscal.tsx)
+---
 
-Atualizar placeholder do campo URL API NFS-e.
+## Plano de Melhorias
 
-### 4. Codigo fonte - Preview da NFS-e (NFSePreviewNacional.tsx + NFSePreviewOficial.tsx)
+### Fase 1 — Simplificar a Navegação
 
-Atualizar URLs de consulta/verificação da nota:
-- QR Code URL
-- Texto de consulta no rodape
+**Reestruturar o menu lateral:**
 
-Trocar todas as ocorrencias de `saoroque.govbr.cloud` por `webapp1-saoroque.cidade360.cloud`.
+```text
+ANTES (17 itens):              DEPOIS (12 itens):
+─────────────────              ──────────────────
+Dashboard                      Dashboard
+                               
+Comercial                      Comercial
+├─ Clientes                    ├─ Clientes
+├─ Produtos                    ├─ Produtos
+                               
+Operacional                    Operacional
+├─ Abrir Retirada              ├─ Abrir Retirada
+├─ Produção                    ├─ Produção
+├─ Agenda                      ├─ Agenda
+                               
+Financeiro                     Financeiro
+├─ Dashboard                   ├─ Visão Geral (merge Dashboard + Relatório)
+├─ Lançamentos                 ├─ Lançamentos & Faturas
+├─ Faturamento (redirect)      ├─ Caixa PDV
+├─ Caixa PDV                   ├─ Contas (merge Receber + Pagar)
+├─ Contas a Receber            
+├─ Contas a Pagar              
+├─ Asaas                       
+                               
+Relatórios                     Relatórios
+├─ Clientes                    ├─ Clientes
+├─ Proximidade                 ├─ Proximidade
+├─ Caixa                       
+├─ Financeiro                  
+                               
+Configurações                  Configurações
+Notificações (sem ação)        
+```
 
-## Resumo das alterações
+**Alterações concretas:**
+1. Remover item **Faturamento** do menu (já é redirect)
+2. Unificar **Contas a Receber + Contas a Pagar** em uma página com tabs "A Receber" / "A Pagar"
+3. Mover **Asaas** para dentro de Contas a Receber como integração (não como item separado)
+4. Mover **Histórico Caixas** para dentro do Caixa PDV como tab
+5. Unificar **Dashboard Financeiro + Relatório Financeiro** em uma só página
+6. Remover botão **Notificações** sem função do sidebar
+7. Remover botão **Busca** sem função do sidebar (ou implementar)
 
-| Local | Tipo |
+### Fase 2 — Badges dinâmicos
+
+Substituir os valores fixos (3, 12, 5, 2) por queries reais:
+- **Clientes**: novos clientes sem configuração completa
+- **Produção**: OS em etapas ativas
+- **Lançamentos**: lançamentos pendentes de faturamento
+- **Contas**: vencidas/vencendo hoje
+
+### Fase 3 — Refatorar Lancamentos.tsx
+
+Dividir o arquivo de 1881 linhas em componentes menores:
+- `LancamentosTab.tsx` — tab de lançamentos
+- `FaturasTab.tsx` — tab de faturas
+- `LancamentosFilters.tsx` — filtros
+- `LancamentosActions.tsx` — ações em lote
+
+---
+
+## Resumo de Impacto
+
+| Ação | Resultado |
 |---|---|
-| Banco de dados (urls_webservice da SAO ROQUE) | SQL UPDATE |
-| `src/lib/validacoesFiscais.ts` | Código |
-| `src/components/configuracoes/ConfiguracoesFiscal.tsx` | Código |
-| `src/components/faturamento/NFSePreviewNacional.tsx` | Código |
-| `src/components/faturamento/NFSePreviewOficial.tsx` | Código |
+| Remover 5 itens do menu | Menu mais limpo, menos confusão |
+| Unificar Contas | Uma tela para todo fluxo de caixa |
+| Badges dinâmicos | Informação real no menu |
+| Refatorar Lancamentos | Código mais sustentável |
+| Remover elementos sem função | Interface mais honesta |
 
-Total: 1 migração de dados + 4 arquivos de código.
+**Arquivos afetados**: ~12 arquivos (sidebar, páginas, App.tsx, hooks)
+**Nenhuma alteração no banco de dados**.
 
