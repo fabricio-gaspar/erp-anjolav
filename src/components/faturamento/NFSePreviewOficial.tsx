@@ -100,7 +100,7 @@ function NFSeContent({ data }: { data: NFSeOficialData }) {
   const dataEmissao = data.data_emissao || hoje.toLocaleDateString("pt-BR");
   const horaEmissao = hoje.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const codigoVerif = data.codigo_verificacao || data.chave_acesso?.slice(-10) || "PREVIA";
-  const qrCodeUrl = `https://saoroque.govbr.cloud/nfse.portal/verificar/${codigoVerif}`;
+  const qrCodeUrl = `https://webapp1-saoroque.cidade360.cloud/nfse.portal/verificar/${codigoVerif}`;
   
   const aliquotaEfetiva = data.valor_servico > 0 ? ((data.valor_iss / data.valor_servico) * 100) : data.aliquota_iss;
 
@@ -681,7 +681,7 @@ function NFSeContent({ data }: { data: NFSeOficialData }) {
               fontSize: "8px",
               background: "#f0f0f0"
             }}>
-              Consulta: https://saoroque.govbr.cloud/nfse.portal
+              Consulta: https://webapp1-saoroque.cidade360.cloud/nfse.portal
             </td>
             <td style={{ 
               border: "1px solid #000", 

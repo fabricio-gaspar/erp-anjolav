@@ -645,7 +645,7 @@ export function ConfiguracoesFiscal() {
             <div>
               <Label className="text-xs text-muted-foreground">URL Base API NFS-e</Label>
               <Input
-                placeholder="https://saoroque.govbr.cloud/NFSe.Api/NotaNacional"
+                placeholder="https://webapp1-saoroque.cidade360.cloud/Nfse.Api/NotaNacional"
                 value={formData.urlApiNfse}
                 onChange={(e) => handleInputChange("urlApiNfse", e.target.value)}
               />

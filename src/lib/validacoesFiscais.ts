@@ -213,8 +213,8 @@ export function validarCodigoIBGE(codigo: string): boolean {
 export const TEMPLATES_API_NFSE = [
   { 
     prefeitura: 'São Roque - Padrão Nacional', 
-    urlBase: 'https://saoroque.govbr.cloud/NFSe.Api/NotaNacional',
-    swagger: 'https://saoroque.govbr.cloud/NFSe.Api/swagger',
+    urlBase: 'https://webapp1-saoroque.cidade360.cloud/Nfse.Api/NotaNacional',
+    swagger: 'https://webapp1-saoroque.cidade360.cloud/Nfse.Api/swagger',
   },
   { 
     prefeitura: 'GINFES (Padrão)', 
