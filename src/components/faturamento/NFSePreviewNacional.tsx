@@ -367,7 +367,7 @@ export function NFSePreviewNacional({
               {chaveAcessoSimulada}
             </div>
             <p className="text-xs text-gray-400 mt-2">
-              Consulte a autenticidade desta nota em: https://saoroque.govbr.cloud/NFSe.Portal
+              Consulte a autenticidade desta nota em: https://webapp1-saoroque.cidade360.cloud/NFSe.Portal
             </p>
           </div>
         </div>
