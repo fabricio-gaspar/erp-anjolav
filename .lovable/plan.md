@@ -1,61 +1,54 @@
 
 
-# Cadastro em Massa de Clientes
+# Atualização dos Endereços de Webservice/API NFS-e - São Roque
 
-## Resumo
+## Contexto
 
-Inserir 36 novos clientes e atualizar os 4 existentes no banco de dados, incluindo dados basicos e configuracoes de pagamento/faturamento para cada um.
+A Prefeitura de São Roque (via Cidade360/ISS Digital) comunicou a migração dos endereços de integração NFS-e. O domínio antigo `saoroque.govbr.cloud` sera substituido por `webapp1-saoroque.cidade360.cloud` a partir de 13 de março.
 
-## Clientes ja existentes (serao atualizados)
+## O que precisa ser atualizado
 
-4 clientes ja estao cadastrados e terao suas configuracoes de pagamento ajustadas:
-1. ADEGA E RESTAURANTE QUINTA DO OLIVARDO LTDA
-2. ALDEIA PARQUE E POUSADA LTDA
-3. CARBOTEX QUIMICA INDUSTRIA...
-4. COMERCIO DE PRODUTOS ALIMENTICIOS CASA ARAUCARIA LTDA
+### 1. Dados no banco de dados (configuracoes_fiscais)
 
-## Clientes novos (serao inseridos)
+A LAVANDERIA SAO ROQUE tem URLs antigas armazenadas no campo `urls_webservice`:
+- **producao**: `HTTPS://SAOROQUE.GOVBR.CLOUD/NFSE.PORTAL.INTEGRACAO/SERVICES.SVC`
+- **webservice_im**: `HTTPS://SAOROQUE.GOVBR.CLOUD/NFSE.PORTAL.INTEGRACAO/SERVICES.SVC?WSDL`
 
-36 novos clientes serao criados com todos os dados informados.
+Atualizar para:
+- **producao**: `https://webapp1-saoroque.cidade360.cloud/Nfse.Portal.Integracao/services.svc`
+- **webservice_im**: `https://webapp1-saoroque.cidade360.cloud/Nfse.Portal.Integracao/services.svc?wsdl`
 
-## Mapeamento dos campos
+### 2. Codigo fonte - Templates de URL (validacoesFiscais.ts)
 
-Os dados fornecidos serao mapeados para as tabelas do sistema assim:
+Atualizar o template `TEMPLATES_API_NFSE` de:
+- `https://saoroque.govbr.cloud/NFSe.Api/NotaNacional`
+- `https://saoroque.govbr.cloud/NFSe.Api/swagger`
 
-| Campo informado | Tabela/Coluna no banco |
+Para:
+- `https://webapp1-saoroque.cidade360.cloud/Nfse.Api/NotaNacional`
+- `https://webapp1-saoroque.cidade360.cloud/Nfse.Api/swagger`
+
+### 3. Codigo fonte - Placeholder no formulario (ConfiguracoesFiscal.tsx)
+
+Atualizar placeholder do campo URL API NFS-e.
+
+### 4. Codigo fonte - Preview da NFS-e (NFSePreviewNacional.tsx + NFSePreviewOficial.tsx)
+
+Atualizar URLs de consulta/verificação da nota:
+- QR Code URL
+- Texto de consulta no rodape
+
+Trocar todas as ocorrencias de `saoroque.govbr.cloud` por `webapp1-saoroque.cidade360.cloud`.
+
+## Resumo das alterações
+
+| Local | Tipo |
 |---|---|
-| NOME DA EMPRESA | clientes.razao_social |
-| CNPJ | clientes.cpf_cnpj + tipo_pessoa (cpf ou cnpj) |
-| E-MAIL | clientes.email |
-| DIAS DE VENCIMENTO | configuracoes_pagamento_cliente.condicao_pagamento (ex: '10_dias') |
-| CONTRATO MENSAL | configuracoes_pagamento_cliente.tipo_faturamento ('mensal' ou 'avulso') |
-| PLANILHA | configuracoes_pagamento_cliente.listar_itens_detalhados (true/false) |
-| EMISSAO CNPJ | configuracoes_pagamento_cliente.cnpj_emissor_id (referencia a configuracoes_fiscais) |
-| BOLETO CNPJ | configuracoes_pagamento_cliente.forma_pagamento ('boleto' ou 'pix') |
-| ENVIO WHATSAPP | clientes.observacoes (registrado como nota) |
-| SERVICO/DESCRICAO | configuracoes_pagamento_cliente.descricao_nf_id |
+| Banco de dados (urls_webservice da SAO ROQUE) | SQL UPDATE |
+| `src/lib/validacoesFiscais.ts` | Código |
+| `src/components/configuracoes/ConfiguracoesFiscal.tsx` | Código |
+| `src/components/faturamento/NFSePreviewNacional.tsx` | Código |
+| `src/components/faturamento/NFSePreviewOficial.tsx` | Código |
 
-### CNPJs Emissores disponiveis no sistema
-
-- **07.528.955/0001-65** = ANJOLAV (id: 8719604a...)
-- **23.227.029/0001-06** = LAVANDERIA SAO ROQUE (id: 4eed988a...)
-
-### Forma de pagamento
-
-- Quando BOLETO CNPJ = "PIX" -> forma_pagamento = 'pix'
-- Quando BOLETO CNPJ = numero CNPJ -> forma_pagamento = 'boleto'
-
-### Classificacao
-
-Todos os clientes serao cadastrados como **industrial** (tipo_pessoa = 'cnpj'), exceto SILVANA MORAES que tem CPF e sera tipo_pessoa = 'cpf'.
-
-## Execucao
-
-Sera feito via SQL direto no banco de dados usando INSERT e UPDATE, dividido em etapas:
-
-1. **Inserir os 36 novos clientes** na tabela `clientes`
-2. **Inserir configuracoes de pagamento** na tabela `configuracoes_pagamento_cliente` para todos os novos
-3. **Atualizar configuracoes de pagamento** dos 4 clientes existentes
-
-Nenhuma alteracao de codigo ou schema e necessaria - apenas insercao/atualizacao de dados.
+Total: 1 migração de dados + 4 arquivos de código.
 
