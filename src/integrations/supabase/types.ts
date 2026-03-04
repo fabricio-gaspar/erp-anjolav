@@ -1090,7 +1090,7 @@ export type Database = {
           id: string
           observacoes: string | null
           ordem_servico_id: string
-          tempo_na_etapa_anterior: unknown
+          tempo_na_etapa_anterior: string | null
         }
         Insert: {
           created_at?: string
@@ -1101,7 +1101,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           ordem_servico_id: string
-          tempo_na_etapa_anterior?: unknown
+          tempo_na_etapa_anterior?: string | null
         }
         Update: {
           created_at?: string
@@ -1112,7 +1112,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           ordem_servico_id?: string
-          tempo_na_etapa_anterior?: unknown
+          tempo_na_etapa_anterior?: string | null
         }
         Relationships: [
           {
