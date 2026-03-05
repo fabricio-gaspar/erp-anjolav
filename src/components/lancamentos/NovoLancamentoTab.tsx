@@ -156,8 +156,8 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
     const data: LancamentosPrintData = {
       clienteNome: clienteSelecionado.nome, clienteTelefone: clienteSelecionado.telefone,
       itens: items.map(i => ({ nome: i.produto, quantidade: i.quantidade, precoUnitario: i.valorUnitario, subtotal: i.valorTotal })),
-      valorTotal: totalValue, dataEmissao: new Date(dataEmissao),
-      previsaoEntrega: dataEntrega ? new Date(dataEntrega) : undefined,
+      valorTotal: totalValue, dataEmissao: new Date(dataEmissao + 'T00:00:00'),
+      previsaoEntrega: dataEntrega ? new Date(dataEntrega + 'T00:00:00') : undefined,
       observacoes: observacao || undefined,
     };
     if (type === "rol") await printROLFromData(data);

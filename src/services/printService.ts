@@ -140,7 +140,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       itens: itensFormatted,
       valorTotal,
       dataEmissao: new Date(ordem.created_at),
-      previsaoEntrega: ordem.data_previsao_entrega ? new Date(ordem.data_previsao_entrega) : undefined,
+      previsaoEntrega: ordem.data_previsao_entrega ? new Date(ordem.data_previsao_entrega + 'T00:00:00') : undefined,
       observacoes: ordem.observacoes || undefined,
     };
   } catch (error) {
