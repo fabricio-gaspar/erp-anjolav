@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -34,7 +34,6 @@ import {
 import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
 import { NFSePreviewOficial, type NFSeOficialData } from "./NFSePreviewOficial";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
-import { useClienteById, useEnderecoCliente, useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { useFaturas } from "@/hooks/useFaturas";
 import {
   formatCurrency,
@@ -54,6 +53,65 @@ interface EtapaNFProps {
   onNFEmitida: (nf: string) => void;
 }
 
+// Extracted: builds NF preview data to avoid duplication
+function buildNFPreviewData(
+  configuracaoAtiva: any,
+  dados: DadosFaturamento,
+) {
+  const enderecoConfig = configuracaoAtiva.endereco as Record<string, string> | null;
+  const clienteEndereco = dados.clienteEndereco;
+
+  return {
+    emitente: {
+      razao_social: configuracaoAtiva.razao_social,
+      cnpj: configuracaoAtiva.cnpj,
+      inscricao_municipal: configuracaoAtiva.inscricao_municipal,
+      inscricao_estadual: configuracaoAtiva.inscricao_estadual,
+      email: null,
+      telefone: null,
+      endereco: enderecoConfig ? {
+        logradouro: enderecoConfig.logradouro,
+        numero: enderecoConfig.numero,
+        bairro: enderecoConfig.bairro,
+        cidade: enderecoConfig.cidade,
+        uf: enderecoConfig.uf,
+        cep: enderecoConfig.cep,
+      } : null,
+      codigo_servico: configuracaoAtiva.codigo_servico,
+      aliquota_iss: configuracaoAtiva.aliquota_iss,
+    },
+    tomador: {
+      razao_social: dados.clienteNome,
+      cpf_cnpj: dados.clienteDocumento || null,
+      tipo_pessoa: dados.clienteTipoPessoa || "cnpj",
+      inscricao_municipal: dados.clienteInscricaoMunicipal || null,
+      inscricao_estadual: dados.clienteInscricaoEstadual || null,
+      email: dados.clienteEmail,
+      telefone: dados.clienteTelefone,
+      endereco: clienteEndereco ? {
+        logradouro: clienteEndereco.logradouro || undefined,
+        numero: clienteEndereco.numero || undefined,
+        bairro: clienteEndereco.bairro || undefined,
+        cidade: clienteEndereco.cidade || undefined,
+        uf: clienteEndereco.uf || undefined,
+        cep: clienteEndereco.cep || undefined,
+      } : null,
+    },
+    itens: dados.itens.map(item => ({
+      id: item.id,
+      produto: item.produto,
+      quantidade: item.quantidade,
+      unidade: item.unidade,
+      valorUnitario: item.valorUnitario,
+      valorTotal: item.valorTotal,
+    })),
+    valorTotal: dados.valorTotal,
+    periodoInicio: dados.periodoInicio,
+    periodoFim: dados.periodoFim,
+    ambiente: configuracaoAtiva.ambiente as "producao" | "homologacao" | undefined,
+  };
+}
+
 export function EtapaNF({
   dados,
   faturaId,
@@ -67,37 +125,33 @@ export function EtapaNF({
   const [naturezaOperacao, setNaturezaOperacao] = useState<NaturezaOperacao>("tributacao_municipio");
   const [initialized, setInitialized] = useState(false);
   
-  const { configuracaoAtiva, configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
+  const { configuracaoAtiva: configuracaoAtivaGlobal, configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
   const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
-  const { data: cliente, isLoading: isLoadingCliente } = useClienteById(dados.clienteId);
-  const { endereco, isLoading: isLoadingEndereco } = useEnderecoCliente(dados.clienteId);
-  const { configuracao: configPagamento, isLoading: isLoadingConfigPagamento } = useConfiguracaoPagamentoCliente(dados.clienteId);
   const { updateFatura } = useFaturas();
 
-  const isLoading = isLoadingFiscal || isLoadingCliente || isLoadingEndereco || isLoadingDescricoes || isLoadingConfigPagamento;
+  const isLoading = isLoadingFiscal || isLoadingDescricoes;
   
-  // Verificar se existe uma configuração fiscal padrão para o cliente
-  const configFiscalPadrao = configPagamento?.cnpj_emissor_id 
-    ? configuracoes?.find(c => c.id === configPagamento.cnpj_emissor_id)
-    : null;
-  
+  // Use client's preferred CNPJ emissor if configured, otherwise use global active config
+  const configuracaoAtiva = useMemo(() => {
+    const cnpjEmissorId = dados.configPagamento?.cnpj_emissor_id;
+    if (cnpjEmissorId && configuracoes) {
+      const configCliente = configuracoes.find(c => c.id === cnpjEmissorId);
+      if (configCliente) return configCliente;
+    }
+    return configuracaoAtivaGlobal;
+  }, [dados.configPagamento?.cnpj_emissor_id, configuracoes, configuracaoAtivaGlobal]);
+
   // Filtrar apenas descrições ativas
   const descricoesAtivas = descricoes?.filter(d => d.ativo) || [];
   
-  // Inicializar valores com base nas preferências do cliente
+  // Inicializar valores com base nas preferências do cliente (from centralized data)
   useEffect(() => {
-    if (!initialized && configPagamento && !isLoading) {
-      // Se o cliente tem um CNPJ emissor padrão configurado
-      if (configPagamento.cnpj_emissor_id) {
-        const configFiscalPadrao = configuracoes?.find(c => c.id === configPagamento.cnpj_emissor_id);
-        if (configFiscalPadrao) {
-          // O sistema já usa configuracaoAtiva, mas podemos alertar o usuário
-        }
-      }
+    if (!initialized && !isLoading) {
+      const configPag = dados.configPagamento;
       
       // Se o cliente tem uma descrição padrão configurada
-      if (configPagamento.descricao_nf_id) {
-        const descricaoPadrao = descricoes?.find(d => d.id === configPagamento.descricao_nf_id);
+      if (configPag?.descricao_nf_id) {
+        const descricaoPadrao = descricoes?.find(d => d.id === configPag.descricao_nf_id);
         if (descricaoPadrao) {
           setDescricaoPadraoSelecionada(descricaoPadrao.descricao);
           setTipoDescricao("padrao");
@@ -105,15 +159,15 @@ export function EtapaNF({
       }
       
       // Configurar o tipo de descrição baseado na preferência do cliente
-      if (configPagamento.listar_itens_detalhados === false) {
+      if (configPag?.listar_itens_detalhados === false) {
         setTipoDescricao("padrao");
-      } else if (configPagamento.listar_itens_detalhados === true) {
+      } else if (configPag?.listar_itens_detalhados === true) {
         setTipoDescricao("itens");
       }
       
       setInitialized(true);
     }
-  }, [configPagamento, isLoading, initialized, descricoes]);
+  }, [dados.configPagamento, isLoading, initialized, descricoes]);
   
   // Gerar descrição baseada na escolha
   const gerarDescricaoServico = () => {
@@ -125,14 +179,15 @@ export function EtapaNF({
     ).join('\n')}`;
   };
 
-  // Validar dados fiscais do cliente com validação aprimorada
-  const validacaoCliente = cliente
-    ? validarDadosFiscaisCliente(cliente, endereco)
-    : { valid: false, erros: ["Cliente não encontrado"] };
+  // Validar dados fiscais do cliente using centralized data
+  const validacaoCliente = validarDadosFiscaisCliente(
+    { cpf_cnpj: dados.clienteDocumento || null },
+    dados.clienteEndereco || null
+  );
   
   // Validação adicional do CPF/CNPJ
-  const validacaoDocumento = cliente?.cpf_cnpj 
-    ? validarCpfCnpj(cliente.cpf_cnpj)
+  const validacaoDocumento = dados.clienteDocumento 
+    ? validarCpfCnpj(dados.clienteDocumento)
     : { valid: false, tipo: null, erro: "Documento não informado" };
   
   if (!validacaoDocumento.valid && validacaoDocumento.erro && !validacaoCliente.erros.includes(validacaoDocumento.erro)) {
@@ -144,30 +199,25 @@ export function EtapaNF({
   const modoEmissao = (configuracaoAtiva as any)?.modo_emissao || "simulacao";
 
   const handleEmitirNF = async () => {
-    if (!faturaId || !configuracaoAtiva || !cliente) return;
+    if (!faturaId || !configuracaoAtiva) return;
 
     setIsEmitting(true);
     try {
-      // Gerar número da NF
       const year = new Date().getFullYear();
-      const random = Math.floor(Math.random() * 1000000)
-        .toString()
-        .padStart(6, "0");
+      const random = Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
       const nfNumber = `${year}${random}`;
-
-      // Gerar chave de acesso (44 dígitos)
       const chaveAcesso = gerarChaveAcesso();
 
-      // Gerar snapshots
+      // Gerar snapshots using centralized data
       const snapshotCliente = gerarSnapshotCliente(
         {
-          razao_social: cliente.razao_social,
-          cpf_cnpj: cliente.cpf_cnpj,
-          email: cliente.email,
-          telefone: cliente.telefone,
-          inscricao_municipal: cliente.inscricao_municipal,
+          razao_social: dados.clienteNome,
+          cpf_cnpj: dados.clienteDocumento || null,
+          email: dados.clienteEmail,
+          telefone: dados.clienteTelefone,
+          inscricao_municipal: dados.clienteInscricaoMunicipal,
         },
-        endereco
+        dados.clienteEndereco
       );
 
       const snapshotEmitente = gerarSnapshotEmitente({
@@ -180,10 +230,8 @@ export function EtapaNF({
         aliquota_iss: configuracaoAtiva.aliquota_iss,
       });
 
-      // Descrição do serviço baseada na escolha do usuário
       const descricaoServico = gerarDescricaoServico();
 
-      // Update fatura com todos os dados da Etapa 2
       await updateFatura.mutateAsync({
         id: faturaId,
         numero_nf: nfNumber,
@@ -195,7 +243,6 @@ export function EtapaNF({
         descricao_servico: descricaoServico,
         natureza_operacao: naturezaOperacao,
         status_sefaz: modoEmissao === "simulacao" ? "nao_enviada" : "processando",
-        // Em produção, aqui teria o link_pdf_nf após integração real
       });
 
       onNFEmitida(nfNumber);
@@ -212,118 +259,14 @@ export function EtapaNF({
   };
 
   const handlePreviewPdf = () => {
-    if (!configuracaoAtiva || !cliente) return;
-
-    const enderecoConfig = configuracaoAtiva.endereco as Record<string, string> | null;
-
-    const htmlContent = gerarPreviewNFHtml({
-      emitente: {
-        razao_social: configuracaoAtiva.razao_social,
-        cnpj: configuracaoAtiva.cnpj,
-        inscricao_municipal: configuracaoAtiva.inscricao_municipal,
-        inscricao_estadual: configuracaoAtiva.inscricao_estadual,
-        email: null,
-        telefone: null,
-        endereco: enderecoConfig ? {
-          logradouro: enderecoConfig.logradouro,
-          numero: enderecoConfig.numero,
-          bairro: enderecoConfig.bairro,
-          cidade: enderecoConfig.cidade,
-          uf: enderecoConfig.uf,
-          cep: enderecoConfig.cep,
-        } : null,
-        codigo_servico: configuracaoAtiva.codigo_servico,
-        aliquota_iss: configuracaoAtiva.aliquota_iss,
-      },
-      tomador: {
-        razao_social: cliente.razao_social,
-        cpf_cnpj: cliente.cpf_cnpj,
-        tipo_pessoa: cliente.tipo_pessoa,
-        inscricao_municipal: cliente.inscricao_municipal,
-        inscricao_estadual: cliente.inscricao_estadual,
-        email: cliente.email,
-        telefone: cliente.telefone,
-        endereco: endereco ? {
-          logradouro: endereco.logradouro || undefined,
-          numero: endereco.numero || undefined,
-          bairro: endereco.bairro || undefined,
-          cidade: endereco.cidade || undefined,
-          uf: endereco.uf || undefined,
-          cep: endereco.cep || undefined,
-        } : null,
-      },
-      itens: dados.itens.map(item => ({
-        id: item.id,
-        produto: item.produto,
-        quantidade: item.quantidade,
-        unidade: item.unidade,
-        valorUnitario: item.valorUnitario,
-        valorTotal: item.valorTotal,
-      })),
-      valorTotal: dados.valorTotal,
-      periodoInicio: dados.periodoInicio,
-      periodoFim: dados.periodoFim,
-      ambiente: configuracaoAtiva.ambiente as "producao" | "homologacao" | undefined,
-    });
-
+    if (!configuracaoAtiva) return;
+    const htmlContent = gerarPreviewNFHtml(buildNFPreviewData(configuracaoAtiva, dados));
     downloadNFPreviewPdf(htmlContent);
   };
 
   const handlePrintPreview = () => {
-    if (!configuracaoAtiva || !cliente) return;
-
-    const enderecoConfig = configuracaoAtiva.endereco as Record<string, string> | null;
-
-    const htmlContent = gerarPreviewNFHtml({
-      emitente: {
-        razao_social: configuracaoAtiva.razao_social,
-        cnpj: configuracaoAtiva.cnpj,
-        inscricao_municipal: configuracaoAtiva.inscricao_municipal,
-        inscricao_estadual: configuracaoAtiva.inscricao_estadual,
-        email: null,
-        telefone: null,
-        endereco: enderecoConfig ? {
-          logradouro: enderecoConfig.logradouro,
-          numero: enderecoConfig.numero,
-          bairro: enderecoConfig.bairro,
-          cidade: enderecoConfig.cidade,
-          uf: enderecoConfig.uf,
-          cep: enderecoConfig.cep,
-        } : null,
-        codigo_servico: configuracaoAtiva.codigo_servico,
-        aliquota_iss: configuracaoAtiva.aliquota_iss,
-      },
-      tomador: {
-        razao_social: cliente.razao_social,
-        cpf_cnpj: cliente.cpf_cnpj,
-        tipo_pessoa: cliente.tipo_pessoa,
-        inscricao_municipal: cliente.inscricao_municipal,
-        inscricao_estadual: cliente.inscricao_estadual,
-        email: cliente.email,
-        telefone: cliente.telefone,
-        endereco: endereco ? {
-          logradouro: endereco.logradouro || undefined,
-          numero: endereco.numero || undefined,
-          bairro: endereco.bairro || undefined,
-          cidade: endereco.cidade || undefined,
-          uf: endereco.uf || undefined,
-          cep: endereco.cep || undefined,
-        } : null,
-      },
-      itens: dados.itens.map(item => ({
-        id: item.id,
-        produto: item.produto,
-        quantidade: item.quantidade,
-        unidade: item.unidade,
-        valorUnitario: item.valorUnitario,
-        valorTotal: item.valorTotal,
-      })),
-      valorTotal: dados.valorTotal,
-      periodoInicio: dados.periodoInicio,
-      periodoFim: dados.periodoFim,
-      ambiente: configuracaoAtiva.ambiente as "producao" | "homologacao" | undefined,
-    });
-
+    if (!configuracaoAtiva) return;
+    const htmlContent = gerarPreviewNFHtml(buildNFPreviewData(configuracaoAtiva, dados));
     printNFPreview(htmlContent);
   };
 
@@ -336,6 +279,7 @@ export function EtapaNF({
   }
 
   const enderecoConfig = configuracaoAtiva?.endereco as Record<string, string> | null;
+  const clienteEndereco = dados.clienteEndereco;
 
   return (
     <div className="space-y-6">
@@ -377,6 +321,12 @@ export function EtapaNF({
             <Badge variant="outline" className="ml-auto">
               {configuracaoAtiva.ambiente === "producao" ? "Produção" : "Homologação"}
             </Badge>
+            {/* Show which CNPJ emissor is being used */}
+            {dados.configPagamento?.cnpj_emissor_id && (
+              <Badge variant="secondary" className="text-xs">
+                {configuracaoAtiva.nome || configuracaoAtiva.razao_social}
+              </Badge>
+            )}
           </div>
 
           {/* Seletor de Natureza de Operação */}
@@ -441,7 +391,7 @@ export function EtapaNF({
               </div>
             </Card>
 
-            {/* Tomador */}
+            {/* Tomador - using centralized data */}
             <Card className="p-4">
               <div className="flex items-center gap-2 mb-3">
                 <User className="w-4 h-4 text-muted-foreground" />
@@ -451,20 +401,31 @@ export function EtapaNF({
                 )}
               </div>
               <div className="space-y-2 text-sm">
-                <p className="font-semibold">{cliente?.razao_social}</p>
+                <p className="font-semibold">{dados.clienteNome}</p>
                 <p>
-                  {cliente?.tipo_pessoa === "cnpj" ? "CNPJ" : "CPF"}:{" "}
-                  {cliente?.cpf_cnpj || "Não informado"}
+                  {(dados.clienteTipoPessoa || "cnpj") === "cnpj" ? "CNPJ" : "CPF"}:{" "}
+                  {dados.clienteDocumento || "Não informado"}
                 </p>
-                {cliente?.inscricao_municipal && (
-                  <p>IM: {cliente.inscricao_municipal}</p>
+                {dados.clienteInscricaoMunicipal && (
+                  <p>IM: {dados.clienteInscricaoMunicipal}</p>
                 )}
-                {endereco && (
+                {dados.clienteInscricaoEstadual && (
+                  <p>IE: {dados.clienteInscricaoEstadual}</p>
+                )}
+                {dados.clienteRegimeTributario && (
+                  <Badge variant="outline" className="text-xs mt-1">
+                    {dados.clienteRegimeTributario === "simples_nacional" ? "Simples Nacional" :
+                     dados.clienteRegimeTributario === "lucro_presumido" ? "Lucro Presumido" :
+                     dados.clienteRegimeTributario === "lucro_real" ? "Lucro Real" :
+                     dados.clienteRegimeTributario}
+                  </Badge>
+                )}
+                {clienteEndereco && (
                   <p className="text-muted-foreground">
-                    {endereco.logradouro}, {endereco.numero}
-                    {endereco.bairro && ` - ${endereco.bairro}`}
+                    {clienteEndereco.logradouro}, {clienteEndereco.numero}
+                    {clienteEndereco.bairro && ` - ${clienteEndereco.bairro}`}
                     <br />
-                    {endereco.cidade}/{endereco.uf} - CEP: {endereco.cep}
+                    {clienteEndereco.cidade}/{clienteEndereco.uf} - CEP: {clienteEndereco.cep}
                   </p>
                 )}
               </div>
@@ -585,53 +546,51 @@ export function EtapaNF({
             </TabsContent>
 
             <TabsContent value="previa">
-              {cliente && (
-                <NFSePreviewOficial
-                  data={{
-                    emitente: {
-                      razao_social: configuracaoAtiva.razao_social,
-                      cnpj: configuracaoAtiva.cnpj,
-                      inscricao_municipal: configuracaoAtiva.inscricao_municipal,
-                      inscricao_estadual: configuracaoAtiva.inscricao_estadual,
-                      endereco: enderecoConfig ? {
-                        logradouro: enderecoConfig.logradouro,
-                        numero: enderecoConfig.numero,
-                        bairro: enderecoConfig.bairro,
-                        cidade: enderecoConfig.cidade,
-                        uf: enderecoConfig.uf,
-                        cep: enderecoConfig.cep,
-                      } : null,
-                      codigo_servico: configuracaoAtiva.codigo_servico,
-                      aliquota_iss: configuracaoAtiva.aliquota_iss,
-                    },
-                    tomador: {
-                      razao_social: cliente.razao_social,
-                      cpf_cnpj: cliente.cpf_cnpj,
-                      tipo_pessoa: cliente.tipo_pessoa,
-                      inscricao_municipal: cliente.inscricao_municipal,
-                      inscricao_estadual: cliente.inscricao_estadual,
-                      email: cliente.email,
-                      telefone: cliente.telefone,
-                      endereco: endereco ? {
-                        logradouro: endereco.logradouro,
-                        numero: endereco.numero,
-                        bairro: endereco.bairro,
-                        cidade: endereco.cidade,
-                        uf: endereco.uf,
-                        cep: endereco.cep,
-                      } : null,
-                    },
-                    descricao_servico: gerarDescricaoServico(),
-                    valor_servico: dados.valorTotal,
-                    aliquota_iss: configuracaoAtiva.aliquota_iss || 0,
-                    valor_iss: dados.valorTotal * ((configuracaoAtiva.aliquota_iss || 0) / 100),
-                    natureza_operacao: naturezaOperacao,
-                    ambiente: modoEmissao as "producao" | "homologacao",
-                    isPrevia: true,
-                  }}
-                  onPrint={handlePrintPreview}
-                />
-              )}
+              <NFSePreviewOficial
+                data={{
+                  emitente: {
+                    razao_social: configuracaoAtiva.razao_social,
+                    cnpj: configuracaoAtiva.cnpj,
+                    inscricao_municipal: configuracaoAtiva.inscricao_municipal,
+                    inscricao_estadual: configuracaoAtiva.inscricao_estadual,
+                    endereco: enderecoConfig ? {
+                      logradouro: enderecoConfig.logradouro,
+                      numero: enderecoConfig.numero,
+                      bairro: enderecoConfig.bairro,
+                      cidade: enderecoConfig.cidade,
+                      uf: enderecoConfig.uf,
+                      cep: enderecoConfig.cep,
+                    } : null,
+                    codigo_servico: configuracaoAtiva.codigo_servico,
+                    aliquota_iss: configuracaoAtiva.aliquota_iss,
+                  },
+                  tomador: {
+                    razao_social: dados.clienteNome,
+                    cpf_cnpj: dados.clienteDocumento || null,
+                    tipo_pessoa: dados.clienteTipoPessoa || "cnpj",
+                    inscricao_municipal: dados.clienteInscricaoMunicipal || null,
+                    inscricao_estadual: dados.clienteInscricaoEstadual || null,
+                    email: dados.clienteEmail,
+                    telefone: dados.clienteTelefone,
+                    endereco: clienteEndereco ? {
+                      logradouro: clienteEndereco.logradouro,
+                      numero: clienteEndereco.numero,
+                      bairro: clienteEndereco.bairro,
+                      cidade: clienteEndereco.cidade,
+                      uf: clienteEndereco.uf,
+                      cep: clienteEndereco.cep,
+                    } : null,
+                  },
+                  descricao_servico: gerarDescricaoServico(),
+                  valor_servico: dados.valorTotal,
+                  aliquota_iss: configuracaoAtiva.aliquota_iss || 0,
+                  valor_iss: dados.valorTotal * ((configuracaoAtiva.aliquota_iss || 0) / 100),
+                  natureza_operacao: naturezaOperacao,
+                  ambiente: modoEmissao as "producao" | "homologacao",
+                  isPrevia: true,
+                }}
+                onPrint={handlePrintPreview}
+              />
             </TabsContent>
           </Tabs>
         </>

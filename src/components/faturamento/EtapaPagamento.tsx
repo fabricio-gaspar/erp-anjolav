@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { useCreateAsaasCharge } from "@/hooks/useAsaas";
 import { useFaturas, calcularVencimento } from "@/hooks/useFaturas";
@@ -52,8 +51,8 @@ export function EtapaPagamento({
     copyPaste: string | null;
   } | null>(null);
 
-  const { configuracao: configPagamento, isLoading: isLoadingPagamento } =
-    useConfiguracaoPagamentoCliente(dados.clienteId);
+  // Use centralized data from dados.configPagamento instead of separate query
+  const configPagamento = dados.configPagamento;
   const { configuracao: configGeral, isLoading: isLoadingGeral } =
     useConfiguracoesGerais();
   const { mutateAsync: createCharge } = useCreateAsaasCharge();
@@ -63,9 +62,9 @@ export function EtapaPagamento({
   const formaPagamento = (!BOLETO_ENABLED && rawFormaPagamento === "boleto") ? "pix" : rawFormaPagamento;
   const diaFechamento = configPagamento?.dia_fechamento ?? null;
   const condicaoPagamento = configPagamento?.condicao_pagamento || null;
-  const isLoading = isLoadingPagamento || isLoadingGeral;
+  const isLoading = isLoadingGeral;
 
-  // Calcular data de vencimento: dia_fechamento + prazo em dias (null = avulso, usa hoje)
+  // Calcular data de vencimento
   const dataVencimento = calcularVencimento(diaFechamento, condicaoPagamento);
 
   const handleGenerateBoleto = async () => {
@@ -89,7 +88,6 @@ export function EtapaPagamento({
           linhaDigitavel: result.nossoNumero || "",
         });
 
-        // Atualizar fatura com todos os dados de pagamento
         await updateFatura.mutateAsync({
           id: faturaId,
           asaas_charge_id: result.id,
@@ -137,7 +135,6 @@ export function EtapaPagamento({
           copyPaste: result.pixCopyPaste || null,
         });
 
-        // Atualizar fatura com dados de PIX
         await updateFatura.mutateAsync({
           id: faturaId,
           asaas_charge_id: result.id,
@@ -173,7 +170,6 @@ export function EtapaPagamento({
   const handleUseTransferencia = async () => {
     if (!faturaId) return;
 
-    // Salvar dados de transferência na fatura
     await updateFatura.mutateAsync({
       id: faturaId,
       forma_pagamento: "transferencia",
@@ -203,7 +199,6 @@ export function EtapaPagamento({
       if (pixData) {
         onNext();
       } else if (configGeral?.pix_chave && faturaId) {
-        // Usar chave PIX manual
         await updateFatura.mutateAsync({
           id: faturaId,
           forma_pagamento: "pix_manual",
@@ -237,6 +232,14 @@ export function EtapaPagamento({
         <Badge variant="secondary" className="ml-auto capitalize">
           {formaPagamento}
         </Badge>
+        {dados.clienteRegimeTributario && (
+          <Badge variant="outline" className="text-xs">
+            {dados.clienteRegimeTributario === "simples_nacional" ? "Simples Nacional" :
+             dados.clienteRegimeTributario === "lucro_presumido" ? "Lucro Presumido" :
+             dados.clienteRegimeTributario === "lucro_real" ? "Lucro Real" :
+             dados.clienteRegimeTributario}
+          </Badge>
+        )}
       </div>
 
       <Card className="p-6">
@@ -251,7 +254,7 @@ export function EtapaPagamento({
           <Calendar className="w-4 h-4" />
           <span>
             Vencimento: {format(dataVencimento, "dd/MM/yyyy", { locale: ptBR })}
-            <span className="text-xs ml-2">(Fechamento dia {diaFechamento})</span>
+            {diaFechamento && <span className="text-xs ml-2">(Fechamento dia {diaFechamento})</span>}
           </span>
         </div>
 

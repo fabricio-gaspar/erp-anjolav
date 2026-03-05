@@ -24,7 +24,6 @@ import { toast } from "sonner";
 import { useFaturas } from "@/hooks/useFaturas";
 import { useHistoricoEnvios } from "@/hooks/useHistoricoEnvios";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
-import { useConfiguracaoCliente } from "@/hooks/useClientes";
 import {
   formatCurrency,
   substituirVariaveis,
@@ -58,7 +57,9 @@ export function EtapaEnvio({
   const { updateFatura } = useFaturas();
   const { createEnvio } = useHistoricoEnvios(faturaId);
   const { configuracao: configGeral } = useConfiguracoesGerais();
-  const { configuracao: configCliente } = useConfiguracaoCliente(dados.clienteId);
+
+  // Use centralized data from dados.configCliente
+  const configCliente = dados.configCliente;
 
   // Preparar variáveis para templates
   const templateVars: TemplateVariables = {
@@ -79,6 +80,9 @@ export function EtapaEnvio({
   const templateEmail = configGeral?.template_boleto || TEMPLATE_EMAIL_DEFAULT;
 
   const handleDownloadROL = () => {
+    const tipoRelatorio = configCliente?.tipo_relatorio || "detalhado";
+    const nomeEmpresa = configGeral?.nome_empresa || "Lavanderia";
+    
     const reportHTML = `
       <!DOCTYPE html>
       <html>
@@ -86,31 +90,65 @@ export function EtapaEnvio({
         <title>ROL - ${dados.clienteNome}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; }
-          h1 { text-align: center; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #f4f4f4; }
-          .total { font-weight: bold; text-align: right; margin-top: 20px; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+          .header h1 { margin: 0; font-size: 18px; }
+          .header p { margin: 2px 0; font-size: 12px; color: #666; }
+          .info { margin: 15px 0; display: flex; justify-content: space-between; }
+          .info-item { font-size: 12px; }
+          .info-item strong { display: block; font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+          th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 12px; }
+          th { background-color: #f4f4f4; font-weight: bold; }
+          .total { font-weight: bold; text-align: right; margin-top: 15px; font-size: 16px; }
+          .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #999; }
+          .tipo-badge { display: inline-block; background: #e8e8e8; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
         </style>
       </head>
       <body>
-        <h1>Romaneio de Lavanderia</h1>
-        <p><strong>Cliente:</strong> ${dados.clienteNome}</p>
-        <p><strong>Período:</strong> ${format(new Date(dados.periodoInicio), "dd/MM/yyyy", { locale: ptBR })} a ${format(new Date(dados.periodoFim), "dd/MM/yyyy", { locale: ptBR })}</p>
+        <div class="header">
+          <h1>${nomeEmpresa}</h1>
+          <p>Romaneio de Lavanderia - <span class="tipo-badge">${tipoRelatorio === "mapa" ? "Mapa de Peças" : "Relatório Detalhado"}</span></p>
+        </div>
+        <div class="info">
+          <div class="info-item">
+            <strong>${dados.clienteNome}</strong>
+            ${dados.clienteDocumento ? `<span>${dados.clienteDocumento}</span>` : ""}
+            ${dados.clienteEndereco?.cidade ? `<br/><span>${dados.clienteEndereco.cidade}/${dados.clienteEndereco.uf}</span>` : ""}
+          </div>
+          <div class="info-item" style="text-align: right;">
+            <strong>Período</strong>
+            <span>${format(new Date(dados.periodoInicio), "dd/MM/yyyy", { locale: ptBR })} a ${format(new Date(dados.periodoFim), "dd/MM/yyyy", { locale: ptBR })}</span>
+          </div>
+        </div>
         <table>
           <thead>
-            <tr><th>Item</th><th>Qtd</th><th>Unidade</th><th>Valor</th></tr>
+            <tr>
+              <th>Item</th>
+              <th style="text-align:center">Qtd</th>
+              <th>Unidade</th>
+              <th style="text-align:right">Valor Unit.</th>
+              <th style="text-align:right">Subtotal</th>
+            </tr>
           </thead>
           <tbody>
             ${dados.itens
               .map(
                 (item) =>
-                  `<tr><td>${item.produto}</td><td>${item.quantidade}</td><td>${item.unidade}</td><td>${formatCurrency(item.valorTotal)}</td></tr>`
+                  `<tr>
+                    <td>${item.produto}</td>
+                    <td style="text-align:center">${item.quantidade}</td>
+                    <td>${item.unidade}</td>
+                    <td style="text-align:right">${formatCurrency(item.valorUnitario)}</td>
+                    <td style="text-align:right">${formatCurrency(item.valorTotal)}</td>
+                  </tr>`
               )
               .join("")}
           </tbody>
         </table>
         <p class="total">TOTAL: ${formatCurrency(dados.valorTotal)}</p>
+        <div class="footer">
+          <p>Documento gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+        </div>
       </body>
       </html>
     `;
@@ -148,7 +186,6 @@ export function EtapaEnvio({
       return false;
     }
 
-    // Substituir variáveis no template
     const mensagem = substituirVariaveis(templateWhatsApp, templateVars);
 
     const phone = dados.clienteTelefone.replace(/\D/g, "");
@@ -156,7 +193,6 @@ export function EtapaEnvio({
 
     window.open(`https://wa.me/55${phone}?text=${encodedMessage}`, "_blank");
 
-    // Registrar envio no histórico
     if (faturaId) {
       await createEnvio.mutateAsync({
         fatura_id: faturaId,
@@ -177,7 +213,6 @@ export function EtapaEnvio({
       return false;
     }
 
-    // Substituir variáveis no template
     const mensagem = substituirVariaveis(templateEmail, templateVars);
 
     const subject = encodeURIComponent(
@@ -187,7 +222,6 @@ export function EtapaEnvio({
 
     window.open(`mailto:${dados.clienteEmail}?subject=${subject}&body=${body}`);
 
-    // Registrar envio no histórico
     if (faturaId) {
       await createEnvio.mutateAsync({
         fatura_id: faturaId,
@@ -225,7 +259,6 @@ export function EtapaEnvio({
         }
       }
 
-      // Atualizar fatura com status "enviado"
       if (faturaId && canaisEnviados.length > 0) {
         await updateFatura.mutateAsync({
           id: faturaId,
@@ -247,7 +280,6 @@ export function EtapaEnvio({
   };
 
   const handleFinalizarSemEnvio = async () => {
-    // Atualizar status para "pendente" ou manter o atual
     if (faturaId) {
       await updateFatura.mutateAsync({
         id: faturaId,
