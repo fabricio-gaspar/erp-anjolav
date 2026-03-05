@@ -320,7 +320,18 @@ const RelatoriosCliente = () => {
             </DialogTitle>
           </DialogHeader>
 
-          {(reportType === "mapa_pecas" || reportType === "mapa_mensal") && lancamentos && (
+          {reportType === "mapa_pecas" && lancamentos && (
+            <MapaPecasCliente
+              clienteNome={selectedClientData?.razao_social || ""}
+              clienteDocumento={selectedClientData?.cpf_cnpj}
+              lancamentos={lancamentos}
+              periodoInicio={periodoInicio}
+              periodoFim={periodoFim}
+              onPrint={() => setShowPreview(false)}
+            />
+          )}
+
+          {reportType === "mapa_mensal" && lancamentos && (
             <MapaMensalPecas
               clienteNome={selectedClientData?.razao_social || ""}
               clienteDocumento={selectedClientData?.cpf_cnpj}
