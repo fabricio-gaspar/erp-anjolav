@@ -48,12 +48,46 @@ export interface DadosFaturamento {
   clienteDocumento: string;
   clienteEmail: string | null;
   clienteTelefone: string | null;
+  // Dados completos do cliente
+  clienteTipoPessoa?: string;
+  clienteInscricaoMunicipal?: string | null;
+  clienteInscricaoEstadual?: string | null;
+  clienteRegimeTributario?: string | null;
+  clienteClassificacao?: string;
+  // Endereço completo do cliente
+  clienteEndereco?: {
+    logradouro: string | null;
+    numero: string | null;
+    complemento: string | null;
+    bairro: string | null;
+    cidade: string | null;
+    uf: string | null;
+    cep: string | null;
+  } | null;
+  // Configurações de pagamento do cliente
+  configPagamento?: {
+    forma_pagamento: string | null;
+    dia_fechamento: number | null;
+    dia_vencimento: number | null;
+    condicao_pagamento: string | null;
+    tipo_faturamento: string | null;
+    cnpj_emissor_id: string | null;
+    descricao_nf_id: string | null;
+    listar_itens_detalhados: boolean | null;
+  } | null;
+  // Configurações gerais do cliente
+  configCliente?: {
+    tipo_relatorio: string | null;
+    codigo_acesso: string | null;
+    link_acesso: string | null;
+    frequencia: string | null;
+  } | null;
   itens: LancamentoItem[];
   valorTotal: number;
   periodoInicio: string;
   periodoFim: string;
   observacao?: string;
-  lancamentoIds?: string[]; // IDs dos lançamentos selecionados
+  lancamentoIds?: string[];
 }
 
 interface FaturamentoModalProps {
