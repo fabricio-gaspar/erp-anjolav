@@ -5,6 +5,7 @@ import { toast } from "sonner";
 export interface Caixa {
   id: string;
   operador: string;
+  operador_id: string | null;
   data_abertura: string;
   data_fechamento: string | null;
   valor_abertura: number;
