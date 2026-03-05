@@ -26,6 +26,7 @@ import {
   BarChart3,
   Wallet,
   CalendarDays,
+  ShieldAlert,
 } from "lucide-react";
 import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
 import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
