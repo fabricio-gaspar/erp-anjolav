@@ -1345,6 +1345,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_itens_lancamento_cliente_produto"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "itens_lancamento_cliente_lancamento_id_fkey"
             columns: ["lancamento_id"]
             isOneToOne: false
@@ -1498,7 +1505,22 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_lancamentos_cliente_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_lancamentos_cliente_os"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lancamentos_fatura: {
         Row: {
