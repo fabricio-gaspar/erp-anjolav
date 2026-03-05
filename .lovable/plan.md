@@ -1,112 +1,135 @@
 
 
-# Análise Completa do Sistema - Simplificação e Melhorias
+# Módulos Estoque e Fornecedores - Posicionamento e Arquitetura
 
-## Diagnóstico Atual
-
-O sistema possui **17 páginas** e **7 itens no menu Financeiro** — área com maior fragmentação. Para uma lavanderia, o operador precisa de agilidade: abrir OS, acompanhar produção, faturar e receber. O excesso de telas causa confusão.
-
-## Problemas Identificados
-
-### 1. Menu Financeiro com muitos itens redundantes (7 itens)
-- **Dashboard Financeiro** (`/financeiro`) e **Relatório Financeiro** (`/relatorios/financeiro`) têm sobreposição de dados
-- **Contas a Receber** (`/receber`) é basicamente a tela de cobranças Asaas — duplicada com **Asaas** (`/asaas`)
-- **Faturamento** (`/faturamento`) redireciona para `/lancamentos?tab=faturas` — item fantasma no menu
-- **Histórico Caixas** (`/relatorios/caixa`) poderia estar dentro do próprio Caixa PDV
-
-### 2. Asaas aparece como item separado no menu
-O Asaas (cobranças) e Contas a Receber tratam do mesmo assunto: dinheiro que entra. Ter dois itens confunde.
-
-### 3. Busca no sidebar não funciona
-O botão de busca (`SearchBar`) é apenas visual — não tem ação real implementada.
-
-### 4. Notificações no sidebar sem funcionalidade
-O botão "Notificações" no rodapé do menu não faz nada.
-
-### 5. Badges hardcoded no menu
-Os badges (3, 12, 5, 2) estão fixos no código, não refletem dados reais.
-
-### 6. Lancamentos.tsx com 1881 linhas
-Arquivo monolítico demais — difícil de manter.
-
----
-
-## Plano de Melhorias
-
-### Fase 1 — Simplificar a Navegação
-
-**Reestruturar o menu lateral:**
+## Onde ficam no menu
 
 ```text
-ANTES (17 itens):              DEPOIS (12 itens):
-─────────────────              ──────────────────
-Dashboard                      Dashboard
-                               
-Comercial                      Comercial
-├─ Clientes                    ├─ Clientes
-├─ Produtos                    ├─ Produtos
-                               
-Operacional                    Operacional
-├─ Abrir Retirada              ├─ Abrir Retirada
-├─ Produção                    ├─ Produção
-├─ Agenda                      ├─ Agenda
-                               
-Financeiro                     Financeiro
-├─ Dashboard                   ├─ Visão Geral (merge Dashboard + Relatório)
-├─ Lançamentos                 ├─ Lançamentos & Faturas
-├─ Faturamento (redirect)      ├─ Caixa PDV
-├─ Caixa PDV                   ├─ Contas (merge Receber + Pagar)
-├─ Contas a Receber            
-├─ Contas a Pagar              
-├─ Asaas                       
-                               
-Relatórios                     Relatórios
-├─ Clientes                    ├─ Clientes
-├─ Proximidade                 ├─ Proximidade
-├─ Caixa                       
-├─ Financeiro                  
-                               
-Configurações                  Configurações
-Notificações (sem ação)        
+Dashboard
+
+Comercial
+├─ Clientes
+├─ Produtos
+├─ Fornecedores  ← NOVO (vive junto de Clientes/Produtos)
+
+Operacional
+├─ Abrir Retirada
+├─ Produção
+├─ Agenda
+├─ Estoque  ← NOVO (controle operacional de insumos)
+
+Financeiro
+├─ Visão Geral
+├─ Lançamentos
+├─ Caixa PDV
+├─ Contas
+
+Relatórios
+├─ Clientes
+├─ Proximidade
+
+Configurações
 ```
 
-**Alterações concretas:**
-1. Remover item **Faturamento** do menu (já é redirect)
-2. Unificar **Contas a Receber + Contas a Pagar** em uma página com tabs "A Receber" / "A Pagar"
-3. Mover **Asaas** para dentro de Contas a Receber como integração (não como item separado)
-4. Mover **Histórico Caixas** para dentro do Caixa PDV como tab
-5. Unificar **Dashboard Financeiro + Relatório Financeiro** em uma só página
-6. Remover botão **Notificações** sem função do sidebar
-7. Remover botão **Busca** sem função do sidebar (ou implementar)
-
-### Fase 2 — Badges dinâmicos
-
-Substituir os valores fixos (3, 12, 5, 2) por queries reais:
-- **Clientes**: novos clientes sem configuração completa
-- **Produção**: OS em etapas ativas
-- **Lançamentos**: lançamentos pendentes de faturamento
-- **Contas**: vencidas/vencendo hoje
-
-### Fase 3 — Refatorar Lancamentos.tsx
-
-Dividir o arquivo de 1881 linhas em componentes menores:
-- `LancamentosTab.tsx` — tab de lançamentos
-- `FaturasTab.tsx` — tab de faturas
-- `LancamentosFilters.tsx` — filtros
-- `LancamentosActions.tsx` — ações em lote
+**Fornecedores** fica em "Comercial" porque é cadastro de parceiros comerciais (assim como Clientes e Produtos).
+**Estoque** fica em "Operacional" porque controla insumos do dia a dia da produção (sabão, amaciante, embalagens, etc.).
 
 ---
 
-## Resumo de Impacto
+## Arquitetura do Módulo Fornecedores
 
-| Ação | Resultado |
+### Tabela: `fornecedores`
+| Coluna | Tipo |
 |---|---|
-| Remover 5 itens do menu | Menu mais limpo, menos confusão |
-| Unificar Contas | Uma tela para todo fluxo de caixa |
-| Badges dinâmicos | Informação real no menu |
-| Refatorar Lancamentos | Código mais sustentável |
-| Remover elementos sem função | Interface mais honesta |
+| id | uuid PK |
+| nome | text NOT NULL |
+| razao_social | text |
+| cnpj_cpf | text |
+| telefone | text |
+| email | text |
+| contato_nome | text |
+| endereco | jsonb (cep, logradouro, numero, bairro, cidade, uf) |
+| categoria | text (produtos_limpeza, embalagens, manutencao, outros) |
+| observacoes | text |
+| ativo | boolean DEFAULT true |
+| created_at / updated_at | timestamptz |
 
-**Arquivos afetados**: ~12 arquivos (sidebar, páginas, App.tsx, hooks)
-**Nenhuma alteração no banco de dados**.
+### Página: `/fornecedores`
+- Lista com filtro por categoria e status (ativo/inativo)
+- Modal de cadastro/edição com consulta CNPJ (BrasilAPI, igual Clientes)
+- Vinculação com produtos do estoque (qual fornecedor abastece qual insumo)
+
+### Arquivo: `src/pages/Fornecedores.tsx` + `src/hooks/useFornecedores.ts`
+
+---
+
+## Arquitetura do Módulo Estoque
+
+### Tabela: `estoque_produtos` (insumos, não confundir com `produtos` que são serviços)
+| Coluna | Tipo |
+|---|---|
+| id | uuid PK |
+| nome | text NOT NULL |
+| categoria | text (quimico, embalagem, epi, manutencao, outros) |
+| unidade | text (litro, kg, unidade, metro) |
+| quantidade_atual | numeric DEFAULT 0 |
+| quantidade_minima | numeric DEFAULT 0 (alerta de reposição) |
+| preco_custo | numeric DEFAULT 0 |
+| fornecedor_id | uuid FK → fornecedores |
+| localizacao | text (ex: "Prateleira A3") |
+| ativo | boolean DEFAULT true |
+| created_at / updated_at | timestamptz |
+
+### Tabela: `movimentacoes_estoque` (entradas e saidas)
+| Coluna | Tipo |
+|---|---|
+| id | uuid PK |
+| estoque_produto_id | uuid FK → estoque_produtos |
+| tipo | text (entrada, saida, ajuste) |
+| quantidade | numeric |
+| motivo | text |
+| fornecedor_id | uuid FK → fornecedores (para entradas) |
+| custo_unitario | numeric |
+| funcionario_id | uuid FK → funcionarios |
+| created_at | timestamptz |
+
+### Página: `/estoque`
+- **Dashboard de estoque**: cards com total de itens, itens abaixo do mínimo, valor total em estoque
+- **Lista de insumos**: tabela com nome, quantidade atual, mínimo, status (OK / Baixo / Crítico)
+- **Modal de entrada**: registrar compra (vincula ao fornecedor, atualiza quantidade)
+- **Modal de saída**: registrar consumo (vincula à produção ou uso geral)
+- **Alertas visuais**: itens com `quantidade_atual <= quantidade_minima` em destaque vermelho
+
+### Arquivos:
+- `src/pages/Estoque.tsx`
+- `src/hooks/useEstoque.ts`
+- `src/hooks/useMovimentacoesEstoque.ts`
+- `src/components/estoque/EstoqueDashboard.tsx`
+- `src/components/estoque/EntradaEstoqueModal.tsx`
+- `src/components/estoque/SaidaEstoqueModal.tsx`
+
+---
+
+## Fluxo integrado
+
+```text
+Fornecedor → Entrada no Estoque → Produção consome → Saída do Estoque
+                                         ↓
+                                  Contas a Pagar (custo)
+```
+
+- Ao registrar entrada, pode gerar automaticamente uma conta a pagar em `contas_pagar`
+- Alerta no Dashboard quando insumos estiverem abaixo do mínimo
+
+## Resumo de implementação
+
+| Item | Tipo |
+|---|---|
+| 2 tabelas novas (fornecedores, estoque_produtos) | Migração SQL |
+| 1 tabela de movimentações (movimentacoes_estoque) | Migração SQL |
+| RLS para as 3 tabelas | Migração SQL |
+| 2 páginas novas | Código |
+| 3 hooks novos | Código |
+| ~4 componentes de estoque | Código |
+| Sidebar + App.tsx (rotas) | Código |
 
