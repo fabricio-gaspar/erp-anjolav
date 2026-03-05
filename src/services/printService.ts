@@ -23,6 +23,8 @@ export interface EtiquetaData {
   bloco?: string;
   posicao?: string;
   data: Date;
+  produtoNome?: string;
+  quantidade?: number;
 }
 
 export interface EtiquetaConfig {
@@ -382,7 +384,8 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
         .company { font-size: ${config.tamanhoFonte}px; font-weight: bold; text-transform: uppercase; }
         .content { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .os-number { font-size: ${config.tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
-        .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 3mm; text-align: center; }
+        .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 2mm; text-align: center; }
+        .produto { font-size: ${config.tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 3mm; text-align: center; text-transform: uppercase; }
         .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
         .barcode-number { font-size: ${config.tamanhoFonte - 4}px; font-family: monospace; color: #666; }
         .footer { text-align: center; margin-top: 2mm; }
@@ -398,6 +401,7 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
       <div class="content">
         <div class="os-number">OS: ${data.osNumero}</div>
         <div class="client">${data.clienteNome}</div>
+        ${data.produtoNome ? `<div class="produto">${data.produtoNome}${data.quantidade && data.quantidade > 1 ? ` x${data.quantidade}` : ''}</div>` : ''}
         
         <div class="barcode">${barcodeSVG}</div>
         <div class="barcode-number">${data.osNumero}</div>
@@ -451,20 +455,25 @@ export async function printEtiquetaFromOS(ordemServicoId: string): Promise<boole
 
   if (!config || !osData) return false;
 
-  const etiquetaData: EtiquetaData = {
-    osNumero: osData.numero,
-    clienteNome: osData.clienteNome,
-    bloco: osData.bloco,
-    posicao: osData.posicao,
-    data: osData.dataEmissao,
-  };
-
-  const html = generateEtiquetaHTMLWithData(config, etiquetaData);
-  openPrintWindow(html);
+  // Generate one label per item type
+  if (osData.itens.length > 0) {
+    const html = generateMultipleItemLabelsHTML(config, osData);
+    openPrintWindow(html);
+  } else {
+    const etiquetaData: EtiquetaData = {
+      osNumero: osData.numero,
+      clienteNome: osData.clienteNome,
+      bloco: osData.bloco,
+      posicao: osData.posicao,
+      data: osData.dataEmissao,
+    };
+    const html = generateEtiquetaHTMLWithData(config, etiquetaData);
+    openPrintWindow(html);
+  }
   return true;
 }
 
-export async function printMultipleEtiquetas(ordemServicoId: string, quantidade: number): Promise<boolean> {
+export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade: number): Promise<boolean> {
   const [config, osData] = await Promise.all([
     fetchEtiquetaConfig(),
     fetchOSPrintData(ordemServicoId),
@@ -472,42 +481,57 @@ export async function printMultipleEtiquetas(ordemServicoId: string, quantidade:
 
   if (!config || !osData) return false;
 
-  const etiquetaData: EtiquetaData = {
-    osNumero: osData.numero,
-    clienteNome: osData.clienteNome,
-    bloco: osData.bloco,
-    posicao: osData.posicao,
-    data: osData.dataEmissao,
-  };
+  // Generate one label per item type (ignoring manual quantidade, using actual items)
+  if (osData.itens.length > 0) {
+    const html = generateMultipleItemLabelsHTML(config, osData);
+    openPrintWindow(html);
+  } else {
+    // Fallback: single generic label
+    const etiquetaData: EtiquetaData = {
+      osNumero: osData.numero,
+      clienteNome: osData.clienteNome,
+      bloco: osData.bloco,
+      posicao: osData.posicao,
+      data: osData.dataEmissao,
+    };
+    const html = generateEtiquetaHTMLWithData(config, etiquetaData);
+    openPrintWindow(html);
+  }
+  return true;
+}
 
-  // Generate multiple labels in a single page
+// Generate a print page with one label per item type
+function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSData): string {
   const size = getEtiquetaDimensions(config.tamanhoEtiqueta);
-  const barcodeSVG = generateBarcodeSVG(etiquetaData.osNumero, config.alturaCodigoBarras);
-  
-  const labelHTML = `
-    <div class="label">
-      <div class="header">
-        <div class="company">${config.nomeEmpresa || 'ANJOLAV LAVANDERIA'}</div>
-      </div>
-      <div class="content">
-        <div class="os-number">OS: ${etiquetaData.osNumero}</div>
-        <div class="client">${etiquetaData.clienteNome}</div>
-        <div class="barcode">${barcodeSVG}</div>
-        <div class="barcode-number">${etiquetaData.osNumero}</div>
-      </div>
-      <div class="footer">
-        ${(etiquetaData.bloco || etiquetaData.posicao) ? `<div class="location">${etiquetaData.bloco ? `Bloco: ${etiquetaData.bloco}` : ''} ${etiquetaData.bloco && etiquetaData.posicao ? '|' : ''} ${etiquetaData.posicao ? `Pos: ${etiquetaData.posicao}` : ''}</div>` : ''}
-        <div class="date">${etiquetaData.data.toLocaleDateString('pt-BR')}</div>
-      </div>
-    </div>
-  `;
 
-  const html = `
+  const labels = osData.itens.map(item => {
+    const barcodeSVG = generateBarcodeSVG(osData.numero, config.alturaCodigoBarras);
+    return `
+      <div class="label">
+        <div class="header">
+          <div class="company">${config.nomeEmpresa || 'ANJOLAV LAVANDERIA'}</div>
+        </div>
+        <div class="content">
+          <div class="os-number">OS: ${osData.numero}</div>
+          <div class="client">${osData.clienteNome}</div>
+          <div class="produto">${item.nome}${item.quantidade > 1 ? ` x${item.quantidade}` : ''}</div>
+          <div class="barcode">${barcodeSVG}</div>
+          <div class="barcode-number">${osData.numero}</div>
+        </div>
+        <div class="footer">
+          ${(osData.bloco || osData.posicao) ? `<div class="location">${osData.bloco ? `Bloco: ${osData.bloco}` : ''} ${osData.bloco && osData.posicao ? '|' : ''} ${osData.posicao ? `Pos: ${osData.posicao}` : ''}</div>` : ''}
+          <div class="date">${osData.dataEmissao.toLocaleDateString('pt-BR')}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Etiquetas - ${etiquetaData.osNumero}</title>
+      <title>Etiquetas - ${osData.numero}</title>
       <style>
         @page { size: ${size.w} ${size.h}; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -525,7 +549,8 @@ export async function printMultipleEtiquetas(ordemServicoId: string, quantidade:
         .company { font-size: ${config.tamanhoFonte}px; font-weight: bold; text-transform: uppercase; }
         .content { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .os-number { font-size: ${config.tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
-        .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 3mm; text-align: center; }
+        .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 2mm; text-align: center; }
+        .produto { font-size: ${config.tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 3mm; text-align: center; text-transform: uppercase; }
         .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
         .barcode-number { font-size: ${config.tamanhoFonte - 4}px; font-family: monospace; color: #666; }
         .footer { text-align: center; margin-top: 2mm; }
@@ -534,11 +559,8 @@ export async function printMultipleEtiquetas(ordemServicoId: string, quantidade:
       </style>
     </head>
     <body>
-      ${Array(quantidade).fill(labelHTML).join('')}
+      ${labels}
     </body>
     </html>
   `;
-
-  openPrintWindow(html);
-  return true;
 }
