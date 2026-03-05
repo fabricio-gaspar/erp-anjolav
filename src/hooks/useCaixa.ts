@@ -28,6 +28,8 @@ export interface CaixaMovimentacao {
   valor: number;
   descricao: string | null;
   forma_pagamento: string | null;
+  cliente_id: string | null;
+  ordem_servico_id: string | null;
   created_at: string;
 }
 

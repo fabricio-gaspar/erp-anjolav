@@ -6,6 +6,7 @@ export interface ContaPagar {
   id: string;
   descricao: string;
   fornecedor: string | null;
+  fornecedor_id: string | null;
   valor: number;
   vencimento: string;
   data_pagamento: string | null;
