@@ -515,7 +515,8 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
         <div class="content">
           <div class="os-number">OS: ${osData.numero}</div>
           <div class="client">${osData.clienteNome}</div>
-          <div class="produto">${item.nome}${item.quantidade > 1 ? ` x${item.quantidade}` : ''}</div>
+          <div class="produto">${item.nome}</div>
+          <div class="quantidade">QTD: ${item.quantidade} peça(s)</div>
           <div class="barcode">${barcodeSVG}</div>
           <div class="barcode-number">${osData.numero}</div>
         </div>
