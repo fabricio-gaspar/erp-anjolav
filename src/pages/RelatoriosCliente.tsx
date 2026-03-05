@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useClientes, useConfiguracaoCliente } from "@/hooks/useClientes";
 import { useRelatorioCliente } from "@/hooks/useRelatorioCliente";
 import { MapaMensalPecas } from "@/components/relatorios/MapaMensalPecas";
+import { MapaPecasCliente } from "@/components/relatorios/MapaPecasCliente";
 import { RelatorioDetalhadoCliente } from "@/components/relatorios/RelatorioDetalhadoCliente";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
