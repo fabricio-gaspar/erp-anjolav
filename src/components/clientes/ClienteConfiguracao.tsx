@@ -323,6 +323,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
                     {tipo.label}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">{tipo.description}</p>
+                  {(() => { const Preview = previewComponents[tipo.key]; return <Preview />; })()}
                 </button>
               );
             })}
