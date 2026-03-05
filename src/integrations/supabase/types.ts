@@ -805,6 +805,59 @@ export type Database = {
           },
         ]
       }
+      estoque_produtos: {
+        Row: {
+          ativo: boolean
+          categoria: string | null
+          created_at: string
+          fornecedor_id: string | null
+          id: string
+          localizacao: string | null
+          nome: string
+          preco_custo: number
+          quantidade_atual: number
+          quantidade_minima: number
+          unidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string | null
+          created_at?: string
+          fornecedor_id?: string | null
+          id?: string
+          localizacao?: string | null
+          nome: string
+          preco_custo?: number
+          quantidade_atual?: number
+          quantidade_minima?: number
+          unidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string | null
+          created_at?: string
+          fornecedor_id?: string | null
+          id?: string
+          localizacao?: string | null
+          nome?: string
+          preco_custo?: number
+          quantidade_atual?: number
+          quantidade_minima?: number
+          unidade?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_produtos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       etiquetas_configuracoes: {
         Row: {
           altura_codigo_barras: number | null
@@ -984,6 +1037,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fornecedores: {
+        Row: {
+          ativo: boolean
+          categoria: string | null
+          cnpj_cpf: string | null
+          contato_nome: string | null
+          created_at: string
+          email: string | null
+          endereco: Json | null
+          id: string
+          nome: string
+          observacoes: string | null
+          razao_social: string | null
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string | null
+          cnpj_cpf?: string | null
+          contato_nome?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: Json | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          razao_social?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string | null
+          cnpj_cpf?: string | null
+          contato_nome?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: Json | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          razao_social?: string | null
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       funcionarios: {
         Row: {
@@ -1510,6 +1611,64 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "motoristas_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimentacoes_estoque: {
+        Row: {
+          created_at: string
+          custo_unitario: number | null
+          estoque_produto_id: string
+          fornecedor_id: string | null
+          funcionario_id: string | null
+          id: string
+          motivo: string | null
+          quantidade: number
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          custo_unitario?: number | null
+          estoque_produto_id: string
+          fornecedor_id?: string | null
+          funcionario_id?: string | null
+          id?: string
+          motivo?: string | null
+          quantidade: number
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          custo_unitario?: number | null
+          estoque_produto_id?: string
+          fornecedor_id?: string | null
+          funcionario_id?: string | null
+          id?: string
+          motivo?: string | null
+          quantidade?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_estoque_estoque_produto_id_fkey"
+            columns: ["estoque_produto_id"]
+            isOneToOne: false
+            referencedRelation: "estoque_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_estoque_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_estoque_funcionario_id_fkey"
             columns: ["funcionario_id"]
             isOneToOne: false
             referencedRelation: "funcionarios"

@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Bell,
   User,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -311,12 +312,14 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
           <NavGroup title="Comercial" icon={Users} defaultOpen>
             <NavItem to="/clientes" icon={Users} label="Clientes" />
             <NavItem to="/produtos" icon={Package} label="Produtos" />
+            <NavItem to="/fornecedores" icon={Building2} label="Fornecedores" />
           </NavGroup>
 
           <NavGroup title="Operacional" icon={Factory}>
             <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" />
             <NavItem to="/producao" icon={Factory} label="Produção" />
             <NavItem to="/agenda" icon={Calendar} label="Agenda" />
+            <NavItem to="/estoque" icon={Package} label="Estoque" />
           </NavGroup>
 
           <NavGroup title="Financeiro" icon={Wallet}>
