@@ -73,7 +73,7 @@ export default function Fornecedores() {
     }
     setBuscandoCnpj(true);
     try {
-      const dados = await consultarCNPJ(cnpj);
+      const dados = await buscarCnpj(cnpj);
       if (dados) {
         setForm((prev) => ({
           ...prev,
