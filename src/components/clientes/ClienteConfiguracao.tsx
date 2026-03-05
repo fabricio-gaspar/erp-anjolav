@@ -26,23 +26,111 @@ const diasSemana = [
   { key: "dom", label: "Dom" },
 ];
 
+// Mini-preview components for each report type
+const PreviewDetalhado = () => (
+  <div className="mt-2 border rounded p-2 bg-white text-[6px] leading-tight" style={{ fontFamily: "Arial, sans-serif" }}>
+    <div className="flex" style={{ background: "#4472C4", color: "#fff", padding: "2px 3px", fontSize: "6px", fontWeight: "bold" }}>
+      <span className="flex-1 text-center">RELATÓRIO DE HIGIENIZAÇÃO</span>
+    </div>
+    <table className="w-full border-collapse mt-0.5" style={{ fontSize: "5px" }}>
+      <thead>
+        <tr>
+          <th style={{ background: "#4472C4", color: "#fff", border: "0.5px solid #999", padding: "1px", fontSize: "4px" }}>ITEM</th>
+          <th style={{ background: "#4472C4", color: "#fff", border: "0.5px solid #999", padding: "1px", fontSize: "4px" }}>DESCRIÇÃO</th>
+          <th style={{ background: "#4472C4", color: "#fff", border: "0.5px solid #999", padding: "1px", fontSize: "4px" }}>02/JAN</th>
+          <th style={{ background: "#4472C4", color: "#fff", border: "0.5px solid #999", padding: "1px", fontSize: "4px" }}>09/JAN</th>
+          <th style={{ background: "#4472C4", color: "#fff", border: "0.5px solid #999", padding: "1px", fontSize: "4px" }}>TOTAL</th>
+          <th style={{ background: "#4472C4", color: "#fff", border: "0.5px solid #999", padding: "1px", fontSize: "4px" }}>VLR R$</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>1</td><td style={{ border: "0.5px solid #ccc", padding: "1px" }}>LENÇOL</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>10</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>8</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center", fontWeight: "bold" }}>18</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right" }}>54,00</td></tr>
+        <tr><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>2</td><td style={{ border: "0.5px solid #ccc", padding: "1px" }}>TOALHA</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>15</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>12</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center", fontWeight: "bold" }}>27</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right" }}>40,50</td></tr>
+        <tr><td colSpan={2} style={{ border: "0.5px solid #ccc", padding: "1px", fontWeight: "bold", background: "#FEF9C3" }}>CONTRATO</td><td colSpan={3} style={{ border: "0.5px solid #ccc", padding: "1px", background: "#FEF9C3" }}></td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", background: "#FEF9C3", fontWeight: "bold" }}>500,00</td></tr>
+        <tr><td colSpan={5} style={{ background: "#4472C4", color: "#fff", border: "0.5px solid #999", padding: "1px", textAlign: "right", fontWeight: "bold" }}>TOTAL</td><td style={{ background: "#FFC000", border: "0.5px solid #999", padding: "1px", textAlign: "right", fontWeight: "bold" }}>594,50</td></tr>
+      </tbody>
+    </table>
+  </div>
+);
+
+const PreviewMapaPecas = () => (
+  <div className="mt-2 border rounded p-2 bg-white text-[6px] leading-tight" style={{ fontFamily: "Arial, sans-serif" }}>
+    <div className="flex justify-between" style={{ background: "#FEF9C3", padding: "2px 3px", fontSize: "5px", fontWeight: "bold", border: "0.5px solid #ccc" }}>
+      <span>ROL: 5001</span><span>DT.ENTRADA: 02/01/2025</span><span>PREV.ENTR.:</span>
+    </div>
+    <table className="w-full border-collapse" style={{ fontSize: "5px" }}>
+      <thead>
+        <tr>
+          <th style={{ background: "#FEF9C3", border: "0.5px solid #ccc", padding: "1px", fontSize: "4px", textAlign: "left" }}>DESCRIÇÃO</th>
+          <th style={{ background: "#FEF9C3", border: "0.5px solid #ccc", padding: "1px", fontSize: "4px" }}>COMPL.</th>
+          <th style={{ background: "#FEF9C3", border: "0.5px solid #ccc", padding: "1px", fontSize: "4px" }}>Q.CLI.</th>
+          <th style={{ background: "#FEF9C3", border: "0.5px solid #ccc", padding: "1px", fontSize: "4px" }}>QTD.</th>
+          <th style={{ background: "#FEF9C3", border: "0.5px solid #ccc", padding: "1px", fontSize: "4px" }}>UNIT.</th>
+          <th style={{ background: "#FEF9C3", border: "0.5px solid #ccc", padding: "1px", fontSize: "4px" }}>TOTAL</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style={{ border: "0.5px solid #ccc", padding: "1px" }}>LENÇOL</td><td style={{ border: "0.5px solid #ccc", padding: "1px" }}></td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}></td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>10</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right" }}>3,00</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right" }}>30,00</td></tr>
+        <tr><td style={{ border: "0.5px solid #ccc", padding: "1px" }}>TOALHA</td><td style={{ border: "0.5px solid #ccc", padding: "1px" }}></td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}></td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>15</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right" }}>1,50</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right" }}>22,50</td></tr>
+        <tr><td colSpan={3} style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", fontWeight: "bold" }}>TOTAIS DO ROL:</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center", fontWeight: "bold" }}>25</td><td style={{ border: "0.5px solid #ccc", padding: "1px" }}></td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", fontWeight: "bold" }}>52,50</td></tr>
+      </tbody>
+    </table>
+    <div style={{ background: "#E5E7EB", padding: "2px 3px", textAlign: "right", fontWeight: "bold", fontSize: "5px", border: "0.5px solid #ccc", marginTop: "2px" }}>
+      TOTAL GERAL R$ 52,50
+    </div>
+  </div>
+);
+
+const PreviewMapaMensal = () => (
+  <div className="mt-2 border rounded p-2 bg-white text-[6px] leading-tight" style={{ fontFamily: "Arial, sans-serif" }}>
+    <div className="text-center" style={{ fontWeight: "bold", fontSize: "6px", padding: "2px", border: "0.5px solid #ccc" }}>
+      Mapa Mensal de Peças
+    </div>
+    <table className="w-full border-collapse mt-0.5" style={{ fontSize: "4.5px" }}>
+      <thead>
+        <tr>
+          <th style={{ background: "#f0f0f0", border: "0.5px solid #ccc", padding: "1px", textAlign: "left", fontSize: "4px" }}>Peça</th>
+          <th style={{ background: "#f0f0f0", border: "0.5px solid #ccc", padding: "1px", fontSize: "3.5px", textAlign: "center" }}>DIA<br/>02</th>
+          <th style={{ background: "#f0f0f0", border: "0.5px solid #ccc", padding: "1px", fontSize: "3.5px", textAlign: "center" }}>DIA<br/>09</th>
+          <th style={{ background: "#f0f0f0", border: "0.5px solid #ccc", padding: "1px", fontSize: "3.5px", textAlign: "center" }}>DIA<br/>16</th>
+          <th style={{ background: "#f0f0f0", border: "0.5px solid #ccc", padding: "1px", fontSize: "3.5px", textAlign: "center" }}>DIA<br/>23</th>
+          <th style={{ background: "#f0f0f0", border: "0.5px solid #ccc", padding: "1px", fontSize: "4px" }}>Qtd</th>
+          <th style={{ background: "#f0f0f0", border: "0.5px solid #ccc", padding: "1px", fontSize: "4px" }}>Vlr.Unit</th>
+          <th style={{ background: "#f0f0f0", border: "0.5px solid #ccc", padding: "1px", fontSize: "4px" }}>Vlr.Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style={{ border: "0.5px solid #ccc", padding: "1px" }}>LENÇOL</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>10</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>8</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>12</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>9</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", fontWeight: "bold" }}>39</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right" }}>3,00</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", fontWeight: "bold" }}>117,00</td></tr>
+        <tr><td style={{ border: "0.5px solid #ccc", padding: "1px" }}>TOALHA</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>15</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>12</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>18</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "center" }}>14</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", fontWeight: "bold" }}>59</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right" }}>1,50</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", fontWeight: "bold" }}>88,50</td></tr>
+        <tr><td colSpan={5} style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", fontWeight: "bold", background: "#e0e0e0" }}>Total Dept:</td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", fontWeight: "bold", background: "#e0e0e0" }}>98</td><td style={{ border: "0.5px solid #ccc", padding: "1px", background: "#e0e0e0" }}></td><td style={{ border: "0.5px solid #ccc", padding: "1px", textAlign: "right", fontWeight: "bold", background: "#e0e0e0" }}>205,50</td></tr>
+      </tbody>
+    </table>
+  </div>
+);
+
+const previewComponents: Record<TipoRelatorio, React.FC> = {
+  detalhado: PreviewDetalhado,
+  mapa_pecas: PreviewMapaPecas,
+  mapa_mensal: PreviewMapaMensal,
+};
+
 const tiposRelatorio = [
   {
     key: "detalhado" as TipoRelatorio,
     label: "Relatório Detalhado",
-    description: "Análise completa com KPIs e gráficos",
+    description: "Cabeçalho azul, colunas por data/ROL, linha CONTRATO",
     icon: FileText,
   },
   {
     key: "mapa_pecas" as TipoRelatorio,
     label: "Mapa de Peças",
-    description: "Detalhado por ROL/data de entrada",
+    description: "Detalhado por ROL/data de entrada com Q.CLI",
     icon: Table2,
   },
   {
     key: "mapa_mensal" as TipoRelatorio,
     label: "Mapa Mensal",
-    description: "Matriz com dias do mês",
+    description: "Matriz com dias do mês e totais",
     icon: Grid,
   },
 ];
@@ -235,6 +323,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
                     {tipo.label}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">{tipo.description}</p>
+                  {(() => { const Preview = previewComponents[tipo.key]; return <Preview />; })()}
                 </button>
               );
             })}

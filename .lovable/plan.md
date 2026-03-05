@@ -1,55 +1,112 @@
 
 
-# Pré-visualização e Recriação dos 3 Tipos de Relatório
+# Análise Completa do Sistema - Simplificação e Melhorias
 
-## Diagnóstico
+## Diagnóstico Atual
 
-Analisando as imagens enviadas e o código atual:
+O sistema possui **17 páginas** e **7 itens no menu Financeiro** — área com maior fragmentação. Para uma lavanderia, o operador precisa de agilidade: abrir OS, acompanhar produção, faturar e receber. O excesso de telas causa confusão.
 
-1. **`RelatoriosCliente.tsx` linha 322**: usa `MapaMensalPecas` para AMBOS `mapa_pecas` e `mapa_mensal` — o Mapa de Peças (ROL-by-ROL) nunca é renderizado
-2. **`RelatorioDetalhadoCliente.tsx`**: é uma cópia do `MapaPecasCliente.tsx` — não corresponde à imagem 86 (RELATÓRIO DE HIGIENIZAÇÃO com colunas data+ROL, cabeçalho azul, linha CONTRATO)
-3. **`ClienteConfiguracao.tsx`**: seletor de tipo sem preview visual — usuário não sabe como cada relatório será impresso
+## Problemas Identificados
 
-## Correspondência Imagem → Tipo
+### 1. Menu Financeiro com muitos itens redundantes (7 itens)
+- **Dashboard Financeiro** (`/financeiro`) e **Relatório Financeiro** (`/relatorios/financeiro`) têm sobreposição de dados
+- **Contas a Receber** (`/receber`) é basicamente a tela de cobranças Asaas — duplicada com **Asaas** (`/asaas`)
+- **Faturamento** (`/faturamento`) redireciona para `/lancamentos?tab=faturas` — item fantasma no menu
+- **Histórico Caixas** (`/relatorios/caixa`) poderia estar dentro do próprio Caixa PDV
 
-| Tipo | Imagem | Formato |
-|---|---|---|
-| **Mapa de Peças** | Imagem 85 | ROL-por-ROL com itens, COMPLEMENTO, PESO, Q.CLI, QUANT, UNIT, TOTAL, OBS. Subtotal por ROL, TOTAL GERAL |
-| **Mapa Mensal** | Imagem 84 | Matriz: linhas=peças, colunas=DIA/MÊS, Quant/Vlr.Unit/Vlr.Total no final |
-| **Relatório Detalhado** | Imagem 86 | "RELATÓRIO DE HIGIENIZAÇÃO" com cabeçalho azul, colunas=data+nºROL, ITEM numerado, linha CONTRATO, TOTAL destacado |
+### 2. Asaas aparece como item separado no menu
+O Asaas (cobranças) e Contas a Receber tratam do mesmo assunto: dinheiro que entra. Ter dois itens confunde.
 
-## Alterações
+### 3. Busca no sidebar não funciona
+O botão de busca (`SearchBar`) é apenas visual — não tem ação real implementada.
 
-### 1. ClienteConfiguracao.tsx — Adicionar mini-previews
-Abaixo de cada botão de tipo de relatório, inserir um mini thumbnail SVG/HTML estilizado mostrando o layout do relatório correspondente (tabela miniaturizada com dados fictícios). Quando selecionado, o preview fica destacado.
+### 4. Notificações no sidebar sem funcionalidade
+O botão "Notificações" no rodapé do menu não faz nada.
 
-### 2. RelatorioDetalhadoCliente.tsx — Recriar completo (imagem 86)
-Recriar para corresponder exatamente à imagem 86:
-- Cabeçalho: logo à esquerda, "RELATÓRIO DE HIGIENIZAÇÃO [CLIENTE]" no centro, "MÊS [NOME DO MÊS] DE [ANO]" à direita
-- Colunas: DATA (dd/mmm) com nº ROL abaixo de cada data
-- Linhas: ITEM (numerado), DESCRIÇÃO, quantidades por data, QTDE TOTAL, VALOR UNIT R$, VALOR TOTAL R$
-- Linha especial "CONTRATO" com valor fixo do contrato de aluguel
-- Rodapé: TOTAL com destaque azul/amarelo
-- Estilo com cabeçalho azul (#4472C4) e texto branco
+### 5. Badges hardcoded no menu
+Os badges (3, 12, 5, 2) estão fixos no código, não refletem dados reais.
 
-### 3. MapaPecasCliente.tsx — Ajustar para imagem 85
-Ajustar o cabeçalho do ROL para incluir "PREV.ENTR.:" e adicionar coluna "Q.CLI." Garantir que o formato R$ aparece com "R$" separado do valor (como na imagem). Garantir "TOTAIS DO ROL:" e "TOTAL GERAL R$ X.XXX,XX".
+### 6. Lancamentos.tsx com 1881 linhas
+Arquivo monolítico demais — difícil de manter.
 
-### 4. MapaMensalPecas.tsx — Ajustar para imagem 84
-Confirmar que corresponde à imagem. Ajustar colunas DIA/MES para mostrar corretamente. Garantir "Vlr.Unit" e "Vlr.Total" como cabeçalhos. Total do Departamento e Total Geral no rodapé.
+---
 
-### 5. RelatoriosCliente.tsx — Corrigir renderização
-Linha 322: separar `mapa_pecas` (usar `MapaPecasCliente`) de `mapa_mensal` (usar `MapaMensalPecas`). Atualmente ambos usam o mesmo componente.
+## Plano de Melhorias
 
-## Arquivos afetados
+### Fase 1 — Simplificar a Navegação
 
-| Arquivo | Ação |
+**Reestruturar o menu lateral:**
+
+```text
+ANTES (17 itens):              DEPOIS (12 itens):
+─────────────────              ──────────────────
+Dashboard                      Dashboard
+                               
+Comercial                      Comercial
+├─ Clientes                    ├─ Clientes
+├─ Produtos                    ├─ Produtos
+                               
+Operacional                    Operacional
+├─ Abrir Retirada              ├─ Abrir Retirada
+├─ Produção                    ├─ Produção
+├─ Agenda                      ├─ Agenda
+                               
+Financeiro                     Financeiro
+├─ Dashboard                   ├─ Visão Geral (merge Dashboard + Relatório)
+├─ Lançamentos                 ├─ Lançamentos & Faturas
+├─ Faturamento (redirect)      ├─ Caixa PDV
+├─ Caixa PDV                   ├─ Contas (merge Receber + Pagar)
+├─ Contas a Receber            
+├─ Contas a Pagar              
+├─ Asaas                       
+                               
+Relatórios                     Relatórios
+├─ Clientes                    ├─ Clientes
+├─ Proximidade                 ├─ Proximidade
+├─ Caixa                       
+├─ Financeiro                  
+                               
+Configurações                  Configurações
+Notificações (sem ação)        
+```
+
+**Alterações concretas:**
+1. Remover item **Faturamento** do menu (já é redirect)
+2. Unificar **Contas a Receber + Contas a Pagar** em uma página com tabs "A Receber" / "A Pagar"
+3. Mover **Asaas** para dentro de Contas a Receber como integração (não como item separado)
+4. Mover **Histórico Caixas** para dentro do Caixa PDV como tab
+5. Unificar **Dashboard Financeiro + Relatório Financeiro** em uma só página
+6. Remover botão **Notificações** sem função do sidebar
+7. Remover botão **Busca** sem função do sidebar (ou implementar)
+
+### Fase 2 — Badges dinâmicos
+
+Substituir os valores fixos (3, 12, 5, 2) por queries reais:
+- **Clientes**: novos clientes sem configuração completa
+- **Produção**: OS em etapas ativas
+- **Lançamentos**: lançamentos pendentes de faturamento
+- **Contas**: vencidas/vencendo hoje
+
+### Fase 3 — Refatorar Lancamentos.tsx
+
+Dividir o arquivo de 1881 linhas em componentes menores:
+- `LancamentosTab.tsx` — tab de lançamentos
+- `FaturasTab.tsx` — tab de faturas
+- `LancamentosFilters.tsx` — filtros
+- `LancamentosActions.tsx` — ações em lote
+
+---
+
+## Resumo de Impacto
+
+| Ação | Resultado |
 |---|---|
-| `src/components/clientes/ClienteConfiguracao.tsx` | Adicionar mini-previews visuais |
-| `src/components/relatorios/RelatorioDetalhadoCliente.tsx` | Recriar completo (imagem 86) |
-| `src/components/relatorios/MapaPecasCliente.tsx` | Ajustar detalhes (imagem 85) |
-| `src/components/relatorios/MapaMensalPecas.tsx` | Ajustar detalhes (imagem 84) |
-| `src/pages/RelatoriosCliente.tsx` | Corrigir mapeamento tipo→componente |
+| Remover 5 itens do menu | Menu mais limpo, menos confusão |
+| Unificar Contas | Uma tela para todo fluxo de caixa |
+| Badges dinâmicos | Informação real no menu |
+| Refatorar Lancamentos | Código mais sustentável |
+| Remover elementos sem função | Interface mais honesta |
 
-Nenhuma alteração no banco de dados.
+**Arquivos afetados**: ~12 arquivos (sidebar, páginas, App.tsx, hooks)
+**Nenhuma alteração no banco de dados**.
 
