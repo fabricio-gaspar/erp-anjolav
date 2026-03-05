@@ -7,6 +7,9 @@ import { OperationalCosts } from "@/components/dashboard/OperationalCosts";
 import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
 import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
+import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
+import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
+import { ContratosVencendoCard } from "@/components/dashboard/ContratosVencendoCard";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, 
