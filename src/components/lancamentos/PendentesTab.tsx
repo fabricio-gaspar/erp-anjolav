@@ -99,6 +99,11 @@ export function PendentesTab() {
     return first.cliente;
   }, [lancamentosFiltrados, selectedLancamentos]);
 
+  // Fetch complete client data for billing using centralized hook
+  const { dados: dadosClienteCompletos, isLoading: isLoadingDadosCliente } = useDadosFaturamentoCompletos(
+    clienteSelecionadoFaturamento?.id || null
+  );
+
   const dadosFaturamento: DadosFaturamento | null = useMemo(() => {
     if (!clienteSelecionadoFaturamento || !lancamentosComItens || lancamentosComItens.length === 0) return null;
     const allItens = lancamentosComItens.flatMap(l =>
@@ -110,13 +115,34 @@ export function PendentesTab() {
     const datas = lancamentosComItens.map(l => new Date(l.data_lancamento));
     const pInicio = datas.length > 0 ? format(Math.min(...datas.map(d => d.getTime())), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
     const pFim = datas.length > 0 ? format(Math.max(...datas.map(d => d.getTime())), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
+    
+    const cli = dadosClienteCompletos.cliente;
+    
     return {
-      clienteId: clienteSelecionadoFaturamento.id, clienteNome: clienteSelecionadoFaturamento.razao_social,
-      clienteDocumento: clienteSelecionadoFaturamento.cpf_cnpj || "", clienteEmail: clienteSelecionadoFaturamento.email || null,
-      clienteTelefone: clienteSelecionadoFaturamento.telefone || null, itens: allItens,
-      valorTotal: totalSelecionado, periodoInicio: pInicio, periodoFim: pFim, lancamentoIds: selectedLancamentos,
+      clienteId: clienteSelecionadoFaturamento.id,
+      clienteNome: clienteSelecionadoFaturamento.razao_social,
+      clienteDocumento: clienteSelecionadoFaturamento.cpf_cnpj || "",
+      clienteEmail: cli?.email || clienteSelecionadoFaturamento.email || null,
+      clienteTelefone: cli?.telefone || clienteSelecionadoFaturamento.telefone || null,
+      // Dados completos do cliente
+      clienteTipoPessoa: cli?.tipo_pessoa || "cnpj",
+      clienteInscricaoMunicipal: cli?.inscricao_municipal || null,
+      clienteInscricaoEstadual: cli?.inscricao_estadual || null,
+      clienteRegimeTributario: cli?.regime_tributario || null,
+      clienteClassificacao: cli?.classificacao || "industrial",
+      // Endereço completo
+      clienteEndereco: dadosClienteCompletos.endereco || null,
+      // Configurações de pagamento
+      configPagamento: dadosClienteCompletos.configPagamento || null,
+      // Configurações gerais do cliente
+      configCliente: dadosClienteCompletos.configCliente || null,
+      itens: allItens,
+      valorTotal: totalSelecionado,
+      periodoInicio: pInicio,
+      periodoFim: pFim,
+      lancamentoIds: selectedLancamentos,
     };
-  }, [clienteSelecionadoFaturamento, lancamentosComItens, totalSelecionado, selectedLancamentos]);
+  }, [clienteSelecionadoFaturamento, lancamentosComItens, totalSelecionado, selectedLancamentos, dadosClienteCompletos]);
 
   const handleGerarFatura = () => {
     if (!clienteSelecionadoFaturamento || selectedLancamentos.length === 0) return;

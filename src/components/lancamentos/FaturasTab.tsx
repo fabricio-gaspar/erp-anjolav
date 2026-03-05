@@ -18,6 +18,7 @@ import { useFaturas, type Fatura } from "@/hooks/useFaturas";
 import { FaturamentoModal, type DadosFaturamento, type LancamentoItem as FaturaLancamentoItem } from "@/components/faturamento/FaturamentoModal";
 import { DetalhesFaturaModal } from "@/components/faturamento/DetalhesFaturaModal";
 import { cn } from "@/lib/utils";
+import { useDadosFaturamentoCompletos } from "@/hooks/useDadosFaturamento";
 
 const getStatusConfig = (status: string) => {
   switch (status) {
@@ -30,21 +31,6 @@ const getStatusConfig = (status: string) => {
     case "cancelado": return { label: "Cancelado", variant: "danger" as const };
     default: return { label: status, variant: "default" as const };
   }
-};
-
-const reconstruirDadosFaturamento = (fatura: Fatura): DadosFaturamento => {
-  const itensSnapshot = (fatura.itens_snapshot as Array<{ id: string; produto: string; quantidade: number; unidade: string; valor_unitario: number; valor_total: number }>) || [];
-  const itens: FaturaLancamentoItem[] = itensSnapshot.map(item => ({
-    id: item.id, produto: item.produto, quantidade: item.quantidade, unidade: item.unidade,
-    valorUnitario: item.valor_unitario, valorTotal: item.valor_total,
-  }));
-  return {
-    clienteId: fatura.cliente_id, clienteNome: fatura.cliente?.razao_social || "Cliente",
-    clienteDocumento: fatura.cliente?.cpf_cnpj || "", clienteEmail: fatura.cliente?.email || null,
-    clienteTelefone: fatura.cliente?.telefone || null, itens, valorTotal: Number(fatura.valor_total),
-    periodoInicio: fatura.periodo_inicio, periodoFim: fatura.periodo_fim,
-    observacao: fatura.observacao_fatura || undefined,
-  };
 };
 
 export function FaturasTab() {
