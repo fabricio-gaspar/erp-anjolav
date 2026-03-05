@@ -161,7 +161,7 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
       observacoes: observacao || undefined,
     };
     if (type === "rol") await printROLFromData(data);
-    else await printEtiquetaFromData(data, 1);
+    else await printEtiquetaFromData(data, items.length);
   };
 
   const handleFinalizar = async () => {
