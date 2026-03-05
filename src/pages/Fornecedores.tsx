@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, Pencil, Trash2, Building2, Phone, Mail } from "lucide-react";
 import { useFornecedores, Fornecedor } from "@/hooks/useFornecedores";
-import { consultarCNPJ } from "@/services/apiServices";
+import { buscarCnpj } from "@/services/apiServices";
 import { toast } from "sonner";
 
 const CATEGORIAS = [
