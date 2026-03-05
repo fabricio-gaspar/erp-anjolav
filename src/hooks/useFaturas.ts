@@ -200,7 +200,7 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
         .eq("id", id)
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone)
+          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .single();
       if (error) throw error;
