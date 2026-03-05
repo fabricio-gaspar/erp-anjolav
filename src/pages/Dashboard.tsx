@@ -7,6 +7,9 @@ import { OperationalCosts } from "@/components/dashboard/OperationalCosts";
 import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
 import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
+import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
+import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
+import { ContratosVencendoCard } from "@/components/dashboard/ContratosVencendoCard";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, 
@@ -23,6 +26,7 @@ import {
   BarChart3,
   Wallet,
   CalendarDays,
+  ShieldAlert,
 } from "lucide-react";
 import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
 import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
@@ -260,7 +264,16 @@ const Dashboard = () => {
 
         </section>
 
-        {/* Painel 3: Agenda do Dia (Movido para cima) */}
+        {/* Painel 2.5: Alertas Operacionais */}
+        <section className="content-panel">
+          <SectionHeader icon={ShieldAlert} title="Alertas Operacionais" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+            <ContasVencendoCard />
+            <EstoqueBaixoCard />
+            <ContratosVencendoCard />
+          </div>
+        </section>
+
         <section className="content-panel">
           <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
