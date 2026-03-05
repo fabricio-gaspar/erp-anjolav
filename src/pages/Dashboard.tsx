@@ -264,7 +264,16 @@ const Dashboard = () => {
 
         </section>
 
-        {/* Painel 3: Agenda do Dia (Movido para cima) */}
+        {/* Painel 2.5: Alertas Operacionais */}
+        <section className="content-panel">
+          <SectionHeader icon={ShieldAlert} title="Alertas Operacionais" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+            <ContasVencendoCard />
+            <EstoqueBaixoCard />
+            <ContratosVencendoCard />
+          </div>
+        </section>
+
         <section className="content-panel">
           <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
