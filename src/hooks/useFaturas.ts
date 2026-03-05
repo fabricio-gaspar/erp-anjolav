@@ -54,6 +54,7 @@ export interface Fatura {
     cpf_cnpj: string | null;
     email: string | null;
     telefone: string | null;
+    classificacao: string;
   };
 }
 
@@ -152,7 +153,7 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
         .from("faturas")
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone)
+          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .order("created_at", { ascending: false });
 
@@ -176,7 +177,7 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
         .insert(fatura)
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone)
+          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .single();
       if (error) throw error;
@@ -199,7 +200,7 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
         .eq("id", id)
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone)
+          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .single();
       if (error) throw error;
@@ -266,7 +267,7 @@ export function useFaturaById(faturaId: string | null) {
         .from("faturas")
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone)
+          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .eq("id", faturaId)
         .maybeSingle();

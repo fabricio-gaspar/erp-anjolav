@@ -1,50 +1,112 @@
 
 
-# Separação Financeira: Industrial vs Loja
+# Análise Completa do Sistema - Simplificação e Melhorias
 
-## Situação Atual
+## Diagnóstico Atual
 
-O sistema já segmenta operacionalmente:
-- **Lançamentos** → apenas clientes `industrial`
-- **PDV/Caixa** → apenas clientes `residencial`
+O sistema possui **17 páginas** e **7 itens no menu Financeiro** — área com maior fragmentação. Para uma lavanderia, o operador precisa de agilidade: abrir OS, acompanhar produção, faturar e receber. O excesso de telas causa confusão.
 
-Porém o Dashboard Financeiro mistura tudo. As receitas vêm de `faturas` (industrial) e `caixa_movimentacoes` (loja), mas não há filtro por setor.
+## Problemas Identificados
 
-## Solução
+### 1. Menu Financeiro com muitos itens redundantes (7 itens)
+- **Dashboard Financeiro** (`/financeiro`) e **Relatório Financeiro** (`/relatorios/financeiro`) têm sobreposição de dados
+- **Contas a Receber** (`/receber`) é basicamente a tela de cobranças Asaas — duplicada com **Asaas** (`/asaas`)
+- **Faturamento** (`/faturamento`) redireciona para `/lancamentos?tab=faturas` — item fantasma no menu
+- **Histórico Caixas** (`/relatorios/caixa`) poderia estar dentro do próprio Caixa PDV
 
-Adicionar um **filtro de setor** (Todos / Industrial / Loja) no Dashboard Financeiro e no Relatório Financeiro, separando automaticamente os dados pela origem.
+### 2. Asaas aparece como item separado no menu
+O Asaas (cobranças) e Contas a Receber tratam do mesmo assunto: dinheiro que entra. Ter dois itens confunde.
 
-### Como identificar o setor de cada movimentação
+### 3. Busca no sidebar não funciona
+O botão de busca (`SearchBar`) é apenas visual — não tem ação real implementada.
 
-| Dado | Setor | Lógica |
-|---|---|---|
-| Faturas | Industrial | `faturas.cliente_id → clientes.classificacao = 'industrial'` |
-| Vendas PDV (caixa_movimentacoes tipo VENDA) | Loja | Sempre residencial (PDV só aceita residencial) |
-| Contas a Pagar | Compartilhado | Sem distinção (despesas gerais da empresa) |
+### 4. Notificações no sidebar sem funcionalidade
+O botão "Notificações" no rodapé do menu não faz nada.
 
-### Alterações
+### 5. Badges hardcoded no menu
+Os badges (3, 12, 5, 2) estão fixos no código, não refletem dados reais.
 
-**1. `useDashboardFinanceiro.ts`** — Receber parâmetro `setor: 'todos' | 'industrial' | 'loja'`
-- Quando `industrial`: filtrar faturas cujo cliente tem `classificacao = 'industrial'`, ignorar vendas do caixa
-- Quando `loja`: usar vendas do caixa como receita, ignorar faturas industriais
-- Quando `todos`: somar ambos (comportamento atual)
-- Despesas (contas a pagar) ficam iguais em todos os filtros (são custos gerais)
+### 6. Lancamentos.tsx com 1881 linhas
+Arquivo monolítico demais — difícil de manter.
 
-**2. `DashboardFinanceiro.tsx`** — Adicionar toggle/tabs "Todos | Industrial | Loja" no topo
-- Passar o setor selecionado para o hook
-- Mudar subtítulo conforme setor selecionado
+---
 
-**3. `useFaturas.ts`** — Já faz join com `clientes(razao_social, ...)`, precisa incluir `classificacao` no select para permitir filtragem
+## Plano de Melhorias
 
-**4. Incluir receitas do Caixa** — O hook atual só usa `faturas` como receita. Precisa também buscar `caixa_movimentacoes` tipo VENDA para contabilizar receitas da Loja.
+### Fase 1 — Simplificar a Navegação
 
-### Arquivos afetados
+**Reestruturar o menu lateral:**
 
-| Arquivo | Alteração |
+```text
+ANTES (17 itens):              DEPOIS (12 itens):
+─────────────────              ──────────────────
+Dashboard                      Dashboard
+                               
+Comercial                      Comercial
+├─ Clientes                    ├─ Clientes
+├─ Produtos                    ├─ Produtos
+                               
+Operacional                    Operacional
+├─ Abrir Retirada              ├─ Abrir Retirada
+├─ Produção                    ├─ Produção
+├─ Agenda                      ├─ Agenda
+                               
+Financeiro                     Financeiro
+├─ Dashboard                   ├─ Visão Geral (merge Dashboard + Relatório)
+├─ Lançamentos                 ├─ Lançamentos & Faturas
+├─ Faturamento (redirect)      ├─ Caixa PDV
+├─ Caixa PDV                   ├─ Contas (merge Receber + Pagar)
+├─ Contas a Receber            
+├─ Contas a Pagar              
+├─ Asaas                       
+                               
+Relatórios                     Relatórios
+├─ Clientes                    ├─ Clientes
+├─ Proximidade                 ├─ Proximidade
+├─ Caixa                       
+├─ Financeiro                  
+                               
+Configurações                  Configurações
+Notificações (sem ação)        
+```
+
+**Alterações concretas:**
+1. Remover item **Faturamento** do menu (já é redirect)
+2. Unificar **Contas a Receber + Contas a Pagar** em uma página com tabs "A Receber" / "A Pagar"
+3. Mover **Asaas** para dentro de Contas a Receber como integração (não como item separado)
+4. Mover **Histórico Caixas** para dentro do Caixa PDV como tab
+5. Unificar **Dashboard Financeiro + Relatório Financeiro** em uma só página
+6. Remover botão **Notificações** sem função do sidebar
+7. Remover botão **Busca** sem função do sidebar (ou implementar)
+
+### Fase 2 — Badges dinâmicos
+
+Substituir os valores fixos (3, 12, 5, 2) por queries reais:
+- **Clientes**: novos clientes sem configuração completa
+- **Produção**: OS em etapas ativas
+- **Lançamentos**: lançamentos pendentes de faturamento
+- **Contas**: vencidas/vencendo hoje
+
+### Fase 3 — Refatorar Lancamentos.tsx
+
+Dividir o arquivo de 1881 linhas em componentes menores:
+- `LancamentosTab.tsx` — tab de lançamentos
+- `FaturasTab.tsx` — tab de faturas
+- `LancamentosFilters.tsx` — filtros
+- `LancamentosActions.tsx` — ações em lote
+
+---
+
+## Resumo de Impacto
+
+| Ação | Resultado |
 |---|---|
-| `src/hooks/useDashboardFinanceiro.ts` | Adicionar filtro por setor + incluir receitas do caixa |
-| `src/hooks/useFaturas.ts` | Incluir `classificacao` no join com clientes |
-| `src/pages/DashboardFinanceiro.tsx` | Adicionar seletor de setor no topo |
+| Remover 5 itens do menu | Menu mais limpo, menos confusão |
+| Unificar Contas | Uma tela para todo fluxo de caixa |
+| Badges dinâmicos | Informação real no menu |
+| Refatorar Lancamentos | Código mais sustentável |
+| Remover elementos sem função | Interface mais honesta |
 
-Nenhuma alteração no banco de dados — a classificação já existe na tabela `clientes`.
+**Arquivos afetados**: ~12 arquivos (sidebar, páginas, App.tsx, hooks)
+**Nenhuma alteração no banco de dados**.
 
