@@ -455,16 +455,21 @@ export async function printEtiquetaFromOS(ordemServicoId: string): Promise<boole
 
   if (!config || !osData) return false;
 
-  const etiquetaData: EtiquetaData = {
-    osNumero: osData.numero,
-    clienteNome: osData.clienteNome,
-    bloco: osData.bloco,
-    posicao: osData.posicao,
-    data: osData.dataEmissao,
-  };
-
-  const html = generateEtiquetaHTMLWithData(config, etiquetaData);
-  openPrintWindow(html);
+  // Generate one label per item type
+  if (osData.itens.length > 0) {
+    const html = generateMultipleItemLabelsHTML(config, osData);
+    openPrintWindow(html);
+  } else {
+    const etiquetaData: EtiquetaData = {
+      osNumero: osData.numero,
+      clienteNome: osData.clienteNome,
+      bloco: osData.bloco,
+      posicao: osData.posicao,
+      data: osData.dataEmissao,
+    };
+    const html = generateEtiquetaHTMLWithData(config, etiquetaData);
+    openPrintWindow(html);
+  }
   return true;
 }
 
