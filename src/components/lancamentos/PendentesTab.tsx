@@ -23,6 +23,7 @@ import { VisualizarItensModal } from "@/components/faturamento/VisualizarItensMo
 import { EditarLancamentoModal } from "@/components/faturamento/EditarLancamentoModal";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useDadosFaturamentoCompletos } from "@/hooks/useDadosFaturamento";
 
 export function PendentesTab() {
   const [searchParams, setSearchParams] = useSearchParams();
