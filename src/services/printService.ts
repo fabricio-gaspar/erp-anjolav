@@ -384,7 +384,8 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
         .company { font-size: ${config.tamanhoFonte}px; font-weight: bold; text-transform: uppercase; }
         .content { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .os-number { font-size: ${config.tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
-        .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 3mm; text-align: center; }
+        .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 2mm; text-align: center; }
+        .produto { font-size: ${config.tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 3mm; text-align: center; text-transform: uppercase; }
         .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
         .barcode-number { font-size: ${config.tamanhoFonte - 4}px; font-family: monospace; color: #666; }
         .footer { text-align: center; margin-top: 2mm; }
