@@ -19,7 +19,6 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFaturas, useValidateLancamentosForFatura } from "@/hooks/useFaturas";
 import { useLinkLancamentosToFatura } from "@/hooks/useLancamentos";
-import { useConfiguracaoCliente } from "@/hooks/useClientes";
 import { gerarSnapshotItens, formatCurrency } from "@/lib/faturamentoUtils";
 import type { DadosFaturamento } from "./FaturamentoModal";
 
@@ -39,19 +38,14 @@ export function EtapaRelatorio({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
   const [observacaoFatura, setObservacaoFatura] = useState(dados.observacao || "");
-  const [tipoRelatorio, setTipoRelatorio] = useState<string>("detalhado");
+  // Use centralized data: tipo_relatorio from dados.configCliente
+  const [tipoRelatorio, setTipoRelatorio] = useState<string>(
+    dados.configCliente?.tipo_relatorio || "detalhado"
+  );
 
   const { createFatura } = useFaturas();
   const linkLancamentos = useLinkLancamentosToFatura();
   const validateLancamentos = useValidateLancamentosForFatura();
-  const { configuracao: configCliente } = useConfiguracaoCliente(dados.clienteId);
-
-  // Tipo de relatório do cliente (se configurado)
-  useEffect(() => {
-    if (configCliente?.tipo_relatorio) {
-      setTipoRelatorio(configCliente.tipo_relatorio);
-    }
-  }, [configCliente]);
 
   // Validar ROLs duplicados ao montar
   useEffect(() => {
