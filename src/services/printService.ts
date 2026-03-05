@@ -23,6 +23,8 @@ export interface EtiquetaData {
   bloco?: string;
   posicao?: string;
   data: Date;
+  produtoNome?: string;
+  quantidade?: number;
 }
 
 export interface EtiquetaConfig {
