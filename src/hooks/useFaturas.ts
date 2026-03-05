@@ -54,6 +54,7 @@ export interface Fatura {
     cpf_cnpj: string | null;
     email: string | null;
     telefone: string | null;
+    classificacao: string;
   };
 }
 
