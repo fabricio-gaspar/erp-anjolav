@@ -1,45 +1,75 @@
 
-# Auditoria Completa — Correções Aplicadas
 
-## Migração Executada (Fase 1 — Críticos)
+# Melhoria Completa do Fluxo de Faturamento
 
-### ✅ Correções de FK aplicadas:
-1. `contas_pagar.fornecedor_id` → FK para `fornecedores(id)` ON DELETE SET NULL
-2. `caixas.operador_id` → FK para `funcionarios(id)` ON DELETE SET NULL
-3. `lancamentos_cliente.cliente_id` → FK para `clientes(id)` ON DELETE CASCADE
-4. `lancamentos_cliente.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
-5. `itens_lancamento_cliente.produto_id` → FK para `produtos(id)` ON DELETE RESTRICT
-6. `caixa_movimentacoes.cliente_id` → FK para `clientes(id)` ON DELETE SET NULL
-7. `caixa_movimentacoes.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
+## Problemas Confirmados
 
-### ✅ Constraints de integridade:
-- `UNIQUE INDEX idx_clientes_cpf_cnpj_unique` (parcial, ignora NULL/vazio)
-- `CHECK chk_contas_pagar_valor_positivo` (valor >= 0)
-- `CHECK chk_lancamentos_valor_positivo` (valor_total >= 0)
-- `CHECK chk_faturas_valor_positivo` (valor_total >= 0)
-- `CHECK chk_movimentacoes_valor_positivo` (valor >= 0)
+1. **Dados fragmentados**: `PendentesTab` monta `DadosFaturamento` com apenas 7 campos basicos (nome, doc, email, telefone, itens, valor, periodo). Faltam: inscricao_municipal/estadual, regime_tributario, endereco completo, configPagamento, configCliente.
 
-### ✅ Dados órfãos limpos:
-- Removido 1 registro em `lancamentos_cliente` que referenciava cliente inexistente
+2. **Queries duplicadas**: EtapaNF faz 4 queries (useClienteById, useEnderecoCliente, useConfiguracaoPagamentoCliente, useConfiguracoesFiscais). EtapaPagamento repete useConfiguracaoPagamentoCliente + useConfiguracoesGerais. EtapaEnvio repete useConfiguracaoCliente + useConfiguracoesGerais.
 
-### ✅ Hooks atualizados:
-- `useContasPagar` — interface com `fornecedor_id`
-- `useCaixa` — interfaces com `operador_id`, `cliente_id`, `ordem_servico_id`
+3. **CNPJ emissor ignorado**: EtapaNF detecta `configPagamento.cnpj_emissor_id` (linhas 80-96) mas nunca seleciona essa config — sempre usa `configuracaoAtiva` global.
 
----
+4. **Codigo duplicado em EtapaNF**: `handlePreviewPdf` (linhas 214-270) e `handlePrintPreview` (linhas 272-328) sao identicos (~60 linhas cada).
 
-## Pendente (Fases futuras)
+5. **ROL generico na EtapaEnvio**: O `handleDownloadROL` gera HTML basico sem usar tipo de relatorio configurado nem dados da empresa.
 
-### Fase 2 — Segurança (RLS granular)
-- Criar função `has_module_access(user_id, modulo)` SECURITY DEFINER
-- Aplicar nas políticas RLS em vez de `USING (true)`
-- Verificar `modulo_permissoes` no ProtectedRoute
+6. **FaturasTab incompleto**: `reconstruirDadosFaturamento` so popula campos basicos ao retomar fatura.
 
-### Fase 3 — Tabelas complementares
-- `audit_log` — rastreabilidade de ações
-- `historico_precos` — registrar alterações de preço
+## Plano de Implementacao
 
-### Fase 4 — Melhorias de fluxo
-- Vincular vendas PDV ao financeiro (contas_receber ou view)
-- Tratamento de estorno em OS cancelada
-- CASCADE em `lancamentos.fatura_id`
+### 1. Expandir interface `DadosFaturamento` (FaturamentoModal.tsx)
+
+Adicionar campos:
+- `clienteInscricaoMunicipal`, `clienteInscricaoEstadual`, `clienteRegimeTributario`, `clienteClassificacao`
+- `clienteEndereco` (objeto: logradouro, numero, bairro, cidade, uf, cep)
+- `configPagamento` (cnpj_emissor_id, descricao_nf_id, listar_itens_detalhados, forma_pagamento, dia_fechamento, condicao_pagamento, dia_vencimento)
+- `configCliente` (tipo_relatorio, codigo_acesso, link_acesso)
+
+### 2. Criar hook centralizado `useDadosFaturamentoCompletos` (NOVO)
+
+Arquivo: `src/hooks/useDadosFaturamento.ts`
+
+Combina em uma unica chamada: dados do cliente, endereco, config pagamento, config cliente. Retorna objeto tipado pronto para preencher `DadosFaturamento`.
+
+### 3. Atualizar PendentesTab — popular dados completos
+
+Usar o novo hook para buscar todos os dados do cliente ao montar `dadosFaturamento`, populando os novos campos (endereco, configs, inscricoes).
+
+### 4. Atualizar FaturasTab — reconstruir dados completos
+
+`reconstruirDadosFaturamento` passa a buscar dados completos do cliente ao retomar fatura existente (usando o hook centralizado).
+
+### 5. Refatorar EtapaNF — usar dados centralizados + CNPJ emissor
+
+- Remover `useClienteById`, `useEnderecoCliente`, `useConfiguracaoPagamentoCliente` — usar `dados.*`
+- Quando `dados.configPagamento?.cnpj_emissor_id` existe, **selecionar essa config fiscal** como ativa em vez da global
+- Extrair funcao `buildNFPreviewData()` para eliminar duplicacao entre handlePreviewPdf e handlePrintPreview
+
+### 6. Refatorar EtapaPagamento — usar dados centralizados
+
+- Remover `useConfiguracaoPagamentoCliente` — usar `dados.configPagamento`
+- Manter `useConfiguracoesGerais` (dados bancarios/PIX da empresa)
+
+### 7. Refatorar EtapaRelatorio — usar dados centralizados
+
+- Remover `useConfiguracaoCliente` — usar `dados.configCliente?.tipo_relatorio`
+
+### 8. Refatorar EtapaEnvio — usar dados centralizados + melhorar ROL
+
+- Remover `useConfiguracaoCliente` — usar `dados.configCliente`
+- Melhorar `handleDownloadROL` com dados da empresa (nome, CNPJ, logo do ROL config) e respeitar tipo de relatorio
+
+## Arquivos Afetados (8)
+
+| Arquivo | Acao |
+|---|---|
+| `src/hooks/useDadosFaturamento.ts` | NOVO — hook centralizado |
+| `src/components/faturamento/FaturamentoModal.tsx` | Expandir interface DadosFaturamento |
+| `src/components/lancamentos/PendentesTab.tsx` | Popular dados completos do cliente |
+| `src/components/lancamentos/FaturasTab.tsx` | Atualizar reconstruirDadosFaturamento |
+| `src/components/faturamento/EtapaRelatorio.tsx` | Usar dados.configCliente |
+| `src/components/faturamento/EtapaNF.tsx` | Usar CNPJ emissor do cliente, extrair buildNFPreviewData, remover queries |
+| `src/components/faturamento/EtapaPagamento.tsx` | Usar dados.configPagamento |
+| `src/components/faturamento/EtapaEnvio.tsx` | Usar dados.configCliente, melhorar ROL |
+
