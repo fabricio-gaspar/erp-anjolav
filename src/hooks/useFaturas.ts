@@ -267,7 +267,7 @@ export function useFaturaById(faturaId: string | null) {
         .from("faturas")
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone)
+          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .eq("id", faturaId)
         .maybeSingle();
