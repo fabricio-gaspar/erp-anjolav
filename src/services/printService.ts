@@ -140,7 +140,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       itens: itensFormatted,
       valorTotal,
       dataEmissao: new Date(ordem.created_at),
-      previsaoEntrega: ordem.data_previsao_entrega ? new Date(ordem.data_previsao_entrega) : undefined,
+      previsaoEntrega: ordem.data_previsao_entrega ? new Date(ordem.data_previsao_entrega + 'T00:00:00') : undefined,
       observacoes: ordem.observacoes || undefined,
     };
   } catch (error) {
@@ -385,7 +385,8 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
         .content { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .os-number { font-size: ${config.tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
         .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 2mm; text-align: center; }
-        .produto { font-size: ${config.tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 3mm; text-align: center; text-transform: uppercase; }
+        .produto { font-size: ${config.tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 1mm; text-align: center; text-transform: uppercase; }
+        .quantidade { font-size: ${config.tamanhoFonte - 1}px; font-weight: bold; color: #000; margin-bottom: 3mm; text-align: center; background: #f0f0f0; padding: 1mm 3mm; border-radius: 2px; }
         .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
         .barcode-number { font-size: ${config.tamanhoFonte - 4}px; font-family: monospace; color: #666; }
         .footer { text-align: center; margin-top: 2mm; }
@@ -401,7 +402,7 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
       <div class="content">
         <div class="os-number">OS: ${data.osNumero}</div>
         <div class="client">${data.clienteNome}</div>
-        ${data.produtoNome ? `<div class="produto">${data.produtoNome}${data.quantidade && data.quantidade > 1 ? ` x${data.quantidade}` : ''}</div>` : ''}
+        ${data.produtoNome ? `<div class="produto">${data.produtoNome}</div><div class="quantidade">QTD: ${data.quantidade || 1} peça(s)</div>` : ''}
         
         <div class="barcode">${barcodeSVG}</div>
         <div class="barcode-number">${data.osNumero}</div>
@@ -514,7 +515,8 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
         <div class="content">
           <div class="os-number">OS: ${osData.numero}</div>
           <div class="client">${osData.clienteNome}</div>
-          <div class="produto">${item.nome}${item.quantidade > 1 ? ` x${item.quantidade}` : ''}</div>
+          <div class="produto">${item.nome}</div>
+          <div class="quantidade">QTD: ${item.quantidade} peça(s)</div>
           <div class="barcode">${barcodeSVG}</div>
           <div class="barcode-number">${osData.numero}</div>
         </div>
@@ -550,7 +552,8 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
         .content { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         .os-number { font-size: ${config.tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
         .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 2mm; text-align: center; }
-        .produto { font-size: ${config.tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 3mm; text-align: center; text-transform: uppercase; }
+        .produto { font-size: ${config.tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 1mm; text-align: center; text-transform: uppercase; }
+        .quantidade { font-size: ${config.tamanhoFonte - 1}px; font-weight: bold; color: #000; margin-bottom: 3mm; text-align: center; background: #f0f0f0; padding: 1mm 3mm; border-radius: 2px; }
         .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
         .barcode-number { font-size: ${config.tamanhoFonte - 4}px; font-family: monospace; color: #666; }
         .footer { text-align: center; margin-top: 2mm; }

@@ -1,46 +1,45 @@
 
+# Auditoria Completa — Correções Aplicadas
 
-# Correcao: Data/Hora no ROL e Quantidade na Etiqueta
+## Migração Executada (Fase 1 — Críticos)
 
-## Problema 1: Data mostrando dia anterior
+### ✅ Correções de FK aplicadas:
+1. `contas_pagar.fornecedor_id` → FK para `fornecedores(id)` ON DELETE SET NULL
+2. `caixas.operador_id` → FK para `funcionarios(id)` ON DELETE SET NULL
+3. `lancamentos_cliente.cliente_id` → FK para `clientes(id)` ON DELETE CASCADE
+4. `lancamentos_cliente.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
+5. `itens_lancamento_cliente.produto_id` → FK para `produtos(id)` ON DELETE RESTRICT
+6. `caixa_movimentacoes.cliente_id` → FK para `clientes(id)` ON DELETE SET NULL
+7. `caixa_movimentacoes.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
 
-**Causa raiz**: No modulo Lancamento, o campo `dataEmissao` vem de um input `type="date"` como string `"2026-03-05"`. Ao fazer `new Date("2026-03-05")`, o JavaScript interpreta como **meia-noite UTC**, que no fuso do Brasil (UTC-3) vira **04/03/2026 21:00** — exatamente o que aparece na imagem.
+### ✅ Constraints de integridade:
+- `UNIQUE INDEX idx_clientes_cpf_cnpj_unique` (parcial, ignora NULL/vazio)
+- `CHECK chk_contas_pagar_valor_positivo` (valor >= 0)
+- `CHECK chk_lancamentos_valor_positivo` (valor_total >= 0)
+- `CHECK chk_faturas_valor_positivo` (valor_total >= 0)
+- `CHECK chk_movimentacoes_valor_positivo` (valor >= 0)
 
-O mesmo problema ocorre em `fetchOSPrintData` (linha 142), onde `new Date(ordem.created_at)` pode mostrar hora errada se o timestamp UTC nao for ajustado.
+### ✅ Dados órfãos limpos:
+- Removido 1 registro em `lancamentos_cliente` que referenciava cliente inexistente
 
-**Correcao**: Usar `new Date(dateString + 'T00:00:00')` para datas de input (interpreta como horario local) e `new Date()` para data de emissao no momento da impressao. Tambem corrigir a exibicao de hora no ROL para usar horario local correto.
+### ✅ Hooks atualizados:
+- `useContasPagar` — interface com `fornecedor_id`
+- `useCaixa` — interfaces com `operador_id`, `cliente_id`, `ordem_servico_id`
 
-## Problema 2: Quantidade pouco clara na etiqueta
+---
 
-**Situacao atual**: A etiqueta mostra `CAMISA x3` — mas so quando `quantidade > 1`. Se for 1 peca, nao mostra nada.
+## Pendente (Fases futuras)
 
-**Correcao**: Sempre exibir a quantidade com destaque visual separado. Formato proposto:
+### Fase 2 — Segurança (RLS granular)
+- Criar função `has_module_access(user_id, modulo)` SECURITY DEFINER
+- Aplicar nas políticas RLS em vez de `USING (true)`
+- Verificar `modulo_permissoes` no ProtectedRoute
 
-```text
-CAMISA
-QTD: 3 peças
-```
+### Fase 3 — Tabelas complementares
+- `audit_log` — rastreabilidade de ações
+- `historico_precos` — registrar alterações de preço
 
-Em vez do formato inline `CAMISA x3`.
-
-## Alteracoes
-
-| Arquivo | O que muda |
-|---|---|
-| `src/services/printService.ts` | Corrigir criacao de Date para usar fuso local; melhorar template da etiqueta com quantidade separada e destacada |
-| `src/hooks/usePrintOS.ts` | Corrigir `new Date(dataEmissao)` no `printROLFromData` e `printEtiquetaFromData` |
-| `src/components/lancamentos/NovoLancamentoTab.tsx` | Corrigir `new Date(dataEmissao)` na construcao do `LancamentosPrintData` |
-
-### Detalhes tecnicos
-
-**Data** — Em 3 pontos:
-- `NovoLancamentoTab.tsx` linha 159: `new Date(dataEmissao)` → `new Date(dataEmissao + 'T00:00:00')`
-- `printService.ts` linha 142: `new Date(ordem.created_at)` — este ja vem como timestamp ISO completo do banco, esta OK. Mas a exibicao no ROL (linha 288) usa `toLocaleTimeString` que ja mostra horario local — precisa apenas garantir que o Date foi criado corretamente.
-- `usePrintOS.ts` linhas 224 e 251: `data.dataEmissao` ja e um Date recebido do componente — a correcao e no componente que cria o Date.
-
-**Etiqueta** — Na funcao `generateEtiquetaHTMLWithData` e `generateMultipleItemLabelsHTML`:
-- Substituir `${data.produtoNome}${data.quantidade > 1 ? ' x' + data.quantidade : ''}` por duas linhas separadas:
-  - Linha 1: Nome do produto (bold, uppercase)
-  - Linha 2: `QTD: X peça(s)` (sempre visivel, fonte destacada)
-- Adicionar estilo CSS `.quantidade` com fonte bold, background sutil
-
+### Fase 4 — Melhorias de fluxo
+- Vincular vendas PDV ao financeiro (contas_receber ou view)
+- Tratamento de estorno em OS cancelada
+- CASCADE em `lancamentos.fatura_id`
