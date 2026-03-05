@@ -311,6 +311,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
           <NavGroup title="Comercial" icon={Users} defaultOpen>
             <NavItem to="/clientes" icon={Users} label="Clientes" />
             <NavItem to="/produtos" icon={Package} label="Produtos" />
+            <NavItem to="/fornecedores" icon={Building2} label="Fornecedores" />
           </NavGroup>
 
           <NavGroup title="Operacional" icon={Factory}>
