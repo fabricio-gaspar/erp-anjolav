@@ -402,7 +402,7 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
       <div class="content">
         <div class="os-number">OS: ${data.osNumero}</div>
         <div class="client">${data.clienteNome}</div>
-        ${data.produtoNome ? `<div class="produto">${data.produtoNome}${data.quantidade && data.quantidade > 1 ? ` x${data.quantidade}` : ''}</div>` : ''}
+        ${data.produtoNome ? `<div class="produto">${data.produtoNome}</div><div class="quantidade">QTD: ${data.quantidade || 1} peça(s)</div>` : ''}
         
         <div class="barcode">${barcodeSVG}</div>
         <div class="barcode-number">${data.osNumero}</div>
