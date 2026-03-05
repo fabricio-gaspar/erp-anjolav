@@ -318,6 +318,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
             <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" />
             <NavItem to="/producao" icon={Factory} label="Produção" />
             <NavItem to="/agenda" icon={Calendar} label="Agenda" />
+            <NavItem to="/estoque" icon={Package} label="Estoque" />
           </NavGroup>
 
           <NavGroup title="Financeiro" icon={Wallet}>
