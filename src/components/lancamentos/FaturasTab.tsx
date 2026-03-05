@@ -40,17 +40,54 @@ export function FaturasTab() {
   const [faturaParaContinuar, setFaturaParaContinuar] = useState<Fatura | null>(null);
   const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
   const [faturaDetalhes, setFaturaDetalhes] = useState<Fatura | null>(null);
+  const [clienteIdParaContinuar, setClienteIdParaContinuar] = useState<string | null>(null);
 
   const periodoInicio = format(startOfMonth(currentDate), "yyyy-MM-dd");
   const periodoFim = format(endOfMonth(currentDate), "yyyy-MM-dd");
   const { faturas, summary, isLoading, updateFatura } = useFaturas(periodoInicio, periodoFim);
+  
+  // Fetch complete client data when continuing a fatura
+  const { dados: dadosClienteCompletos } = useDadosFaturamentoCompletos(clienteIdParaContinuar);
 
   const formatCurrency = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
+  const reconstruirDadosFaturamento = (fatura: Fatura): DadosFaturamento => {
+    const itensSnapshot = (fatura.itens_snapshot as Array<{ id: string; produto: string; quantidade: number; unidade: string; valor_unitario: number; valor_total: number }>) || [];
+    const itens: FaturaLancamentoItem[] = itensSnapshot.map(item => ({
+      id: item.id, produto: item.produto, quantidade: item.quantidade, unidade: item.unidade,
+      valorUnitario: item.valor_unitario, valorTotal: item.valor_total,
+    }));
+    const cli = dadosClienteCompletos.cliente;
+    return {
+      clienteId: fatura.cliente_id,
+      clienteNome: fatura.cliente?.razao_social || "Cliente",
+      clienteDocumento: fatura.cliente?.cpf_cnpj || "",
+      clienteEmail: cli?.email || fatura.cliente?.email || null,
+      clienteTelefone: cli?.telefone || fatura.cliente?.telefone || null,
+      clienteTipoPessoa: cli?.tipo_pessoa || "cnpj",
+      clienteInscricaoMunicipal: cli?.inscricao_municipal || null,
+      clienteInscricaoEstadual: cli?.inscricao_estadual || null,
+      clienteRegimeTributario: cli?.regime_tributario || null,
+      clienteClassificacao: cli?.classificacao || "industrial",
+      clienteEndereco: dadosClienteCompletos.endereco || null,
+      configPagamento: dadosClienteCompletos.configPagamento || null,
+      configCliente: dadosClienteCompletos.configCliente || null,
+      itens,
+      valorTotal: Number(fatura.valor_total),
+      periodoInicio: fatura.periodo_inicio,
+      periodoFim: fatura.periodo_fim,
+      observacao: fatura.observacao_fatura || undefined,
+    };
+  };
+
   const handleContinuarFatura = (fatura: Fatura) => {
-    setWizardDados(reconstruirDadosFaturamento(fatura));
-    setFaturaParaContinuar(fatura);
-    setFaturamentoModalOpen(true);
+    setClienteIdParaContinuar(fatura.cliente_id);
+    // We need a small delay to let the hook fetch before reconstructing
+    setTimeout(() => {
+      setWizardDados(reconstruirDadosFaturamento(fatura));
+      setFaturaParaContinuar(fatura);
+      setFaturamentoModalOpen(true);
+    }, 100);
   };
 
   return (
