@@ -153,7 +153,7 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
         .from("faturas")
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone)
+          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .order("created_at", { ascending: false });
 
