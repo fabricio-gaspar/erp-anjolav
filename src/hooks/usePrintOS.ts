@@ -204,7 +204,7 @@ export function usePrintLancamento() {
     }
   }, [toast]);
 
-  const printEtiquetaFromData = useCallback(async (data: LancamentosPrintData, quantidade: number = 1) => {
+  const printEtiquetaFromData = useCallback(async (data: LancamentosPrintData, _quantidade: number = 1) => {
     setIsLoading(true);
     try {
       const config = await fetchEtiquetaConfig();
@@ -213,43 +213,51 @@ export function usePrintLancamento() {
         return false;
       }
 
-      // Generate a temporary OS number
       const tempNumero = `L${Date.now().toString().slice(-6)}`;
 
-      const etiquetaData: EtiquetaData = {
-        osNumero: tempNumero,
-        clienteNome: data.clienteNome,
-        data: data.dataEmissao,
-      };
+      // Generate one label per item type
+      if (data.itens.length > 0) {
+        const labels = data.itens.map(item => {
+          const etiquetaData: EtiquetaData = {
+            osNumero: tempNumero,
+            clienteNome: data.clienteNome,
+            data: data.dataEmissao,
+            produtoNome: item.nome,
+            quantidade: item.quantidade,
+          };
+          return generateEtiquetaHTMLWithData(config, etiquetaData);
+        });
 
-      // Generate HTML for multiple labels
-      const singleLabel = generateEtiquetaHTMLWithData(config, etiquetaData);
-      
-      // For multiple labels, we need to generate a page with all of them
-      if (quantidade > 1) {
-        const labelsHtml = generateMultipleLabelsHTML(config, etiquetaData, quantidade);
+        // Extract body content from each label and combine into one page
+        const bodyContents = labels.map(html => {
+          const match = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+          return match ? match[1] : '';
+        }).join('');
+
+        // Use first label's head
+        const headMatch = labels[0].match(/<head[^>]*>([\s\S]*)<\/head>/i);
+        const head = headMatch ? headMatch[1] : '';
+
+        const combinedHTML = `<!DOCTYPE html><html><head>${head}</head><body>${bodyContents}</body></html>`;
+        
         const printWindow = window.open('', '_blank', 'width=400,height=600');
         if (printWindow) {
-          printWindow.document.write(labelsHtml);
+          printWindow.document.write(combinedHTML);
           printWindow.document.close();
-          printWindow.onload = () => {
-            setTimeout(() => {
-              printWindow.print();
-              printWindow.close();
-            }, 250);
-          };
+          printWindow.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); };
         }
       } else {
+        const etiquetaData: EtiquetaData = {
+          osNumero: tempNumero,
+          clienteNome: data.clienteNome,
+          data: data.dataEmissao,
+        };
+        const singleLabel = generateEtiquetaHTMLWithData(config, etiquetaData);
         const printWindow = window.open('', '_blank', 'width=400,height=600');
         if (printWindow) {
           printWindow.document.write(singleLabel);
           printWindow.document.close();
-          printWindow.onload = () => {
-            setTimeout(() => {
-              printWindow.print();
-              printWindow.close();
-            }, 250);
-          };
+          printWindow.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); };
         }
       }
 
