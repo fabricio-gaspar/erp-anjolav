@@ -24,6 +24,8 @@ import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import PortalCliente from "./pages/PortalCliente";
+import Fornecedores from "./pages/Fornecedores";
+import Estoque from "./pages/Estoque";
 
 const queryClient = new QueryClient();
 
