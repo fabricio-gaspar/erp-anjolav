@@ -20,6 +20,7 @@ import {
 import { Loader2, Plus, Check, X } from "lucide-react";
 import { useContasPagar, ContaPagarInsert } from "@/hooks/useContasPagar";
 import { useFornecedores } from "@/hooks/useFornecedores";
+import { formatCurrencyInput, parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 
 interface NovaContaPagarModalProps {
   open: boolean;
