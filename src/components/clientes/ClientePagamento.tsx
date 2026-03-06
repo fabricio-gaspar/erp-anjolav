@@ -91,6 +91,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       setCnpjEmissorId("");
       setDescricaoNfId("");
       setListarItensDetalhados(true);
+      setObservacaoFaturamento("");
     }
   }, [clienteId]);
 
