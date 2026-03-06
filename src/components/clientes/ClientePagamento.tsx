@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Info, Loader2, Building2 } from "lucide-react";
+import { Check, Info, Loader2, Building2, MessageSquare } from "lucide-react";
 import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { BOLETO_ENABLED } from "@/lib/featureFlags";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ClientePagamentoProps {
   clienteId: string | null;
