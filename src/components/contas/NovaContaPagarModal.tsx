@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Check, X } from "lucide-react";
 import { useContasPagar, ContaPagarInsert } from "@/hooks/useContasPagar";
 import { useFornecedores } from "@/hooks/useFornecedores";
 
@@ -26,7 +26,7 @@ interface NovaContaPagarModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const categorias = [
+const categoriasBase = [
   "Utilidades",
   "Aluguel",
   "Insumos",
