@@ -41,15 +41,34 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
   const { createConta } = useContasPagar();
   const { fornecedores } = useFornecedores();
   const [fornecedorMode, setFornecedorMode] = useState<"cadastrado" | "outro">("cadastrado");
+  const [categoriasCustom, setCategoriasCustom] = useState<string[]>([]);
+  const [addingCategoria, setAddingCategoria] = useState(false);
+  const [novaCategoria, setNovaCategoria] = useState("");
   const [formData, setFormData] = useState({
     descricao: "",
     fornecedor: "",
-    fornecedor_id: "" as string,
+    fornecedor_id: "",
     valor: "",
     vencimento: "",
     categoria: "",
     observacoes: "",
   });
+
+  const todasCategorias = [...categoriasBase, ...categoriasCustom];
+
+  const handleAddCategoria = () => {
+    const cat = novaCategoria.trim();
+    if (cat && !todasCategorias.includes(cat)) {
+      setCategoriasCustom((prev) => [...prev, cat]);
+      setFormData({ ...formData, categoria: cat });
+    }
+    setNovaCategoria("");
+    setAddingCategoria(false);
+  };
+
+  const formatValorForDisplay = (val: number) => {
+    return val.toFixed(2).replace(".", ",");
+  };
 
   const handleFornecedorSelect = (fornecedorId: string) => {
     if (fornecedorId === "__outro__") {
@@ -76,7 +95,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
         ...formData,
         fornecedor_id: f.id,
         fornecedor: f.nome,
-        valor: f.valor_recorrente ? String(f.valor_recorrente) : formData.valor,
+        valor: f.valor_recorrente ? formatValorForDisplay(Number(f.valor_recorrente)) : formData.valor,
         descricao: formData.descricao || `Pagamento ${f.nome}`,
         categoria: f.categoria || formData.categoria,
         vencimento,
@@ -87,11 +106,14 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const valorNumerico = parseFloat(formData.valor.replace(",", "."));
+    if (isNaN(valorNumerico) || valorNumerico <= 0) return;
+
     const conta: ContaPagarInsert = {
       descricao: formData.descricao,
       fornecedor: formData.fornecedor || null,
       fornecedor_id: formData.fornecedor_id || null,
-      valor: parseFloat(formData.valor),
+      valor: valorNumerico,
       vencimento: formData.vencimento,
       categoria: formData.categoria || null,
       observacoes: formData.observacoes || null,
