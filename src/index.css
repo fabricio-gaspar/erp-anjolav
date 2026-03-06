@@ -198,11 +198,11 @@
   /* SECTION HEADERS                              */
   /* ============================================ */
   .section-header {
-    @apply flex items-center gap-4 mb-5;
+    @apply flex items-center gap-3 mb-3;
   }
 
   .section-header-icon {
-    @apply w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center;
+    @apply w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center;
   }
 
   .section-header-icon svg {
