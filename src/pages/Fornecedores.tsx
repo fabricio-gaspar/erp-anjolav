@@ -305,13 +305,14 @@ export default function Fornecedores() {
               </h4>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label>Valor Mensal</Label>
+                  <Label>Valor</Label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.valor_recorrente ?? ""}
-                    onChange={(e) => setForm({ ...form, valor_recorrente: e.target.value ? parseFloat(e.target.value) : null })}
+                    skipUppercase
+                    value={form.valor_recorrente != null ? String(form.valor_recorrente).replace(".", ",") : ""}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d.,]/g, "");
+                      setForm({ ...form, valor_recorrente: raw as any });
+                    }}
                     placeholder="0,00"
                   />
                 </div>
@@ -331,8 +332,9 @@ export default function Fornecedores() {
                   <Select value={form.frequencia_pagamento || "mensal"} onValueChange={(v) => setForm({ ...form, frequencia_pagamento: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="mensal">Mensal</SelectItem>
-                      <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                      {Object.entries(FREQUENCIAS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
