@@ -216,11 +216,11 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Métricas e visão operacional">
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* Painel 1: KPIs */}
         <section className="content-panel">
           <SectionHeader icon={BarChart3} title="Métricas Rápidas" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
             {kpis.map((kpi, index) => (
               <KPICard
                 key={index}
@@ -236,7 +236,7 @@ const Dashboard = () => {
         {/* Painel 2: Financeiro + Produção */}
         <section className="content-panel">
           <SectionHeader icon={Wallet} title="Visão Financeira" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
             <FinanceCard
               title="Contas a Receber"
               subtitle="Em desenvolvimento"
@@ -267,7 +267,7 @@ const Dashboard = () => {
         {/* Painel 2.5: Alertas Operacionais */}
         <section className="content-panel">
           <SectionHeader icon={ShieldAlert} title="Alertas Operacionais" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
             <ContasVencendoCard />
             <EstoqueBaixoCard />
             <ContratosVencendoCard />
@@ -276,7 +276,7 @@ const Dashboard = () => {
 
         <section className="content-panel">
           <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
             <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
           </div>
@@ -284,7 +284,7 @@ const Dashboard = () => {
         </section>
 
         {/* Painel 4: Gargalos + OS em Processamento lado a lado */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <section className="content-panel">
             <SectionHeader icon={Activity} title="Gargalos de Produção" />
             <ProductionBottleneck
