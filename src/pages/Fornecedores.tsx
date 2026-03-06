@@ -202,7 +202,7 @@ export default function Fornecedores() {
                         {f.valor_recorrente ? (
                           <div className="flex flex-col gap-0.5 text-sm">
                             <span className="font-medium text-foreground">
-                              R$ {Number(f.valor_recorrente).toFixed(2)}
+                              R$ {formatNumberToCurrency(Number(f.valor_recorrente))}
                             </span>
                             <span className="text-muted-foreground flex items-center gap-1">
                               <CalendarClock className="w-3 h-3" />
