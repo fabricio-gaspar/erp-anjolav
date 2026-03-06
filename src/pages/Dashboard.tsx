@@ -284,7 +284,7 @@ const Dashboard = () => {
         </section>
 
         {/* Painel 4: Gargalos + OS em Processamento lado a lado */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <section className="content-panel">
             <SectionHeader icon={Activity} title="Gargalos de Produção" />
             <ProductionBottleneck
