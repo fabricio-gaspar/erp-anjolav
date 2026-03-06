@@ -387,6 +387,27 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         </p>
       </div>
 
+      {/* Observação Padrão para Faturamento */}
+      <div className="mt-6 space-y-3">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-muted-foreground" />
+          <label className="text-sm font-medium text-foreground">
+            Observação Padrão para Faturamento
+          </label>
+        </div>
+        <Textarea
+          value={observacaoFaturamento}
+          onChange={(e) => setObservacaoFaturamento(e.target.value)}
+          placeholder="Texto que será inserido automaticamente na observação da fatura deste cliente..."
+          rows={3}
+          className="resize-none"
+          skipUppercase
+        />
+        <p className="text-xs text-muted-foreground">
+          Este texto será preenchido automaticamente ao gerar uma fatura para este cliente. Pode ser editado na hora.
+        </p>
+      </div>
+
       {/* Resumo das Configurações */}
       <Card className="max-w-lg border-primary/20">
         <CardHeader className="pb-3">
