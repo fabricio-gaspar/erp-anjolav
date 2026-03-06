@@ -65,6 +65,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
   const [cnpjEmissorId, setCnpjEmissorId] = useState<string>("");
   const [descricaoNfId, setDescricaoNfId] = useState<string>("");
   const [listarItensDetalhados, setListarItensDetalhados] = useState<boolean>(true);
+  const [observacaoFaturamento, setObservacaoFaturamento] = useState<string>("");
 
   // Carregar dados existentes
   useEffect(() => {
