@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Check, X } from "lucide-react";
 import { useContasPagar, ContaPagarInsert } from "@/hooks/useContasPagar";
 import { useFornecedores } from "@/hooks/useFornecedores";
 
@@ -26,7 +26,7 @@ interface NovaContaPagarModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const categorias = [
+const categoriasBase = [
   "Utilidades",
   "Aluguel",
   "Insumos",
@@ -41,15 +41,34 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
   const { createConta } = useContasPagar();
   const { fornecedores } = useFornecedores();
   const [fornecedorMode, setFornecedorMode] = useState<"cadastrado" | "outro">("cadastrado");
+  const [categoriasCustom, setCategoriasCustom] = useState<string[]>([]);
+  const [addingCategoria, setAddingCategoria] = useState(false);
+  const [novaCategoria, setNovaCategoria] = useState("");
   const [formData, setFormData] = useState({
     descricao: "",
     fornecedor: "",
-    fornecedor_id: "" as string,
+    fornecedor_id: "",
     valor: "",
     vencimento: "",
     categoria: "",
     observacoes: "",
   });
+
+  const todasCategorias = [...categoriasBase, ...categoriasCustom];
+
+  const handleAddCategoria = () => {
+    const cat = novaCategoria.trim();
+    if (cat && !todasCategorias.includes(cat)) {
+      setCategoriasCustom((prev) => [...prev, cat]);
+      setFormData({ ...formData, categoria: cat });
+    }
+    setNovaCategoria("");
+    setAddingCategoria(false);
+  };
+
+  const formatValorForDisplay = (val: number) => {
+    return val.toFixed(2).replace(".", ",");
+  };
 
   const handleFornecedorSelect = (fornecedorId: string) => {
     if (fornecedorId === "__outro__") {
@@ -76,7 +95,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
         ...formData,
         fornecedor_id: f.id,
         fornecedor: f.nome,
-        valor: f.valor_recorrente ? String(f.valor_recorrente) : formData.valor,
+        valor: f.valor_recorrente ? formatValorForDisplay(Number(f.valor_recorrente)) : formData.valor,
         descricao: formData.descricao || `Pagamento ${f.nome}`,
         categoria: f.categoria || formData.categoria,
         vencimento,
@@ -87,11 +106,14 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const valorNumerico = parseFloat(formData.valor.replace(",", "."));
+    if (isNaN(valorNumerico) || valorNumerico <= 0) return;
+
     const conta: ContaPagarInsert = {
       descricao: formData.descricao,
       fornecedor: formData.fornecedor || null,
       fornecedor_id: formData.fornecedor_id || null,
-      valor: parseFloat(formData.valor),
+      valor: valorNumerico,
       vencimento: formData.vencimento,
       categoria: formData.categoria || null,
       observacoes: formData.observacoes || null,
@@ -177,11 +199,12 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
               <Label htmlFor="valor">Valor *</Label>
               <Input
                 id="valor"
-                type="number"
-                step="0.01"
-                min="0"
+                skipUppercase
                 value={formData.valor}
-                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9.,]/g, "");
+                  setFormData({ ...formData, valor: v });
+                }}
                 placeholder="0,00"
                 required
               />
@@ -200,22 +223,55 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="categoria">Categoria</Label>
-            <Select
-              value={formData.categoria}
-              onValueChange={(value) => setFormData({ ...formData, categoria: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione uma categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {categorias.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="categoria">Categoria</Label>
+              {!addingCategoria && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={() => setAddingCategoria(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+            {addingCategoria ? (
+              <div className="flex gap-2">
+                <Input
+                  skipUppercase
+                  value={novaCategoria}
+                  onChange={(e) => setNovaCategoria(e.target.value)}
+                  placeholder="Nova categoria..."
+                  className="flex-1"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddCategoria())}
+                  autoFocus
+                />
+                <Button type="button" variant="ghost" size="icon" className="h-10 w-10" onClick={handleAddCategoria}>
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button type="button" variant="ghost" size="icon" className="h-10 w-10" onClick={() => { setAddingCategoria(false); setNovaCategoria(""); }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Select
+                value={formData.categoria}
+                onValueChange={(value) => setFormData({ ...formData, categoria: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {todasCategorias.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-2">
