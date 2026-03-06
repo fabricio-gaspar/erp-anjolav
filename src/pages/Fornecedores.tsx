@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Pencil, Trash2, Building2, Phone, Mail } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Plus, Search, Pencil, Trash2, Building2, Phone, Mail, CalendarClock, Receipt } from "lucide-react";
 import { useFornecedores, Fornecedor } from "@/hooks/useFornecedores";
+import { useContasPagar } from "@/hooks/useContasPagar";
 import { buscarCnpj } from "@/services/apiServices";
 import { toast } from "sonner";
 
@@ -26,6 +28,7 @@ const categoriaLabel = (cat: string | null) =>
 
 export default function Fornecedores() {
   const { fornecedores, isLoading, criarFornecedor, atualizarFornecedor, excluirFornecedor } = useFornecedores();
+  const { createConta } = useContasPagar();
   const [busca, setBusca] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("todos");
   const [modalAberto, setModalAberto] = useState(false);
@@ -42,7 +45,7 @@ export default function Fornecedores() {
 
   const abrirNovo = () => {
     setEditando(null);
-    setForm({ ativo: true, categoria: "outros", endereco: {} });
+    setForm({ ativo: true, categoria: "outros", endereco: {}, frequencia_pagamento: "mensal" });
     setModalAberto(true);
   };
 
@@ -63,6 +66,32 @@ export default function Fornecedores() {
       await criarFornecedor.mutateAsync(form);
     }
     setModalAberto(false);
+  };
+
+  const gerarContaMes = async (f: Fornecedor) => {
+    if (!f.valor_recorrente || !f.dia_vencimento) {
+      toast.error("Configure valor e dia de vencimento primeiro");
+      return;
+    }
+    const hoje = new Date();
+    const vencimento = new Date(hoje.getFullYear(), hoje.getMonth(), f.dia_vencimento);
+    if (vencimento < hoje) {
+      vencimento.setMonth(vencimento.getMonth() + 1);
+    }
+    const mesAno = vencimento.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+    await createConta.mutateAsync({
+      descricao: `Pagamento ${f.nome} — ${mesAno}`,
+      fornecedor: f.nome,
+      fornecedor_id: f.id,
+      valor: f.valor_recorrente,
+      vencimento: vencimento.toISOString().split("T")[0],
+      categoria: "Insumos",
+      observacoes: `Gerado automaticamente do fornecedor ${f.nome}`,
+      status: "pendente",
+      data_pagamento: null,
+    });
+    toast.success(`Conta gerada para ${mesAno}!`);
   };
 
   const buscarCNPJ = async () => {
@@ -133,16 +162,17 @@ export default function Fornecedores() {
                   <TableHead>Nome</TableHead>
                   <TableHead>CNPJ/CPF</TableHead>
                   <TableHead>Categoria</TableHead>
+                  <TableHead>Pagamento Recorrente</TableHead>
                   <TableHead>Contato</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-[100px]">Ações</TableHead>
+                  <TableHead className="w-[140px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum fornecedor encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhum fornecedor encontrado</TableCell></TableRow>
                 ) : (
                   filtered.map((f) => (
                     <TableRow key={f.id}>
@@ -155,6 +185,21 @@ export default function Fornecedores() {
                       <TableCell>{f.cnpj_cpf || "—"}</TableCell>
                       <TableCell><Badge variant="secondary">{categoriaLabel(f.categoria)}</Badge></TableCell>
                       <TableCell>
+                        {f.valor_recorrente ? (
+                          <div className="flex flex-col gap-0.5 text-sm">
+                            <span className="font-medium text-foreground">
+                              R$ {Number(f.valor_recorrente).toFixed(2)}
+                            </span>
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <CalendarClock className="w-3 h-3" />
+                              Dia {f.dia_vencimento} • {f.frequencia_pagamento === "quinzenal" ? "Quinzenal" : "Mensal"}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <div className="flex flex-col gap-0.5 text-sm">
                           {f.telefone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{f.telefone}</span>}
                           {f.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{f.email}</span>}
@@ -165,6 +210,17 @@ export default function Fornecedores() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          {f.valor_recorrente && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Gerar conta do mês"
+                              onClick={() => gerarContaMes(f)}
+                              disabled={createConta.isPending}
+                            >
+                              <Receipt className="w-4 h-4 text-primary" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" onClick={() => abrirEditar(f)}><Pencil className="w-4 h-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => excluirFornecedor.mutate(f.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                         </div>
@@ -179,7 +235,7 @@ export default function Fornecedores() {
       </div>
 
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editando ? "Editar Fornecedor" : "Novo Fornecedor"}</DialogTitle>
           </DialogHeader>
@@ -226,6 +282,55 @@ export default function Fornecedores() {
                 </Select>
               </div>
             </div>
+
+            <Separator />
+
+            <div>
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+                <CalendarClock className="w-4 h-4" />
+                Pagamento Recorrente
+              </h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label>Valor Mensal</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.valor_recorrente ?? ""}
+                    onChange={(e) => setForm({ ...form, valor_recorrente: e.target.value ? parseFloat(e.target.value) : null })}
+                    placeholder="0,00"
+                  />
+                </div>
+                <div>
+                  <Label>Dia Vencimento</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={form.dia_vencimento ?? ""}
+                    onChange={(e) => setForm({ ...form, dia_vencimento: e.target.value ? parseInt(e.target.value) : null })}
+                    placeholder="Ex: 10"
+                  />
+                </div>
+                <div>
+                  <Label>Frequência</Label>
+                  <Select value={form.frequencia_pagamento || "mensal"} onValueChange={(v) => setForm({ ...form, frequencia_pagamento: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mensal">Mensal</SelectItem>
+                      <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Configure para gerar contas a pagar automaticamente e receber alertas no Dashboard.
+              </p>
+            </div>
+
+            <Separator />
+
             <div>
               <Label>Observações</Label>
               <Textarea value={form.observacoes || ""} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} />

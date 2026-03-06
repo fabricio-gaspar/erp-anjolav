@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useContasPagar, ContaPagarInsert } from "@/hooks/useContasPagar";
+import { useFornecedores } from "@/hooks/useFornecedores";
 
 interface NovaContaPagarModalProps {
   open: boolean;
@@ -38,21 +39,44 @@ const categorias = [
 
 export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalProps) {
   const { createConta } = useContasPagar();
+  const { fornecedores } = useFornecedores();
+  const [fornecedorMode, setFornecedorMode] = useState<"cadastrado" | "outro">("cadastrado");
   const [formData, setFormData] = useState({
     descricao: "",
     fornecedor: "",
+    fornecedor_id: "" as string,
     valor: "",
     vencimento: "",
     categoria: "",
     observacoes: "",
   });
 
+  const handleFornecedorSelect = (fornecedorId: string) => {
+    if (fornecedorId === "__outro__") {
+      setFornecedorMode("outro");
+      setFormData({ ...formData, fornecedor_id: "", fornecedor: "" });
+      return;
+    }
+    const f = fornecedores.find((x) => x.id === fornecedorId);
+    if (f) {
+      setFornecedorMode("cadastrado");
+      setFormData({
+        ...formData,
+        fornecedor_id: f.id,
+        fornecedor: f.nome,
+        valor: f.valor_recorrente ? String(f.valor_recorrente) : formData.valor,
+        descricao: formData.descricao || `Pagamento ${f.nome}`,
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const conta: ContaPagarInsert = {
       descricao: formData.descricao,
       fornecedor: formData.fornecedor || null,
+      fornecedor_id: formData.fornecedor_id || null,
       valor: parseFloat(formData.valor),
       vencimento: formData.vencimento,
       categoria: formData.categoria || null,
@@ -62,15 +86,17 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
     };
 
     await createConta.mutateAsync(conta);
-    
+
     setFormData({
       descricao: "",
       fornecedor: "",
+      fornecedor_id: "",
       valor: "",
       vencimento: "",
       categoria: "",
       observacoes: "",
     });
+    setFornecedorMode("cadastrado");
     onOpenChange(false);
   };
 
@@ -93,13 +119,43 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fornecedor">Fornecedor</Label>
-            <Input
-              id="fornecedor"
-              value={formData.fornecedor}
-              onChange={(e) => setFormData({ ...formData, fornecedor: e.target.value })}
-              placeholder="Ex: ENEL DISTRIBUIÇÃO"
-            />
+            <Label>Fornecedor</Label>
+            {fornecedorMode === "cadastrado" ? (
+              <Select
+                value={formData.fornecedor_id || undefined}
+                onValueChange={handleFornecedorSelect}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um fornecedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fornecedores.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.nome}
+                      {f.valor_recorrente ? ` — R$ ${Number(f.valor_recorrente).toFixed(2)}` : ""}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__outro__">✏️ Digitar manualmente</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  value={formData.fornecedor}
+                  onChange={(e) => setFormData({ ...formData, fornecedor: e.target.value })}
+                  placeholder="Nome do fornecedor"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFornecedorMode("cadastrado")}
+                >
+                  Voltar
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -14,6 +14,9 @@ export interface Fornecedor {
   categoria: string | null;
   observacoes: string | null;
   ativo: boolean;
+  valor_recorrente: number | null;
+  dia_vencimento: number | null;
+  frequencia_pagamento: string | null;
   created_at: string;
   updated_at: string;
 }
