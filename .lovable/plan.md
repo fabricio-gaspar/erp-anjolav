@@ -1,56 +1,45 @@
 
+# Auditoria Completa — Correções Aplicadas
 
-# Auditoria Completa: Problemas Encontrados e Correções
+## Migração Executada (Fase 1 — Críticos)
 
-## Resumo da Analise
+### ✅ Correções de FK aplicadas:
+1. `contas_pagar.fornecedor_id` → FK para `fornecedores(id)` ON DELETE SET NULL
+2. `caixas.operador_id` → FK para `funcionarios(id)` ON DELETE SET NULL
+3. `lancamentos_cliente.cliente_id` → FK para `clientes(id)` ON DELETE CASCADE
+4. `lancamentos_cliente.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
+5. `itens_lancamento_cliente.produto_id` → FK para `produtos(id)` ON DELETE RESTRICT
+6. `caixa_movimentacoes.cliente_id` → FK para `clientes(id)` ON DELETE SET NULL
+7. `caixa_movimentacoes.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
 
-Comparei todas as 42 tabelas do banco com o codigo e encontrei **dois problemas criticos**:
+### ✅ Constraints de integridade:
+- `UNIQUE INDEX idx_clientes_cpf_cnpj_unique` (parcial, ignora NULL/vazio)
+- `CHECK chk_contas_pagar_valor_positivo` (valor >= 0)
+- `CHECK chk_lancamentos_valor_positivo` (valor_total >= 0)
+- `CHECK chk_faturas_valor_positivo` (valor_total >= 0)
+- `CHECK chk_movimentacoes_valor_positivo` (valor >= 0)
 
----
+### ✅ Dados órfãos limpos:
+- Removido 1 registro em `lancamentos_cliente` que referenciava cliente inexistente
 
-## Problema 1: TRIGGERS NAO EXISTEM
-
-As funções de trigger existem no banco, mas **nenhum trigger esta conectado**. Isso significa:
-
-| Funcao | Efeito | Impacto |
-|--------|--------|---------|
-| `generate_os_number()` | Gerar numero automatico da OS | OS criadas com numero VAZIO |
-| `registrar_historico_status()` | Registrar mudancas de status da OS | Historico de producao NAO funciona |
-| `handle_new_user_role()` | Auto-atribuir role ao vincular funcionario | Novos usuarios sem permissao |
-| `update_updated_at_column()` | Atualizar campo updated_at automaticamente | Datas de atualizacao incorretas |
-
-## Problema 2: COLUNAS FALTANDO NAS TABELAS DO CAIXA
-
-O codigo (hooks) espera colunas que nao existem no banco:
-
-| Tabela | Coluna esperada | Situacao |
-|--------|----------------|----------|
-| `caixas` | `operador_id` (uuid) | NAO EXISTE - so tem `operador` (text) |
-| `caixa_movimentacoes` | `cliente_id` (uuid) | NAO EXISTE |
-| `caixa_movimentacoes` | `ordem_servico_id` (uuid) | NAO EXISTE |
+### ✅ Hooks atualizados:
+- `useContasPagar` — interface com `fornecedor_id`
+- `useCaixa` — interfaces com `operador_id`, `cliente_id`, `ordem_servico_id`
 
 ---
 
-## Plano de Correcao (1 migracao)
+## Pendente (Fases futuras)
 
-### Migracao SQL:
+### Fase 2 — Segurança (RLS granular)
+- Criar função `has_module_access(user_id, modulo)` SECURITY DEFINER
+- Aplicar nas políticas RLS em vez de `USING (true)`
+- Verificar `modulo_permissoes` no ProtectedRoute
 
-**1. Criar todos os triggers ausentes:**
-- `BEFORE INSERT` em `ordens_servico` → `generate_os_number()`
-- `AFTER UPDATE` em `ordens_servico` → `registrar_historico_status()`
-- `AFTER UPDATE` em `funcionarios` → `handle_new_user_role()`
-- `BEFORE UPDATE` em todas as tabelas com `updated_at` → `update_updated_at_column()`
+### Fase 3 — Tabelas complementares
+- `audit_log` — rastreabilidade de ações
+- `historico_precos` — registrar alterações de preço
 
-**2. Adicionar colunas faltantes:**
-- `caixas.operador_id` (uuid, nullable, FK → funcionarios)
-- `caixa_movimentacoes.cliente_id` (uuid, nullable, FK → clientes)
-- `caixa_movimentacoes.ordem_servico_id` (uuid, nullable, FK → ordens_servico)
-
-**3. Nenhuma alteracao de codigo necessaria** — os hooks ja esperam essas colunas.
-
----
-
-## Tabelas OK (sem problemas)
-
-Todas as outras 40 tabelas estao corretas: estrutura, FKs e RLS conferem com o codigo. Nenhuma tabela referenciada no codigo esta faltando no banco.
-
+### Fase 4 — Melhorias de fluxo
+- Vincular vendas PDV ao financeiro (contas_receber ou view)
+- Tratamento de estorno em OS cancelada
+- CASCADE em `lancamentos.fatura_id`

@@ -205,28 +205,34 @@ export type Database = {
       caixa_movimentacoes: {
         Row: {
           caixa_id: string
+          cliente_id: string | null
           created_at: string
           descricao: string | null
           forma_pagamento: string | null
           id: string
+          ordem_servico_id: string | null
           tipo: string
           valor: number
         }
         Insert: {
           caixa_id: string
+          cliente_id?: string | null
           created_at?: string
           descricao?: string | null
           forma_pagamento?: string | null
           id?: string
+          ordem_servico_id?: string | null
           tipo: string
           valor: number
         }
         Update: {
           caixa_id?: string
+          cliente_id?: string | null
           created_at?: string
           descricao?: string | null
           forma_pagamento?: string | null
           id?: string
+          ordem_servico_id?: string | null
           tipo?: string
           valor?: number
         }
@@ -236,6 +242,20 @@ export type Database = {
             columns: ["caixa_id"]
             isOneToOne: false
             referencedRelation: "caixas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_movimentacoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_movimentacoes_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
           },
         ]
@@ -249,6 +269,7 @@ export type Database = {
           id: string
           observacoes: string | null
           operador: string
+          operador_id: string | null
           status: string
           updated_at: string
           valor_abertura: number
@@ -266,6 +287,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           operador: string
+          operador_id?: string | null
           status?: string
           updated_at?: string
           valor_abertura?: number
@@ -283,6 +305,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           operador?: string
+          operador_id?: string | null
           status?: string
           updated_at?: string
           valor_abertura?: number
@@ -292,7 +315,15 @@ export type Database = {
           valor_sangrias?: number
           valor_vendas?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "caixas_operador_id_fkey"
+            columns: ["operador_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clientes: {
         Row: {
