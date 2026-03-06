@@ -23,6 +23,14 @@ const CATEGORIAS = [
   { value: "outros", label: "Outros" },
 ];
 
+const FREQUENCIAS: Record<string, string> = {
+  semanal: "Semanal",
+  quinzenal: "Quinzenal",
+  mensal: "Mensal",
+  anual: "Anual",
+  avulso: "Avulso",
+};
+
 const categoriaLabel = (cat: string | null) =>
   CATEGORIAS.find((c) => c.value === cat)?.label || cat || "Outros";
 
@@ -60,10 +68,15 @@ export default function Fornecedores() {
       toast.error("Nome é obrigatório");
       return;
     }
+    const dadosSalvar = { ...form };
+    if (typeof dadosSalvar.valor_recorrente === "string") {
+      const parsed = parseFloat((dadosSalvar.valor_recorrente as string).replace(",", "."));
+      dadosSalvar.valor_recorrente = isNaN(parsed) ? null : parsed;
+    }
     if (editando) {
-      await atualizarFornecedor.mutateAsync({ id: editando.id, ...form });
+      await atualizarFornecedor.mutateAsync({ id: editando.id, ...dadosSalvar });
     } else {
-      await criarFornecedor.mutateAsync(form);
+      await criarFornecedor.mutateAsync(dadosSalvar);
     }
     setModalAberto(false);
   };
@@ -192,7 +205,7 @@ export default function Fornecedores() {
                             </span>
                             <span className="text-muted-foreground flex items-center gap-1">
                               <CalendarClock className="w-3 h-3" />
-                              Dia {f.dia_vencimento} • {f.frequencia_pagamento === "quinzenal" ? "Quinzenal" : "Mensal"}
+                              Dia {f.dia_vencimento} • {FREQUENCIAS[f.frequencia_pagamento || "mensal"] || f.frequencia_pagamento}
                             </span>
                           </div>
                         ) : (
@@ -292,13 +305,14 @@ export default function Fornecedores() {
               </h4>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label>Valor Mensal</Label>
+                  <Label>Valor</Label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.valor_recorrente ?? ""}
-                    onChange={(e) => setForm({ ...form, valor_recorrente: e.target.value ? parseFloat(e.target.value) : null })}
+                    skipUppercase
+                    value={form.valor_recorrente != null ? String(form.valor_recorrente).replace(".", ",") : ""}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d.,]/g, "");
+                      setForm({ ...form, valor_recorrente: raw as any });
+                    }}
                     placeholder="0,00"
                   />
                 </div>
@@ -318,8 +332,9 @@ export default function Fornecedores() {
                   <Select value={form.frequencia_pagamento || "mensal"} onValueChange={(v) => setForm({ ...form, frequencia_pagamento: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="mensal">Mensal</SelectItem>
-                      <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                      {Object.entries(FREQUENCIAS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
