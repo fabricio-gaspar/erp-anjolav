@@ -276,7 +276,7 @@ const Dashboard = () => {
 
         <section className="content-panel">
           <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
             <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
           </div>
