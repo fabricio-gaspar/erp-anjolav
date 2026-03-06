@@ -71,8 +71,8 @@ export default function Fornecedores() {
     }
     const dadosSalvar = { ...form };
     if (typeof dadosSalvar.valor_recorrente === "string") {
-      const parsed = parseFloat((dadosSalvar.valor_recorrente as string).replace(",", "."));
-      dadosSalvar.valor_recorrente = isNaN(parsed) ? null : parsed;
+      const parsed = parseCurrencyToNumber(dadosSalvar.valor_recorrente as string);
+      dadosSalvar.valor_recorrente = parsed > 0 ? parsed : null;
     }
     if (editando) {
       await atualizarFornecedor.mutateAsync({ id: editando.id, ...dadosSalvar });
