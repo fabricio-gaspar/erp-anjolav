@@ -68,10 +68,15 @@ export default function Fornecedores() {
       toast.error("Nome é obrigatório");
       return;
     }
+    const dadosSalvar = { ...form };
+    if (typeof dadosSalvar.valor_recorrente === "string") {
+      const parsed = parseFloat((dadosSalvar.valor_recorrente as string).replace(",", "."));
+      dadosSalvar.valor_recorrente = isNaN(parsed) ? null : parsed;
+    }
     if (editando) {
-      await atualizarFornecedor.mutateAsync({ id: editando.id, ...form });
+      await atualizarFornecedor.mutateAsync({ id: editando.id, ...dadosSalvar });
     } else {
-      await criarFornecedor.mutateAsync(form);
+      await criarFornecedor.mutateAsync(dadosSalvar);
     }
     setModalAberto(false);
   };
