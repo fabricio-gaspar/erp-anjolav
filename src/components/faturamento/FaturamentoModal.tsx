@@ -74,6 +74,7 @@ export interface DadosFaturamento {
     cnpj_emissor_id: string | null;
     descricao_nf_id: string | null;
     listar_itens_detalhados: boolean | null;
+    observacao_faturamento: string | null;
   } | null;
   // Configurações gerais do cliente
   configCliente?: {

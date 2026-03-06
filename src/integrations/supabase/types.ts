@@ -581,6 +581,7 @@ export type Database = {
           forma_pagamento: string | null
           id: string
           listar_itens_detalhados: boolean | null
+          observacao_faturamento: string | null
           tipo_faturamento: string | null
           updated_at: string
         }
@@ -595,6 +596,7 @@ export type Database = {
           forma_pagamento?: string | null
           id?: string
           listar_itens_detalhados?: boolean | null
+          observacao_faturamento?: string | null
           tipo_faturamento?: string | null
           updated_at?: string
         }
@@ -609,6 +611,7 @@ export type Database = {
           forma_pagamento?: string | null
           id?: string
           listar_itens_detalhados?: boolean | null
+          observacao_faturamento?: string | null
           tipo_faturamento?: string | null
           updated_at?: string
         }

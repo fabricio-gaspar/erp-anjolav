@@ -35,6 +35,7 @@ export interface DadosClienteCompletos {
     cnpj_emissor_id: string | null;
     descricao_nf_id: string | null;
     listar_itens_detalhados: boolean | null;
+    observacao_faturamento: string | null;
   } | null;
   configCliente: {
     tipo_relatorio: string | null;
