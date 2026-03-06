@@ -59,6 +59,18 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
     }
     const f = fornecedores.find((x) => x.id === fornecedorId);
     if (f) {
+      let vencimento = formData.vencimento;
+      if (f.dia_vencimento) {
+        const hoje = new Date();
+        let mes = hoje.getMonth();
+        let ano = hoje.getFullYear();
+        if (hoje.getDate() > f.dia_vencimento) {
+          mes += 1;
+          if (mes > 11) { mes = 0; ano += 1; }
+        }
+        const dia = String(Math.min(f.dia_vencimento, new Date(ano, mes + 1, 0).getDate())).padStart(2, '0');
+        vencimento = `${ano}-${String(mes + 1).padStart(2, '0')}-${dia}`;
+      }
       setFornecedorMode("cadastrado");
       setFormData({
         ...formData,
@@ -66,6 +78,8 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
         fornecedor: f.nome,
         valor: f.valor_recorrente ? String(f.valor_recorrente) : formData.valor,
         descricao: formData.descricao || `Pagamento ${f.nome}`,
+        categoria: f.categoria || formData.categoria,
+        vencimento,
       });
     }
   };
