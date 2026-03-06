@@ -309,10 +309,16 @@ export default function Fornecedores() {
                   <Label>Valor</Label>
                   <Input
                     skipUppercase
-                    value={form.valor_recorrente != null ? String(form.valor_recorrente).replace(".", ",") : ""}
+                    value={
+                      form.valor_recorrente != null
+                        ? typeof form.valor_recorrente === "number"
+                          ? formatNumberToCurrency(form.valor_recorrente)
+                          : String(form.valor_recorrente)
+                        : ""
+                    }
                     onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d.,]/g, "");
-                      setForm({ ...form, valor_recorrente: raw as any });
+                      const v = formatCurrencyInput(e.target.value);
+                      setForm({ ...form, valor_recorrente: v as any });
                     }}
                     placeholder="0,00"
                   />

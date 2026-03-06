@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useContasPagar, ContaPagar } from "@/hooks/useContasPagar";
+import { formatCurrencyInput, parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 
 interface EditarContaPagarModalProps {
   open: boolean;
@@ -53,7 +54,7 @@ export function EditarContaPagarModal({ open, onOpenChange, conta }: EditarConta
       setFormData({
         descricao: conta.descricao,
         fornecedor: conta.fornecedor || "",
-        valor: String(conta.valor),
+        valor: formatNumberToCurrency(conta.valor),
         vencimento: conta.vencimento,
         categoria: conta.categoria || "",
         observacoes: conta.observacoes || "",
@@ -65,11 +66,14 @@ export function EditarContaPagarModal({ open, onOpenChange, conta }: EditarConta
     e.preventDefault();
     if (!conta) return;
 
+    const valorNumerico = parseCurrencyToNumber(formData.valor);
+    if (isNaN(valorNumerico) || valorNumerico <= 0) return;
+
     await updateConta.mutateAsync({
       id: conta.id,
       descricao: formData.descricao,
       fornecedor: formData.fornecedor || null,
-      valor: parseFloat(formData.valor),
+      valor: valorNumerico,
       vencimento: formData.vencimento,
       categoria: formData.categoria || null,
       observacoes: formData.observacoes || null,
@@ -111,11 +115,12 @@ export function EditarContaPagarModal({ open, onOpenChange, conta }: EditarConta
               <Label htmlFor="valor">Valor *</Label>
               <Input
                 id="valor"
-                type="number"
-                step="0.01"
-                min="0"
+                skipUppercase
                 value={formData.valor}
-                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                onChange={(e) => {
+                  const v = formatCurrencyInput(e.target.value);
+                  setFormData({ ...formData, valor: v });
+                }}
                 placeholder="0,00"
                 required
               />

@@ -203,7 +203,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
                 skipUppercase
                 value={formData.valor}
                 onChange={(e) => {
-                  const v = e.target.value.replace(/[^0-9.,]/g, "");
+                  const v = formatCurrencyInput(e.target.value);
                   setFormData({ ...formData, valor: v });
                 }}
                 placeholder="0,00"
