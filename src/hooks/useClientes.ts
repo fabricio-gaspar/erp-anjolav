@@ -50,6 +50,7 @@ export interface ConfiguracaoPagamentoCliente {
   cnpj_emissor_id: string | null;
   descricao_nf_id: string | null;
   listar_itens_detalhados: boolean | null;
+  observacao_faturamento: string | null;
   created_at: string;
   updated_at: string;
 }
