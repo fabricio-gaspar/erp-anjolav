@@ -281,26 +281,29 @@ const Dashboard = () => {
             <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
           </div>
 
-          <div className="section-divider" />
-
-          <SectionHeader icon={Activity} title="Gargalos de Produção" />
-          <ProductionBottleneck
-            items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
-            recommendation={recommendation}
-          />
         </section>
 
-        {/* Painel 4: OS em Processamento */}
-        <section className="content-panel">
-          <SectionHeader icon={FileText} title="OS em Processamento" />
-          <ProcessingSummary
-            items={
-              processingItems.length > 0
-                ? processingItems
-                : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
-            }
-          />
-        </section>
+        {/* Painel 4: Gargalos + OS em Processamento lado a lado */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <section className="content-panel">
+            <SectionHeader icon={Activity} title="Gargalos de Produção" />
+            <ProductionBottleneck
+              items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
+              recommendation={recommendation}
+            />
+          </section>
+
+          <section className="content-panel">
+            <SectionHeader icon={FileText} title="OS em Processamento" />
+            <ProcessingSummary
+              items={
+                processingItems.length > 0
+                  ? processingItems
+                  : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
+              }
+            />
+          </section>
+        </div>
       </div>
     </AppLayout>
   );
