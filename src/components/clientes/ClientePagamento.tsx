@@ -114,6 +114,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         cnpj_emissor_id: cnpjEmissorId || null,
         descricao_nf_id: descricaoNfId || null,
         listar_itens_detalhados: listarItensDetalhados,
+        observacao_faturamento: observacaoFaturamento || null,
       },
       {
         onSuccess: () => {
