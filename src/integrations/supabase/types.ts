@@ -646,6 +646,7 @@ export type Database = {
           data_pagamento: string | null
           descricao: string
           fornecedor: string | null
+          fornecedor_id: string | null
           id: string
           observacoes: string | null
           status: string
@@ -659,6 +660,7 @@ export type Database = {
           data_pagamento?: string | null
           descricao: string
           fornecedor?: string | null
+          fornecedor_id?: string | null
           id?: string
           observacoes?: string | null
           status?: string
@@ -672,6 +674,7 @@ export type Database = {
           data_pagamento?: string | null
           descricao?: string
           fornecedor?: string | null
+          fornecedor_id?: string | null
           id?: string
           observacoes?: string | null
           status?: string
@@ -679,7 +682,15 @@ export type Database = {
           valor?: number
           vencimento?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contas_pagar_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contratos_aluguel: {
         Row: {
@@ -1048,14 +1059,17 @@ export type Database = {
           cnpj_cpf: string | null
           contato_nome: string | null
           created_at: string
+          dia_vencimento: number | null
           email: string | null
           endereco: Json | null
+          frequencia_pagamento: string | null
           id: string
           nome: string
           observacoes: string | null
           razao_social: string | null
           telefone: string | null
           updated_at: string
+          valor_recorrente: number | null
         }
         Insert: {
           ativo?: boolean
@@ -1063,14 +1077,17 @@ export type Database = {
           cnpj_cpf?: string | null
           contato_nome?: string | null
           created_at?: string
+          dia_vencimento?: number | null
           email?: string | null
           endereco?: Json | null
+          frequencia_pagamento?: string | null
           id?: string
           nome: string
           observacoes?: string | null
           razao_social?: string | null
           telefone?: string | null
           updated_at?: string
+          valor_recorrente?: number | null
         }
         Update: {
           ativo?: boolean
@@ -1078,14 +1095,17 @@ export type Database = {
           cnpj_cpf?: string | null
           contato_nome?: string | null
           created_at?: string
+          dia_vencimento?: number | null
           email?: string | null
           endereco?: Json | null
+          frequencia_pagamento?: string | null
           id?: string
           nome?: string
           observacoes?: string | null
           razao_social?: string | null
           telefone?: string | null
           updated_at?: string
+          valor_recorrente?: number | null
         }
         Relationships: []
       }
