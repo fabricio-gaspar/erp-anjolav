@@ -23,6 +23,14 @@ const CATEGORIAS = [
   { value: "outros", label: "Outros" },
 ];
 
+const FREQUENCIAS: Record<string, string> = {
+  semanal: "Semanal",
+  quinzenal: "Quinzenal",
+  mensal: "Mensal",
+  anual: "Anual",
+  avulso: "Avulso",
+};
+
 const categoriaLabel = (cat: string | null) =>
   CATEGORIAS.find((c) => c.value === cat)?.label || cat || "Outros";
 
