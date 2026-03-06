@@ -77,6 +77,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       setCnpjEmissorId(configuracao.cnpj_emissor_id || "");
       setDescricaoNfId(configuracao.descricao_nf_id || "");
       setListarItensDetalhados(configuracao.listar_itens_detalhados !== false);
+      setObservacaoFaturamento((configuracao as any).observacao_faturamento || "");
     }
   }, [configuracao]);
 
