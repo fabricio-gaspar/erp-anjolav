@@ -236,7 +236,7 @@ const Dashboard = () => {
         {/* Painel 2: Financeiro + Produção */}
         <section className="content-panel">
           <SectionHeader icon={Wallet} title="Visão Financeira" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
             <FinanceCard
               title="Contas a Receber"
               subtitle="Em desenvolvimento"
