@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Info, Loader2, Building2 } from "lucide-react";
+import { Check, Info, Loader2, Building2, MessageSquare } from "lucide-react";
 import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { BOLETO_ENABLED } from "@/lib/featureFlags";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ClientePagamentoProps {
   clienteId: string | null;
@@ -64,6 +65,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
   const [cnpjEmissorId, setCnpjEmissorId] = useState<string>("");
   const [descricaoNfId, setDescricaoNfId] = useState<string>("");
   const [listarItensDetalhados, setListarItensDetalhados] = useState<boolean>(true);
+  const [observacaoFaturamento, setObservacaoFaturamento] = useState<string>("");
 
   // Carregar dados existentes
   useEffect(() => {
@@ -75,6 +77,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       setCnpjEmissorId(configuracao.cnpj_emissor_id || "");
       setDescricaoNfId(configuracao.descricao_nf_id || "");
       setListarItensDetalhados(configuracao.listar_itens_detalhados !== false);
+      setObservacaoFaturamento((configuracao as any).observacao_faturamento || "");
     }
   }, [configuracao]);
 
@@ -88,6 +91,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       setCnpjEmissorId("");
       setDescricaoNfId("");
       setListarItensDetalhados(true);
+      setObservacaoFaturamento("");
     }
   }, [clienteId]);
 
@@ -110,6 +114,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         cnpj_emissor_id: cnpjEmissorId || null,
         descricao_nf_id: descricaoNfId || null,
         listar_itens_detalhados: listarItensDetalhados,
+        observacao_faturamento: observacaoFaturamento || null,
       },
       {
         onSuccess: () => {
@@ -379,6 +384,27 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
           {listarItensDetalhados 
             ? "Cada item será listado com nome, quantidade e valor" 
             : "Será usada a descrição padrão selecionada acima"}
+        </p>
+      </div>
+
+      {/* Observação Padrão para Faturamento */}
+      <div className="mt-6 space-y-3">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-muted-foreground" />
+          <label className="text-sm font-medium text-foreground">
+            Observação Padrão para Faturamento
+          </label>
+        </div>
+        <Textarea
+          value={observacaoFaturamento}
+          onChange={(e) => setObservacaoFaturamento(e.target.value)}
+          placeholder="Texto que será inserido automaticamente na observação da fatura deste cliente..."
+          rows={3}
+          className="resize-none"
+          skipUppercase
+        />
+        <p className="text-xs text-muted-foreground">
+          Este texto será preenchido automaticamente ao gerar uma fatura para este cliente. Pode ser editado na hora.
         </p>
       </div>
 

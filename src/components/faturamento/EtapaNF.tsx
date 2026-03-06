@@ -123,6 +123,7 @@ export function EtapaNF({
   const [tipoDescricao, setTipoDescricao] = useState<"itens" | "padrao">("itens");
   const [descricaoPadraoSelecionada, setDescricaoPadraoSelecionada] = useState<string>("");
   const [naturezaOperacao, setNaturezaOperacao] = useState<NaturezaOperacao>("tributacao_municipio");
+  const [naturezaAutoSelected, setNaturezaAutoSelected] = useState(false);
   const [initialized, setInitialized] = useState(false);
   
   const { configuracaoAtiva: configuracaoAtivaGlobal, configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
@@ -164,10 +165,27 @@ export function EtapaNF({
       } else if (configPag?.listar_itens_detalhados === true) {
         setTipoDescricao("itens");
       }
+
+      // Auto-selecionar natureza da operação baseado no regime tributário e localidade
+      if (!naturezaAutoSelected && configuracaoAtiva) {
+        const enderecoConfig = configuracaoAtiva.endereco as Record<string, string> | null;
+        const clienteEndereco = dados.clienteEndereco;
+        const cidadeEmitente = enderecoConfig?.cidade?.toLowerCase().trim();
+        const cidadeTomador = clienteEndereco?.cidade?.toLowerCase().trim();
+        
+        // Se municípios são diferentes, tributar fora do município
+        if (cidadeEmitente && cidadeTomador && cidadeEmitente !== cidadeTomador) {
+          setNaturezaOperacao("tributacao_fora");
+        } else {
+          // Padrão: tributação no município
+          setNaturezaOperacao("tributacao_municipio");
+        }
+        setNaturezaAutoSelected(true);
+      }
       
       setInitialized(true);
     }
-  }, [dados.configPagamento, isLoading, initialized, descricoes]);
+  }, [dados.configPagamento, isLoading, initialized, descricoes, configuracaoAtiva, naturezaAutoSelected, dados.clienteEndereco]);
   
   // Gerar descrição baseada na escolha
   const gerarDescricaoServico = () => {

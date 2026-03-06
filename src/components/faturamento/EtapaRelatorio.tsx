@@ -37,7 +37,9 @@ export function EtapaRelatorio({
   const [isGenerating, setIsGenerating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
-  const [observacaoFatura, setObservacaoFatura] = useState(dados.observacao || "");
+  const [observacaoFatura, setObservacaoFatura] = useState(
+    dados.configPagamento?.observacao_faturamento || dados.observacao || ""
+  );
   // Use centralized data: tipo_relatorio from dados.configCliente
   const [tipoRelatorio, setTipoRelatorio] = useState<string>(
     dados.configCliente?.tipo_relatorio || "detalhado"
