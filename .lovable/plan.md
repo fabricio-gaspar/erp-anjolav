@@ -1,54 +1,45 @@
 
+# Auditoria Completa — Correções Aplicadas
 
-# Correcao do formato de valor (R$ 1.518,00) e formularios desconectados
+## Migração Executada (Fase 1 — Críticos)
 
-## Problemas encontrados
+### ✅ Correções de FK aplicadas:
+1. `contas_pagar.fornecedor_id` → FK para `fornecedores(id)` ON DELETE SET NULL
+2. `caixas.operador_id` → FK para `funcionarios(id)` ON DELETE SET NULL
+3. `lancamentos_cliente.cliente_id` → FK para `clientes(id)` ON DELETE CASCADE
+4. `lancamentos_cliente.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
+5. `itens_lancamento_cliente.produto_id` → FK para `produtos(id)` ON DELETE RESTRICT
+6. `caixa_movimentacoes.cliente_id` → FK para `clientes(id)` ON DELETE SET NULL
+7. `caixa_movimentacoes.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
 
-### 1. Formato de valor incorreto — NAO suporta milhar
-O usuario quer o formato brasileiro completo: `1.518,00` (ponto como separador de milhar, virgula para decimais). Atualmente:
-- **NovaContaPagarModal**: aceita `0-9.,` mas sem mascara — o `parseFloat("1.518,00".replace(",", "."))` resulta em `1.518` (errado!)
-- **EditarContaPagarModal**: AINDA usa `type="number"` — nunca foi corrigido
-- **Fornecedores**: mesmo problema de parsing sem mascara de milhar
-- **ContasPagar (tabela)**: `formatCurrency` nao formata milhar (`1518` aparece como `R$ 1518,00` em vez de `R$ 1.518,00`)
+### ✅ Constraints de integridade:
+- `UNIQUE INDEX idx_clientes_cpf_cnpj_unique` (parcial, ignora NULL/vazio)
+- `CHECK chk_contas_pagar_valor_positivo` (valor >= 0)
+- `CHECK chk_lancamentos_valor_positivo` (valor_total >= 0)
+- `CHECK chk_faturas_valor_positivo` (valor_total >= 0)
+- `CHECK chk_movimentacoes_valor_positivo` (valor >= 0)
 
-### 2. EditarContaPagarModal desatualizado
-- Campo valor com `type="number"` (quebrado)
-- Sem botao "+" para categorias customizadas
-- Sem campo de fornecedor vinculado (so texto livre)
+### ✅ Dados órfãos limpos:
+- Removido 1 registro em `lancamentos_cliente` que referenciava cliente inexistente
 
-## Plano de correcao
+### ✅ Hooks atualizados:
+- `useContasPagar` — interface com `fornecedor_id`
+- `useCaixa` — interfaces com `operador_id`, `cliente_id`, `ordem_servico_id`
 
-### Criar funcao utilitaria de moeda (`src/lib/currencyUtils.ts`)
-- `formatCurrencyInput(value: string): string` — formata enquanto digita: `1518` → `1.518,00`, `1518,5` → `1.518,50`
-- `parseCurrencyToNumber(value: string): number` — converte display para numero: `1.518,00` → `1518.00`
-- `formatNumberToCurrency(value: number): string` — formata numero para display: `1518` → `1.518,00`
+---
 
-### Corrigir NovaContaPagarModal
-- Usar `parseCurrencyToNumber` no submit (em vez de `replace(",", ".")`)
-- Usar `formatNumberToCurrency` no `handleFornecedorSelect`
-- Aplicar mascara no onChange do campo valor
+## Pendente (Fases futuras)
 
-### Corrigir EditarContaPagarModal
-- Remover `type="number"` e `step="0.01"` do campo valor
-- Adicionar `skipUppercase` e mascara monetaria
-- Usar `parseCurrencyToNumber` no submit
-- Formatar valor ao carregar conta (`useEffect`)
+### Fase 2 — Segurança (RLS granular)
+- Criar função `has_module_access(user_id, modulo)` SECURITY DEFINER
+- Aplicar nas políticas RLS em vez de `USING (true)`
+- Verificar `modulo_permissoes` no ProtectedRoute
 
-### Corrigir Fornecedores
-- Aplicar mascara no campo valor do formulario
-- Corrigir `salvar()` para usar `parseCurrencyToNumber`
-- Corrigir display na tabela com formato milhar
+### Fase 3 — Tabelas complementares
+- `audit_log` — rastreabilidade de ações
+- `historico_precos` — registrar alterações de preço
 
-### Corrigir ContasPagar (tabela)
-- Atualizar `formatCurrency` para usar `toLocaleString('pt-BR')` com separador de milhar
-
-## Arquivos alterados
-
-| Arquivo | Acao |
-|---------|------|
-| `src/lib/currencyUtils.ts` | **NOVO** — funcoes de formatacao monetaria BR |
-| `src/components/contas/NovaContaPagarModal.tsx` | Usar mascara e parser correto |
-| `src/components/contas/EditarContaPagarModal.tsx` | Corrigir campo valor, adicionar skipUppercase |
-| `src/pages/Fornecedores.tsx` | Usar mascara e parser correto |
-| `src/pages/ContasPagar.tsx` | Formatar valores com milhar na tabela |
-
+### Fase 4 — Melhorias de fluxo
+- Vincular vendas PDV ao financeiro (contas_receber ou view)
+- Tratamento de estorno em OS cancelada
+- CASCADE em `lancamentos.fatura_id`

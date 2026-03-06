@@ -15,6 +15,7 @@ import { useFornecedores, Fornecedor } from "@/hooks/useFornecedores";
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { buscarCnpj } from "@/services/apiServices";
 import { toast } from "sonner";
+import { formatCurrencyInput, parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 
 const CATEGORIAS = [
   { value: "produtos_limpeza", label: "Produtos de Limpeza" },
@@ -70,8 +71,8 @@ export default function Fornecedores() {
     }
     const dadosSalvar = { ...form };
     if (typeof dadosSalvar.valor_recorrente === "string") {
-      const parsed = parseFloat((dadosSalvar.valor_recorrente as string).replace(",", "."));
-      dadosSalvar.valor_recorrente = isNaN(parsed) ? null : parsed;
+      const parsed = parseCurrencyToNumber(dadosSalvar.valor_recorrente as string);
+      dadosSalvar.valor_recorrente = parsed > 0 ? parsed : null;
     }
     if (editando) {
       await atualizarFornecedor.mutateAsync({ id: editando.id, ...dadosSalvar });
@@ -201,7 +202,7 @@ export default function Fornecedores() {
                         {f.valor_recorrente ? (
                           <div className="flex flex-col gap-0.5 text-sm">
                             <span className="font-medium text-foreground">
-                              R$ {Number(f.valor_recorrente).toFixed(2)}
+                              R$ {formatNumberToCurrency(Number(f.valor_recorrente))}
                             </span>
                             <span className="text-muted-foreground flex items-center gap-1">
                               <CalendarClock className="w-3 h-3" />
@@ -308,10 +309,16 @@ export default function Fornecedores() {
                   <Label>Valor</Label>
                   <Input
                     skipUppercase
-                    value={form.valor_recorrente != null ? String(form.valor_recorrente).replace(".", ",") : ""}
+                    value={
+                      form.valor_recorrente != null
+                        ? typeof form.valor_recorrente === "number"
+                          ? formatNumberToCurrency(form.valor_recorrente)
+                          : String(form.valor_recorrente)
+                        : ""
+                    }
                     onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d.,]/g, "");
-                      setForm({ ...form, valor_recorrente: raw as any });
+                      const v = formatCurrencyInput(e.target.value);
+                      setForm({ ...form, valor_recorrente: v as any });
                     }}
                     placeholder="0,00"
                   />

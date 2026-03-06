@@ -20,6 +20,7 @@ import {
 import { Loader2, Plus, Check, X } from "lucide-react";
 import { useContasPagar, ContaPagarInsert } from "@/hooks/useContasPagar";
 import { useFornecedores } from "@/hooks/useFornecedores";
+import { formatCurrencyInput, parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 
 interface NovaContaPagarModalProps {
   open: boolean;
@@ -67,7 +68,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
   };
 
   const formatValorForDisplay = (val: number) => {
-    return val.toFixed(2).replace(".", ",");
+    return formatNumberToCurrency(val);
   };
 
   const handleFornecedorSelect = (fornecedorId: string) => {
@@ -106,7 +107,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const valorNumerico = parseFloat(formData.valor.replace(",", "."));
+    const valorNumerico = parseCurrencyToNumber(formData.valor);
     if (isNaN(valorNumerico) || valorNumerico <= 0) return;
 
     const conta: ContaPagarInsert = {
@@ -202,7 +203,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
                 skipUppercase
                 value={formData.valor}
                 onChange={(e) => {
-                  const v = e.target.value.replace(/[^0-9.,]/g, "");
+                  const v = formatCurrencyInput(e.target.value);
                   setFormData({ ...formData, valor: v });
                 }}
                 placeholder="0,00"
