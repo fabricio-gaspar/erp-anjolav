@@ -267,7 +267,7 @@ const Dashboard = () => {
         {/* Painel 2.5: Alertas Operacionais */}
         <section className="content-panel">
           <SectionHeader icon={ShieldAlert} title="Alertas Operacionais" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
             <ContasVencendoCard />
             <EstoqueBaixoCard />
             <ContratosVencendoCard />
