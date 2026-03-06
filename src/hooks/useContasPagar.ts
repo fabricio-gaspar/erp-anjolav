@@ -17,7 +17,8 @@ export interface ContaPagar {
   updated_at: string;
 }
 
-export type ContaPagarInsert = Omit<ContaPagar, "id" | "created_at" | "updated_at" | "fornecedor_id"> & { fornecedor_id?: string | null };
+export type ContaPagarInsert = Omit<ContaPagar, "id" | "created_at" | "updated_at">;
+
 export type ContaPagarUpdate = Partial<ContaPagarInsert>;
 
 export function useContasPagar() {

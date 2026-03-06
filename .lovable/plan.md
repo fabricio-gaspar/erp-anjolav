@@ -1,60 +1,45 @@
 
+# Auditoria Completa — Correções Aplicadas
 
-# Plano: Vincular Fornecedores ao Contas a Pagar com Geração Recorrente
+## Migração Executada (Fase 1 — Críticos)
 
-## Resumo
+### ✅ Correções de FK aplicadas:
+1. `contas_pagar.fornecedor_id` → FK para `fornecedores(id)` ON DELETE SET NULL
+2. `caixas.operador_id` → FK para `funcionarios(id)` ON DELETE SET NULL
+3. `lancamentos_cliente.cliente_id` → FK para `clientes(id)` ON DELETE CASCADE
+4. `lancamentos_cliente.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
+5. `itens_lancamento_cliente.produto_id` → FK para `produtos(id)` ON DELETE RESTRICT
+6. `caixa_movimentacoes.cliente_id` → FK para `clientes(id)` ON DELETE SET NULL
+7. `caixa_movimentacoes.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
 
-Adicionar campos de pagamento recorrente no cadastro de fornecedores (valor, dia vencimento, frequência). Ao vincular, o sistema permite gerar automaticamente as contas a pagar mensais vinculadas ao fornecedor. O Dashboard já exibe alertas de contas vencendo — basta que as contas geradas tenham o `fornecedor_id` preenchido.
+### ✅ Constraints de integridade:
+- `UNIQUE INDEX idx_clientes_cpf_cnpj_unique` (parcial, ignora NULL/vazio)
+- `CHECK chk_contas_pagar_valor_positivo` (valor >= 0)
+- `CHECK chk_lancamentos_valor_positivo` (valor_total >= 0)
+- `CHECK chk_faturas_valor_positivo` (valor_total >= 0)
+- `CHECK chk_movimentacoes_valor_positivo` (valor >= 0)
 
-## Mudanças
+### ✅ Dados órfãos limpos:
+- Removido 1 registro em `lancamentos_cliente` que referenciava cliente inexistente
 
-### 1. Migração: Novos campos na tabela `fornecedores`
+### ✅ Hooks atualizados:
+- `useContasPagar` — interface com `fornecedor_id`
+- `useCaixa` — interfaces com `operador_id`, `cliente_id`, `ordem_servico_id`
 
-Adicionar colunas:
-- `valor_recorrente NUMERIC DEFAULT NULL` — valor mensal do fornecedor
-- `dia_vencimento INTEGER DEFAULT NULL` — dia do mês que vence
-- `frequencia_pagamento TEXT DEFAULT 'mensal'` — mensal/quinzenal/avulso
+---
 
-Adicionar coluna `fornecedor_id UUID REFERENCES fornecedores(id)` na tabela `contas_pagar` (se ainda não existir — preciso verificar schema).
+## Pendente (Fases futuras)
 
-### 2. Cadastro de Fornecedores — Campos de Pagamento
+### Fase 2 — Segurança (RLS granular)
+- Criar função `has_module_access(user_id, modulo)` SECURITY DEFINER
+- Aplicar nas políticas RLS em vez de `USING (true)`
+- Verificar `modulo_permissoes` no ProtectedRoute
 
-**Arquivo: `src/pages/Fornecedores.tsx`**
-- Adicionar seção "Pagamento Recorrente" no modal de cadastro/edição com:
-  - Valor mensal (input numérico)
-  - Dia de vencimento (1-31)
-  - Frequência (mensal/quinzenal)
-- Botão "Gerar Conta do Mês" que cria automaticamente uma entrada em `contas_pagar` com `fornecedor_id` vinculado
+### Fase 3 — Tabelas complementares
+- `audit_log` — rastreabilidade de ações
+- `historico_precos` — registrar alterações de preço
 
-### 3. Hook `useFornecedores` — Suporte aos novos campos
-
-**Arquivo: `src/hooks/useFornecedores.ts`**
-- Expandir interface `Fornecedor` com `valor_recorrente`, `dia_vencimento`, `frequencia_pagamento`
-
-### 4. Nova Conta a Pagar — Selecionar Fornecedor cadastrado
-
-**Arquivo: `src/components/contas/NovaContaPagarModal.tsx`**
-- Trocar campo de texto "Fornecedor" por um Select com os fornecedores cadastrados (+ opção "Outro" para texto livre)
-- Ao selecionar fornecedor, auto-preencher valor e descrição se tiver pagamento recorrente configurado
-- Salvar `fornecedor_id` junto com `fornecedor` (nome)
-
-### 5. Tabela na listagem de Fornecedores — Indicador visual
-
-**Arquivo: `src/pages/Fornecedores.tsx`**
-- Mostrar na tabela uma coluna "Pagamento" com valor e dia de vencimento quando configurado
-- Badge visual indicando se tem pagamento recorrente
-
-### 6. Dashboard — Já funciona
-
-O `ContasVencendoCard` já busca todas as contas pendentes/vencidas e mostra alertas. Contas geradas a partir de fornecedores aparecerão automaticamente.
-
-## Arquivos Afetados (4 + 1 migração)
-
-| Arquivo | Ação |
-|---|---|
-| Migração SQL | Novos campos em fornecedores + fornecedor_id em contas_pagar |
-| `src/hooks/useFornecedores.ts` | Expandir interface |
-| `src/pages/Fornecedores.tsx` | Campos de pagamento + botão gerar conta |
-| `src/components/contas/NovaContaPagarModal.tsx` | Select de fornecedores + auto-preenchimento |
-| `src/hooks/useContasPagar.ts` | Incluir fornecedor_id na interface |
-
+### Fase 4 — Melhorias de fluxo
+- Vincular vendas PDV ao financeiro (contas_receber ou view)
+- Tratamento de estorno em OS cancelada
+- CASCADE em `lancamentos.fatura_id`
