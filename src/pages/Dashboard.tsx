@@ -220,7 +220,7 @@ const Dashboard = () => {
         {/* Painel 1: KPIs */}
         <section className="content-panel">
           <SectionHeader icon={BarChart3} title="Métricas Rápidas" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
             {kpis.map((kpi, index) => (
               <KPICard
                 key={index}
