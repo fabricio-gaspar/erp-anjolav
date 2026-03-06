@@ -107,7 +107,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const valorNumerico = parseFloat(formData.valor.replace(",", "."));
+    const valorNumerico = parseCurrencyToNumber(formData.valor);
     if (isNaN(valorNumerico) || valorNumerico <= 0) return;
 
     const conta: ContaPagarInsert = {
