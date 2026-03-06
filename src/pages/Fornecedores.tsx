@@ -205,7 +205,7 @@ export default function Fornecedores() {
                             </span>
                             <span className="text-muted-foreground flex items-center gap-1">
                               <CalendarClock className="w-3 h-3" />
-                              Dia {f.dia_vencimento} • {f.frequencia_pagamento === "quinzenal" ? "Quinzenal" : "Mensal"}
+                              Dia {f.dia_vencimento} • {FREQUENCIAS[f.frequencia_pagamento || "mensal"] || f.frequencia_pagamento}
                             </span>
                           </div>
                         ) : (
