@@ -199,11 +199,12 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
               <Label htmlFor="valor">Valor *</Label>
               <Input
                 id="valor"
-                type="number"
-                step="0.01"
-                min="0"
+                skipUppercase
                 value={formData.valor}
-                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9.,]/g, "");
+                  setFormData({ ...formData, valor: v });
+                }}
                 placeholder="0,00"
                 required
               />
@@ -222,22 +223,55 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="categoria">Categoria</Label>
-            <Select
-              value={formData.categoria}
-              onValueChange={(value) => setFormData({ ...formData, categoria: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione uma categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {categorias.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="categoria">Categoria</Label>
+              {!addingCategoria && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={() => setAddingCategoria(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+            {addingCategoria ? (
+              <div className="flex gap-2">
+                <Input
+                  skipUppercase
+                  value={novaCategoria}
+                  onChange={(e) => setNovaCategoria(e.target.value)}
+                  placeholder="Nova categoria..."
+                  className="flex-1"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddCategoria())}
+                  autoFocus
+                />
+                <Button type="button" variant="ghost" size="icon" className="h-10 w-10" onClick={handleAddCategoria}>
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button type="button" variant="ghost" size="icon" className="h-10 w-10" onClick={() => { setAddingCategoria(false); setNovaCategoria(""); }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Select
+                value={formData.categoria}
+                onValueChange={(value) => setFormData({ ...formData, categoria: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {todasCategorias.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-2">
