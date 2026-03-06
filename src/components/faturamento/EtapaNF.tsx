@@ -123,6 +123,7 @@ export function EtapaNF({
   const [tipoDescricao, setTipoDescricao] = useState<"itens" | "padrao">("itens");
   const [descricaoPadraoSelecionada, setDescricaoPadraoSelecionada] = useState<string>("");
   const [naturezaOperacao, setNaturezaOperacao] = useState<NaturezaOperacao>("tributacao_municipio");
+  const [naturezaAutoSelected, setNaturezaAutoSelected] = useState(false);
   const [initialized, setInitialized] = useState(false);
   
   const { configuracaoAtiva: configuracaoAtivaGlobal, configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
