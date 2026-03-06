@@ -54,7 +54,7 @@ export function useDadosFaturamentoCompletos(clienteId: string | null) {
       const [clienteRes, enderecoRes, configPagRes, configCliRes] = await Promise.all([
         supabase.from("clientes").select("id, razao_social, nome_fantasia, cpf_cnpj, email, telefone, telefone2, tipo_pessoa, inscricao_municipal, inscricao_estadual, regime_tributario, classificacao, contato").eq("id", clienteId).single(),
         supabase.from("enderecos_clientes").select("logradouro, numero, complemento, bairro, cidade, uf, cep").eq("cliente_id", clienteId).maybeSingle(),
-        supabase.from("configuracoes_pagamento_cliente").select("forma_pagamento, dia_fechamento, dia_vencimento, condicao_pagamento, tipo_faturamento, cnpj_emissor_id, descricao_nf_id, listar_itens_detalhados").eq("cliente_id", clienteId).maybeSingle(),
+        supabase.from("configuracoes_pagamento_cliente").select("forma_pagamento, dia_fechamento, dia_vencimento, condicao_pagamento, tipo_faturamento, cnpj_emissor_id, descricao_nf_id, listar_itens_detalhados, observacao_faturamento").eq("cliente_id", clienteId).maybeSingle(),
         supabase.from("configuracoes_cliente").select("tipo_relatorio, codigo_acesso, link_acesso, frequencia").eq("cliente_id", clienteId).maybeSingle(),
       ]);
 
