@@ -68,7 +68,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
   };
 
   const formatValorForDisplay = (val: number) => {
-    return val.toFixed(2).replace(".", ",");
+    return formatNumberToCurrency(val);
   };
 
   const handleFornecedorSelect = (fornecedorId: string) => {
