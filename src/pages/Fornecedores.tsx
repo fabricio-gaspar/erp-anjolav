@@ -15,6 +15,7 @@ import { useFornecedores, Fornecedor } from "@/hooks/useFornecedores";
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { buscarCnpj } from "@/services/apiServices";
 import { toast } from "sonner";
+import { formatCurrencyInput, parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 
 const CATEGORIAS = [
   { value: "produtos_limpeza", label: "Produtos de Limpeza" },
