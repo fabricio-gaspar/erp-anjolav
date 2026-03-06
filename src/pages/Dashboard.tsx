@@ -216,7 +216,7 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Métricas e visão operacional">
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* Painel 1: KPIs */}
         <section className="content-panel">
           <SectionHeader icon={BarChart3} title="Métricas Rápidas" />
