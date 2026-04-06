@@ -295,13 +295,17 @@ export const ClienteDadosBasicos = ({
         </div>
       </div>
 
-      {/* Nome Fantasia */}
-      <div className="space-y-1">
-        <Input
-          placeholder="Nome Fantasia"
-          value={formData.nome_fantasia}
-          onChange={(e) => handleChange("nome_fantasia", e.target.value)}
-        />
+      {/* Nome Fantasia + Email + Telefone */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-1">
+          <Input placeholder="Nome Fantasia" value={formData.nome_fantasia} onChange={(e) => handleChange("nome_fantasia", e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Input placeholder="Email" type="email" value={formData.email} onChange={(e) => handleChange("email", e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <Input placeholder="Telefone (99) 99999-9999" value={formData.telefone} onChange={(e) => handleChange("telefone", e.target.value)} />
+        </div>
       </div>
 
       {/* IE + IM + Telefone2 + Contato */}
