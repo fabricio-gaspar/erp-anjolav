@@ -297,9 +297,9 @@ export default function Agenda() {
         </div>
 
         {/* Calendar Grid */}
-        <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <div className="bg-card rounded-lg border border-border overflow-hidden overflow-x-auto">
           {/* Header row with day names */}
-          <div className="grid grid-cols-7 border-b border-border">
+          <div className="grid grid-cols-7 border-b border-border min-w-[700px]">
             {weekDays.map((day) => (
               <div
                 key={day}
@@ -320,7 +320,7 @@ export default function Agenda() {
           {/* Calendar rows */}
           {!isLoading &&
             Array.from({ length: weeksToShow }).map((_, weekIndex) => (
-              <div key={weekIndex} className="grid grid-cols-7 border-b border-border last:border-b-0">
+              <div key={weekIndex} className="grid grid-cols-7 border-b border-border last:border-b-0 min-w-[700px]">
                 {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((date, dayIndex) => {
                   const dayEvents = getEventsForDay(date);
                   const isWeekend = isFriday(date);

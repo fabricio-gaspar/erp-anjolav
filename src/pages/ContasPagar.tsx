@@ -110,7 +110,7 @@ const ContasPagarPage = () => {
     <AppLayout title="Contas a Pagar" subtitle="Gerencie suas despesas e pagamentos">
       <div className="space-y-4">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           {/* A Pagar */}
           <Card className="p-4 flex items-center justify-between">
             <div>
@@ -121,8 +121,8 @@ const ContasPagarPage = () => {
                 {formatCurrency(totalAPagar)}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-lg bg-destructive flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-destructive flex items-center justify-center">
+              <DollarSign className="w-4 h-4 text-white" />
             </div>
           </Card>
 
@@ -136,8 +136,8 @@ const ContasPagarPage = () => {
                 {formatCurrency(totalPago)}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-lg bg-success flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-success flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-white" />
             </div>
           </Card>
         </div>
@@ -161,7 +161,7 @@ const ContasPagarPage = () => {
 
           {/* Filters */}
           <div className="p-4 border-b flex flex-wrap items-center gap-4">
-            <div className="relative flex-1 max-w-xl">
+            <div className="relative flex-1 min-w-0">
               <Input
                 placeholder="Buscar por descrição ou fornecedor..."
                 value={searchQuery}
@@ -171,7 +171,7 @@ const ContasPagarPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px]">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
@@ -184,7 +184,8 @@ const ContasPagarPage = () => {
           </div>
 
           {/* Table */}
-          <Table>
+          <div className="overflow-x-auto">
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">DESCRIÇÃO</TableHead>
@@ -282,6 +283,7 @@ const ContasPagarPage = () => {
               )}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
 
