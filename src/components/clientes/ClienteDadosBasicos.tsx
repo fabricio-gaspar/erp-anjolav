@@ -392,23 +392,6 @@ export const ClienteDadosBasicos = ({
         </div>
       </div>
 
-      {/* Row 4: Telefone 2 + Contato */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <Input
-            placeholder="Telefone 2 (opcional)"
-            value={formData.telefone2}
-            onChange={(e) => handleChange("telefone2", e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Input
-            placeholder="CONTATO / RESPONSÁVEL"
-            value={formData.contato}
-            onChange={(e) => handleChange("contato", e.target.value)}
-          />
-        </div>
-      </div>
 
       {/* Observações */}
       <div className="space-y-1">
