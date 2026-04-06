@@ -374,21 +374,21 @@ export default function Fornecedores() {
                 <MapPin className="w-4 h-4" />
                 Endereço
               </h4>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <Label>CEP</Label>
                   <Input value={endereco.cep || ""} onChange={(e) => updateEndereco("cep", e.target.value)} placeholder="00000-000" />
                 </div>
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <Label>Logradouro</Label>
                   <Input value={endereco.logradouro || ""} onChange={(e) => updateEndereco("logradouro", e.target.value)} />
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mt-2">
                 <div>
                   <Label>Número</Label>
                   <Input value={endereco.numero || ""} onChange={(e) => updateEndereco("numero", e.target.value)} />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
                 <div>
                   <Label>Bairro</Label>
                   <Input value={endereco.bairro || ""} onChange={(e) => updateEndereco("bairro", e.target.value)} />
@@ -397,8 +397,6 @@ export default function Fornecedores() {
                   <Label>Cidade</Label>
                   <Input value={endereco.cidade || ""} onChange={(e) => updateEndereco("cidade", e.target.value)} />
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mt-2">
                 <div>
                   <Label>UF</Label>
                   <Input value={endereco.uf || ""} onChange={(e) => updateEndereco("uf", e.target.value)} maxLength={2} />
