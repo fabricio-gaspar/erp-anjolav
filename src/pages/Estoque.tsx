@@ -155,7 +155,7 @@ export default function Estoque() {
 
       {/* Modal Novo/Editar Produto */}
       <Dialog open={modalProduto} onOpenChange={setModalProduto}>
-        <DialogContent>
+        <DialogContent className="wide-form-dialog">
           <DialogHeader><DialogTitle>{editando ? "Editar Insumo" : "Novo Insumo"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Nome *</Label><Input value={form.nome || ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
