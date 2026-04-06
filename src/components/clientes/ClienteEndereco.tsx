@@ -27,7 +27,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
   const { configuracao } = useConfiguracoesGerais();
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState({
     cep: "",

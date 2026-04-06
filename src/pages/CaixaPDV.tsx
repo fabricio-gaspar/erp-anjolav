@@ -80,7 +80,7 @@ const CaixaPDV = () => {
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const clientSearchRef = useRef<HTMLInputElement>(null);
-  const barcodeTimeoutRef = useRef<NodeJS.Timeout>();
+  const barcodeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLetter, setSelectedLetter] = useState("TODOS");
