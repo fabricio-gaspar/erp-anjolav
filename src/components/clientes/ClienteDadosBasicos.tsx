@@ -304,26 +304,37 @@ export const ClienteDadosBasicos = ({
         />
       </div>
 
-      {/* Row 2: Email + Telefone */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* IE + IM + Telefone2 + Contato */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="space-y-1">
           <Input
-            placeholder="Email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => handleChange("email", e.target.value)}
+            placeholder="INSCRIÇÃO ESTADUAL (IE OU ISENTO)"
+            value={formData.inscricao_estadual}
+            onChange={(e) => handleChange("inscricao_estadual", e.target.value)}
           />
         </div>
         <div className="space-y-1">
           <Input
-            placeholder="Telefone (99) 99999-9999"
-            value={formData.telefone}
-            onChange={(e) => handleChange("telefone", e.target.value)}
+            placeholder="INSCRIÇÃO MUNICIPAL (IM)"
+            value={formData.inscricao_municipal}
+            onChange={(e) => handleChange("inscricao_municipal", e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Input
+            placeholder="Telefone 2 (opcional)"
+            value={formData.telefone2}
+            onChange={(e) => handleChange("telefone2", e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Input
+            placeholder="CONTATO / RESPONSÁVEL"
+            value={formData.contato}
+            onChange={(e) => handleChange("contato", e.target.value)}
           />
         </div>
       </div>
-
-      {/* Row 3: IE + IM */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
           <Input
