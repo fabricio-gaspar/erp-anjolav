@@ -53,6 +53,10 @@ const RelatoriosCliente = () => {
 
   const { clientes, isLoading: isLoadingClientes } = useClientes();
   const { configuracao } = useConfiguracaoCliente(selectedClient || null);
+  const { data: contrato } = useContratoCliente(selectedClient || null);
+  const { configuracoes } = useConfiguracoesGerais();
+  const empresaNome = configuracoes?.nome_empresa || "ANJOLAV";
+  const logoUrl = configuracoes?.logo_url || null;
 
   // Calcular período baseado na seleção
   const getSelectedPeriodo = () => {
