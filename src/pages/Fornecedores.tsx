@@ -200,12 +200,12 @@ export default function Fornecedores() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Fornecedores</h1>
             <p className="text-muted-foreground">Cadastro de fornecedores e parceiros comerciais</p>
           </div>
-          <Button onClick={abrirNovo}><Plus className="w-4 h-4 mr-2" />Novo Fornecedor</Button>
+          <Button onClick={abrirNovo} className="w-full sm:w-auto"><Plus className="w-4 h-4 mr-2" />Novo Fornecedor</Button>
         </div>
 
         <Card>
