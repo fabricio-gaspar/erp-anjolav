@@ -96,7 +96,7 @@ export default function Estoque() {
                 <Input placeholder="Buscar insumo..." value={busca} onChange={(e) => setBusca(e.target.value)} className="pl-10" skipUppercase />
               </div>
               <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
-                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todas categorias</SelectItem>
                   {CATEGORIAS.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
