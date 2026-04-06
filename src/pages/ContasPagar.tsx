@@ -184,7 +184,8 @@ const ContasPagarPage = () => {
           </div>
 
           {/* Table */}
-          <Table>
+          <div className="overflow-x-auto">
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">DESCRIÇÃO</TableHead>
