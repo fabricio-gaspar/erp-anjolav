@@ -339,22 +339,6 @@ export const ClienteDadosBasicos = ({
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <Input
-            placeholder="INSCRIÇÃO ESTADUAL (IE OU ISENTO)"
-            value={formData.inscricao_estadual}
-            onChange={(e) => handleChange("inscricao_estadual", e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Input
-            placeholder="INSCRIÇÃO MUNICIPAL (IM)"
-            value={formData.inscricao_municipal}
-            onChange={(e) => handleChange("inscricao_municipal", e.target.value)}
-          />
-        </div>
-      </div>
 
       {/* Regime Tributário */}
       <div className="space-y-2">
