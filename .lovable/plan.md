@@ -1,27 +1,70 @@
 
 
-# Reformular aba Pagamento do cadastro de clientes
+# Melhorias nos Relatórios e Integração do Contrato
 
-## Mudancas solicitadas
+## Situação Atual
 
-1. **Remover "Tipo de Faturamento"** — o campo com botoes Mensal/Avulso sera eliminado da interface
-2. **Tipo de Fechamento** — manter como esta (ja tem Avulso, Quinzenal, Mensal)
-3. **Forma de Pagamento** — mostrar sempre PIX, Transferencia e Boleto (remover feature flag `BOLETO_ENABLED`)
-4. **Prazo para Pagamento** — substituir os toggles (5 dias, 7 dias...) por um seletor de dia do mes (1 a 31) em formato de calendario/grid, usando o campo `dia_vencimento` que ja existe na tabela `configuracoes_pagamento_cliente`
+### Relatórios (Cliente > Config)
+Os 3 tipos de relatório existentes atendem bem ao segmento de lavanderia:
+- **Detalhado**: tabela com colunas por data/ROL, totais por peça, linha de CONTRATO e total geral
+- **Mapa de Peças**: detalhamento por ROL individual (entrada, previsão de entrega, itens)
+- **Mapa Mensal**: matriz dias x peças com totais
 
-## Nenhuma migracao necessaria
+### Problema encontrado: Contrato DESCONECTADO
+O `RelatorioDetalhadoCliente` aceita a prop `valorContrato` e exibe uma linha "CONTRATO" com o valor, MAS na página `RelatoriosCliente.tsx` (onde o relatório é gerado), essa prop **nunca é passada**. O valor do contrato simplesmente não aparece no relatório gerado.
 
-A tabela `configuracoes_pagamento_cliente` ja possui:
-- `dia_vencimento` (integer) — para armazenar o dia do mes
-- `tipo_faturamento`, `forma_pagamento`, `condicao_pagamento` — continuam existindo
+Da mesma forma, nos relatórios **Mapa de Peças** e **Mapa Mensal**, não existe sequer a prop de contrato — o valor do contrato é completamente ignorado.
 
-O campo `condicao_pagamento` deixa de ser usado na interface (substituido pelo `dia_vencimento`).
+No faturamento (`FaturamentoModal`), o mesmo problema pode ocorrer: o valor do contrato precisa ser somado ao total da fatura.
 
-## Alteracoes no arquivo `src/components/clientes/ClientePagamento.tsx`
+---
 
-1. **Remover** o bloco "Tipo de Faturamento" (linhas 166-188) e o estado `tipoFaturamento`
-2. **Forma de Pagamento** — remover condicional `BOLETO_ENABLED`, sempre mostrar 3 botoes: PIX, Transferencia, Boleto
-3. **Prazo para Pagamento** — substituir `ToggleGroup` de condicoes por um grid 7x5 com dias 1-31, onde o usuario clica no dia desejado. Usar estado `diaVencimento` (number). Estilo: grid compacto com botoes pequenos, dia selecionado destacado em primary
-4. **handleSave** — enviar `dia_vencimento: diaVencimento` no upsert; remover `condicao_pagamento`
-5. **Resumo** — remover linha "Tipo de Faturamento", atualizar "Prazo para Pagamento" para mostrar "Dia X" em vez das condicoes antigas
+## Sugestões de melhoria (da melhor forma)
+
+### 1. Conectar o contrato aos relatórios (CORREÇÃO CRÍTICA)
+Na página `RelatoriosCliente.tsx`, buscar o contrato ativo do cliente selecionado usando `useContratoCliente` e passar o `valor_servico` como prop para todos os 3 relatórios.
+
+**Arquivos**: `src/pages/RelatoriosCliente.tsx`
+- Importar `useContratoCliente` e `useCalculoContrato` de `useContratosAluguel`
+- Buscar contrato quando cliente é selecionado
+- Passar `valorContrato={contrato?.valor_servico}` ao `RelatorioDetalhadoCliente`
+- Adicionar linha CONTRATO também ao `MapaPecasCliente` e `MapaMensalPecas`
+
+### 2. Adicionar linha CONTRATO ao Mapa de Peças e Mapa Mensal
+Atualmente só o Relatório Detalhado tem a linha de contrato. Os outros dois relatórios devem mostrar:
+- Uma linha separadora após os totais de peças
+- "CONTRATO: R$ X.XXX,XX"
+- Total geral = peças + contrato
+
+**Arquivos**: `src/components/relatorios/MapaPecasCliente.tsx`, `src/components/relatorios/MapaMensalPecas.tsx`
+- Adicionar prop `valorContrato?: number`
+- Renderizar linha CONTRATO antes do total geral
+- Somar contrato ao total geral
+
+### 3. Melhorar informações no cabeçalho dos relatórios
+Puxar dados reais da empresa (de `configuracoes_gerais`) em vez de usar valores hardcoded "ANJOLAV":
+- Nome da empresa
+- Logo
+
+**Arquivo**: `src/pages/RelatoriosCliente.tsx`
+- Importar `useConfiguracoesGerais`
+- Passar `empresaNome` e `logoUrl` aos componentes de relatório
+
+### 4. Incluir informações adicionais úteis
+- CPF/CNPJ do cliente no cabeçalho
+- Endereço do cliente
+- Número da cobrança real (sequencial por cliente)
+
+---
+
+## Resumo das alterações
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/RelatoriosCliente.tsx` | Buscar contrato + config da empresa, passar props |
+| `src/components/relatorios/MapaPecasCliente.tsx` | Adicionar prop e linha CONTRATO |
+| `src/components/relatorios/MapaMensalPecas.tsx` | Adicionar prop e linha CONTRATO |
+| `src/components/relatorios/RelatorioDetalhadoCliente.tsx` | Sem mudança (já suporta) |
+
+Nenhuma alteração de banco necessária — todas as tabelas já existem (`contratos_aluguel`, `configuracoes_gerais`).
 
