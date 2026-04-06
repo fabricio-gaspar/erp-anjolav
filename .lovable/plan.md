@@ -1,70 +1,56 @@
 
 
-# Melhorias nos Relatórios e Integração do Contrato
+# Analise do modulo Fornecedores — Problemas e Melhorias
 
-## Situação Atual
+## Problemas encontrados
 
-### Relatórios (Cliente > Config)
-Os 3 tipos de relatório existentes atendem bem ao segmento de lavanderia:
-- **Detalhado**: tabela com colunas por data/ROL, totais por peça, linha de CONTRATO e total geral
-- **Mapa de Peças**: detalhamento por ROL individual (entrada, previsão de entrega, itens)
-- **Mapa Mensal**: matriz dias x peças com totais
+### 1. Categorias insuficientes para lavanderia industrial
+As categorias atuais sao apenas 4 (Produtos de Limpeza, Embalagens, Manutencao, Outros). Faltam categorias essenciais do segmento:
+- **Energia/Agua/Gas** — custos operacionais recorrentes
+- **Aluguel** — espaco fisico
+- **Transporte/Logistica** — entregas
+- **Quimicos/Solventes** — produtos especificos de lavanderia
+- **Equipamentos** — maquinas industriais
 
-### Problema encontrado: Contrato DESCONECTADO
-O `RelatorioDetalhadoCliente` aceita a prop `valorContrato` e exibe uma linha "CONTRATO" com o valor, MAS na página `RelatoriosCliente.tsx` (onde o relatório é gerado), essa prop **nunca é passada**. O valor do contrato simplesmente não aparece no relatório gerado.
+### 2. Endereco cadastrado mas NAO exibido no formulario
+O campo `endereco` (jsonb) e preenchido via consulta CNPJ mas **nao tem campos visiveis** no formulario para editar manualmente. O usuario nao consegue ver nem corrigir o endereco.
 
-Da mesma forma, nos relatórios **Mapa de Peças** e **Mapa Mensal**, não existe sequer a prop de contrato — o valor do contrato é completamente ignorado.
+### 3. EditarContaPagarModal NAO usa fornecedor cadastrado
+O modal de edicao de contas a pagar (`EditarContaPagarModal.tsx`) usa um campo de texto livre para "Fornecedor" em vez do Select com fornecedores cadastrados — perdendo o vinculo `fornecedor_id`. Isso quebra a rastreabilidade.
 
-No faturamento (`FaturamentoModal`), o mesmo problema pode ocorrer: o valor do contrato precisa ser somado ao total da fatura.
+### 4. Exclusao sem confirmacao
+O botao de excluir fornecedor executa `excluirFornecedor.mutate(f.id)` diretamente, sem dialog de confirmacao. Risco de exclusao acidental.
 
----
+### 5. Historico de contas geradas invisivel
+O botao "Gerar conta do mes" nao verifica se ja existe uma conta gerada para aquele fornecedor/mes, podendo criar duplicatas.
 
-## Sugestões de melhoria (da melhor forma)
-
-### 1. Conectar o contrato aos relatórios (CORREÇÃO CRÍTICA)
-Na página `RelatoriosCliente.tsx`, buscar o contrato ativo do cliente selecionado usando `useContratoCliente` e passar o `valor_servico` como prop para todos os 3 relatórios.
-
-**Arquivos**: `src/pages/RelatoriosCliente.tsx`
-- Importar `useContratoCliente` e `useCalculoContrato` de `useContratosAluguel`
-- Buscar contrato quando cliente é selecionado
-- Passar `valorContrato={contrato?.valor_servico}` ao `RelatorioDetalhadoCliente`
-- Adicionar linha CONTRATO também ao `MapaPecasCliente` e `MapaMensalPecas`
-
-### 2. Adicionar linha CONTRATO ao Mapa de Peças e Mapa Mensal
-Atualmente só o Relatório Detalhado tem a linha de contrato. Os outros dois relatórios devem mostrar:
-- Uma linha separadora após os totais de peças
-- "CONTRATO: R$ X.XXX,XX"
-- Total geral = peças + contrato
-
-**Arquivos**: `src/components/relatorios/MapaPecasCliente.tsx`, `src/components/relatorios/MapaMensalPecas.tsx`
-- Adicionar prop `valorContrato?: number`
-- Renderizar linha CONTRATO antes do total geral
-- Somar contrato ao total geral
-
-### 3. Melhorar informações no cabeçalho dos relatórios
-Puxar dados reais da empresa (de `configuracoes_gerais`) em vez de usar valores hardcoded "ANJOLAV":
-- Nome da empresa
-- Logo
-
-**Arquivo**: `src/pages/RelatoriosCliente.tsx`
-- Importar `useConfiguracoesGerais`
-- Passar `empresaNome` e `logoUrl` aos componentes de relatório
-
-### 4. Incluir informações adicionais úteis
-- CPF/CNPJ do cliente no cabeçalho
-- Endereço do cliente
-- Número da cobrança real (sequencial por cliente)
+### 6. Filtro de status ausente
+Nao ha filtro por Ativo/Inativo na listagem. Fornecedores inativos aparecem misturados.
 
 ---
 
-## Resumo das alterações
+## Plano de implementacao
 
-| Arquivo | Mudança |
+### Arquivo: `src/pages/Fornecedores.tsx`
+
+1. **Ampliar CATEGORIAS** — adicionar: `energia_agua`, `aluguel`, `transporte`, `quimicos`, `equipamentos`
+2. **Adicionar campos de endereco no formulario** — apos Contato/Categoria, exibir CEP, Logradouro, Numero, Bairro, Cidade, UF em grid compacto, lidos de `form.endereco`
+3. **Adicionar dialog de confirmacao de exclusao** — um AlertDialog simples antes de executar `excluirFornecedor`
+4. **Filtro por status** — adicionar Select Ativo/Inativo/Todos junto ao filtro de categoria
+5. **Verificar duplicata ao gerar conta** — na funcao `gerarContaMes`, consultar `contas_pagar` para verificar se ja existe conta com mesmo `fornecedor_id` e mes/ano antes de criar
+
+### Arquivo: `src/components/contas/EditarContaPagarModal.tsx`
+
+6. **Substituir campo texto "Fornecedor" por Select** — importar `useFornecedores`, usar Select com fornecedores cadastrados (igual ao NovaContaPagarModal), mantendo opcao de texto livre. Preservar `fornecedor_id` no update.
+
+---
+
+## Resumo de arquivos
+
+| Arquivo | Mudanca |
 |---------|---------|
-| `src/pages/RelatoriosCliente.tsx` | Buscar contrato + config da empresa, passar props |
-| `src/components/relatorios/MapaPecasCliente.tsx` | Adicionar prop e linha CONTRATO |
-| `src/components/relatorios/MapaMensalPecas.tsx` | Adicionar prop e linha CONTRATO |
-| `src/components/relatorios/RelatorioDetalhadoCliente.tsx` | Sem mudança (já suporta) |
+| `src/pages/Fornecedores.tsx` | Mais categorias, campos endereco, confirmacao exclusao, filtro status, prevenir duplicatas |
+| `src/components/contas/EditarContaPagarModal.tsx` | Select de fornecedor com vinculo `fornecedor_id` |
 
-Nenhuma alteração de banco necessária — todas as tabelas já existem (`contratos_aluguel`, `configuracoes_gerais`).
+Nenhuma migracao de banco necessaria — todas as colunas ja existem.
 
