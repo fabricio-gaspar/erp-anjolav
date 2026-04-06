@@ -333,6 +333,9 @@ const RelatoriosCliente = () => {
               lancamentos={lancamentos}
               periodoInicio={periodoInicio}
               periodoFim={periodoFim}
+              valorContrato={contrato?.valor_servico}
+              empresaNome={empresaNome}
+              logoUrl={logoUrl}
               onPrint={() => setShowPreview(false)}
             />
           )}
@@ -344,6 +347,9 @@ const RelatoriosCliente = () => {
               lancamentos={lancamentos}
               periodoInicio={periodoInicio}
               periodoFim={periodoFim}
+              valorContrato={contrato?.valor_servico}
+              empresaNome={empresaNome}
+              logoUrl={logoUrl}
               onPrint={() => setShowPreview(false)}
             />
           )}
@@ -355,6 +361,9 @@ const RelatoriosCliente = () => {
               lancamentos={lancamentos}
               periodoInicio={periodoInicio}
               periodoFim={periodoFim}
+              valorContrato={contrato?.valor_servico}
+              empresaNome={empresaNome}
+              logoUrl={logoUrl}
               onPrint={() => setShowPreview(false)}
             />
           )}

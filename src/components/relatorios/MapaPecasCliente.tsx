@@ -260,15 +260,31 @@ export function MapaPecasCliente({
           );
         })}
 
+        {/* CONTRATO */}
+        {valorContrato > 0 && (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+            <tbody>
+              <tr>
+                <td style={{ border: "1px solid #000", background: "#FEF9C3", padding: "8px", textAlign: "right", fontWeight: "bold", fontSize: "12px", width: "70%" }}>
+                  CONTRATO
+                </td>
+                <td style={{ border: "1px solid #000", background: "#FEF9C3", padding: "8px", textAlign: "right", fontWeight: "bold", fontSize: "12px", width: "30%" }}>
+                  R$ {formatCurrency(valorContrato)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+
         {/* TOTAL GERAL */}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: valorContrato > 0 ? "0" : "12px" }}>
           <tbody>
             <tr>
               <td style={{ border: "1px solid #000", background: "#E5E7EB", padding: "8px", textAlign: "right", fontWeight: "bold", fontSize: "12px", width: "70%" }}>
                 TOTAL GERAL
               </td>
               <td style={{ border: "1px solid #000", background: "#E5E7EB", padding: "8px", textAlign: "right", fontWeight: "bold", fontSize: "12px", width: "30%" }}>
-                R$ {formatCurrency(totaisGerais.valor)}
+                R$ {formatCurrency(totaisGerais.valor + valorContrato)}
               </td>
             </tr>
           </tbody>
