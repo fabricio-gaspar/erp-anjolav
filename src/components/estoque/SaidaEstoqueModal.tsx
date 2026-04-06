@@ -34,7 +34,7 @@ export function SaidaEstoqueModal({ open, onOpenChange, produtos }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="wide-form-dialog">
         <DialogHeader><DialogTitle>Saída de Estoque</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div>

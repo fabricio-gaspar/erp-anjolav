@@ -196,7 +196,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         <label className="text-sm font-medium text-foreground">
           Dia de Vencimento
         </label>
-        <div className="grid grid-cols-7 gap-1.5 max-w-xs">
+        <div className="grid grid-cols-7 sm:grid-cols-8 gap-1.5">
           {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
             <Button
               key={day}
@@ -311,7 +311,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       </div>
 
       {/* Resumo */}
-      <Card className="max-w-lg border-primary/20">
+      <Card className="border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-primary" />

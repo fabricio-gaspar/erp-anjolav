@@ -155,11 +155,11 @@ export default function Estoque() {
 
       {/* Modal Novo/Editar Produto */}
       <Dialog open={modalProduto} onOpenChange={setModalProduto}>
-        <DialogContent>
+        <DialogContent className="wide-form-dialog">
           <DialogHeader><DialogTitle>{editando ? "Editar Insumo" : "Novo Insumo"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Nome *</Label><Input value={form.nome || ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label>Categoria</Label>
                 <Select value={form.categoria || "outros"} onValueChange={(v) => setForm({ ...form, categoria: v })}>
@@ -180,12 +180,12 @@ export default function Estoque() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div><Label>Qtd. Atual</Label><Input type="number" value={form.quantidade_atual ?? 0} onChange={(e) => setForm({ ...form, quantidade_atual: Number(e.target.value) })} /></div>
               <div><Label>Qtd. Mínima</Label><Input type="number" value={form.quantidade_minima ?? 0} onChange={(e) => setForm({ ...form, quantidade_minima: Number(e.target.value) })} /></div>
               <div><Label>Custo Unit.</Label><Input type="number" step="0.01" value={form.preco_custo ?? 0} onChange={(e) => setForm({ ...form, preco_custo: Number(e.target.value) })} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label>Fornecedor</Label>
                 <Select value={form.fornecedor_id || ""} onValueChange={(v) => setForm({ ...form, fornecedor_id: v })}>

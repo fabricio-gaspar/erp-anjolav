@@ -315,42 +315,21 @@ export default function Fornecedores() {
 
       {/* Modal Criar/Editar */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="wide-form-dialog">
           <DialogHeader>
             <DialogTitle>{editando ? "Editar Fornecedor" : "Novo Fornecedor"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <div className="flex-1">
+          <div className="space-y-5">
+            {/* Dados Básicos */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="md:col-span-2">
                 <Label>CNPJ/CPF</Label>
-                <Input value={form.cnpj_cpf || ""} onChange={(e) => setForm({ ...form, cnpj_cpf: e.target.value })} placeholder="00.000.000/0000-00" />
-              </div>
-              <Button variant="outline" className="mt-6" onClick={buscarCNPJ} disabled={buscandoCnpj}>
-                {buscandoCnpj ? "Buscando..." : "Consultar"}
-              </Button>
-            </div>
-            <div>
-              <Label>Nome *</Label>
-              <Input value={form.nome || ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-            </div>
-            <div>
-              <Label>Razão Social</Label>
-              <Input value={form.razao_social || ""} onChange={(e) => setForm({ ...form, razao_social: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Telefone</Label>
-                <Input value={form.telefone || ""} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Contato</Label>
-                <Input value={form.contato_nome || ""} onChange={(e) => setForm({ ...form, contato_nome: e.target.value })} />
+                <div className="flex gap-2">
+                  <Input value={form.cnpj_cpf || ""} onChange={(e) => setForm({ ...form, cnpj_cpf: e.target.value })} placeholder="00.000.000/0000-00" className="flex-1" />
+                  <Button variant="outline" onClick={buscarCNPJ} disabled={buscandoCnpj}>
+                    {buscandoCnpj ? "Buscando..." : "Consultar"}
+                  </Button>
+                </div>
               </div>
               <div>
                 <Label>Categoria</Label>
@@ -362,6 +341,30 @@ export default function Fornecedores() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label>Nome *</Label>
+                <Input value={form.nome || ""} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+              </div>
+              <div>
+                <Label>Razão Social</Label>
+                <Input value={form.razao_social || ""} onChange={(e) => setForm({ ...form, razao_social: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label>Telefone</Label>
+                <Input value={form.telefone || ""} onChange={(e) => setForm({ ...form, telefone: e.target.value })} />
+              </div>
+              <div>
+                <Label>Email</Label>
+                <Input type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </div>
+              <div>
+                <Label>Contato</Label>
+                <Input value={form.contato_nome || ""} onChange={(e) => setForm({ ...form, contato_nome: e.target.value })} />
+              </div>
+            </div>
 
             <Separator />
 
@@ -371,21 +374,21 @@ export default function Fornecedores() {
                 <MapPin className="w-4 h-4" />
                 Endereço
               </h4>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <Label>CEP</Label>
                   <Input value={endereco.cep || ""} onChange={(e) => updateEndereco("cep", e.target.value)} placeholder="00000-000" />
                 </div>
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <Label>Logradouro</Label>
                   <Input value={endereco.logradouro || ""} onChange={(e) => updateEndereco("logradouro", e.target.value)} />
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mt-2">
                 <div>
                   <Label>Número</Label>
                   <Input value={endereco.numero || ""} onChange={(e) => updateEndereco("numero", e.target.value)} />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
                 <div>
                   <Label>Bairro</Label>
                   <Input value={endereco.bairro || ""} onChange={(e) => updateEndereco("bairro", e.target.value)} />
@@ -394,8 +397,6 @@ export default function Fornecedores() {
                   <Label>Cidade</Label>
                   <Input value={endereco.cidade || ""} onChange={(e) => updateEndereco("cidade", e.target.value)} />
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mt-2">
                 <div>
                   <Label>UF</Label>
                   <Input value={endereco.uf || ""} onChange={(e) => updateEndereco("uf", e.target.value)} maxLength={2} />
@@ -410,7 +411,7 @@ export default function Fornecedores() {
                 <CalendarClock className="w-4 h-4" />
                 Pagamento Recorrente
               </h4>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <Label>Valor</Label>
                   <Input

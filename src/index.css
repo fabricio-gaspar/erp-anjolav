@@ -311,6 +311,24 @@
   }
 
   /* ============================================ */
+  /* WIDE FORM DIALOG                             */
+  /* ============================================ */
+  .wide-form-dialog {
+    width: min(96vw, 900px) !important;
+    max-width: min(96vw, 900px) !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .form-section-title {
+    @apply text-sm font-semibold text-foreground flex items-center gap-2 mb-3;
+  }
+
+  .form-section-title svg {
+    @apply w-4 h-4 text-primary;
+  }
+
+  /* ============================================ */
   /* FINANCE CARDS                                */
   /* ============================================ */
   .finance-card {
