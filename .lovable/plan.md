@@ -1,45 +1,26 @@
 
-# Auditoria Completa — Correções Aplicadas
 
-## Migração Executada (Fase 1 — Críticos)
+# Preenchimento automático do código IBGE ao digitar cidade
 
-### ✅ Correções de FK aplicadas:
-1. `contas_pagar.fornecedor_id` → FK para `fornecedores(id)` ON DELETE SET NULL
-2. `caixas.operador_id` → FK para `funcionarios(id)` ON DELETE SET NULL
-3. `lancamentos_cliente.cliente_id` → FK para `clientes(id)` ON DELETE CASCADE
-4. `lancamentos_cliente.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
-5. `itens_lancamento_cliente.produto_id` → FK para `produtos(id)` ON DELETE RESTRICT
-6. `caixa_movimentacoes.cliente_id` → FK para `clientes(id)` ON DELETE SET NULL
-7. `caixa_movimentacoes.ordem_servico_id` → FK para `ordens_servico(id)` ON DELETE SET NULL
+## Solução
 
-### ✅ Constraints de integridade:
-- `UNIQUE INDEX idx_clientes_cpf_cnpj_unique` (parcial, ignora NULL/vazio)
-- `CHECK chk_contas_pagar_valor_positivo` (valor >= 0)
-- `CHECK chk_lancamentos_valor_positivo` (valor_total >= 0)
-- `CHECK chk_faturas_valor_positivo` (valor_total >= 0)
-- `CHECK chk_movimentacoes_valor_positivo` (valor >= 0)
+Adicionar lógica no `handleInputChange` para que, quando o campo `cidade` for alterado e o valor corresponder a um município conhecido, o código IBGE e a URL da API sejam preenchidos automaticamente.
 
-### ✅ Dados órfãos limpos:
-- Removido 1 registro em `lancamentos_cliente` que referenciava cliente inexistente
+## Alterações
 
-### ✅ Hooks atualizados:
-- `useContasPagar` — interface com `fornecedor_id`
-- `useCaixa` — interfaces com `operador_id`, `cliente_id`, `ordem_servico_id`
+**Arquivo: `src/components/configuracoes/ConfiguracoesFiscal.tsx`**
 
----
+1. Importar `MUNICIPIOS_SP` e `TEMPLATES_API_NFSE` de `@/lib/validacoesFiscais`
 
-## Pendente (Fases futuras)
+2. Modificar `handleInputChange` (linha 249-251) para incluir lógica de auto-preenchimento:
+   - Quando `field === "cidade"`, normalizar o valor e comparar com `MUNICIPIOS_SP`
+   - Se encontrar match (ex: "são roque" → código `3554003`), preencher `codigoMunicipioIbge` automaticamente
+   - Se a cidade for "São Roque", preencher também `urlApiNfse` com a URL do template correspondente
 
-### Fase 2 — Segurança (RLS granular)
-- Criar função `has_module_access(user_id, modulo)` SECURITY DEFINER
-- Aplicar nas políticas RLS em vez de `USING (true)`
-- Verificar `modulo_permissoes` no ProtectedRoute
+3. Corrigir o código IBGE de São Roque na lista `MUNICIPIOS_SP` em `src/lib/validacoesFiscais.ts`:
+   - Atualmente está `3550605` — o correto é `3554003`
+   - Atualizar também o placeholder do campo no formulário
 
-### Fase 3 — Tabelas complementares
-- `audit_log` — rastreabilidade de ações
-- `historico_precos` — registrar alterações de preço
+**Arquivo: `src/lib/validacoesFiscais.ts`**
+- Corrigir `{ codigo: '3550605', nome: 'São Roque' }` para `{ codigo: '3554003', nome: 'São Roque' }`
 
-### Fase 4 — Melhorias de fluxo
-- Vincular vendas PDV ao financeiro (contas_receber ou view)
-- Tratamento de estorno em OS cancelada
-- CASCADE em `lancamentos.fatura_id`
