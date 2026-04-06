@@ -185,7 +185,7 @@ export default function Estoque() {
               <div><Label>Qtd. Mínima</Label><Input type="number" value={form.quantidade_minima ?? 0} onChange={(e) => setForm({ ...form, quantidade_minima: Number(e.target.value) })} /></div>
               <div><Label>Custo Unit.</Label><Input type="number" step="0.01" value={form.preco_custo ?? 0} onChange={(e) => setForm({ ...form, preco_custo: Number(e.target.value) })} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label>Fornecedor</Label>
                 <Select value={form.fornecedor_id || ""} onValueChange={(v) => setForm({ ...form, fornecedor_id: v })}>
