@@ -1,63 +1,44 @@
 
-# Ajuste definitivo de largura e apresentação das telas
 
-## Diagnóstico real
-O problema principal não está no banco nem em uma única tela:
-- o layout base já ocupa a largura total, então o sistema não está “preso” por `#root`
-- o efeito de tela estreita vem de componentes de formulário e páginas com largura visual limitada
-- no `Fornecedores`, o modal ainda está pequeno para a quantidade de campos e usa grids fixos de 2 e 3 colunas, o que deixa tudo apertado
-- há outros pontos iguais no sistema, principalmente em `Estoque` e no cadastro de `Clientes`
+# Separação completa entre Residencial e Industrial no módulo Lançamentos e Relatórios
 
-## O que vou corrigir
-1. Criar um padrão definitivo para telas e modais largos
-   - padronizar uma variante de modal largo para formulários extensos
-   - manter dialogs de confirmação pequenos e deixar só os cadastros principais mais amplos
-   - aplicar largura baseada em viewport, não só `max-w-2xl`
+## Contexto
 
-2. Reorganizar o modal de `Novo Fornecedor`
-   - ampliar para um modal realmente largo
-   - dividir o conteúdo em blocos visuais mais claros: dados básicos, endereço, pagamento recorrente, observações
-   - trocar grids rígidos por grids responsivos (`1 / 2 / 3 colunas por breakpoint`)
-   - melhorar espaçamento interno e alinhamento dos botões
+O sistema já tem a regra de segmentação: Industrial usa Lançamentos/Faturamento, Residencial usa PDV/Caixa. Porém a separação não está sendo aplicada consistentemente:
 
-3. Aplicar o mesmo padrão aos cadastros que hoje continuam apertados
-   - `Novo/Editar Insumo`
-   - `Entrada de Estoque`
-   - `Saída de Estoque`
-   - telas de cadastro do módulo `Clientes` com foco nas abas de formulário
+- **NovoLancamentoTab**: lista TODOS os clientes no combobox, sem filtrar por `classificacao === "industrial"`
+- **PendentesTab**: já filtra industrial (linha 47) — OK
+- **FaturasTab**: não filtra — mostra faturas de qualquer cliente
+- **ConferenciaTab**: não filtra — mostra OS de qualquer cliente
+- **RelatoriosCliente**: lista TODOS os clientes no select, sem filtrar
 
-4. Melhorar a apresentação das páginas principais
-   - garantir uso consistente de `content-panel`
-   - reforçar headers, filtros e áreas de tabela com composição mais larga e equilibrada
-   - evitar sensação de “coluna estreita no meio da tela”
+## Correções
 
-## Arquivos que entram no ajuste
-- `src/components/ui/dialog.tsx`
-- `src/index.css`
-- `src/pages/Fornecedores.tsx`
-- `src/pages/Estoque.tsx`
-- `src/components/estoque/EntradaEstoqueModal.tsx`
-- `src/components/estoque/SaidaEstoqueModal.tsx`
-- `src/pages/Clientes.tsx`
-- `src/components/clientes/ClienteDadosBasicos.tsx`
-- `src/components/clientes/ClienteEndereco.tsx`
-- `src/components/clientes/ClientePagamento.tsx`
-- `src/components/clientes/ClienteConfiguracao.tsx`
-- `src/components/clientes/ClienteContrato.tsx`
+### 1. `src/components/lancamentos/NovoLancamentoTab.tsx`
+- No `clientesFiltrados` (linha 92-101), adicionar filtro `.filter(c => c.classificacao === "industrial")` antes do `.slice(0, 20)`
+- Isso garante que apenas clientes industriais apareçam no combobox de seleção
 
-## Abordagem técnica
-- adicionar classes reutilizáveis para modal de formulário largo e seções internas
-- usar algo no padrão:
-  - largura: quase toda a viewport em telas grandes
-  - altura: limitada com rolagem interna
-  - grids responsivos com `grid-cols-1 md:grid-cols-2 xl:grid-cols-3`
-- evitar mudanças globais perigosas em dialogs pequenos; o ajuste largo será aplicado só onde faz sentido
+### 2. `src/components/lancamentos/FaturasTab.tsx`
+- Sem mudança necessária: faturas são geradas a partir de lançamentos que já são industriais. A tabela `faturas` vincula ao `cliente_id` e os dados vêm dos lançamentos pendentes (já filtrados)
 
-## Resultado esperado
-- o modal de `Novo Fornecedor` ficará claramente mais largo e confortável
-- os campos deixarão de parecer espremidos
-- as telas principais terão visual mais “aberto”, profissional e consistente
-- o problema deixa de ser pontual e passa a ter um padrão visual reaproveitável no sistema inteiro
+### 3. `src/components/lancamentos/ConferenciaTab.tsx`
+- No hook `useConferenciaProducao`, as OS consultadas são do fluxo de produção industrial. Porém, se houver OS residenciais no sistema, elas apareceriam
+- Adicionar filtro no `filteredConferencias` para incluir apenas OS de clientes com `classificacao === "industrial"`
 
-## Observação
-Nenhuma migração de banco é necessária. Esta correção é 100% de interface e responsividade.
+### 4. `src/pages/RelatoriosCliente.tsx`
+- No select de clientes (que usa `useClientes()`), filtrar para mostrar apenas clientes industriais: `.filter(c => c.classificacao === "industrial")`
+
+### 5. `src/pages/Lancamentos.tsx`
+- O contador de pendentes no badge da aba usa `useLancamentosPendentes()` sem filtro. Filtrar para contar apenas lançamentos de clientes industriais
+
+## Arquivos modificados
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/lancamentos/NovoLancamentoTab.tsx` | Filtrar combobox de clientes para industrial |
+| `src/components/lancamentos/ConferenciaTab.tsx` | Filtrar OS para clientes industriais |
+| `src/pages/RelatoriosCliente.tsx` | Filtrar select de clientes para industrial |
+| `src/pages/Lancamentos.tsx` | Filtrar contador de pendentes para industrial |
+
+Nenhuma migração de banco necessária.
+
