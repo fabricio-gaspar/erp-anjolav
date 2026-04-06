@@ -34,6 +34,7 @@ export function MapaMensalPecas({
   lancamentos,
   periodoInicio,
   periodoFim,
+  valorContrato = 0,
   numeroCobranca = 119,
   empresaNome = "ANJOLAV",
   empresaSubtitulo = "ANJOLAV SERVICOS DE LAVANDERIA",
