@@ -20,6 +20,8 @@ import { Users, Calendar, FileText, Grid, Table2, Eye, Loader2 } from "lucide-re
 import { cn } from "@/lib/utils";
 import { useClientes, useConfiguracaoCliente } from "@/hooks/useClientes";
 import { useRelatorioCliente } from "@/hooks/useRelatorioCliente";
+import { useContratoCliente } from "@/hooks/useContratosAluguel";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { MapaMensalPecas } from "@/components/relatorios/MapaMensalPecas";
 import { MapaPecasCliente } from "@/components/relatorios/MapaPecasCliente";
 import { RelatorioDetalhadoCliente } from "@/components/relatorios/RelatorioDetalhadoCliente";
