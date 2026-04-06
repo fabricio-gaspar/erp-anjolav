@@ -311,7 +311,7 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
       </div>
 
       {/* Resumo */}
-      <Card className="max-w-lg border-primary/20">
+      <Card className="border-primary/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-primary" />
