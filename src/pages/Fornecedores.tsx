@@ -411,7 +411,7 @@ export default function Fornecedores() {
                 <CalendarClock className="w-4 h-4" />
                 Pagamento Recorrente
               </h4>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <Label>Valor</Label>
                   <Input
