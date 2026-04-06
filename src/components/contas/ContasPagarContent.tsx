@@ -167,6 +167,7 @@ const ContasPagarContent = () => {
               )}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
 
