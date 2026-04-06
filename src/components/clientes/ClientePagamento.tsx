@@ -74,9 +74,11 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
     upsertConfiguracao.mutate(
       {
         cliente_id: clienteId,
+        tipo_faturamento: "mensal",
         forma_pagamento: formaPagamento,
         dia_vencimento: diaVencimento,
         dia_fechamento: diaFechamento,
+        condicao_pagamento: null,
         cnpj_emissor_id: cnpjEmissorId || null,
         descricao_nf_id: descricaoNfId || null,
         listar_itens_detalhados: listarItensDetalhados,
