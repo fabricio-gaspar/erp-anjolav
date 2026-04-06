@@ -89,16 +89,20 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
     return { nome: cliente.razao_social, documento: cliente.cpf_cnpj || "", telefone: cliente.telefone || "" };
   }, [selectedClienteId, clientes]);
 
+  const clientesIndustriais = useMemo(() => {
+    return clientes.filter(c => c.classificacao === "industrial");
+  }, [clientes]);
+
   const clientesFiltrados = useMemo(() => {
-    if (!clienteSearch) return clientes.slice(0, 20);
+    if (!clienteSearch) return clientesIndustriais.slice(0, 20);
     const s = clienteSearch.toLowerCase();
-    return clientes.filter(c =>
+    return clientesIndustriais.filter(c =>
       c.razao_social.toLowerCase().includes(s) ||
       c.nome_fantasia?.toLowerCase().includes(s) ||
       c.cpf_cnpj?.includes(clienteSearch) ||
       c.telefone?.includes(clienteSearch)
     ).slice(0, 20);
-  }, [clientes, clienteSearch]);
+  }, [clientesIndustriais, clienteSearch]);
 
   const produtosDoCliente = useMemo(() => {
     return precosEspeciais.map((pe: any) => ({

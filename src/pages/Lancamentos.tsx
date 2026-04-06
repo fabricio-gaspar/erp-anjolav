@@ -14,7 +14,8 @@ const Lancamentos = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab") || "novo";
   const [activeTab, setActiveTab] = useState(tabFromUrl);
-  const { lancamentos: lancamentosPendentes } = useLancamentosPendentes();
+  const { lancamentos: todosLancamentosPendentes } = useLancamentosPendentes();
+  const lancamentosPendentes = todosLancamentosPendentes.filter((l: any) => l.cliente?.classificacao === "industrial");
 
   useEffect(() => {
     const newParams = new URLSearchParams(searchParams);

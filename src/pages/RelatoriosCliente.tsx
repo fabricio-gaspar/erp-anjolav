@@ -51,7 +51,8 @@ const RelatoriosCliente = () => {
   const [selectedMonths, setSelectedMonths] = useState<string[]>([format(new Date(), "yyyy-MM")]);
   const [showPreview, setShowPreview] = useState(false);
 
-  const { clientes, isLoading: isLoadingClientes } = useClientes();
+  const { clientes: todosClientes, isLoading: isLoadingClientes } = useClientes();
+  const clientes = todosClientes.filter(c => c.classificacao === "industrial");
   const { configuracao } = useConfiguracaoCliente(selectedClient || null);
   const { data: contrato } = useContratoCliente(selectedClient || null);
   const { configuracao: configEmpresa } = useConfiguracoesGerais();

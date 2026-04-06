@@ -33,13 +33,17 @@ export function ConferenciaTab({ onUsarParaLancamento }: ConferenciaTabProps) {
     undefined, statusFilter !== "todos" ? statusFilter : undefined
   );
 
-  const filteredConferencias = useMemo(() => {
+  const industrialConferencias = useMemo(() => {
     if (!osConferencias) return [];
-    if (!searchQuery) return osConferencias;
-    return osConferencias.filter(os =>
+    return osConferencias.filter(os => os.cliente.classificacao === "industrial");
+  }, [osConferencias]);
+
+  const filteredConferencias = useMemo(() => {
+    if (!searchQuery) return industrialConferencias;
+    return industrialConferencias.filter(os =>
       os.cliente.razao_social.toLowerCase().includes(searchQuery.toLowerCase()) || os.numero.includes(searchQuery)
     );
-  }, [osConferencias, searchQuery]);
+  }, [industrialConferencias, searchQuery]);
 
   const counts = useMemo(() => {
     if (!osConferencias) return { pendente: 0, fluxo_completo: 0, divergencia: 0, lancado: 0 };
