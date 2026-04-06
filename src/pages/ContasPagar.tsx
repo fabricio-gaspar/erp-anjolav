@@ -110,7 +110,7 @@ const ContasPagarPage = () => {
     <AppLayout title="Contas a Pagar" subtitle="Gerencie suas despesas e pagamentos">
       <div className="space-y-4">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           {/* A Pagar */}
           <Card className="p-4 flex items-center justify-between">
             <div>
@@ -121,8 +121,8 @@ const ContasPagarPage = () => {
                 {formatCurrency(totalAPagar)}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-lg bg-destructive flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-destructive flex items-center justify-center">
+              <DollarSign className="w-4 h-4 text-white" />
             </div>
           </Card>
 
@@ -136,8 +136,8 @@ const ContasPagarPage = () => {
                 {formatCurrency(totalPago)}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-lg bg-success flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-success flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-white" />
             </div>
           </Card>
         </div>
