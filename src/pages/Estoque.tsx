@@ -74,15 +74,15 @@ export default function Estoque() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Estoque</h1>
             <p className="text-muted-foreground">Controle de insumos e materiais</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setModalEntrada(true)}><ArrowDownToLine className="w-4 h-4 mr-2" />Entrada</Button>
-            <Button variant="outline" onClick={() => setModalSaida(true)}><ArrowUpFromLine className="w-4 h-4 mr-2" />Saída</Button>
-            <Button onClick={abrirNovo}><Plus className="w-4 h-4 mr-2" />Novo Insumo</Button>
+          <div className="flex gap-2 flex-wrap w-full sm:w-auto">
+            <Button variant="outline" onClick={() => setModalEntrada(true)} className="flex-1 sm:flex-none"><ArrowDownToLine className="w-4 h-4 mr-2" />Entrada</Button>
+            <Button variant="outline" onClick={() => setModalSaida(true)} className="flex-1 sm:flex-none"><ArrowUpFromLine className="w-4 h-4 mr-2" />Saída</Button>
+            <Button onClick={abrirNovo} className="flex-1 sm:flex-none"><Plus className="w-4 h-4 mr-2" />Novo Insumo</Button>
           </div>
         </div>
 
