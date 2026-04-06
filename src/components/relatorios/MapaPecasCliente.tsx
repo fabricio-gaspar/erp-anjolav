@@ -24,6 +24,7 @@ export function MapaPecasCliente({
   lancamentos,
   periodoInicio,
   periodoFim,
+  valorContrato = 0,
   numeroCobranca = 1,
   empresaNome = "ANJOLAV",
   empresaSubtitulo = "ANJOLAV SERVIÇOS DE LAVANDERIA",
