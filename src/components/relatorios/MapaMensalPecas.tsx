@@ -11,6 +11,7 @@ interface MapaMensalPecasProps {
   lancamentos: LancamentoComItens[];
   periodoInicio: string;
   periodoFim: string;
+  valorContrato?: number;
   numeroCobranca?: number;
   empresaNome?: string;
   empresaSubtitulo?: string;
@@ -33,6 +34,7 @@ export function MapaMensalPecas({
   lancamentos,
   periodoInicio,
   periodoFim,
+  valorContrato = 0,
   numeroCobranca = 119,
   empresaNome = "ANJOLAV",
   empresaSubtitulo = "ANJOLAV SERVICOS DE LAVANDERIA",
@@ -260,6 +262,20 @@ export function MapaMensalPecas({
               </td>
             </tr>
 
+            {/* Linha CONTRATO */}
+            {valorContrato > 0 && (
+              <tr>
+                <td colSpan={dias.length + 1} style={{ border: "1px solid #000", padding: "4px 8px", textAlign: "right", fontSize: "9px", fontWeight: "bold", background: "#FEF9C3" }}>
+                  CONTRATO:
+                </td>
+                <td style={{ border: "1px solid #000", padding: "4px", background: "#FEF9C3" }}></td>
+                <td style={{ border: "1px solid #000", padding: "4px", background: "#FEF9C3" }}></td>
+                <td style={{ border: "1px solid #000", padding: "4px", textAlign: "right", fontSize: "9px", fontWeight: "bold", background: "#FEF9C3" }}>
+                  {formatCurrency(valorContrato)}
+                </td>
+              </tr>
+            )}
+
             {/* Total Geral */}
             <tr>
               <td colSpan={dias.length + 1} style={{ border: "1px solid #000", padding: "6px 8px", textAlign: "right", fontSize: "10px", fontWeight: "bold", background: "#d0d0d0" }}>
@@ -270,7 +286,7 @@ export function MapaMensalPecas({
               </td>
               <td style={{ border: "1px solid #000", padding: "6px 4px", background: "#d0d0d0" }}></td>
               <td style={{ border: "1px solid #000", padding: "6px 4px", textAlign: "right", fontSize: "10px", fontWeight: "bold", background: "#d0d0d0" }}>
-                {formatCurrency(totalGeral.valor)}
+                {formatCurrency(totalGeral.valor + valorContrato)}
               </td>
             </tr>
           </tbody>

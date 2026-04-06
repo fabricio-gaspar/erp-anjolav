@@ -20,6 +20,8 @@ import { Users, Calendar, FileText, Grid, Table2, Eye, Loader2 } from "lucide-re
 import { cn } from "@/lib/utils";
 import { useClientes, useConfiguracaoCliente } from "@/hooks/useClientes";
 import { useRelatorioCliente } from "@/hooks/useRelatorioCliente";
+import { useContratoCliente } from "@/hooks/useContratosAluguel";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { MapaMensalPecas } from "@/components/relatorios/MapaMensalPecas";
 import { MapaPecasCliente } from "@/components/relatorios/MapaPecasCliente";
 import { RelatorioDetalhadoCliente } from "@/components/relatorios/RelatorioDetalhadoCliente";
@@ -51,6 +53,10 @@ const RelatoriosCliente = () => {
 
   const { clientes, isLoading: isLoadingClientes } = useClientes();
   const { configuracao } = useConfiguracaoCliente(selectedClient || null);
+  const { data: contrato } = useContratoCliente(selectedClient || null);
+  const { configuracao: configEmpresa } = useConfiguracoesGerais();
+  const empresaNome = configEmpresa?.nome_empresa || "ANJOLAV";
+  const logoUrl = configEmpresa?.logo_url || null;
 
   // Calcular período baseado na seleção
   const getSelectedPeriodo = () => {
@@ -327,6 +333,9 @@ const RelatoriosCliente = () => {
               lancamentos={lancamentos}
               periodoInicio={periodoInicio}
               periodoFim={periodoFim}
+              valorContrato={contrato?.valor_servico}
+              empresaNome={empresaNome}
+              logoUrl={logoUrl}
               onPrint={() => setShowPreview(false)}
             />
           )}
@@ -338,6 +347,9 @@ const RelatoriosCliente = () => {
               lancamentos={lancamentos}
               periodoInicio={periodoInicio}
               periodoFim={periodoFim}
+              valorContrato={contrato?.valor_servico}
+              empresaNome={empresaNome}
+              logoUrl={logoUrl}
               onPrint={() => setShowPreview(false)}
             />
           )}
@@ -349,6 +361,9 @@ const RelatoriosCliente = () => {
               lancamentos={lancamentos}
               periodoInicio={periodoInicio}
               periodoFim={periodoFim}
+              valorContrato={contrato?.valor_servico}
+              empresaNome={empresaNome}
+              logoUrl={logoUrl}
               onPrint={() => setShowPreview(false)}
             />
           )}
