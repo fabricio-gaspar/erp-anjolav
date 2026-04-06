@@ -1,26 +1,27 @@
 
 
-# Preenchimento automático do código IBGE ao digitar cidade
+# Reformular aba Pagamento do cadastro de clientes
 
-## Solução
+## Mudancas solicitadas
 
-Adicionar lógica no `handleInputChange` para que, quando o campo `cidade` for alterado e o valor corresponder a um município conhecido, o código IBGE e a URL da API sejam preenchidos automaticamente.
+1. **Remover "Tipo de Faturamento"** — o campo com botoes Mensal/Avulso sera eliminado da interface
+2. **Tipo de Fechamento** — manter como esta (ja tem Avulso, Quinzenal, Mensal)
+3. **Forma de Pagamento** — mostrar sempre PIX, Transferencia e Boleto (remover feature flag `BOLETO_ENABLED`)
+4. **Prazo para Pagamento** — substituir os toggles (5 dias, 7 dias...) por um seletor de dia do mes (1 a 31) em formato de calendario/grid, usando o campo `dia_vencimento` que ja existe na tabela `configuracoes_pagamento_cliente`
 
-## Alterações
+## Nenhuma migracao necessaria
 
-**Arquivo: `src/components/configuracoes/ConfiguracoesFiscal.tsx`**
+A tabela `configuracoes_pagamento_cliente` ja possui:
+- `dia_vencimento` (integer) — para armazenar o dia do mes
+- `tipo_faturamento`, `forma_pagamento`, `condicao_pagamento` — continuam existindo
 
-1. Importar `MUNICIPIOS_SP` e `TEMPLATES_API_NFSE` de `@/lib/validacoesFiscais`
+O campo `condicao_pagamento` deixa de ser usado na interface (substituido pelo `dia_vencimento`).
 
-2. Modificar `handleInputChange` (linha 249-251) para incluir lógica de auto-preenchimento:
-   - Quando `field === "cidade"`, normalizar o valor e comparar com `MUNICIPIOS_SP`
-   - Se encontrar match (ex: "são roque" → código `3554003`), preencher `codigoMunicipioIbge` automaticamente
-   - Se a cidade for "São Roque", preencher também `urlApiNfse` com a URL do template correspondente
+## Alteracoes no arquivo `src/components/clientes/ClientePagamento.tsx`
 
-3. Corrigir o código IBGE de São Roque na lista `MUNICIPIOS_SP` em `src/lib/validacoesFiscais.ts`:
-   - Atualmente está `3550605` — o correto é `3554003`
-   - Atualizar também o placeholder do campo no formulário
-
-**Arquivo: `src/lib/validacoesFiscais.ts`**
-- Corrigir `{ codigo: '3550605', nome: 'São Roque' }` para `{ codigo: '3554003', nome: 'São Roque' }`
+1. **Remover** o bloco "Tipo de Faturamento" (linhas 166-188) e o estado `tipoFaturamento`
+2. **Forma de Pagamento** — remover condicional `BOLETO_ENABLED`, sempre mostrar 3 botoes: PIX, Transferencia, Boleto
+3. **Prazo para Pagamento** — substituir `ToggleGroup` de condicoes por um grid 7x5 com dias 1-31, onde o usuario clica no dia desejado. Usar estado `diaVencimento` (number). Estilo: grid compacto com botoes pequenos, dia selecionado destacado em primary
+4. **handleSave** — enviar `dia_vencimento: diaVencimento` no upsert; remover `condicao_pagamento`
+5. **Resumo** — remover linha "Tipo de Faturamento", atualizar "Prazo para Pagamento" para mostrar "Dia X" em vez das condicoes antigas
 
