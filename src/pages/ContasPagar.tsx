@@ -283,6 +283,7 @@ const ContasPagarPage = () => {
               )}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
 
