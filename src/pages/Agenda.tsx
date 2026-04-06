@@ -297,9 +297,9 @@ export default function Agenda() {
         </div>
 
         {/* Calendar Grid */}
-        <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <div className="bg-card rounded-lg border border-border overflow-hidden overflow-x-auto">
           {/* Header row with day names */}
-          <div className="grid grid-cols-7 border-b border-border">
+          <div className="grid grid-cols-7 border-b border-border min-w-[700px]">
             {weekDays.map((day) => (
               <div
                 key={day}
