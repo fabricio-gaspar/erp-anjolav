@@ -3,23 +3,39 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Search, Pencil, Trash2, Building2, Phone, Mail, CalendarClock, Receipt } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Building2, Phone, Mail, CalendarClock, Receipt, MapPin } from "lucide-react";
 import { useFornecedores, Fornecedor } from "@/hooks/useFornecedores";
 import { useContasPagar } from "@/hooks/useContasPagar";
+import { supabase } from "@/integrations/supabase/client";
 import { buscarCnpj } from "@/services/apiServices";
 import { toast } from "sonner";
 import { formatCurrencyInput, parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 
 const CATEGORIAS = [
   { value: "produtos_limpeza", label: "Produtos de Limpeza" },
+  { value: "quimicos", label: "Químicos / Solventes" },
   { value: "embalagens", label: "Embalagens" },
+  { value: "energia_agua", label: "Energia / Água / Gás" },
+  { value: "aluguel", label: "Aluguel" },
+  { value: "transporte", label: "Transporte / Logística" },
+  { value: "equipamentos", label: "Equipamentos / Máquinas" },
   { value: "manutencao", label: "Manutenção" },
   { value: "outros", label: "Outros" },
 ];
@@ -40,16 +56,20 @@ export default function Fornecedores() {
   const { createConta } = useContasPagar();
   const [busca, setBusca] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Fornecedor | null>(null);
   const [form, setForm] = useState<Partial<Fornecedor>>({});
   const [buscandoCnpj, setBuscandoCnpj] = useState(false);
+  const [excluirDialogOpen, setExcluirDialogOpen] = useState(false);
+  const [fornecedorParaExcluir, setFornecedorParaExcluir] = useState<Fornecedor | null>(null);
 
   const filtered = fornecedores.filter((f) => {
     const matchBusca = f.nome.toLowerCase().includes(busca.toLowerCase()) ||
       f.cnpj_cpf?.includes(busca) || false;
     const matchCat = filtroCategoria === "todos" || f.categoria === filtroCategoria;
-    return matchBusca && matchCat;
+    const matchStatus = filtroStatus === "todos" || (filtroStatus === "ativo" ? f.ativo : !f.ativo);
+    return matchBusca && matchCat && matchStatus;
   });
 
   const abrirNovo = () => {
@@ -93,14 +113,31 @@ export default function Fornecedores() {
       vencimento.setMonth(vencimento.getMonth() + 1);
     }
     const mesAno = vencimento.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    const vencStr = vencimento.toISOString().split("T")[0];
+
+    // Verificar duplicata
+    const inicioMes = new Date(vencimento.getFullYear(), vencimento.getMonth(), 1).toISOString().split("T")[0];
+    const fimMes = new Date(vencimento.getFullYear(), vencimento.getMonth() + 1, 0).toISOString().split("T")[0];
+    const { data: existente } = await supabase
+      .from("contas_pagar")
+      .select("id")
+      .eq("fornecedor_id", f.id)
+      .gte("vencimento", inicioMes)
+      .lte("vencimento", fimMes)
+      .limit(1);
+
+    if (existente && existente.length > 0) {
+      toast.error(`Já existe uma conta gerada para ${mesAno}`);
+      return;
+    }
 
     await createConta.mutateAsync({
       descricao: `Pagamento ${f.nome} — ${mesAno}`,
       fornecedor: f.nome,
       fornecedor_id: f.id,
       valor: f.valor_recorrente,
-      vencimento: vencimento.toISOString().split("T")[0],
-      categoria: "Insumos",
+      vencimento: vencStr,
+      categoria: categoriaLabel(f.categoria),
       observacoes: `Gerado automaticamente do fornecedor ${f.nome}`,
       status: "pendente",
       data_pagamento: null,
@@ -142,6 +179,24 @@ export default function Fornecedores() {
     }
   };
 
+  const confirmarExclusao = (f: Fornecedor) => {
+    setFornecedorParaExcluir(f);
+    setExcluirDialogOpen(true);
+  };
+
+  const executarExclusao = () => {
+    if (fornecedorParaExcluir) {
+      excluirFornecedor.mutate(fornecedorParaExcluir.id);
+    }
+    setExcluirDialogOpen(false);
+    setFornecedorParaExcluir(null);
+  };
+
+  const endereco = (form.endereco || {}) as Record<string, string>;
+  const updateEndereco = (field: string, value: string) => {
+    setForm({ ...form, endereco: { ...endereco, [field]: value } });
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -165,6 +220,14 @@ export default function Fornecedores() {
                 <SelectContent>
                   <SelectItem value="todos">Todas categorias</SelectItem>
                   {CATEGORIAS.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+              <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="ativo">Ativos</SelectItem>
+                  <SelectItem value="inativo">Inativos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -236,7 +299,7 @@ export default function Fornecedores() {
                             </Button>
                           )}
                           <Button variant="ghost" size="icon" onClick={() => abrirEditar(f)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => excluirFornecedor.mutate(f.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => confirmarExclusao(f)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -248,6 +311,7 @@ export default function Fornecedores() {
         </Card>
       </div>
 
+      {/* Modal Criar/Editar */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -294,6 +358,46 @@ export default function Fornecedores() {
                     {CATEGORIAS.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Endereço */}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+                <MapPin className="w-4 h-4" />
+                Endereço
+              </h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label>CEP</Label>
+                  <Input value={endereco.cep || ""} onChange={(e) => updateEndereco("cep", e.target.value)} placeholder="00000-000" />
+                </div>
+                <div className="col-span-2">
+                  <Label>Logradouro</Label>
+                  <Input value={endereco.logradouro || ""} onChange={(e) => updateEndereco("logradouro", e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 mt-2">
+                <div>
+                  <Label>Número</Label>
+                  <Input value={endereco.numero || ""} onChange={(e) => updateEndereco("numero", e.target.value)} />
+                </div>
+                <div>
+                  <Label>Bairro</Label>
+                  <Input value={endereco.bairro || ""} onChange={(e) => updateEndereco("bairro", e.target.value)} />
+                </div>
+                <div>
+                  <Label>Cidade</Label>
+                  <Input value={endereco.cidade || ""} onChange={(e) => updateEndereco("cidade", e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 mt-2">
+                <div>
+                  <Label>UF</Label>
+                  <Input value={endereco.uf || ""} onChange={(e) => updateEndereco("uf", e.target.value)} maxLength={2} />
+                </div>
               </div>
             </div>
 
@@ -364,6 +468,24 @@ export default function Fornecedores() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <AlertDialog open={excluirDialogOpen} onOpenChange={setExcluirDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir fornecedor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{fornecedorParaExcluir?.nome}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={executarExclusao} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
