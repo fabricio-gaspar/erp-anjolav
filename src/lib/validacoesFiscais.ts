@@ -172,7 +172,7 @@ export type StatusSefaz = typeof STATUS_SEFAZ[number]['value'];
  * Lista de códigos IBGE de municípios de SP (principais)
  */
 export const MUNICIPIOS_SP = [
-  { codigo: '3550605', nome: 'São Roque', uf: 'SP' },
+  { codigo: '3554003', nome: 'São Roque', uf: 'SP' },
   { codigo: '3550308', nome: 'São Paulo', uf: 'SP' },
   { codigo: '3509502', nome: 'Campinas', uf: 'SP' },
   { codigo: '3518800', nome: 'Guarulhos', uf: 'SP' },

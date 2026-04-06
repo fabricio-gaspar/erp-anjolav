@@ -248,7 +248,29 @@ export function ConfiguracoesFiscal() {
   const { uploadCertificado, removerCertificado, isUploading, uploadProgress } = useCertificadoUpload();
 
   const handleInputChange = (field: keyof FormData, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+
+      // Auto-preencher código IBGE e URL da API ao digitar cidade
+      if (field === "cidade" && typeof value === "string") {
+        const normalizado = value.trim().toLowerCase();
+        const municipio = MUNICIPIOS_SP.find(
+          (m) => m.nome.toLowerCase() === normalizado
+        );
+        if (municipio) {
+          updated.codigoMunicipioIbge = municipio.codigo;
+          // Se for São Roque, preencher URL da API automaticamente
+          const template = TEMPLATES_API_NFSE.find((t) =>
+            t.prefeitura.toLowerCase().includes(municipio.nome.toLowerCase())
+          );
+          if (template) {
+            updated.urlApiNfse = template.urlBase;
+          }
+        }
+      }
+
+      return updated;
+    });
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
