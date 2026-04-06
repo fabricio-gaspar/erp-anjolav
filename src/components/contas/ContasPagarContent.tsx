@@ -79,8 +79,8 @@ const ContasPagarContent = () => {
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">PAGO</p>
               <p className="text-2xl font-bold text-success mt-1">{formatCurrency(totalPago)}</p>
             </div>
-            <div className="w-12 h-12 rounded-lg bg-success flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-success flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-white" />
             </div>
           </Card>
         </div>

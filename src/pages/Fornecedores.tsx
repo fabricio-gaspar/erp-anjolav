@@ -308,6 +308,7 @@ export default function Fornecedores() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

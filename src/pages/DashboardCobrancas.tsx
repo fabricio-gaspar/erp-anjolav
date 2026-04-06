@@ -139,14 +139,6 @@ const DashboardCobrancas = () => {
   return (
     <AppLayout title="Dashboard de Cobranças">
       <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard de Cobranças</h1>
-          <p className="text-sm text-muted-foreground">
-            Acompanhe o fluxo de cobranças e pagamentos
-          </p>
-        </div>
-
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="p-4">

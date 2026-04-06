@@ -148,6 +148,7 @@ export default function Estoque() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
