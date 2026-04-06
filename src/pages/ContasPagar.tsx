@@ -161,7 +161,7 @@ const ContasPagarPage = () => {
 
           {/* Filters */}
           <div className="p-4 border-b flex flex-wrap items-center gap-4">
-            <div className="relative flex-1 max-w-xl">
+            <div className="relative flex-1 min-w-0">
               <Input
                 placeholder="Buscar por descrição ou fornecedor..."
                 value={searchQuery}
@@ -171,7 +171,7 @@ const ContasPagarPage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px]">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
