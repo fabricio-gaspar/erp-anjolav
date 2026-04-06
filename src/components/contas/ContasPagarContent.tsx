@@ -70,8 +70,8 @@ const ContasPagarContent = () => {
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">A PAGAR</p>
               <p className="text-2xl font-bold text-destructive mt-1">{formatCurrency(totalAPagar)}</p>
             </div>
-            <div className="w-12 h-12 rounded-lg bg-destructive flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 rounded-lg bg-destructive flex items-center justify-center">
+              <DollarSign className="w-4 h-4 text-white" />
             </div>
           </Card>
           <Card className="p-4 flex items-center justify-between">
