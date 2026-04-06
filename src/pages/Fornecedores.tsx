@@ -313,7 +313,7 @@ export default function Fornecedores() {
 
       {/* Modal Criar/Editar */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto"> overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editando ? "Editar Fornecedor" : "Novo Fornecedor"}</DialogTitle>
           </DialogHeader>
