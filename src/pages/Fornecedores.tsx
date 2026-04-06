@@ -233,7 +233,8 @@ export default function Fornecedores() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
+            <div className="overflow-x-auto">
+            <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
