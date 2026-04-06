@@ -37,6 +37,7 @@ import {
   type ConfiguracaoFiscalInsert,
 } from "@/hooks/useConfiguracoesFiscais";
 import { useCertificadoUpload } from "@/hooks/useCertificadoUpload";
+import { MUNICIPIOS_SP, TEMPLATES_API_NFSE } from "@/lib/validacoesFiscais";
 import type { Json } from "@/integrations/supabase/types";
 
 // Interface para formulário (camelCase)
