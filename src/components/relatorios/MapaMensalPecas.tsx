@@ -11,6 +11,7 @@ interface MapaMensalPecasProps {
   lancamentos: LancamentoComItens[];
   periodoInicio: string;
   periodoFim: string;
+  valorContrato?: number;
   numeroCobranca?: number;
   empresaNome?: string;
   empresaSubtitulo?: string;
