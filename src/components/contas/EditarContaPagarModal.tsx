@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useContasPagar, ContaPagar } from "@/hooks/useContasPagar";
+import { useFornecedores } from "@/hooks/useFornecedores";
 import { formatCurrencyInput, parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 
 interface EditarContaPagarModalProps {
@@ -35,14 +36,19 @@ const categorias = [
   "Impostos",
   "Manutenção",
   "Transporte",
+  "Energia / Água / Gás",
+  "Químicos / Solventes",
+  "Equipamentos / Máquinas",
   "Outros",
 ];
 
 export function EditarContaPagarModal({ open, onOpenChange, conta }: EditarContaPagarModalProps) {
   const { updateConta } = useContasPagar();
+  const { fornecedores } = useFornecedores();
   const [formData, setFormData] = useState({
     descricao: "",
     fornecedor: "",
+    fornecedor_id: null as string | null,
     valor: "",
     vencimento: "",
     categoria: "",
@@ -54,6 +60,7 @@ export function EditarContaPagarModal({ open, onOpenChange, conta }: EditarConta
       setFormData({
         descricao: conta.descricao,
         fornecedor: conta.fornecedor || "",
+        fornecedor_id: conta.fornecedor_id || null,
         valor: formatNumberToCurrency(conta.valor),
         vencimento: conta.vencimento,
         categoria: conta.categoria || "",
@@ -61,6 +68,21 @@ export function EditarContaPagarModal({ open, onOpenChange, conta }: EditarConta
       });
     }
   }, [conta]);
+
+  const handleFornecedorChange = (value: string) => {
+    if (value === "__manual__") {
+      setFormData({ ...formData, fornecedor_id: null, fornecedor: "" });
+      return;
+    }
+    const selected = fornecedores.find((f) => f.id === value);
+    if (selected) {
+      setFormData({
+        ...formData,
+        fornecedor_id: selected.id,
+        fornecedor: selected.nome,
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +95,7 @@ export function EditarContaPagarModal({ open, onOpenChange, conta }: EditarConta
       id: conta.id,
       descricao: formData.descricao,
       fornecedor: formData.fornecedor || null,
+      fornecedor_id: formData.fornecedor_id || null,
       valor: valorNumerico,
       vencimento: formData.vencimento,
       categoria: formData.categoria || null,
@@ -101,13 +124,29 @@ export function EditarContaPagarModal({ open, onOpenChange, conta }: EditarConta
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fornecedor">Fornecedor</Label>
-            <Input
-              id="fornecedor"
-              value={formData.fornecedor}
-              onChange={(e) => setFormData({ ...formData, fornecedor: e.target.value })}
-              placeholder="Ex: ENEL DISTRIBUIÇÃO"
-            />
+            <Label>Fornecedor</Label>
+            <Select
+              value={formData.fornecedor_id || "__manual__"}
+              onValueChange={handleFornecedorChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um fornecedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__manual__">Digitar manualmente</SelectItem>
+                {fornecedores.filter((f) => f.ativo).map((f) => (
+                  <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!formData.fornecedor_id && (
+              <Input
+                value={formData.fornecedor}
+                onChange={(e) => setFormData({ ...formData, fornecedor: e.target.value })}
+                placeholder="Nome do fornecedor"
+                className="mt-2"
+              />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
