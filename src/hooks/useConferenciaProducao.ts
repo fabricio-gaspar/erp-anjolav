@@ -225,6 +225,7 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
               razao_social: cliente?.razao_social || "Cliente não encontrado",
               telefone: cliente?.telefone || null,
               cpf_cnpj: cliente?.cpf_cnpj || null,
+              classificacao: cliente?.classificacao || "industrial",
             },
             dataRetirada: os.data_retirada,
             dataPrevisaoEntrega: os.data_previsao_entrega,
