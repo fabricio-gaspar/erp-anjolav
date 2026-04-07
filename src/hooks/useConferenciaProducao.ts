@@ -35,6 +35,7 @@ export interface OSConferencia {
     razao_social: string;
     telefone: string | null;
     cpf_cnpj: string | null;
+    classificacao: string;
   };
   dataRetirada: string;
   dataPrevisaoEntrega: string | null;
