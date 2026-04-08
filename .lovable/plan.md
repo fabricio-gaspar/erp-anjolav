@@ -1,3 +1,4 @@
+
 # Login por Username (campo "login") em vez de Email
 
 ## Como funciona hoje
@@ -6,23 +7,9 @@ O funcionário precisa digitar o **email** para entrar. O Supabase Auth exige em
 ## Como vai funcionar
 O funcionário digita o **login** (username cadastrado na aba Equipe). O sistema busca o email vinculado a esse login na tabela `funcionarios` e usa esse email para autenticar no backend.
 
-## Mudanças
+## Fluxo
 
-### 1. `src/pages/Login.tsx`
-- Trocar o campo "Email" por "Login" (type text, placeholder "seu.login")
-- Renomear estado de `email` para `login`
-- No `handleSubmit`: antes de chamar `signIn`, consultar `funcionarios` pelo campo `login` para obter o `email`
-- Se não encontrar funcionário ou se não tiver email vinculado, mostrar erro claro
-- Se encontrar, chamar `signIn(email, password)` normalmente
-
-### 2. `src/contexts/AuthContext.tsx`
-- Criar função auxiliar `signInByLogin(login, password)` que encapsula a busca + autenticação
-- Ou manter simples e fazer a busca direto no Login.tsx (mais simples)
-
-## Abordagem escolhida
-Fazer a busca direto no `Login.tsx` — mais simples, sem alterar o AuthContext:
-
-```
+```text
 1. Usuário digita login + senha
 2. SELECT email FROM funcionarios WHERE login = ? AND ativo = true
 3. Se não encontrar → erro "Login não encontrado"
@@ -30,9 +17,10 @@ Fazer a busca direto no `Login.tsx` — mais simples, sem alterar o AuthContext:
 5. Se encontrar → signIn(email, senha)
 ```
 
-## Arquivos
+## Mudanças
+
 | Arquivo | Mudança |
 |---------|---------|
-| `src/pages/Login.tsx` | Campo login, busca funcionário, depois autentica |
+| `src/pages/Login.tsx` | Trocar campo Email por Login (text), buscar email do funcionário na tabela antes de autenticar |
 
 Nenhuma migração necessária.
