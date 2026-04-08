@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, LogIn, Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,15 +23,46 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) return;
+    if (!login || !password) return;
 
     setIsLoading(true);
-    const { error } = await signIn(email, password);
-    setIsLoading(false);
 
-    if (!error) {
-      navigate(from, { replace: true });
+    try {
+      // Buscar email do funcionário pelo login
+      const { data: funcionario, error: fetchError } = await supabase
+        .from("funcionarios")
+        .select("email")
+        .eq("login", login.toUpperCase())
+        .eq("ativo", true)
+        .maybeSingle();
+
+      if (fetchError) {
+        toast.error("Erro ao buscar funcionário");
+        setIsLoading(false);
+        return;
+      }
+
+      if (!funcionario) {
+        toast.error("Login não encontrado ou funcionário inativo");
+        setIsLoading(false);
+        return;
+      }
+
+      if (!funcionario.email) {
+        toast.error("Funcionário sem email cadastrado. Contate o administrador.");
+        setIsLoading(false);
+        return;
+      }
+
+      const { error } = await signIn(funcionario.email, password);
+      if (!error) {
+        navigate(from, { replace: true });
+      }
+    } catch {
+      toast.error("Erro inesperado ao fazer login");
     }
+
+    setIsLoading(false);
   };
 
   return (
@@ -49,20 +82,20 @@ const Login = () => {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold">Entrar</CardTitle>
             <CardDescription>
-              Digite suas credenciais para acessar o sistema
+              Digite seu login e senha para acessar o sistema
             </CardDescription>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="login">Login</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="login"
+                  type="text"
+                  placeholder="seu.login"
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
                   required
                   disabled={isLoading}
                 />
