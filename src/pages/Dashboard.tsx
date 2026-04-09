@@ -10,6 +10,7 @@ import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard"
 import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
 import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
 import { ContratosVencendoCard } from "@/components/dashboard/ContratosVencendoCard";
+import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, 
@@ -27,10 +28,14 @@ import {
   Wallet,
   CalendarDays,
   ShieldAlert,
+  ShoppingCart,
+  ArrowDownCircle,
+  DollarSign,
 } from "lucide-react";
 import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
 import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
 import { useContasPagar } from "@/hooks/useContasPagar";
+import { useCaixaAberto } from "@/hooks/useCaixa";
 import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
