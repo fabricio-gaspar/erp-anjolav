@@ -43,6 +43,7 @@ function ThemeLoader({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <ThemeLoader>
     <TooltipProvider>
       <BrowserRouter>
         <AuthProvider>
