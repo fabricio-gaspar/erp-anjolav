@@ -104,6 +104,30 @@ const Dashboard = () => {
       icon: Shirt,
       iconColor: "success" as const,
     }] : []),
+    ...(temCaixa ? [{
+      title: "Caixa",
+      value: caixaAberto ? "Aberto" : "Fechado",
+      icon: ShoppingCart,
+      iconColor: (caixaAberto ? "success" : "warning") as const,
+    }] : []),
+    ...(temCaixa && caixaAberto ? [{
+      title: "Vendas Hoje",
+      value: formatCurrency(caixaAberto.valor_vendas || 0),
+      icon: TrendingUp,
+      iconColor: "success" as const,
+    }] : []),
+    ...(temCaixa && caixaAberto ? [{
+      title: "Sangrias",
+      value: formatCurrency(caixaAberto.valor_sangrias || 0),
+      icon: ArrowDownCircle,
+      iconColor: "destructive" as const,
+    }] : []),
+    ...(temCaixa && caixaAberto ? [{
+      title: "Saldo Esperado",
+      value: formatCurrency(caixaAberto.valor_esperado || 0),
+      icon: DollarSign,
+      iconColor: "info" as const,
+    }] : []),
   ];
 
   // Preparar gargalos de produção
