@@ -32,9 +32,11 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { action, email, password, nome, cargo } = body;
+    const { action } = body;
 
+    // === CREATE USER ===
     if (action === "create") {
+      const { email, password, nome, cargo } = body;
       if (!email || !password) {
         return new Response(JSON.stringify({ error: "Email e senha são obrigatórios" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -55,6 +57,61 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ userId: authData.user.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === UPDATE PASSWORD ===
+    if (action === "update-password") {
+      const { userId, newPassword } = body;
+      if (!userId || !newPassword) {
+        return new Response(JSON.stringify({ error: "userId e newPassword são obrigatórios" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (newPassword.length < 6) {
+        return new Response(JSON.stringify({ error: "A senha deve ter no mínimo 6 caracteres" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error } = await supabase.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // === UPDATE EMAIL ===
+    if (action === "update-email") {
+      const { userId, newEmail } = body;
+      if (!userId || !newEmail) {
+        return new Response(JSON.stringify({ error: "userId e newEmail são obrigatórios" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error } = await supabase.auth.admin.updateUserById(userId, {
+        email: newEmail,
+        email_confirm: true,
+      });
+
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

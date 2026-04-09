@@ -71,6 +71,7 @@ import {
   useDeleteFuncionario,
   useUpdateFuncionario,
   useToggleFuncionarioStatus,
+  useChangePassword,
   type Funcionario
 } from "@/hooks/useFuncionarios";
 import { useMotoristas, type Motorista, type MotoristaInsert } from "@/hooks/useMotoristas";
