@@ -91,6 +91,7 @@ const getInitials = (name: string): string => {
 
 // ===== CONSTANTS =====
 const CARGOS = [
+  "ADMINISTRADOR",
   "OPERADOR DE PRODUÇÃO",
   "MOTORISTA",
   "BALCONISTA",
