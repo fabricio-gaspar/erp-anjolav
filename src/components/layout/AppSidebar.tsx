@@ -50,8 +50,11 @@ interface NavItemProps {
 }
 
 const NavItem = ({ to, icon: Icon, label, end = false }: NavItemProps) => {
+  const temPermissao = useTemPermissao(to);
   const location = useLocation();
   const { isCollapsed } = useSidebarContext();
+
+  if (!temPermissao) return null;
   const isActive = end ? location.pathname === to : location.pathname.startsWith(to);
 
   const content = (
