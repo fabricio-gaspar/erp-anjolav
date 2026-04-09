@@ -1,37 +1,29 @@
 
 
-# Dashboard adaptativo por perfil do funcionário
+# Corrigir tema inconsistente entre usuários
 
-## Problema atual
-O dashboard só mostra cards relevantes ao fluxo **industrial** (OS, Produção, Agenda). Um funcionário com perfil **residencial/PDV** (só acesso ao Caixa) vê o dashboard praticamente vazio — sem nenhuma métrica útil.
+## Problema
+O tema é uma configuração **global** (tabela `configuracoes_gerais`), então todos os usuários deveriam ver o mesmo tema. O que acontece é:
+
+1. Quando o admin faz logout, as variáveis CSS inline ficam no `:root` do documento (do tema que o admin estava usando)
+2. A página de Login **não está dentro do AppLayout**, então não re-aplica o tema
+3. Quando o funcionário faz login e o AppLayout monta, pode haver um flash ou delay antes do tema ser aplicado
+4. Se o admin alterou o tema durante sua sessão (via configurações) mas o valor salvo no banco é diferente, há inconsistência
 
 ## Solução
-Adicionar cards específicos para o módulo **Caixa PDV** e garantir que cada perfil veja métricas relevantes aos seus módulos.
 
-### Novos cards para quem tem acesso ao Caixa PDV
+Mover a aplicação do tema para um nível mais alto (ex: `App.tsx` ou criar um `ThemeProvider`), para que o tema seja aplicado **independentemente** da rota — inclusive na tela de Login.
 
-| Card | Dados |
-|------|-------|
-| **KPI: Caixa Aberto** | Status do caixa atual (Aberto/Fechado) |
-| **KPI: Vendas Hoje** | Total de vendas do caixa aberto (valor_vendas) |
-| **KPI: Sangrias Hoje** | Total de sangrias do caixa aberto |
-| **KPI: Valor Esperado** | Valor esperado no caixa atual |
-
-### Novo painel: "Resumo do Caixa"
-Card dedicado visível apenas para quem tem `temCaixa = true`, mostrando:
-- Status do caixa (aberto/fechado)
-- Valor de abertura, vendas acumuladas, sangrias e reforços
-- Diferença acumulada (se houver dados)
-
-### Mudanças nos KPIs existentes
-Os 4 KPIs atuais (OS em Aberto, Entregas Atrasadas, Clientes Ativos, Peças Processadas) já estão condicionados por permissão. Vou **adicionar** KPIs do Caixa quando `temCaixa` for `true`, para que o grid sempre tenha conteúdo.
-
-## Arquivos modificados
+### Mudanças
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/pages/Dashboard.tsx` | Importar `useCaixaAberto`, adicionar KPIs do Caixa e painel "Resumo do Caixa" condicionado a `temCaixa` |
-| `src/components/dashboard/CaixaResumoCard.tsx` | **Novo** - Card com resumo do caixa aberto (status, vendas, sangrias, valor esperado) |
+| `src/App.tsx` | Adicionar um componente `ThemeLoader` que carrega e aplica o tema globalmente, envolvendo todas as rotas |
+| `src/components/layout/AppLayout.tsx` | Remover o `useEffect` de tema (não é mais responsabilidade do layout) |
 
-Nenhuma migração necessária.
+### Detalhes do `ThemeLoader`
+- Componente simples que usa `useConfiguracoesGerais` + `useEffect` para aplicar o tema
+- Fica no topo da árvore de componentes, dentro do `QueryClientProvider` mas acima do `RouterProvider`
+- Garante que o tema é consistente em todas as páginas (Login, Dashboard, etc.)
+- Ao fazer logout e login com outro usuário, o tema global é o mesmo pois vem da mesma tabela
 
