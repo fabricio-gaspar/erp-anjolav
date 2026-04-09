@@ -6,8 +6,6 @@ import { useSidebarContext } from "@/contexts/SidebarContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
-import { aplicarTema, getTemaIdFromCorPrimaria } from "@/lib/themeUtils";
 
 interface AppLayoutProps {
   title?: string;
