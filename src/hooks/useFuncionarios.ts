@@ -96,34 +96,35 @@ export const useCreateFuncionario = () => {
         throw new Error("Já existe um funcionário com este login");
       }
 
-      // Create auth user if email is provided
+      // Create auth user via edge function (server-side, won't log out current user)
       let userId: string | null = null;
       
       if (data.email) {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: data.email,
-          password: data.senha,
-          options: {
-            emailRedirectTo: window.location.origin,
-            data: {
-              nome: data.nome,
-              cargo: data.cargo,
-            },
+        const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
+          body: {
+            action: "create",
+            email: data.email,
+            password: data.senha,
+            nome: data.nome,
+            cargo: data.cargo,
           },
         });
 
-        if (authError) {
-          // If user already exists, throw a clear error
-          if (authError.message.includes("already registered")) {
+        if (fnError) {
+          throw new Error(fnError.message || "Erro ao criar usuário de autenticação");
+        }
+
+        if (result?.error) {
+          if (result.error.includes("already registered") || result.error.includes("already been registered")) {
             throw new Error(
               `O email "${data.email}" já está cadastrado no sistema. ` +
               `Use outro email ou recupere a senha do usuário existente.`
             );
           }
-          throw authError;
-        } else if (authData.user) {
-          userId = authData.user.id;
+          throw new Error(result.error);
         }
+
+        userId = result?.userId || null;
       }
 
       // Create employee record
