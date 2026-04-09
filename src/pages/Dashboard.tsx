@@ -320,7 +320,16 @@ const Dashboard = () => {
           </section>
         )}
 
-        {/* Painel 3: Agenda do Dia - só se tem acesso à agenda */}
+        {/* Painel Caixa PDV - só se tem acesso ao caixa */}
+        {temCaixa && (
+          <section className="content-panel">
+            <SectionHeader icon={ShoppingCart} title="Caixa PDV" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <CaixaResumoCard />
+            </div>
+          </section>
+        )}
+
         {temAgenda && (
           <section className="content-panel">
             <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
