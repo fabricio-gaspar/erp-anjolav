@@ -163,7 +163,10 @@ const UserSection = () => {
   const displayName = funcionario?.nome || user?.email?.split("@")[0] || "Usuário";
   const displayRole = funcionario?.cargo || "Operador";
   const displayEmail = user?.email || "user@anjolav.com";
-  const avatarUrl = funcionario?.avatar_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face";
+  const avatarUrl = funcionario?.avatar_url || null;
+  const getInitials = (name: string) => {
+    return name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase();
+  };
 
   const userButton = (
     <button className={cn(
@@ -172,11 +175,15 @@ const UserSection = () => {
     )}>
       <div className="relative">
         <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
-          <img 
-            src={avatarUrl} 
-            alt="Avatar"
-            className="w-full h-full object-cover"
-          />
+          {avatarUrl ? (
+            <img 
+              src={avatarUrl} 
+              alt="Avatar"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-white text-sm font-semibold">{getInitials(displayName)}</span>
+          )}
         </div>
       </div>
       {!isCollapsed && (
