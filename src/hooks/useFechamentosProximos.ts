@@ -8,9 +8,10 @@ interface ClienteFechamento {
   dia_fechamento: number;
   diasRestantes: number;
   condicao_pagamento: string | null;
+  dataFechamento: Date;
 }
 
-export function useFechamentosProximos(diasAntecedencia: number = 3) {
+export function useFechamentosProximos(diasAntecedencia: number = 31) {
   return useQuery({
     queryKey: ["fechamentos_proximos", diasAntecedencia],
     queryFn: async () => {
@@ -72,6 +73,7 @@ export function useFechamentosProximos(diasAntecedencia: number = 3) {
             dia_fechamento: diaFechamento,
             diasRestantes,
             condicao_pagamento: config.condicao_pagamento,
+            dataFechamento,
           });
         }
       }
