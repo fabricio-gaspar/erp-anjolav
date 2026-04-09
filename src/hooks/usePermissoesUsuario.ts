@@ -51,17 +51,24 @@ export const useTemPermissao = (route: string): boolean => {
   const { data: permissoes, isLoading } = usePermissoesUsuario();
   const { funcionario } = useAuth();
 
-  // Admin always has access
   if (funcionario?.cargo === "ADMINISTRADOR") return true;
-
-  // While loading or no permissions set, show all (permissive default)
   if (isLoading || !permissoes) return true;
-
-  // If no permissions configured at all for this user, show all
   if (Object.keys(permissoes).length === 0) return true;
 
   const moduleKey = ROUTE_PERMISSION_MAP[route];
-  if (!moduleKey) return true; // unknown route = allow
+  if (!moduleKey) return true;
+
+  return permissoes[moduleKey] !== false;
+};
+
+// Check permission by module key directly (for dashboard sections)
+export const useTemPermissaoModulo = (moduleKey: string): boolean => {
+  const { data: permissoes, isLoading } = usePermissoesUsuario();
+  const { funcionario } = useAuth();
+
+  if (funcionario?.cargo === "ADMINISTRADOR") return true;
+  if (isLoading || !permissoes) return true;
+  if (Object.keys(permissoes).length === 0) return true;
 
   return permissoes[moduleKey] !== false;
 };
