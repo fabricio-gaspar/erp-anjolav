@@ -31,6 +31,7 @@ import {
 import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
 import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
 import { useContasPagar } from "@/hooks/useContasPagar";
+import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -52,38 +53,48 @@ const Dashboard = () => {
   const { data: metricasAvancadas } = useMetricasProducaoAvancadas();
   const { contas: contasPagar } = useContasPagar();
 
+  // Permissões por módulo
+  const temFinanceiro = useTemPermissaoModulo("faturamento");
+  const temContasPagar = useTemPermissaoModulo("contas_pagar");
+  const temProducao = useTemPermissaoModulo("producao");
+  const temAgenda = useTemPermissaoModulo("agenda");
+  const temOrdens = useTemPermissaoModulo("ordens");
+  const temClientes = useTemPermissaoModulo("clientes");
+  const temProdutos = useTemPermissaoModulo("produtos");
+  const temCaixa = useTemPermissaoModulo("caixa");
+
   const isLoading = isLoadingMetricas || isLoadingAgenda || isLoadingResumo;
 
   // Calcular dados financeiros
   const contasPendentes = contasPagar.filter((c) => c.status === "pendente");
   const totalContasPagar = contasPendentes.reduce((acc, c) => acc + Number(c.valor), 0);
 
-  // Preparar KPIs
+  // Preparar KPIs - sempre visíveis como métricas rápidas
   const kpis = [
-    {
+    ...(temOrdens ? [{
       title: "OS em Aberto",
       value: metricas?.osEmAberto || 0,
       icon: FileText,
       iconColor: "primary" as const,
-    },
-    {
+    }] : []),
+    ...(temAgenda ? [{
       title: "Entregas Atrasadas",
       value: metricas?.entregasAtrasadas || 0,
       icon: AlertCircle,
       iconColor: "destructive" as const,
-    },
-    {
+    }] : []),
+    ...(temClientes ? [{
       title: "Clientes Ativos",
       value: metricas?.clientesAtivos || 0,
       icon: Users,
       iconColor: "info" as const,
-    },
-    {
+    }] : []),
+    ...(temProducao ? [{
       title: "Peças Processadas Hoje",
       value: metricas?.pecasProcessadasHoje || 0,
       icon: Shirt,
       iconColor: "success" as const,
-    },
+    }] : []),
   ];
 
   // Preparar gargalos de produção
@@ -107,7 +118,6 @@ const Dashboard = () => {
       ? formatDistanceToNow(new Date(ultimoHistorico.created_at), { locale: ptBR })
       : "-";
 
-    // Extrair quantidade de peças do histórico (dados_formulario)
     let quantidadePecasHistorico = 0;
     (os.historico || []).forEach((h: any) => {
       const dados = h.dados_formulario || {};
@@ -116,7 +126,6 @@ const Dashboard = () => {
       }
     });
 
-    // Calcular peças, peso e tempo a partir dos itens da OS
     let pecasItens = 0;
     let pesoEstimado = 0;
     let tempoTotalProcessoMin = 0;
@@ -133,10 +142,8 @@ const Dashboard = () => {
       }
     });
 
-    // Usar peças do histórico se disponível, senão dos itens
     const pecasFinal = quantidadePecasHistorico || pecasItens;
 
-    // Calcular previsão de conclusão
     let previsaoTexto: string | undefined;
     let dataPrevisaoCalc: Date | null = null;
     
@@ -144,17 +151,14 @@ const Dashboard = () => {
       dataPrevisaoCalc = new Date(os.data_previsao_entrega);
       previsaoTexto = format(dataPrevisaoCalc, "dd/MM", { locale: ptBR });
     } else if (os.data_retirada && tempoTotalProcessoMin > 0) {
-      // Estimativa baseada na data de retirada + tempo de processo
       const dataRetirada = new Date(os.data_retirada);
       const horasProcesso = Math.ceil(tempoTotalProcessoMin / 60);
-      // Considerando 8h de trabalho por dia
       const diasProcesso = Math.max(1, Math.ceil(horasProcesso / 8));
       dataPrevisaoCalc = new Date(dataRetirada);
       dataPrevisaoCalc.setDate(dataPrevisaoCalc.getDate() + diasProcesso);
       previsaoTexto = format(dataPrevisaoCalc, "dd/MM", { locale: ptBR }) + " (est.)";
     }
 
-    // Determinar status baseado na previsão
     let status: "on_time" | "delayed" | "at_risk" = "on_time";
     if (dataPrevisaoCalc) {
       const hoje = startOfDay(new Date());
@@ -217,93 +221,106 @@ const Dashboard = () => {
   return (
     <AppLayout title="Dashboard" subtitle="Métricas e visão operacional">
       <div className="space-y-3">
-        {/* Painel 1: KPIs */}
-        <section className="content-panel">
-          <SectionHeader icon={BarChart3} title="Métricas Rápidas" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
-            {kpis.map((kpi, index) => (
-              <KPICard
-                key={index}
-                title={kpi.title}
-                value={kpi.value}
-                icon={kpi.icon}
-                iconColor={kpi.iconColor}
+        {/* Painel 1: KPIs - Métricas Rápidas (sempre visível se houver ao menos 1 KPI) */}
+        {kpis.length > 0 && (
+          <section className="content-panel">
+            <SectionHeader icon={BarChart3} title="Métricas Rápidas" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+              {kpis.map((kpi, index) => (
+                <KPICard
+                  key={index}
+                  title={kpi.title}
+                  value={kpi.value}
+                  icon={kpi.icon}
+                  iconColor={kpi.iconColor}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Painel 2: Financeiro - só se tem acesso a faturamento ou contas */}
+        {(temFinanceiro || temContasPagar) && (
+          <section className="content-panel">
+            <SectionHeader icon={Wallet} title="Visão Financeira" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+              {temFinanceiro && (
+                <FinanceCard
+                  title="Contas a Receber"
+                  subtitle="Em desenvolvimento"
+                  total={0}
+                  icon={TrendingUp}
+                  variant="receivable"
+                  items={[]}
+                />
+              )}
+              {temContasPagar && (
+                <FinanceCard
+                  title="Contas a Pagar"
+                  subtitle={`${contasPendentes.length} pendentes`}
+                  total={totalContasPagar}
+                  icon={TrendingDown}
+                  variant="payable"
+                  items={contasPendentes.slice(0, 3).map((c) => ({
+                    id: c.id,
+                    status: new Date(c.vencimento) < new Date() ? "vencida" as const : "a_vencer" as const,
+                    clientName: c.fornecedor || c.descricao,
+                    value: Number(c.valor),
+                    dueDate: format(new Date(c.vencimento), "dd/MM", { locale: ptBR }),
+                  }))}
+                />
+              )}
+              {temFinanceiro && <BillingClosuresCard />}
+            </div>
+          </section>
+        )}
+
+        {/* Painel 2.5: Alertas Operacionais - só se tem acesso a contas, produtos ou clientes */}
+        {(temContasPagar || temProdutos || temClientes) && (
+          <section className="content-panel">
+            <SectionHeader icon={ShieldAlert} title="Alertas Operacionais" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+              {temContasPagar && <ContasVencendoCard />}
+              {temProdutos && <EstoqueBaixoCard />}
+              {temClientes && <ContratosVencendoCard />}
+            </div>
+          </section>
+        )}
+
+        {/* Painel 3: Agenda do Dia - só se tem acesso à agenda */}
+        {temAgenda && (
+          <section className="content-panel">
+            <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
+              <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
+            </div>
+          </section>
+        )}
+
+        {/* Painel 4: Gargalos + OS em Processamento - só se tem acesso à produção */}
+        {temProducao && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <section className="content-panel">
+              <SectionHeader icon={Activity} title="Gargalos de Produção" />
+              <ProductionBottleneck
+                items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
+                recommendation={recommendation}
               />
-            ))}
+            </section>
+
+            <section className="content-panel">
+              <SectionHeader icon={FileText} title="OS em Processamento" />
+              <ProcessingSummary
+                items={
+                  processingItems.length > 0
+                    ? processingItems
+                    : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
+                }
+              />
+            </section>
           </div>
-        </section>
-
-        {/* Painel 2: Financeiro + Produção */}
-        <section className="content-panel">
-          <SectionHeader icon={Wallet} title="Visão Financeira" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-            <FinanceCard
-              title="Contas a Receber"
-              subtitle="Em desenvolvimento"
-              total={0}
-              icon={TrendingUp}
-              variant="receivable"
-              items={[]}
-            />
-            <FinanceCard
-              title="Contas a Pagar"
-              subtitle={`${contasPendentes.length} pendentes`}
-              total={totalContasPagar}
-              icon={TrendingDown}
-              variant="payable"
-              items={contasPendentes.slice(0, 3).map((c) => ({
-                id: c.id,
-                status: new Date(c.vencimento) < new Date() ? "vencida" as const : "a_vencer" as const,
-                clientName: c.fornecedor || c.descricao,
-                value: Number(c.valor),
-                dueDate: format(new Date(c.vencimento), "dd/MM", { locale: ptBR }),
-              }))}
-            />
-            <BillingClosuresCard />
-          </div>
-
-        </section>
-
-        {/* Painel 2.5: Alertas Operacionais */}
-        <section className="content-panel">
-          <SectionHeader icon={ShieldAlert} title="Alertas Operacionais" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-            <ContasVencendoCard />
-            <EstoqueBaixoCard />
-            <ContratosVencendoCard />
-          </div>
-        </section>
-
-        <section className="content-panel">
-          <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
-            <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
-          </div>
-
-        </section>
-
-        {/* Painel 4: Gargalos + OS em Processamento lado a lado */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <section className="content-panel">
-            <SectionHeader icon={Activity} title="Gargalos de Produção" />
-            <ProductionBottleneck
-              items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
-              recommendation={recommendation}
-            />
-          </section>
-
-          <section className="content-panel">
-            <SectionHeader icon={FileText} title="OS em Processamento" />
-            <ProcessingSummary
-              items={
-                processingItems.length > 0
-                  ? processingItems
-                  : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
-              }
-            />
-          </section>
-        </div>
+        )}
       </div>
     </AppLayout>
   );
