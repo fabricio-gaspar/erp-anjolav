@@ -347,6 +347,9 @@ function FuncionariosTab({
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<Funcionario | null>(null);
+  const [passwordItem, setPasswordItem] = useState<Funcionario | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const changePassword = useChangePassword();
   
   const [formData, setFormData] = useState({
     nome: "",
@@ -688,9 +691,14 @@ function FuncionariosTab({
                   <TableCell className="text-primary font-medium">{func.login}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditItem(func)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditItem(func)} title="Editar">
                         <Pencil className="w-4 h-4 text-muted-foreground" />
                       </Button>
+                      {func.user_id && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPasswordItem(func); setNewPassword(""); }} title="Alterar Senha">
+                          <Key className="w-4 h-4 text-primary" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(func.id, func.ativo)} disabled={toggleStatus.isPending}>
                         {func.ativo ? <X className="w-4 h-4 text-orange-500" /> : <Check className="w-4 h-4 text-emerald-500" />}
                       </Button>
