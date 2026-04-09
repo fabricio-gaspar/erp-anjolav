@@ -57,6 +57,7 @@ const Dashboard = () => {
   const { osEmProcessamento, isLoading: isLoadingResumo } = useResumoProcessamento();
   const { data: metricasAvancadas } = useMetricasProducaoAvancadas();
   const { contas: contasPagar } = useContasPagar();
+  const { data: caixaAberto } = useCaixaAberto();
 
   // Permissões por módulo
   const temFinanceiro = useTemPermissaoModulo("faturamento");
@@ -69,6 +70,9 @@ const Dashboard = () => {
   const temCaixa = useTemPermissaoModulo("caixa");
 
   const isLoading = isLoadingMetricas || isLoadingAgenda || isLoadingResumo;
+
+  const formatCurrency = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   // Calcular dados financeiros
   const contasPendentes = contasPagar.filter((c) => c.status === "pendente");
