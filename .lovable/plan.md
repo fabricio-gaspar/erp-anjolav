@@ -1,29 +1,33 @@
 
 
-# Corrigir tema inconsistente entre usuários
+# Alerta de fechamentos 1 dia antes com datas visíveis
 
-## Problema
-O tema é uma configuração **global** (tabela `configuracoes_gerais`), então todos os usuários deveriam ver o mesmo tema. O que acontece é:
-
-1. Quando o admin faz logout, as variáveis CSS inline ficam no `:root` do documento (do tema que o admin estava usando)
-2. A página de Login **não está dentro do AppLayout**, então não re-aplica o tema
-3. Quando o funcionário faz login e o AppLayout monta, pode haver um flash ou delay antes do tema ser aplicado
-4. Se o admin alterou o tema durante sua sessão (via configurações) mas o valor salvo no banco é diferente, há inconsistência
+## Situação atual
+O card "Fechamentos Próximos" filtra clientes com fechamento nos próximos 3 dias, mas não mostra a **data exata** do fechamento — só mostra "Dia X". Além disso, a janela de 3 dias pode não capturar nenhum cliente dependendo do momento do mês.
 
 ## Solução
-
-Mover a aplicação do tema para um nível mais alto (ex: `App.tsx` ou criar um `ThemeProvider`), para que o tema seja aplicado **independentemente** da rota — inclusive na tela de Login.
+Ampliar a janela para mostrar **todos os fechamentos do mês** (até 31 dias) com a **data exata** de fechamento, e destacar visualmente os que estão a **1 dia ou menos** (urgentes) vs os demais.
 
 ### Mudanças
 
+**`src/hooks/useFechamentosProximos.ts`**
+- Adicionar campo `dataFechamento` (Date) ao interface `ClienteFechamento` para retornar a data exata
+- Mudar default de `diasAntecedencia` de 3 para 31 (mês inteiro)
+
+**`src/components/dashboard/BillingClosuresCard.tsx`**
+- Chamar hook com janela de 31 dias
+- Mostrar a **data exata** do fechamento (ex: "16/04") em vez de apenas "Dia 16"
+- Separar em duas seções:
+  - **Urgentes** (0-1 dia): fundo vermelho/laranja, destaque forte — "HOJE" ou "AMANHÃ"
+  - **Próximos** (2+ dias): lista normal com contagem regressiva
+- Badge com cores diferenciadas:
+  - 0 dias → vermelho "HOJE"
+  - 1 dia → laranja "AMANHÃ"  
+  - 2-3 dias → amarelo
+  - 4+ dias → cinza neutro
+
 | Arquivo | Mudança |
 |---------|---------|
-| `src/App.tsx` | Adicionar um componente `ThemeLoader` que carrega e aplica o tema globalmente, envolvendo todas as rotas |
-| `src/components/layout/AppLayout.tsx` | Remover o `useEffect` de tema (não é mais responsabilidade do layout) |
-
-### Detalhes do `ThemeLoader`
-- Componente simples que usa `useConfiguracoesGerais` + `useEffect` para aplicar o tema
-- Fica no topo da árvore de componentes, dentro do `QueryClientProvider` mas acima do `RouterProvider`
-- Garante que o tema é consistente em todas as páginas (Login, Dashboard, etc.)
-- Ao fazer logout e login com outro usuário, o tema global é o mesmo pois vem da mesma tabela
+| `src/hooks/useFechamentosProximos.ts` | Adicionar `dataFechamento`, ampliar janela para 31 dias |
+| `src/components/dashboard/BillingClosuresCard.tsx` | Mostrar data exata, separar urgentes (0-1 dia) dos demais, cores por urgência |
 
