@@ -1,8 +1,11 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { aplicarTema, getTemaIdFromCorPrimaria } from "@/lib/themeUtils";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -29,8 +32,18 @@ import Estoque from "./pages/Estoque";
 
 const queryClient = new QueryClient();
 
+function ThemeLoader({ children }: { children: React.ReactNode }) {
+  const { configuracao } = useConfiguracoesGerais();
+  useEffect(() => {
+    const temaId = getTemaIdFromCorPrimaria(configuracao?.cor_primaria ?? null);
+    aplicarTema(temaId);
+  }, [configuracao?.cor_primaria]);
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <ThemeLoader>
     <TooltipProvider>
       <BrowserRouter>
         <AuthProvider>
@@ -77,6 +90,7 @@ const App = () => (
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </ThemeLoader>
   </QueryClientProvider>
 );
 
