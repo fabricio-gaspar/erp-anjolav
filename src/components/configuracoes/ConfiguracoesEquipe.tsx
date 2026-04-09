@@ -740,6 +740,49 @@ function FuncionariosTab({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Change Password Modal */}
+      <Dialog open={!!passwordItem} onOpenChange={() => setPasswordItem(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              Alterar Senha
+            </DialogTitle>
+            <DialogDescription>
+              Defina uma nova senha para <strong>{passwordItem?.nome}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nova Senha</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                minLength={6}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasswordItem(null)}>Cancelar</Button>
+            <Button
+              disabled={!newPassword || newPassword.length < 6 || changePassword.isPending}
+              onClick={async () => {
+                if (passwordItem?.user_id) {
+                  await changePassword.mutateAsync({ userId: passwordItem.user_id, newPassword });
+                  setPasswordItem(null);
+                  setNewPassword("");
+                }
+              }}
+            >
+              {changePassword.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
