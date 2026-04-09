@@ -1,5 +1,6 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTemPermissao } from "@/hooks/usePermissoesUsuario";
 import {
   LayoutDashboard,
   Users,
@@ -49,8 +50,11 @@ interface NavItemProps {
 }
 
 const NavItem = ({ to, icon: Icon, label, end = false }: NavItemProps) => {
+  const temPermissao = useTemPermissao(to);
   const location = useLocation();
   const { isCollapsed } = useSidebarContext();
+
+  if (!temPermissao) return null;
   const isActive = end ? location.pathname === to : location.pathname.startsWith(to);
 
   const content = (
@@ -102,6 +106,14 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavG
   const hasActiveChild = Array.isArray(children) 
     ? children.some((child: any) => child?.props?.to && location.pathname.startsWith(child.props.to))
     : false;
+
+  // Filter out null children (hidden by permissions)
+  const visibleChildren = Array.isArray(children) 
+    ? children.filter((child: any) => child !== null) 
+    : children;
+  
+  const visibleCount = Array.isArray(visibleChildren) ? visibleChildren.length : (visibleChildren ? 1 : 0);
+  if (visibleCount === 0) return null;
 
   if (isCollapsed) {
     return <div className="space-y-1 py-1">{children}</div>;
