@@ -108,7 +108,7 @@ const Dashboard = () => {
       title: "Caixa",
       value: caixaAberto ? "Aberto" : "Fechado",
       icon: ShoppingCart,
-      iconColor: (caixaAberto ? "success" : "warning") as const,
+      iconColor: caixaAberto ? "success" as const : "warning" as const,
     }] : []),
     ...(temCaixa && caixaAberto ? [{
       title: "Vendas Hoje",
