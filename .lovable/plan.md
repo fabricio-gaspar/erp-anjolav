@@ -1,26 +1,41 @@
 
-# Login por Username (campo "login") em vez de Email
 
-## Como funciona hoje
-O funcionário precisa digitar o **email** para entrar. O Supabase Auth exige email+senha.
+# Criar usuário Master (ADMIN)
 
-## Como vai funcionar
-O funcionário digita o **login** (username cadastrado na aba Equipe). O sistema busca o email vinculado a esse login na tabela `funcionarios` e usa esse email para autenticar no backend.
+## Situação atual
+- O cargo "ADMINISTRADOR" não existe na lista de cargos do sistema (só tem OPERADOR, MOTORISTA, BALCONISTA, etc.)
+- O email `admin@anjolav.com` já está vinculado à funcionária JUSSARA
+- A tabela `user_roles` está vazia (nenhum role atribuído a ninguém)
 
-## Fluxo
+## O que será feito
 
-```text
-1. Usuário digita login + senha
-2. SELECT email FROM funcionarios WHERE login = ? AND ativo = true
-3. Se não encontrar → erro "Login não encontrado"
-4. Se encontrar mas sem email → erro "Funcionário sem email cadastrado"
-5. Se encontrar → signIn(email, senha)
-```
+### 1. Adicionar cargo "ADMINISTRADOR" à lista
+No `ConfiguracoesEquipe.tsx`, adicionar "ADMINISTRADOR" como primeira opção na lista de cargos.
 
-## Mudanças
+### 2. Criar o usuário admin no backend
+- **Email**: master@anjolav.com
+- **Senha**: fg886633@#$
+- **Login**: ADMIN
+- **Nome**: ADMIN
+- **Cargo**: ADMINISTRADOR
+
+Passos técnicos:
+1. Criar um auth user via edge function (ou migration com insert) com email `master@anjolav.com` e senha `fg886633@#$`
+2. Criar registro na tabela `funcionarios` vinculando ao auth user
+3. Atribuir role `admin` na tabela `user_roles`
+
+### 3. Habilitar auto-confirm para este email
+Como o email não é real, será necessário confirmar automaticamente o usuário para que ele possa fazer login imediatamente.
+
+## Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/pages/Login.tsx` | Trocar campo Email por Login (text), buscar email do funcionário na tabela antes de autenticar |
+| `src/components/configuracoes/ConfiguracoesEquipe.tsx` | Adicionar "ADMINISTRADOR" à lista CARGOS |
+| Migration SQL | Criar auth user + funcionario + user_role |
 
-Nenhuma migração necessária.
+## Resultado
+Após a implementação, o acesso será:
+- **Login**: ADMIN
+- **Senha**: fg886633@#$
+
