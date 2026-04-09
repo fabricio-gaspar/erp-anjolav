@@ -242,6 +242,56 @@ export const useDeleteFuncionario = () => {
   });
 };
 
+// Change employee password
+export const useChangePassword = () => {
+  return useMutation({
+    mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
+      const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
+        body: {
+          action: "update-password",
+          userId,
+          newPassword,
+        },
+      });
+
+      if (fnError) throw new Error(fnError.message || "Erro ao alterar senha");
+      if (result?.error) throw new Error(result.error);
+      return result;
+    },
+    onSuccess: () => {
+      toast.success("Senha alterada com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao alterar senha");
+    },
+  });
+};
+
+// Update employee auth email
+export const useUpdateAuthEmail = () => {
+  return useMutation({
+    mutationFn: async ({ userId, newEmail }: { userId: string; newEmail: string }) => {
+      const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
+        body: {
+          action: "update-email",
+          userId,
+          newEmail,
+        },
+      });
+
+      if (fnError) throw new Error(fnError.message || "Erro ao atualizar email");
+      if (result?.error) throw new Error(result.error);
+      return result;
+    },
+    onSuccess: () => {
+      toast.success("Email de autenticação atualizado!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao atualizar email");
+    },
+  });
+};
+
 // Toggle employee status
 export const useToggleFuncionarioStatus = () => {
   const queryClient = useQueryClient();
