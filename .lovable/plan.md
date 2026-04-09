@@ -1,33 +1,41 @@
 
 
-# Alerta de fechamentos 1 dia antes com datas visíveis
+# Inserir itens da imagem para ADEGA E RESTAURANTE QUINTA DO OLIVARDO
+
+## Dados extraídos da imagem
+
+| Código | Nome | Unidade | Preço |
+|--------|------|---------|-------|
+| 614 | TOALHA DE MESA LOCAÇÃO | Quantidade | 0,50 |
+| 186 | MANTA | Quantidade | 29,00 |
+| 44 | COBERTOR | Quantidade | 43,00 |
+| 266 | LUVAS DE COZINHA | Quantidade | 0,00 |
+| 615 | GUARDANAPO LOC | Quantidade | 0,00 |
+| 30 | CAMINHO DE MESA | Quantidade | 0,00 |
+| 754 | TOALHA DE MESA DELES | Quantidade | 1,80 |
+| 755 | GUARDANAPO DELES | Quantidade | 0,50 |
+| 892 | EMPRESTADO GUARDANAPO | Quantidade | 0,50 |
 
 ## Situação atual
-O card "Fechamentos Próximos" filtra clientes com fechamento nos próximos 3 dias, mas não mostra a **data exata** do fechamento — só mostra "Dia X". Além disso, a janela de 3 dias pode não capturar nenhum cliente dependendo do momento do mês.
+- Cliente ID: `7586051a-af34-4af7-a126-2f0a8d456216`
+- Possui **65 preços especiais** cadastrados atualmente
+- Produtos que **já existem** na tabela `produtos`: COBERTOR, LUVAS DE COZINHA, CAMINHO DE MESA
+- Produtos que **NÃO existem** e precisam ser criados: TOALHA DE MESA LOCAÇÃO, MANTA, GUARDANAPO LOC, TOALHA DE MESA DELES, GUARDANAPO DELES, EMPRESTADO GUARDANAPO
 
-## Solução
-Ampliar a janela para mostrar **todos os fechamentos do mês** (até 31 dias) com a **data exata** de fechamento, e destacar visualmente os que estão a **1 dia ou menos** (urgentes) vs os demais.
+## Ações a executar
 
-### Mudanças
+### 1. Excluir todos os preços especiais do cliente
+Deletar os 65 registros atuais em `precos_especiais` para este cliente.
 
-**`src/hooks/useFechamentosProximos.ts`**
-- Adicionar campo `dataFechamento` (Date) ao interface `ClienteFechamento` para retornar a data exata
-- Mudar default de `diasAntecedencia` de 3 para 31 (mês inteiro)
+### 2. Criar produtos que não existem
+Inserir 6 novos produtos na tabela `produtos` (TOALHA DE MESA LOCAÇÃO, MANTA, GUARDANAPO LOC, TOALHA DE MESA DELES, GUARDANAPO DELES, EMPRESTADO GUARDANAPO) com unidade "Quantidade".
 
-**`src/components/dashboard/BillingClosuresCard.tsx`**
-- Chamar hook com janela de 31 dias
-- Mostrar a **data exata** do fechamento (ex: "16/04") em vez de apenas "Dia 16"
-- Separar em duas seções:
-  - **Urgentes** (0-1 dia): fundo vermelho/laranja, destaque forte — "HOJE" ou "AMANHÃ"
-  - **Próximos** (2+ dias): lista normal com contagem regressiva
-- Badge com cores diferenciadas:
-  - 0 dias → vermelho "HOJE"
-  - 1 dia → laranja "AMANHÃ"  
-  - 2-3 dias → amarelo
-  - 4+ dias → cinza neutro
+### 3. Inserir os 9 preços especiais da imagem
+Para cada item, verificar se já existe um `precos_especiais` com **mesmo nome e mesmo valor** — como acabamos de limpar tudo, todos serão inseridos. A verificação serve como proteção extra.
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useFechamentosProximos.ts` | Adicionar `dataFechamento`, ampliar janela para 31 dias |
-| `src/components/dashboard/BillingClosuresCard.tsx` | Mostrar data exata, separar urgentes (0-1 dia) dos demais, cores por urgência |
+### Resumo esperado
+- **9 itens inseridos** (todos novos após exclusão)
+- **0 itens ignorados**
+
+Nenhuma alteração de código — apenas operações de dados no banco.
 
