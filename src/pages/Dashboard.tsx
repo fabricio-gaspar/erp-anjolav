@@ -10,6 +10,7 @@ import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard"
 import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
 import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
 import { ContratosVencendoCard } from "@/components/dashboard/ContratosVencendoCard";
+import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText, 
@@ -27,10 +28,14 @@ import {
   Wallet,
   CalendarDays,
   ShieldAlert,
+  ShoppingCart,
+  ArrowDownCircle,
+  DollarSign,
 } from "lucide-react";
 import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
 import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
 import { useContasPagar } from "@/hooks/useContasPagar";
+import { useCaixaAberto } from "@/hooks/useCaixa";
 import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -52,6 +57,7 @@ const Dashboard = () => {
   const { osEmProcessamento, isLoading: isLoadingResumo } = useResumoProcessamento();
   const { data: metricasAvancadas } = useMetricasProducaoAvancadas();
   const { contas: contasPagar } = useContasPagar();
+  const { data: caixaAberto } = useCaixaAberto();
 
   // Permissões por módulo
   const temFinanceiro = useTemPermissaoModulo("faturamento");
@@ -64,6 +70,9 @@ const Dashboard = () => {
   const temCaixa = useTemPermissaoModulo("caixa");
 
   const isLoading = isLoadingMetricas || isLoadingAgenda || isLoadingResumo;
+
+  const formatCurrency = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   // Calcular dados financeiros
   const contasPendentes = contasPagar.filter((c) => c.status === "pendente");
@@ -94,6 +103,30 @@ const Dashboard = () => {
       value: metricas?.pecasProcessadasHoje || 0,
       icon: Shirt,
       iconColor: "success" as const,
+    }] : []),
+    ...(temCaixa ? [{
+      title: "Caixa",
+      value: caixaAberto ? "Aberto" : "Fechado",
+      icon: ShoppingCart,
+      iconColor: caixaAberto ? "success" as const : "warning" as const,
+    }] : []),
+    ...(temCaixa && caixaAberto ? [{
+      title: "Vendas Hoje",
+      value: formatCurrency(caixaAberto.valor_vendas || 0),
+      icon: TrendingUp,
+      iconColor: "success" as const,
+    }] : []),
+    ...(temCaixa && caixaAberto ? [{
+      title: "Sangrias",
+      value: formatCurrency(caixaAberto.valor_sangrias || 0),
+      icon: ArrowDownCircle,
+      iconColor: "destructive" as const,
+    }] : []),
+    ...(temCaixa && caixaAberto ? [{
+      title: "Saldo Esperado",
+      value: formatCurrency(caixaAberto.valor_esperado || 0),
+      icon: DollarSign,
+      iconColor: "info" as const,
     }] : []),
   ];
 
@@ -287,7 +320,16 @@ const Dashboard = () => {
           </section>
         )}
 
-        {/* Painel 3: Agenda do Dia - só se tem acesso à agenda */}
+        {/* Painel Caixa PDV - só se tem acesso ao caixa */}
+        {temCaixa && (
+          <section className="content-panel">
+            <SectionHeader icon={ShoppingCart} title="Caixa PDV" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <CaixaResumoCard />
+            </div>
+          </section>
+        )}
+
         {temAgenda && (
           <section className="content-panel">
             <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
