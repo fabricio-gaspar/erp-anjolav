@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -647,6 +648,15 @@ const CaixaPDV = () => {
                   >
                     <Lock className="w-4 h-4" />
                     Fechar Caixa
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1"
+                    onClick={() => navigate("/relatorios/caixa")}
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Relatórios
                   </Button>
                 </>
               ) : (
