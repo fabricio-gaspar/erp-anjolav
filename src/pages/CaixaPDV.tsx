@@ -73,6 +73,7 @@ interface OSRecemCriada {
 const alphabet = ["TODOS", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 
 const CaixaPDV = () => {
+  const navigate = useNavigate();
   const { produtos, isLoading: isLoadingProdutos } = useProdutos();
   const { clientes, isLoading: isLoadingClientes } = useClientes();
   const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto();
