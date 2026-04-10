@@ -343,8 +343,8 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
           <NavGroup title="Financeiro" icon={Wallet}>
             <NavItem to="/financeiro" icon={DollarSign} label="Visão Geral" />
-            <NavItem to="/lancamentos" icon={Receipt} label="Lançamentos" />
-            <NavItem to="/caixa" icon={CreditCard} label="Caixa PDV" />
+            <NavItem to="/lancamentos" icon={Receipt} label="PDV Industrial" />
+            <NavItem to="/caixa" icon={CreditCard} label="PDV Loja" />
             <NavItem to="/relatorios/caixa" icon={BarChart3} label="Histórico Caixas" />
             <NavItem to="/contas" icon={Wallet} label="Contas" />
             <NavItem to="/estoque" icon={Package} label="Estoque" />
