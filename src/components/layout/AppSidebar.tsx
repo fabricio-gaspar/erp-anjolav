@@ -23,6 +23,7 @@ import {
   Bell,
   User,
   Building2,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -345,6 +346,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
             <NavItem to="/financeiro" icon={DollarSign} label="Visão Geral" />
             <NavItem to="/lancamentos" icon={Receipt} label="Lançamentos" />
             <NavItem to="/caixa" icon={CreditCard} label="Caixa PDV" />
+            <NavItem to="/relatorios/caixa" icon={BarChart3} label="Histórico Caixas" />
             <NavItem to="/contas" icon={Wallet} label="Contas" />
           </NavGroup>
 

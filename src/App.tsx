@@ -29,6 +29,7 @@ import NotFound from "./pages/NotFound";
 import PortalCliente from "./pages/PortalCliente";
 import Fornecedores from "./pages/Fornecedores";
 import Estoque from "./pages/Estoque";
+import HistoricoCaixas from "./pages/HistoricoCaixas";
 
 const queryClient = new QueryClient();
 
@@ -72,13 +73,13 @@ const App = () => (
               <Route path="/estoque" element={<ProtectedRoute><Estoque /></ProtectedRoute>} />
               <Route path="/relatorios/clientes" element={<ProtectedRoute><RelatoriosCliente /></ProtectedRoute>} />
               <Route path="/relatorios/proximidade" element={<ProtectedRoute><RelatorioProximidade /></ProtectedRoute>} />
+              <Route path="/relatorios/caixa" element={<ProtectedRoute><HistoricoCaixas /></ProtectedRoute>} />
 
               {/* Redirects for old routes */}
               <Route path="/faturamento" element={<Navigate to="/lancamentos?tab=faturas" replace />} />
               <Route path="/receber" element={<Navigate to="/contas?tab=receber" replace />} />
               <Route path="/pagar" element={<Navigate to="/contas?tab=pagar" replace />} />
               <Route path="/asaas" element={<Navigate to="/contas?tab=receber" replace />} />
-              <Route path="/relatorios/caixa" element={<Navigate to="/caixa" replace />} />
               <Route path="/relatorios/financeiro" element={<Navigate to="/financeiro" replace />} />
 
               {/* Portal do Cliente - Rota pública */}

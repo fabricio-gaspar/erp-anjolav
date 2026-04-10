@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
   History,
   Keyboard,
   Clock,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
@@ -71,6 +73,7 @@ interface OSRecemCriada {
 const alphabet = ["TODOS", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
 
 const CaixaPDV = () => {
+  const navigate = useNavigate();
   const { produtos, isLoading: isLoadingProdutos } = useProdutos();
   const { clientes, isLoading: isLoadingClientes } = useClientes();
   const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto();
@@ -647,6 +650,15 @@ const CaixaPDV = () => {
                   >
                     <Lock className="w-4 h-4" />
                     Fechar Caixa
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1"
+                    onClick={() => navigate("/relatorios/caixa")}
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Relatórios
                   </Button>
                 </>
               ) : (
