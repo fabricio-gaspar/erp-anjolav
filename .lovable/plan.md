@@ -1,37 +1,25 @@
 
 
-## Problema Identificado
+## Problema
 
-Os **54 produtos** criados durante o processo de ingestão de tabelas de preços industriais foram cadastrados com `unidade_negocio = 'ambos'`, o que faz com que apareçam no PDV Residencial. Nenhum desses produtos é utilizado por clientes residenciais — todos deveriam ser `ID1` (Industrial).
-
-O filtro do PDV está correto (permite `ID2` e `ambos`), mas os dados estão errados.
+A página **Histórico de Caixas** com todos os relatórios de fechamento (Resumo, Movimentações, Itens, Peças, Operadores, Diferenças) existe no código (`HistoricoCaixas.tsx`) mas está inacessível porque:
+- A rota `/relatorios/caixa` redireciona direto para `/caixa` (o PDV)
+- Não há botão no PDV nem item no menu que leve a essa página
 
 ## Plano de Correção
 
-### 1. Corrigir os 54 produtos no banco de dados
-Executar uma migration para alterar `unidade_negocio` de `'ambos'` para `'ID1'` em todos os produtos que:
-- Têm `unidade_negocio = 'ambos'`
-- Têm `preco = 0.00` (indicando que foram criados apenas para tabelas de preços industriais)
-- **NÃO** são usados por nenhum cliente residencial
+### 1. Restaurar a rota no App.tsx
+- Importar `HistoricoCaixas` e adicionar a rota `/relatorios/caixa` como rota ativa (não redirect)
+- Remover o redirect que sobrescreve essa rota
 
-```sql
-UPDATE produtos 
-SET unidade_negocio = 'ID1'
-WHERE unidade_negocio = 'ambos' 
-  AND preco = 0.00
-  AND id NOT IN (
-    SELECT pe.produto_id FROM precos_especiais pe
-    JOIN clientes c ON c.id = pe.cliente_id
-    WHERE c.classificacao = 'residencial'
-  );
-```
+### 2. Adicionar acesso no PDV
+- Adicionar um botão "Relatórios / Histórico" na barra de ações do Caixa PDV que navega para `/relatorios/caixa`
 
-### 2. Resultado esperado
-- Os 54 produtos deixarão de aparecer no PDV Residencial
-- Os produtos continuarão disponíveis para clientes industriais nas tabelas de preços
-- Nenhum dado será perdido
+### 3. Adicionar item no menu lateral
+- No grupo Financeiro do `AppSidebar.tsx`, adicionar um sub-item "Histórico Caixas" abaixo de "Caixa PDV" apontando para `/relatorios/caixa`
 
-### Detalhes Técnicos
-- A query é segura pois verifica se nenhum cliente residencial usa esses produtos
-- Produtos com `preco > 0` e `unidade_negocio = 'ambos'` não serão afetados (são produtos legítimos de ambas as unidades)
+### Arquivos modificados
+- `src/App.tsx` — restaurar rota
+- `src/pages/CaixaPDV.tsx` — botão de acesso ao histórico
+- `src/components/layout/AppSidebar.tsx` — item no menu
 
