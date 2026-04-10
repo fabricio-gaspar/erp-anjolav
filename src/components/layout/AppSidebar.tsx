@@ -339,7 +339,6 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
             <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" />
             <NavItem to="/producao" icon={Factory} label="Produção" />
             <NavItem to="/agenda" icon={Calendar} label="Agenda" />
-            <NavItem to="/estoque" icon={Package} label="Estoque" />
           </NavGroup>
 
           <NavGroup title="Financeiro" icon={Wallet}>
@@ -348,6 +347,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
             <NavItem to="/caixa" icon={CreditCard} label="Caixa PDV" />
             <NavItem to="/relatorios/caixa" icon={BarChart3} label="Histórico Caixas" />
             <NavItem to="/contas" icon={Wallet} label="Contas" />
+            <NavItem to="/estoque" icon={Package} label="Estoque" />
           </NavGroup>
 
           <NavGroup title="Relatórios" icon={PieChart}>
