@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Info, Loader2, Building2, MessageSquare } from "lucide-react";
+import { Check, Info, Loader2, Building2, MessageSquare, CalendarDays } from "lucide-react";
 import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
 import { toast } from "sonner";
@@ -191,33 +191,34 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
         </div>
       </div>
 
-      {/* Prazo para Pagamento — Grid de dias */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">
-          Dia de Vencimento
-        </label>
-        <div className="grid grid-cols-7 sm:grid-cols-8 gap-1.5">
-          {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-            <Button
-              key={day}
-              type="button"
-              variant={diaVencimento === day ? "default" : "outline"}
-              size="sm"
-              className={`h-8 w-8 p-0 text-xs font-medium ${
-                diaVencimento === day
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
-                  : "hover:bg-muted"
-              }`}
-              onClick={() => setDiaVencimento(day)}
-            >
-              {day}
-            </Button>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          O vencimento será no dia {diaVencimento} de cada mês
-        </p>
-      </div>
+      {/* Dia de Vencimento — Estilo calendário */}
+      <Card className="border-border/50">
+        <CardContent className="pt-4 pb-4 px-4">
+          <div className="flex items-center gap-2 mb-3">
+            <CalendarDays className="w-4 h-4 text-primary" />
+            <label className="text-sm font-medium text-foreground">Dia de Vencimento</label>
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+              <button
+                key={day}
+                type="button"
+                onClick={() => setDiaVencimento(day)}
+                className={`h-9 w-full rounded-full text-sm font-medium transition-colors ${
+                  diaVencimento === day
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-foreground hover:bg-accent"
+                }`}
+              >
+                {day}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            O vencimento será no dia <span className="font-semibold text-primary">{diaVencimento}</span> de cada mês
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Configurações Fiscais para Faturamento */}
       <Separator className="my-6" />
