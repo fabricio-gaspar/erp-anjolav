@@ -452,6 +452,7 @@ const Faturamento = () => {
               Faturas Geradas
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* Tab: Lançamentos Pendentes */}
           <TabsContent value="lancamentos" className="mt-4">
