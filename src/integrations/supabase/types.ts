@@ -1612,6 +1612,72 @@ export type Database = {
           },
         ]
       }
+      lotes_ordens: {
+        Row: {
+          created_at: string
+          id: string
+          lote_id: string
+          ordem_servico_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lote_id: string
+          ordem_servico_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lote_id?: string
+          ordem_servico_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lotes_ordens_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes_producao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lotes_ordens_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lotes_producao: {
+        Row: {
+          created_at: string
+          etapa_atual: string | null
+          id: string
+          numero_lote: string
+          observacoes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          etapa_atual?: string | null
+          id?: string
+          numero_lote: string
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          etapa_atual?: string | null
+          id?: string
+          numero_lote?: string
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       modulo_permissoes: {
         Row: {
           created_at: string
@@ -1784,6 +1850,89 @@ export type Database = {
           variaveis?: Json | null
         }
         Relationships: []
+      }
+      notificacoes_enviadas: {
+        Row: {
+          cliente_id: string | null
+          enviado_em: string
+          evento: string
+          id: string
+          ordem_servico_id: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          enviado_em?: string
+          evento: string
+          id?: string
+          ordem_servico_id: string
+        }
+        Update: {
+          cliente_id?: string | null
+          enviado_em?: string
+          evento?: string
+          id?: string
+          ordem_servico_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_enviadas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_enviadas_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orcamentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          itens_snapshot: Json
+          observacoes: string | null
+          status: string
+          updated_at: string
+          validade: string | null
+          valor_total: number
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          itens_snapshot?: Json
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          validade?: string | null
+          valor_total?: number
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          itens_snapshot?: Json
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          validade?: string | null
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ordens_servico: {
         Row: {
