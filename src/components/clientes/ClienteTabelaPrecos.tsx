@@ -52,6 +52,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   const [precosLocais, setPrecosLocais] = useState<PrecoEspecialLocal[]>([]);
   const [clienteImportar, setClienteImportar] = useState("");
   const [produtoSelecionado, setProdutoSelecionado] = useState("");
+  const [produtoSearchOpen, setProdutoSearchOpen] = useState(false);
   const [novoPreco, setNovoPreco] = useState("");
 
   // Sincronizar preços do banco com estado local
