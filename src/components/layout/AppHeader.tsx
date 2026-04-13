@@ -51,23 +51,23 @@ function Breadcrumb() {
   if (breadcrumbs.length === 0) {
     return (
       <div className="flex items-center text-sm">
-        <span className="font-medium text-foreground">Dashboard</span>
+        <span className="font-medium text-white">Dashboard</span>
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-1.5 text-sm">
-      <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+      <Link to="/" className="text-white/70 hover:text-white transition-colors">
         Dashboard
       </Link>
-      {breadcrumbs.map((crumb, index) => (
+      {breadcrumbs.map((crumb) => (
         <div key={crumb.path} className="flex items-center gap-1.5">
-          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />
+          <ChevronRight className="w-3.5 h-3.5 text-white/40" />
           {crumb.isLast ? (
-            <span className="font-medium text-foreground">{crumb.name}</span>
+            <span className="font-medium text-white">{crumb.name}</span>
           ) : (
-            <Link to={crumb.path} className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to={crumb.path} className="text-white/70 hover:text-white transition-colors">
               {crumb.name}
             </Link>
           )}
@@ -85,11 +85,10 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
   ];
 
   return (
-    <header className="h-14 sm:h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between pl-4 pr-3 sm:pr-4 sticky top-0 z-30">
+    <header className="h-14 sm:h-16 bg-[#1a2332] shadow-sm flex items-center justify-between pl-4 pr-3 sm:pr-4 sticky top-0 z-30">
       <div className="flex items-center gap-3">
-        {/* Mobile menu button */}
         {showMenuButton && (
-          <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0">
+          <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0 text-white/70 hover:text-white hover:bg-white/10">
             <Menu className="w-5 h-5" />
           </Button>
         )}
@@ -97,9 +96,9 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
         <div className="flex flex-col justify-center min-w-0">
           {title ? (
             <>
-              <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight truncate">{title}</h1>
+              <h1 className="text-base sm:text-lg font-bold text-white leading-tight truncate">{title}</h1>
               {subtitle && (
-                <p className="text-xs text-slate-500 leading-tight truncate hidden sm:block">{subtitle}</p>
+                <p className="text-xs text-white/60 leading-tight truncate hidden sm:block">{subtitle}</p>
               )}
             </>
           ) : (
@@ -109,21 +108,19 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Search button */}
-        <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-muted-foreground">
+        <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-white/70 hover:text-white hover:bg-white/10">
           <Search className="w-4 h-4" />
           <span className="text-sm">Buscar...</span>
-          <kbd className="hidden lg:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+          <kbd className="hidden lg:inline-flex h-5 items-center gap-1 rounded border border-white/20 bg-white/10 px-1.5 font-mono text-[10px] font-medium text-white/60">
             ⌘K
           </kbd>
         </Button>
 
-        {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5 text-muted-foreground" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-destructive rounded-full ring-2 ring-background" />
+            <Button variant="ghost" size="icon" className="relative text-white/70 hover:text-white hover:bg-white/10">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-destructive rounded-full ring-2 ring-[#1a2332]" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
