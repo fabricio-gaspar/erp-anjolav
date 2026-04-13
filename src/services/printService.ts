@@ -132,6 +132,23 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
 
     const valorTotal = itensFormatted.reduce((acc, item) => acc + item.subtotal, 0);
 
+    // Extrair prateleira/posição do primeiro item que tenha posicao_prateleira
+    let bloco: string | undefined;
+    let posicao: string | undefined;
+    const itemComPosicao = (itens || []).find(item => item.posicao_prateleira);
+    if (itemComPosicao?.posicao_prateleira) {
+      const parts = itemComPosicao.posicao_prateleira.split('-');
+      if (parts.length >= 3) {
+        bloco = parts[0];
+        posicao = parts.slice(1).join('-');
+      } else if (parts.length === 2) {
+        bloco = parts[0];
+        posicao = parts[1];
+      } else {
+        posicao = itemComPosicao.posicao_prateleira;
+      }
+    }
+
     return {
       numero: ordem.numero,
       clienteNome: ordem.cliente?.razao_social || "Cliente",
@@ -142,6 +159,8 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       dataEmissao: new Date(ordem.created_at),
       previsaoEntrega: ordem.data_previsao_entrega ? new Date(ordem.data_previsao_entrega + 'T00:00:00') : undefined,
       observacoes: ordem.observacoes || undefined,
+      bloco,
+      posicao,
     };
   } catch (error) {
     console.error("Error fetching OS print data:", error);
