@@ -296,6 +296,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   const { configuracao } = useConfiguracoesGerais();
   
   const effectiveCollapsed = isMobile ? false : isCollapsed;
+  const compact = !!isMobile;
 
   const nomeEmpresa = configuracao?.nome_empresa || "AnjoLav";
   const logoUrl = configuracao?.logo_url;
@@ -312,7 +313,8 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
         {/* Logo */}
         <div className={cn(
-          "h-14 flex items-center justify-center transition-all",
+          "flex items-center justify-center transition-all",
+          compact ? "h-12 px-2" : "h-14",
           effectiveCollapsed ? "px-2" : "px-3"
         )}>
           {logoUrl ? (
@@ -321,60 +323,63 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
               alt={nomeEmpresa}
               className={cn(
                 "object-contain",
-                effectiveCollapsed ? "h-8 max-w-[40px]" : "h-9 max-w-[180px]"
+                effectiveCollapsed ? "h-8 max-w-[40px]" : compact ? "h-7 max-w-[150px]" : "h-9 max-w-[180px]"
               )}
             />
           ) : (
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center">
-                <span className="text-white font-bold text-lg">{primeiraLetra}</span>
+            <div className={cn("flex items-center", compact ? "gap-2" : "gap-3")}>
+              <div className={cn(
+                "rounded-xl bg-black flex items-center justify-center",
+                compact ? "w-7 h-7" : "w-9 h-9"
+              )}>
+                <span className={cn("text-white font-bold", compact ? "text-sm" : "text-lg")}>{primeiraLetra}</span>
               </div>
               {!effectiveCollapsed && (
-                <span className="font-bold text-base text-white">{nomeEmpresa}</span>
+                <span className={cn("font-bold text-white", compact ? "text-sm" : "text-base")}>{nomeEmpresa}</span>
               )}
             </div>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto pb-4 pt-2 space-y-1" onClick={onItemClick}>
-          <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end />
+        <nav className={cn("flex-1 overflow-y-auto space-y-0.5", compact ? "pb-2 pt-1" : "pb-4 pt-2 space-y-1")} onClick={onItemClick}>
+          <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end compact={compact} />
 
-          <NavGroup title="Comercial" icon={Users} defaultOpen>
-            <NavItem to="/clientes" icon={Users} label="Clientes" />
-            <NavItem to="/produtos" icon={Package} label="Produtos" />
-            <NavItem to="/fornecedores" icon={Building2} label="Fornecedores" />
+          <NavGroup title="Comercial" icon={Users} defaultOpen compact={compact}>
+            <NavItem to="/clientes" icon={Users} label="Clientes" compact={compact} />
+            <NavItem to="/produtos" icon={Package} label="Produtos" compact={compact} />
+            <NavItem to="/fornecedores" icon={Building2} label="Fornecedores" compact={compact} />
           </NavGroup>
 
-          <NavGroup title="Operacional" icon={Factory}>
-            <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" />
-            <NavItem to="/producao" icon={Factory} label="Produção" />
-            <NavItem to="/agenda" icon={Calendar} label="Agenda" />
+          <NavGroup title="Operacional" icon={Factory} compact={compact}>
+            <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" compact={compact} />
+            <NavItem to="/producao" icon={Factory} label="Produção" compact={compact} />
+            <NavItem to="/agenda" icon={Calendar} label="Agenda" compact={compact} />
           </NavGroup>
 
-          <NavGroup title="Financeiro" icon={Wallet}>
-            <NavItem to="/financeiro" icon={DollarSign} label="Visão Geral" />
-            <NavItem to="/lancamentos" icon={Receipt} label="PDV Industrial" />
-            <NavItem to="/caixa" icon={CreditCard} label="PDV Loja" />
-            <NavItem to="/relatorios/caixa" icon={BarChart3} label="Histórico Caixas" />
-            <NavItem to="/contas" icon={Wallet} label="Contas" />
-            <NavItem to="/estoque" icon={Package} label="Estoque" />
+          <NavGroup title="Financeiro" icon={Wallet} compact={compact}>
+            <NavItem to="/financeiro" icon={DollarSign} label="Visão Geral" compact={compact} />
+            <NavItem to="/lancamentos" icon={Receipt} label="PDV Industrial" compact={compact} />
+            <NavItem to="/caixa" icon={CreditCard} label="PDV Loja" compact={compact} />
+            <NavItem to="/relatorios/caixa" icon={BarChart3} label="Histórico Caixas" compact={compact} />
+            <NavItem to="/contas" icon={Wallet} label="Contas" compact={compact} />
+            <NavItem to="/estoque" icon={Package} label="Estoque" compact={compact} />
           </NavGroup>
 
-          <NavGroup title="Relatórios" icon={PieChart}>
-            <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Clientes" />
-            <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" />
+          <NavGroup title="Relatórios" icon={PieChart} compact={compact}>
+            <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Clientes" compact={compact} />
+            <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" compact={compact} />
           </NavGroup>
 
           {/* Bottom items */}
-          <div className="pt-4 mt-4 border-t border-white/10">
-            <NavItem to="/configuracoes" icon={Settings} label="Configurações" />
+          <div className={cn("border-t border-white/10", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
+            <NavItem to="/configuracoes" icon={Settings} label="Configurações" compact={compact} />
           </div>
         </nav>
 
         {/* User Section */}
-        <div className="border-t border-white/10 p-3">
-          <UserSection />
+        <div className={cn("border-t border-white/10", compact ? "p-2" : "p-3")}>
+          <UserSection compact={compact} />
         </div>
       </aside>
     </TooltipProvider>
