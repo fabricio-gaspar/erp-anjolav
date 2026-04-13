@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.manage-employee]
 verify_jwt = false
+
+[functions.whatsapp-evolution]
+verify_jwt = false
+
+[functions.webhook-dispatcher]
+verify_jwt = false
