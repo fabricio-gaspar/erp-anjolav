@@ -115,7 +115,7 @@ export function ListaOS({ onNovaOS }: ListaOSProps) {
         </div>
       ) : (
         <div className="border rounded-lg overflow-x-auto">
-          <Table className="min-w-[800px]">
+          <Table className="min-w-[600px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs font-medium text-muted-foreground uppercase">
@@ -124,13 +124,13 @@ export function ListaOS({ onNovaOS }: ListaOSProps) {
                 <TableHead className="text-xs font-medium text-muted-foreground uppercase">
                   Cliente
                 </TableHead>
-                <TableHead className="text-xs font-medium text-muted-foreground uppercase">
+                <TableHead className="text-xs font-medium text-muted-foreground uppercase hidden md:table-cell">
                   Motorista
                 </TableHead>
                 <TableHead className="text-xs font-medium text-muted-foreground uppercase">
                   Data Retirada
                 </TableHead>
-                <TableHead className="text-xs font-medium text-muted-foreground uppercase">
+                <TableHead className="text-xs font-medium text-muted-foreground uppercase hidden sm:table-cell">
                   Previsão Entrega
                 </TableHead>
                 <TableHead className="text-xs font-medium text-muted-foreground uppercase">
@@ -150,11 +150,11 @@ export function ListaOS({ onNovaOS }: ListaOSProps) {
                       {os.numero}
                     </TableCell>
                     <TableCell>{os.cliente?.razao_social || "-"}</TableCell>
-                    <TableCell>{os.motorista?.nome || "-"}</TableCell>
+                    <TableCell className="hidden md:table-cell">{os.motorista?.nome || "-"}</TableCell>
                     <TableCell>
                       {format(new Date(os.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {os.data_previsao_entrega
                         ? format(new Date(os.data_previsao_entrega), "dd/MM/yyyy", { locale: ptBR })
                         : "-"}

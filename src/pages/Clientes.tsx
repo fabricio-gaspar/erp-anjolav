@@ -221,8 +221,8 @@ const Clientes = () => {
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-semibold">ID</TableHead>
                       <TableHead className="font-semibold">NOME / RAZÃO SOCIAL</TableHead>
-                      <TableHead className="font-semibold">CPF/CNPJ</TableHead>
-                      <TableHead className="font-semibold">TELEFONE</TableHead>
+                      <TableHead className="font-semibold hidden sm:table-cell">CPF/CNPJ</TableHead>
+                      <TableHead className="font-semibold hidden md:table-cell">TELEFONE</TableHead>
                       <TableHead className="font-semibold">STATUS</TableHead>
                       <TableHead className="font-semibold text-right">AÇÕES</TableHead>
                     </TableRow>
@@ -247,8 +247,8 @@ const Clientes = () => {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{cliente.cpf_cnpj || "-"}</TableCell>
-                        <TableCell className="text-muted-foreground">{cliente.telefone || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground hidden sm:table-cell">{cliente.cpf_cnpj || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground hidden md:table-cell">{cliente.telefone || "-"}</TableCell>
                         <TableCell>
                           <StatusBadge variant={cliente.ativo ? "success" : "warning"}>
                             {cliente.ativo ? "Ativo" : "Inativo"}
@@ -275,7 +275,7 @@ const Clientes = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8"
+                              className="h-8 w-8 hidden sm:flex"
                               onClick={() => handleToggleAtivo(cliente)}
                             >
                               <Ban className={`w-4 h-4 ${cliente.ativo ? "text-warning" : "text-success"}`} />
@@ -283,7 +283,7 @@ const Clientes = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8"
+                              className="h-8 w-8 hidden sm:flex"
                               onClick={() => {
                                 setClienteToDelete(cliente.id);
                                 setDeleteDialogOpen(true);
