@@ -40,7 +40,8 @@ const Lancamentos = () => {
       <div className="content-panel">
         <div className="space-y-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-6">
+            <div className="tabs-scrollable">
+            <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-4 sm:gap-6 inline-flex min-w-max">
               <TabsTrigger value="novo" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-1">
                 <FileText className="w-4 h-4" />Novo Lançamento
               </TabsTrigger>
