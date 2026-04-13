@@ -31,7 +31,13 @@ import Fornecedores from "./pages/Fornecedores";
 import Estoque from "./pages/Estoque";
 import HistoricoCaixas from "./pages/HistoricoCaixas";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnMount: "always",
+    },
+  },
+});
 
 function ThemeLoader({ children }: { children: React.ReactNode }) {
   const { configuracao } = useConfiguracoesGerais();
