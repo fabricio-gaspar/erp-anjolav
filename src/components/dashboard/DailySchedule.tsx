@@ -25,22 +25,22 @@ export function DailySchedule({ type, items, count }: DailyScheduleProps) {
 
   return (
     <div className={cn(
-      "card-bordered p-5",
+      "card-bordered p-3",
       isPickup ? "border-l-primary" : "border-l-success"
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div className="flex items-center gap-2">
           <div className={cn(
-            "w-10 h-10 rounded-lg flex items-center justify-center",
+            "w-7 h-7 rounded-lg flex items-center justify-center",
             isPickup ? "bg-primary/10" : "bg-success/10"
           )}>
             <Icon className={cn(
-              "w-5 h-5",
+              "w-3.5 h-3.5",
               isPickup ? "text-primary" : "text-success"
             )} />
           </div>
-          <h3 className="font-bold text-slate-800">{title}</h3>
+          <h3 className="font-semibold text-sm text-slate-800">{title}</h3>
         </div>
         <Badge 
           className={cn(
@@ -56,18 +56,18 @@ export function DailySchedule({ type, items, count }: DailyScheduleProps) {
 
       {/* Items */}
       {items.length === 0 ? (
-        <div className="py-8 text-center">
-          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
-            <Icon className="w-6 h-6 text-slate-400" />
+        <div className="py-4 text-center">
+          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-2">
+            <Icon className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-sm text-slate-500">Nenhum agendamento para hoje</p>
         </div>
       ) : (
-        <div className="mt-4 space-y-0 divide-y divide-slate-100">
+        <div className="mt-2 space-y-0 divide-y divide-slate-100">
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between py-3 group hover:bg-slate-50/50 -mx-2 px-2 rounded-lg transition-colors"
+              className="flex items-center justify-between py-2 group hover:bg-slate-50/50 -mx-1 px-1 rounded-md transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">

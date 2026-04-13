@@ -59,7 +59,7 @@ export function CaixaResumoCard() {
         <p className="text-xs text-muted-foreground">Operador: {caixa.operador}</p>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
+        <div className="space-y-1">
           {items.map((item) => (
             <div key={item.label} className="flex items-center justify-between text-sm">
               <span className="flex items-center gap-1.5 text-muted-foreground">

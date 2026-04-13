@@ -118,7 +118,7 @@ export function BillingClosuresCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="max-h-[240px] px-6 pb-4">
+        <ScrollArea className="max-h-[160px] px-6 pb-3">
           <div className="space-y-2">
             {urgentes.length > 0 && (
               <>
