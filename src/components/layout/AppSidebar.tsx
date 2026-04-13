@@ -154,7 +154,11 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compac
   );
 };
 
-const UserSection = () => {
+interface UserSectionProps {
+  compact?: boolean;
+}
+
+const UserSection = ({ compact = false }: UserSectionProps) => {
   const { isCollapsed } = useSidebarContext();
   const navigate = useNavigate();
   const { user, funcionario, signOut } = useAuth();
