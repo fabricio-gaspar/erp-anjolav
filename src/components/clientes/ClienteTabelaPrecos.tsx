@@ -214,28 +214,49 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
 
         {/* Adicionar produto */}
         <div className="flex gap-2 items-center p-3 border rounded-lg bg-muted/20">
-          <Select 
-            value={produtoSelecionado} 
-            onValueChange={(value) => {
-              setProdutoSelecionado(value);
-              // Preencher automaticamente com o preço padrão do produto
-              const produto = produtos.find((p) => p.id === value);
-              if (produto) {
-                setNovoPreco(produto.preco.toFixed(2));
-              }
-            }}
-          >
-            <SelectTrigger className="w-[250px] bg-background">
-              <SelectValue placeholder="Selecione um produto..." />
-            </SelectTrigger>
-            <SelectContent className="bg-background">
-              {produtosDisponiveis.map((produto) => (
-                <SelectItem key={produto.id} value={produto.id}>
-                  {produto.nome} (R$ {produto.preco.toFixed(2)})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={produtoSearchOpen} onOpenChange={setProdutoSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" role="combobox" className="w-[300px] justify-between bg-background h-10">
+                {produtoSelecionado ? (
+                  <span className="truncate text-foreground">
+                    {produtos.find(p => p.id === produtoSelecionado)?.nome}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Search className="w-3.5 h-3.5" />Buscar produto...
+                  </span>
+                )}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Digite o nome do produto..." />
+                <CommandList>
+                  <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    {produtosDisponiveis.map((produto) => (
+                      <CommandItem
+                        key={produto.id}
+                        value={produto.nome}
+                        onSelect={() => {
+                          setProdutoSelecionado(produto.id);
+                          setNovoPreco(produto.preco.toFixed(2));
+                          setProdutoSearchOpen(false);
+                        }}
+                      >
+                        <div className="flex flex-col flex-1">
+                          <span className="font-medium">{produto.nome}</span>
+                          <span className="text-xs text-muted-foreground">R$ {produto.preco.toFixed(2)} / {produto.unidade}</span>
+                        </div>
+                        {produtoSelecionado === produto.id && <Check className="ml-auto h-4 w-4" />}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           <Input
             placeholder="Preço"
             className="w-24"
