@@ -277,7 +277,7 @@ export default function Fornecedores() {
                           <span className="text-muted-foreground text-sm">—</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex flex-col gap-0.5 text-sm">
                           {f.telefone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{f.telefone}</span>}
                           {f.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{f.email}</span>}
