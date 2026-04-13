@@ -238,12 +238,12 @@ export default function Fornecedores() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>CNPJ/CPF</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Pagamento Recorrente</TableHead>
-                  <TableHead>Contato</TableHead>
+                  <TableHead className="hidden md:table-cell">CNPJ/CPF</TableHead>
+                  <TableHead className="hidden sm:table-cell">Categoria</TableHead>
+                  <TableHead className="hidden lg:table-cell">Pagamento Recorrente</TableHead>
+                  <TableHead className="hidden md:table-cell">Contato</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-[140px]">Ações</TableHead>
+                  <TableHead className="w-[100px] sm:w-[140px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -255,14 +255,14 @@ export default function Fornecedores() {
                   filtered.map((f) => (
                     <TableRow key={f.id}>
                       <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-muted-foreground" />
-                          {f.nome}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">{f.nome}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{f.cnpj_cpf || "—"}</TableCell>
-                      <TableCell><Badge variant="secondary">{categoriaLabel(f.categoria)}</Badge></TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">{f.cnpj_cpf || "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell"><Badge variant="secondary">{categoriaLabel(f.categoria)}</Badge></TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         {f.valor_recorrente ? (
                           <div className="flex flex-col gap-0.5 text-sm">
                             <span className="font-medium text-foreground">
@@ -277,7 +277,7 @@ export default function Fornecedores() {
                           <span className="text-muted-foreground text-sm">—</span>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex flex-col gap-0.5 text-sm">
                           {f.telefone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{f.telefone}</span>}
                           {f.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{f.email}</span>}
