@@ -232,7 +232,7 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[400px] p-0" align="start">
-                <Command>
+                <Command shouldFilter={false}>
                   <CommandInput placeholder="Buscar cliente..." value={clienteSearch} onValueChange={setClienteSearch} />
                   <CommandList>
                     {isLoadingClientes ? (
@@ -242,7 +242,11 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
                         <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
                         <CommandGroup>
                           {clientesFiltrados.map((cliente) => (
-                            <CommandItem key={cliente.id} value={cliente.id} onSelect={() => { setSelectedClienteId(cliente.id); setClienteSearchOpen(false); setClienteSearch(""); }}>
+                            <CommandItem
+                              key={cliente.id}
+                              value={`${cliente.razao_social} ${cliente.nome_fantasia || ""} ${cliente.cpf_cnpj || ""} ${cliente.telefone || ""}`}
+                              onSelect={() => { setSelectedClienteId(cliente.id); setClienteSearchOpen(false); setClienteSearch(""); }}
+                            >
                               <div className="flex flex-col">
                                 <span className="font-medium">{cliente.razao_social}</span>
                                 <span className="text-xs text-muted-foreground">{cliente.cpf_cnpj && `${cliente.cpf_cnpj} • `}{cliente.telefone || "Sem telefone"}</span>
