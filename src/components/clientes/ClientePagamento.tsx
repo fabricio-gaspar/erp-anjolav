@@ -193,20 +193,20 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
 
       {/* Dia de Vencimento — Estilo calendário */}
       <Card className="border-border/50">
-        <CardContent className="pt-4 pb-4 px-4">
-          <div className="flex items-center gap-2 mb-3">
-            <CalendarDays className="w-4 h-4 text-primary" />
-            <label className="text-sm font-medium text-foreground">Dia de Vencimento</label>
+        <CardContent className="pt-3 pb-3 px-3">
+          <div className="flex items-center gap-2 mb-2">
+            <CalendarDays className="w-3.5 h-3.5 text-primary" />
+            <label className="text-xs font-medium text-foreground">Dia de Vencimento</label>
           </div>
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-0.5 max-w-sm">
             {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
               <button
                 key={day}
                 type="button"
                 onClick={() => setDiaVencimento(day)}
-                className={`h-9 w-full rounded-full text-sm font-medium transition-colors ${
+                className={`h-7 w-full rounded-full text-xs font-medium transition-colors ${
                   diaVencimento === day
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-secondary text-secondary-foreground shadow-sm"
                     : "text-foreground hover:bg-accent"
                 }`}
               >
@@ -214,8 +214,8 @@ export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamento
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            O vencimento será no dia <span className="font-semibold text-primary">{diaVencimento}</span> de cada mês
+          <p className="text-xs text-muted-foreground mt-2">
+            O vencimento será no dia <span className="font-semibold text-foreground">{diaVencimento}</span> de cada mês
           </p>
         </CardContent>
       </Card>
