@@ -358,9 +358,9 @@ const RelatorioProximidade = () => {
                     <TableRow>
                       <TableHead className="w-16">#</TableHead>
                       <TableHead>Cliente</TableHead>
-                      <TableHead>Endereço</TableHead>
-                      <TableHead>Bairro</TableHead>
-                      <TableHead>Cidade</TableHead>
+                      <TableHead className="hidden sm:table-cell">Endereço</TableHead>
+                      <TableHead className="hidden md:table-cell">Bairro</TableHead>
+                      <TableHead className="hidden lg:table-cell">Cidade</TableHead>
                       <TableHead className="text-right">Distância</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -378,13 +378,13 @@ const RelatorioProximidade = () => {
                             {index + 1}
                           </TableCell>
                           <TableCell className="font-medium">{cliente.nome}</TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-muted-foreground hidden sm:table-cell">
                             {cliente.endereco}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-muted-foreground hidden md:table-cell">
                             {cliente.bairro || "-"}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-muted-foreground hidden lg:table-cell">
                             {cliente.cidade || "-"}
                           </TableCell>
                           <TableCell className="text-right">

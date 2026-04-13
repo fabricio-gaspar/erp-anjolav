@@ -571,48 +571,50 @@ const CaixaPDV = () => {
 
   return (
     <AppLayout title="Dashboard">
-      <div className="flex h-[calc(100vh-120px)] gap-4">
+      <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-120px)] gap-4">
         {/* Left Panel - Products */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* PDV Header */}
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">A</span>
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-bold text-sm">A</span>
+                </div>
+                <div>
+                  <h2 className="font-semibold text-primary">Caixa PDV</h2>
+                  <p className="text-xs text-muted-foreground capitalize">{today}</p>
+                </div>
               </div>
-              <div>
-                <h2 className="font-semibold text-primary">Caixa PDV</h2>
-                <p className="text-xs text-muted-foreground capitalize">{today}</p>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-2">
-              {isLoadingCaixa ? (
-                <Badge variant="outline" className="gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Carregando...
-                </Badge>
-              ) : caixaAberto ? (
-                <>
-                  <Badge variant="outline" className="border-success text-success gap-1">
-                    <span className="w-2 h-2 rounded-full bg-success" />
-                    Caixa Aberto
+              <div className="flex items-center gap-2 flex-wrap">
+                {isLoadingCaixa ? (
+                  <Badge variant="outline" className="gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Carregando...
                   </Badge>
-                  <span className="text-sm text-muted-foreground">| {caixaAberto.operador}</span>
-                  <div className="bg-success text-success-foreground px-3 py-1 rounded-lg">
-                    <span className="text-xs">Vendas Hoje</span>
-                    <p className="font-bold">{formatCurrency(caixaAberto.valor_vendas)}</p>
-                  </div>
-                </>
-              ) : (
-                <Badge variant="outline" className="border-destructive text-destructive gap-1">
-                  <span className="w-2 h-2 rounded-full bg-destructive" />
-                  Caixa Fechado
-                </Badge>
-              )}
+                ) : caixaAberto ? (
+                  <>
+                    <Badge variant="outline" className="border-success text-success gap-1">
+                      <span className="w-2 h-2 rounded-full bg-success" />
+                      Caixa Aberto
+                    </Badge>
+                    <span className="text-sm text-muted-foreground hidden sm:inline">| {caixaAberto.operador}</span>
+                    <div className="bg-success text-success-foreground px-3 py-1 rounded-lg">
+                      <span className="text-xs">Vendas Hoje</span>
+                      <p className="font-bold">{formatCurrency(caixaAberto.valor_vendas)}</p>
+                    </div>
+                  </>
+                ) : (
+                  <Badge variant="outline" className="border-destructive text-destructive gap-1">
+                    <span className="w-2 h-2 rounded-full bg-destructive" />
+                    Caixa Fechado
+                  </Badge>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {caixaAberto ? (
                 <>
                   <Button 
@@ -622,7 +624,8 @@ const CaixaPDV = () => {
                     onClick={() => setShowConsultarOSModal(true)}
                   >
                     <FileSearch className="w-4 h-4" />
-                    Consultar OS (F5)
+                    <span className="hidden sm:inline">Consultar OS (F5)</span>
+                    <span className="sm:hidden">OS</span>
                   </Button>
                   <Button 
                     variant="outline" 
@@ -631,7 +634,7 @@ const CaixaPDV = () => {
                     onClick={() => setShowSangriaModal(true)}
                   >
                     <ArrowDownCircle className="w-4 h-4" />
-                    Sangria
+                    <span className="hidden sm:inline">Sangria</span>
                   </Button>
                   <Button 
                     variant="outline" 
@@ -640,7 +643,7 @@ const CaixaPDV = () => {
                     onClick={() => setShowSuprimentoModal(true)}
                   >
                     <ArrowUpCircle className="w-4 h-4" />
-                    Suprimento
+                    <span className="hidden sm:inline">Suprimento</span>
                   </Button>
                   <Button 
                     variant="outline" 
@@ -649,7 +652,7 @@ const CaixaPDV = () => {
                     onClick={() => setShowFecharCaixaModal(true)}
                   >
                     <Lock className="w-4 h-4" />
-                    Fechar Caixa
+                    <span className="hidden sm:inline">Fechar Caixa</span>
                   </Button>
                   <Button 
                     variant="outline" 
@@ -658,7 +661,7 @@ const CaixaPDV = () => {
                     onClick={() => navigate("/relatorios/caixa")}
                   >
                     <BarChart3 className="w-4 h-4" />
-                    Relatórios
+                    <span className="hidden sm:inline">Relatórios</span>
                   </Button>
                 </>
               ) : (
@@ -732,7 +735,7 @@ const CaixaPDV = () => {
                 Nenhum produto encontrado
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {filteredProdutos.map((produto) => {
                   const preco = getPrecoForProduto(produto);
                   const hasSpecialPrice = preco !== produto.preco;
@@ -780,7 +783,7 @@ const CaixaPDV = () => {
         </div>
 
         {/* Right Panel - Cart */}
-        <div className="w-96 flex flex-col bg-card border rounded-lg overflow-hidden">
+        <div className="w-full lg:w-96 flex flex-col bg-card border rounded-lg overflow-hidden lg:max-h-full max-h-[50vh]">
           {/* Client Search */}
           <div className="p-4 border-b relative">
             {selectedClient ? (

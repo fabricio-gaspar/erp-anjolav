@@ -188,7 +188,7 @@ export default function Agenda() {
     <AppLayout title="Agenda" subtitle="Programação de retiradas e entregas">
       <div className="space-y-3">
         {/* Header with filters and navigation */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           {/* Left side - Filters */}
           <div className="flex items-center gap-2 flex-wrap">
             <Button
@@ -211,7 +211,7 @@ export default function Agenda() {
               Entrega
             </Button>
 
-            <div className="h-6 w-px bg-border mx-1" />
+            <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
 
             <Button
               variant="ghost"
@@ -233,9 +233,8 @@ export default function Agenda() {
               Cancelados
             </Button>
 
-            <div className="h-6 w-px bg-border mx-1" />
-
-            <div className="flex items-center gap-1">
+            <div className="hidden lg:flex items-center gap-1">
+              <div className="h-6 w-px bg-border mx-1" />
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
                 Semanal
               </Badge>
@@ -249,46 +248,47 @@ export default function Agenda() {
           </div>
 
           {/* Right side - Navigation and Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button size="sm" onClick={() => setNovoModalOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Novo Agendamento
+              <span className="hidden sm:inline">Novo Agendamento</span>
+              <span className="sm:hidden">Novo</span>
             </Button>
 
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={navigatePrevious}>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={navigatePrevious}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground min-w-[160px] text-center">
+              <span className="text-xs sm:text-sm text-muted-foreground min-w-[120px] sm:min-w-[160px] text-center">
                 {formatDateRange()}
               </span>
-              <Button variant="ghost" size="icon" onClick={navigateNext}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={navigateNext}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
 
-            <div className="flex items-center bg-muted rounded-lg p-1">
+            <div className="flex items-center bg-muted rounded-lg p-0.5 sm:p-1">
               <Button
                 variant={viewType === "semanal" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewType("semanal")}
-                className={viewType === "semanal" ? "" : "text-muted-foreground"}
+                className={`text-xs sm:text-sm px-2 sm:px-3 ${viewType === "semanal" ? "" : "text-muted-foreground"}`}
               >
-                Semanal
+                Sem.
               </Button>
               <Button
                 variant={viewType === "quinzenal" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewType("quinzenal")}
-                className={viewType === "quinzenal" ? "" : "text-muted-foreground"}
+                className={`text-xs sm:text-sm px-2 sm:px-3 ${viewType === "quinzenal" ? "" : "text-muted-foreground"}`}
               >
-                Quinzenal
+                Quinz.
               </Button>
               <Button
                 variant={viewType === "mensal" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewType("mensal")}
-                className={viewType === "mensal" ? "" : "text-muted-foreground"}
+                className={`text-xs sm:text-sm px-2 sm:px-3 ${viewType === "mensal" ? "" : "text-muted-foreground"}`}
               >
                 Mensal
               </Button>
