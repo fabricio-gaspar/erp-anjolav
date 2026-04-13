@@ -37,14 +37,14 @@ export function ProcessingSummary({ items }: ProcessingSummaryProps) {
   const emRisco = items.filter((i) => i.status === "at_risk").length;
 
   return (
-    <div className="card-base p-5">
+    <div className="card-base p-3">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b-2 border-slate-100">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-slate-600" />
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+            <FileText className="w-3.5 h-3.5 text-slate-600" />
           </div>
-          <h3 className="font-bold text-slate-800">Resumo de Processamento</h3>
+          <h3 className="font-semibold text-sm text-slate-800">Resumo de Processamento</h3>
         </div>
         {(atrasados > 0 || emRisco > 0) && (
           <div className="flex items-center gap-2">
@@ -64,7 +64,7 @@ export function ProcessingSummary({ items }: ProcessingSummaryProps) {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto mt-4">
+      <div className="overflow-x-auto mt-2">
         <table className="data-table">
           <thead>
             <tr>

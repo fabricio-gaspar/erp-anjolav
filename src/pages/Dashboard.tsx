@@ -253,7 +253,7 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Métricas e visão operacional">
-      <div className="space-y-3">
+      <div className="space-y-2">
         {/* Painel 1: KPIs - Métricas Rápidas (sempre visível se houver ao menos 1 KPI) */}
         {kpis.length > 0 && (
           <section className="content-panel">
@@ -272,11 +272,11 @@ const Dashboard = () => {
           </section>
         )}
 
-        {/* Painel 2: Financeiro - só se tem acesso a faturamento ou contas */}
-        {(temFinanceiro || temContasPagar) && (
+        {/* Painel Financeiro + Alertas combinados */}
+        {(temFinanceiro || temContasPagar || temProdutos || temClientes) && (
           <section className="content-panel">
-            <SectionHeader icon={Wallet} title="Visão Financeira" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+            <SectionHeader icon={Wallet} title="Financeiro & Alertas" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               {temFinanceiro && (
                 <FinanceCard
                   title="Contas a Receber"
@@ -304,15 +304,6 @@ const Dashboard = () => {
                 />
               )}
               {temFinanceiro && <BillingClosuresCard />}
-            </div>
-          </section>
-        )}
-
-        {/* Painel 2.5: Alertas Operacionais - só se tem acesso a contas, produtos ou clientes */}
-        {(temContasPagar || temProdutos || temClientes) && (
-          <section className="content-panel">
-            <SectionHeader icon={ShieldAlert} title="Alertas Operacionais" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
               {temContasPagar && <ContasVencendoCard />}
               {temProdutos && <EstoqueBaixoCard />}
               {temClientes && <ContratosVencendoCard />}
@@ -324,7 +315,7 @@ const Dashboard = () => {
         {temCaixa && (
           <section className="content-panel">
             <SectionHeader icon={ShoppingCart} title="Caixa PDV" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <CaixaResumoCard />
             </div>
           </section>
@@ -333,7 +324,7 @@ const Dashboard = () => {
         {temAgenda && (
           <section className="content-panel">
             <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
               <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
             </div>
@@ -342,7 +333,7 @@ const Dashboard = () => {
 
         {/* Painel 4: Gargalos + OS em Processamento - só se tem acesso à produção */}
         {temProducao && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
             <section className="content-panel">
               <SectionHeader icon={Activity} title="Gargalos de Produção" />
               <ProductionBottleneck

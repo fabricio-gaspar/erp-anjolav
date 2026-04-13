@@ -29,13 +29,13 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
         <div className="flex items-center gap-3 min-w-0">
           <div
             className={cn(
-              "w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0",
+              "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
               isReceivable ? "bg-success/10" : "bg-slate-100"
             )}
           >
             <Icon
               className={cn(
-                "w-5 h-5 sm:w-6 sm:h-6",
+                "w-4 h-4",
                 isReceivable ? "text-success" : "text-slate-500"
               )}
             />
@@ -49,7 +49,7 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Total</p>
           <p
             className={cn(
-              "text-xl sm:text-2xl font-bold",
+              "text-lg font-bold",
               isReceivable ? "text-success" : "text-slate-800"
             )}
           >
@@ -60,11 +60,11 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
 
       {/* Items List */}
       {items.length > 0 && (
-        <div className="mt-4 space-y-0 divide-y divide-slate-100">
+        <div className="mt-2 space-y-0 divide-y divide-slate-100">
           {items.slice(0, 3).map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between py-3 first:pt-0"
+              className="flex items-center justify-between py-2 first:pt-0"
             >
               <div className="flex items-center gap-3">
                 <div
@@ -109,14 +109,15 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
       )}
 
       {/* Footer */}
-      <div className="mt-4 pt-4 border-t border-slate-100">
+      <div className="mt-2 pt-2 border-t border-slate-100">
         <Button 
           variant="outline" 
-          className="w-full text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800"
+          size="sm"
+          className="w-full text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800 h-7 text-xs"
         >
-          <Eye className="w-4 h-4 mr-2" />
+          <Eye className="w-3 h-3 mr-1.5" />
           Ver Todas
-          <ChevronRight className="w-4 h-4 ml-auto" />
+          <ChevronRight className="w-3 h-3 ml-auto" />
         </Button>
       </div>
     </div>

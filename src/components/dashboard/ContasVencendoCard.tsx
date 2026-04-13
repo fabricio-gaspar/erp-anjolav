@@ -53,7 +53,7 @@ export function ContasVencendoCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="max-h-[180px] px-6 pb-4">
+        <ScrollArea className="max-h-[160px] px-6 pb-3">
           <div className="space-y-2">
             {contasUrgentes.map((c) => (
               <div

@@ -17,14 +17,14 @@ interface ProductionBottleneckProps {
 
 export function ProductionBottleneck({ items, recommendation }: ProductionBottleneckProps) {
   return (
-    <div className="card-bordered-warning p-5">
+    <div className="card-bordered-warning p-3">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-warning" />
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-warning/10 flex items-center justify-center">
+            <AlertTriangle className="w-3.5 h-3.5 text-warning" />
           </div>
-          <h3 className="font-bold text-slate-800">Gargalos de Produção</h3>
+          <h3 className="font-semibold text-sm text-slate-800">Gargalos de Produção</h3>
         </div>
         <Badge className="bg-warning/10 text-warning border-warning/30 font-bold text-[10px] uppercase tracking-wider">
           Atenção Necessária
@@ -32,13 +32,13 @@ export function ProductionBottleneck({ items, recommendation }: ProductionBottle
       </div>
 
       {/* Items */}
-      <div className="mt-4 space-y-4">
+      <div className="mt-2 space-y-2.5">
         {items.map((item, index) => (
-          <div key={index} className="space-y-2">
+          <div key={index} className="space-y-1">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-slate-500" />
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 bg-slate-100 rounded flex items-center justify-center">
+                  <FileText className="w-3 h-3 text-slate-500" />
                 </div>
                 <div>
                   <span className="font-semibold text-slate-800">{item.stage}</span>
@@ -65,10 +65,10 @@ export function ProductionBottleneck({ items, recommendation }: ProductionBottle
 
       {/* Recommendation */}
       {recommendation && (
-        <div className="mt-5 p-4 bg-slate-50 rounded-xl border border-slate-100">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-4 h-4 text-primary" />
+        <div className="mt-3 p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+          <div className="flex items-start gap-2">
+            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-3 h-3 text-primary" />
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Recomendação</p>
