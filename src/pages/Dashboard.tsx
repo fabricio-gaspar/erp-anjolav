@@ -28,7 +28,6 @@ import {
   Wallet,
   CalendarDays,
   ShoppingCart,
-  ShoppingCart,
   ArrowDownCircle,
   DollarSign,
 } from "lucide-react";
