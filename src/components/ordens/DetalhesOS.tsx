@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Loader2, Package, Clock, Calendar, Truck, User, FileText, Printer, Tag } from "lucide-react";
+import { ArrowLeft, Loader2, Package, Clock, Calendar, Truck, User, FileText, Printer, Tag, Send } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ import { HistoricoTimeline } from "@/components/producao/HistoricoTimeline";
 import { FormularioEtapa } from "@/components/producao/FormularioEtapa";
 import { ImprimirOSModal } from "@/components/ordens/ImprimirOSModal";
 import { usePrintOS } from "@/hooks/usePrintOS";
+import { dispararNotificacao } from "@/services/notificacaoService";
+import { toast } from "@/hooks/use-toast";
 
 interface DetalhesOSProps {
   ordemServicoId: string;
@@ -116,6 +118,27 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* WhatsApp Resend */}
+          {ordem.cliente?.telefone && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                const evento = ordem.status === "expedicao" ? "os_pronta" : "os_status";
+                await dispararNotificacao(evento, {
+                  cliente: ordem.cliente?.razao_social || "",
+                  telefone: ordem.cliente?.telefone || "",
+                  numero: ordem.numero,
+                  ordem_servico_id: ordemServicoId,
+                  cliente_id: ordem.cliente_id,
+                });
+                toast({ title: "Notificação WhatsApp disparada!" });
+              }}
+            >
+              <Send className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">WhatsApp</span>
+            </Button>
+          )}
           {/* Print Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

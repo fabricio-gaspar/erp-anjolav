@@ -10,7 +10,8 @@ import {
   Receipt, 
   Database, 
   Wrench, 
-  Settings as SettingsIcon 
+  Settings as SettingsIcon,
+  MessageSquare 
 } from "lucide-react";
 import { ConfiguracoesEquipe } from "@/components/configuracoes/ConfiguracoesEquipe";
 import { ConfiguracoesPermissoes } from "@/components/configuracoes/ConfiguracoesPermissoes";
@@ -20,6 +21,7 @@ import { ConfiguracoesFiscal } from "@/components/configuracoes/ConfiguracoesFis
 import { ConfiguracoesDados } from "@/components/configuracoes/ConfiguracoesDados";
 import { ConfiguracoesSistema } from "@/components/configuracoes/ConfiguracoesSistema";
 import { ConfiguracoesGeral } from "@/components/configuracoes/ConfiguracoesGeral";
+import { ConfiguracoesWhatsApp } from "@/components/configuracoes/ConfiguracoesWhatsApp";
 
 const Configuracoes = () => {
   const [searchParams] = useSearchParams();
@@ -94,6 +96,13 @@ const Configuracoes = () => {
                 <SettingsIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Geral</span>
               </TabsTrigger>
+              <TabsTrigger
+                value="whatsapp"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span className="hidden sm:inline">WhatsApp</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -127,6 +136,10 @@ const Configuracoes = () => {
 
           <TabsContent value="geral" className="mt-4">
             <ConfiguracoesGeral />
+          </TabsContent>
+
+          <TabsContent value="whatsapp" className="mt-4">
+            <ConfiguracoesWhatsApp />
           </TabsContent>
         </Tabs>
       </div>

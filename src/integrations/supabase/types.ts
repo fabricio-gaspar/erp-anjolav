@@ -1678,6 +1678,60 @@ export type Database = {
         }
         Relationships: []
       }
+      mensagens_log: {
+        Row: {
+          canal: string
+          cliente_id: string | null
+          created_at: string
+          erro: string | null
+          evento: string
+          id: string
+          mensagem: string
+          ordem_servico_id: string | null
+          status: string
+          telefone: string
+        }
+        Insert: {
+          canal?: string
+          cliente_id?: string | null
+          created_at?: string
+          erro?: string | null
+          evento: string
+          id?: string
+          mensagem: string
+          ordem_servico_id?: string | null
+          status?: string
+          telefone: string
+        }
+        Update: {
+          canal?: string
+          cliente_id?: string | null
+          created_at?: string
+          erro?: string | null
+          evento?: string
+          id?: string
+          mensagem?: string
+          ordem_servico_id?: string | null
+          status?: string
+          telefone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_log_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modulo_permissoes: {
         Row: {
           created_at: string
@@ -2465,6 +2519,42 @@ export type Database = {
           placa?: string
           tipo?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      whatsapp_instancias: {
+        Row: {
+          api_key_encrypted: string | null
+          api_url: string | null
+          created_at: string
+          id: string
+          nome_instancia: string
+          qr_code: string | null
+          status: string
+          updated_at: string
+          webhook_n8n_url: string | null
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          api_url?: string | null
+          created_at?: string
+          id?: string
+          nome_instancia?: string
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          webhook_n8n_url?: string | null
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          api_url?: string | null
+          created_at?: string
+          id?: string
+          nome_instancia?: string
+          qr_code?: string | null
+          status?: string
+          updated_at?: string
+          webhook_n8n_url?: string | null
         }
         Relationships: []
       }
