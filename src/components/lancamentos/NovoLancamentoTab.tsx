@@ -90,7 +90,7 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
   }, [selectedClienteId, clientes]);
 
   const clientesIndustriais = useMemo(() => {
-    return clientes.filter(c => c.classificacao === "industrial");
+    return clientes.filter((c) => c.classificacao?.trim().toLowerCase() === "industrial");
   }, [clientes]);
 
   const clientesFiltrados = useMemo(() => {
