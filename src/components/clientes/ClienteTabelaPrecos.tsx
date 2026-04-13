@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Copy, Plus, Trash2, Loader2 } from "lucide-react";
+import { Copy, Plus, Trash2, Loader2, ChevronsUpDown, Check, Search } from "lucide-react";
 import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
 import { toast } from "sonner";
