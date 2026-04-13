@@ -1,30 +1,44 @@
 
 
-## Plano: Corrigir cache de clientes no módulo Lançamentos
+## Plano: Redesign completo estilo Secullum Ponto Web
 
-### Diagnóstico
-O cliente Fabricio Gaspar **já está salvo como "industrial" no banco de dados** — a alteração foi gravada corretamente. O problema é que o React Query está usando dados em cache da sessão anterior (quando o cliente ainda era "residencial"). Como o `QueryClient` não tem `defaultOptions` configuradas, o `staleTime` padrão é 0, mas a query `["clientes"]` pode não ter sido invalidada ao navegar entre páginas.
+### Alterações
 
-### Alteração
+#### 1. `src/index.css` — Variáveis de tema
+- `--background`: `0 0% 96%` (#F5F5F5 — fundo cinza claro)
+- `--sidebar-background`: `0 0% 100%` (branco)
+- `--sidebar-foreground`: `215 25% 27%` (texto escuro)
+- `--sidebar-hover`: `210 20% 96%` (cinza claro no hover)
+- `--sidebar-muted`: `215 15% 60%` (cinza médio)
+- `--primary`: `197 100% 43%` (#0098DA — azul ciano)
+- Comentário do sidebar muda de "Purple Theme" para "Secullum Light Theme"
 
-#### `src/components/lancamentos/NovoLancamentoTab.tsx`
-- Adicionar `refetchOnMount: "always"` na chamada do `useClientes` para garantir que a lista de clientes industriais esteja sempre atualizada ao abrir a aba de Lançamentos.
+#### 2. `src/components/layout/AppHeader.tsx` — Header escuro navy
+- Fundo: `bg-[#1a2332]` com `border-[#1a2332]`
+- Breadcrumb links e títulos em branco/branco-70%
+- Ícones de busca, notificação em branco/branco-70%
+- Badge de notificação mantém vermelho
+- Kbd do atalho com estilo escuro
 
-Como o `useClientes` é um hook compartilhado, a melhor abordagem é configurar o `QueryClient` globalmente:
+#### 3. `src/components/layout/AppSidebar.tsx` — Sidebar branca
+- Trocar todas as referências `text-white` → `text-slate-700`
+- `text-white/80` → `text-slate-500`
+- `text-white/60` → `text-slate-400`
+- Ativo: `bg-primary/10 text-primary` (ciano sobre fundo claro)
+- Hover: `hover:bg-slate-100 hover:text-slate-900`
+- NavGroup aberto: `bg-slate-100 text-slate-800`
+- Bordas: `border-white/10` → `border-slate-200`
+- Logo fallback: fundo `bg-primary` em vez de `bg-black`
+- Avatar: `bg-primary/10` com iniciais `text-primary`
+- CollapseButton: `bg-white text-slate-600 border-slate-200 shadow`
+- Tooltip: fundo branco com texto escuro
 
-#### `src/App.tsx`
-- Configurar `defaultOptions` no `QueryClient` com `refetchOnWindowFocus: true` (já é padrão) e `staleTime: 0` (já é padrão), mas adicionar `refetchOnMount: "always"` para garantir que dados sempre sejam revalidados ao montar componentes.
+#### 4. `src/components/layout/AppLayout.tsx`
+- Mobile Sheet: `bg-white` em vez de `bg-sidebar`
 
-```typescript
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnMount: "always",
-    },
-  },
-});
-```
+#### 5. `src/lib/themeUtils.ts`
+- Atualizar tema "padrao" com sidebar branca e novas variáveis
 
 ### Resultado
-Ao navegar para Lançamentos após alterar a classificação de um cliente, a lista será recarregada automaticamente e o cliente aparecerá corretamente na lista de industriais.
+Header azul marinho escuro, sidebar branca limpa com texto escuro e destaque ciano, fundo cinza claro #F5F5F5 — visual profissional estilo Secullum.
 
