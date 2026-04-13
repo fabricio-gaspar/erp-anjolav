@@ -877,6 +877,7 @@ const Faturamento = () => {
                       })}
                     </TableBody>
                   </Table>
+                  </div>
                 )}
               </div>
             </div>
