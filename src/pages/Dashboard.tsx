@@ -27,7 +27,7 @@ import {
   BarChart3,
   Wallet,
   CalendarDays,
-  ShieldAlert,
+  ShoppingCart,
   ShoppingCart,
   ArrowDownCircle,
   DollarSign,
