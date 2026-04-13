@@ -44,15 +44,15 @@ export function BillingClosuresCard() {
 
   if (isLoading) {
     return (
-      <Card className="border-warning/20 bg-warning/5">
+      <Card className="border-slate-200/80 shadow-none" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <CalendarClock className="h-4 w-4 text-warning" />
+            <CalendarClock className="h-4 w-4 text-slate-400" />
             Fechamentos Próximos
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Carregando...</p>
+          <p className="text-sm text-slate-400">Carregando...</p>
         </CardContent>
       </Card>
     );
@@ -60,7 +60,7 @@ export function BillingClosuresCard() {
 
   if (fechamentos.length === 0) {
     return (
-      <Card className="border-success/20 bg-success/5">
+      <Card className="border-slate-200/80 shadow-none" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" />
@@ -68,7 +68,7 @@ export function BillingClosuresCard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-400">
             Nenhum fechamento programado este mês
           </p>
         </CardContent>
@@ -79,7 +79,7 @@ export function BillingClosuresCard() {
   const urgentes = fechamentos.filter((f) => f.diasRestantes <= 1);
   const proximos = fechamentos.filter((f) => f.diasRestantes > 1);
 
-  const cardBorder = urgentes.length > 0 ? "border-destructive/30 bg-destructive/5" : "border-warning/20 bg-warning/5";
+  const cardBorder = "border-slate-200/80 shadow-none";
   const iconColor = urgentes.length > 0 ? "text-destructive" : "text-warning";
 
   const renderItem = (f: typeof fechamentos[0]) => (
@@ -107,7 +107,7 @@ export function BillingClosuresCard() {
   );
 
   return (
-    <Card className={cardBorder}>
+    <Card className={cardBorder} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <AlertTriangle className={`h-4 w-4 ${iconColor}`} />
