@@ -99,9 +99,10 @@ interface NavGroupProps {
   icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  compact?: boolean;
 }
 
-const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavGroupProps) => {
+const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compact = false }: NavGroupProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const { isCollapsed } = useSidebarContext();
   const location = useLocation();
@@ -110,7 +111,6 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavG
     ? children.some((child: any) => child?.props?.to && location.pathname.startsWith(child.props.to))
     : false;
 
-  // Filter out null children (hidden by permissions)
   const visibleChildren = Array.isArray(children) 
     ? children.filter((child: any) => child !== null) 
     : children;
@@ -127,14 +127,15 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavG
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center gap-3 w-full px-3 py-2.5 mx-2 rounded-lg text-sm font-medium transition-all duration-200",
+          "flex items-center gap-3 w-full rounded-lg font-medium transition-all duration-200",
+          compact ? "px-2.5 py-1.5 mx-2 text-xs gap-2" : "px-3 py-2.5 mx-2 text-sm",
           (isOpen || hasActiveChild)
             ? "bg-white/10 text-white"
             : "text-white/80 hover:bg-white/10 hover:text-white"
         )}
         style={{ width: 'calc(100% - 16px)' }}
       >
-        <GroupIcon className="w-5 h-5 flex-shrink-0" />
+        <GroupIcon className={cn("flex-shrink-0", compact ? "w-4 h-4" : "w-5 h-5")} />
         <span className="flex-1 text-left truncate">{title}</span>
         <ChevronDown
           className={cn(
