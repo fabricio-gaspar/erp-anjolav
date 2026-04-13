@@ -66,8 +66,8 @@ const NavItem = ({ to, icon: Icon, label, end = false, compact = false }: NavIte
         "group flex items-center gap-3 rounded-lg font-medium transition-all duration-200 relative mx-2",
         compact ? "px-2 py-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 text-sm",
         isActive
-          ? "bg-white/20 text-white"
-          : "text-white/80 hover:bg-white/10 hover:text-white",
+          ? "bg-primary/10 text-primary font-semibold"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
         isCollapsed && "justify-center mx-1 px-2"
       )}
     >
@@ -84,7 +84,7 @@ const NavItem = ({ to, icon: Icon, label, end = false, compact = false }: NavIte
         <TooltipTrigger asChild>
           {content}
         </TooltipTrigger>
-        <TooltipContent side="right" className="flex items-center gap-2 bg-sidebar text-white border-sidebar-border">
+        <TooltipContent side="right" className="flex items-center gap-2 bg-white text-slate-700 border-slate-200 shadow-md">
           {label}
         </TooltipContent>
       </Tooltip>
@@ -130,8 +130,8 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compac
           "flex items-center gap-3 w-full rounded-lg font-medium transition-all duration-200",
           compact ? "px-2 py-1.5 mx-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 mx-2 text-sm",
           (isOpen || hasActiveChild)
-            ? "bg-white/10 text-white"
-            : "text-white/80 hover:bg-white/10 hover:text-white"
+            ? "bg-slate-100 text-slate-800"
+            : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
         )}
         style={{ width: 'calc(100% - 16px)' }}
       >
@@ -190,13 +190,13 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
 
   const userButton = (
     <button className={cn(
-      "flex items-center w-full rounded-lg hover:bg-white/10 transition-colors",
+      "flex items-center w-full rounded-lg hover:bg-slate-100 transition-colors",
       compact ? "gap-2 p-1.5" : "gap-3 p-2",
       isCollapsed && "justify-center p-2"
     )}>
       <div className="relative">
         <div className={cn(
-          "rounded-full bg-white/20 flex items-center justify-center overflow-hidden",
+          "rounded-full bg-primary/10 flex items-center justify-center overflow-hidden",
           compact ? "w-7 h-7" : "w-9 h-9"
         )}>
           {avatarUrl ? (
@@ -206,18 +206,18 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
               className="w-full h-full object-cover"
             />
           ) : (
-            <span className={cn("text-white font-semibold", compact ? "text-xs" : "text-sm")}>{getInitials(displayName)}</span>
+            <span className={cn("text-primary font-semibold", compact ? "text-xs" : "text-sm")}>{getInitials(displayName)}</span>
           )}
         </div>
       </div>
       {!isCollapsed && (
         <div className="flex-1 min-w-0 text-left">
-          <p className={cn("font-medium text-white truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
-          <p className={cn("text-white/60 truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
+          <p className={cn("font-medium text-slate-700 truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
+          <p className={cn("text-slate-400 truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
         </div>
       )}
       {!isCollapsed && (
-        <Settings className="w-4 h-4 text-white/60 hover:text-white transition-colors" />
+        <Settings className="w-4 h-4 text-slate-400 hover:text-slate-600 transition-colors" />
       )}
     </button>
   );
@@ -230,7 +230,7 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
             <TooltipTrigger asChild>
               {userButton}
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-sidebar text-white border-sidebar-border">
+            <TooltipContent side="right" className="bg-white text-slate-700 border-slate-200 shadow-md">
               {displayName}
             </TooltipContent>
           </Tooltip>
@@ -273,8 +273,8 @@ const CollapseButton = () => {
     <button
       onClick={toggleSidebar}
       className={cn(
-        "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-sidebar text-white shadow-lg hover:scale-110 transition-all duration-200 z-50",
-        "border-2 border-white/20"
+        "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-white text-slate-600 shadow-lg hover:scale-110 transition-all duration-200 z-50",
+        "border border-slate-200"
       )}
     >
       {isCollapsed ? (
@@ -305,7 +305,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   return (
     <TooltipProvider>
       <aside className={cn(
-        "h-screen bg-sidebar flex flex-col transition-all duration-300",
+        "h-screen bg-white border-r border-slate-200 flex flex-col transition-all duration-300",
         isMobile ? "w-full" : "fixed left-0 top-0 z-40",
         !isMobile && (effectiveCollapsed ? "w-16" : "w-56")
       )}>
@@ -329,13 +329,13 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
           ) : (
             <div className={cn("flex items-center", compact ? "gap-2" : "gap-3")}>
               <div className={cn(
-                "rounded-xl bg-black flex items-center justify-center",
+                "rounded-xl bg-primary flex items-center justify-center",
                 compact ? "w-7 h-7" : "w-9 h-9"
               )}>
                 <span className={cn("text-white font-bold", compact ? "text-sm" : "text-lg")}>{primeiraLetra}</span>
               </div>
               {!effectiveCollapsed && (
-                <span className={cn("font-bold text-white", compact ? "text-sm" : "text-base")}>{nomeEmpresa}</span>
+                <span className={cn("font-bold text-slate-800", compact ? "text-sm" : "text-base")}>{nomeEmpresa}</span>
               )}
             </div>
           )}
@@ -372,13 +372,13 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
           </NavGroup>
 
           {/* Bottom items */}
-          <div className={cn("border-t border-white/10", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
+          <div className={cn("border-t border-slate-200", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
             <NavItem to="/configuracoes" icon={Settings} label="Configurações" compact={compact} />
           </div>
         </nav>
 
         {/* User Section */}
-        <div className={cn("border-t border-white/10", compact ? "p-2" : "p-3")}>
+        <div className={cn("border-t border-slate-200", compact ? "p-2" : "p-3")}>
           <UserSection compact={compact} />
         </div>
       </aside>

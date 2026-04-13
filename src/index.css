@@ -11,18 +11,18 @@
 @layer base {
   :root {
     /* Brand Colors */
-    --background: 228 47% 95%;
+    --background: 0 0% 96%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
 
-    --popover: 214 31% 91%;
+    --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary - Blue Brand */
-    --primary: 200 98% 39%;
-    --primary-foreground: 204 100% 97%;
+    /* Primary - Cyan Brand (Secullum) */
+    --primary: 197 100% 43%;
+    --primary-foreground: 0 0% 100%;
 
     /* Secondary */
     --secondary: 215 24% 26%;
@@ -56,20 +56,20 @@
     /* UI Elements */
     --border: 212 26% 83%;
     --input: 212 26% 83%;
-    --ring: 200 98% 39%;
+    --ring: 197 100% 43%;
     --radius: 0.5rem;
 
-    /* Sidebar - Purple Theme (Figma) */
-    --sidebar-background: 262 83% 58%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 200 98% 39%;
-    --sidebar-primary-foreground: 204 100% 97%;
-    --sidebar-accent: 215 24% 26%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 212 26% 83%;
-    --sidebar-ring: 200 98% 39%;
-    --sidebar-muted: 262 50% 70%;
-    --sidebar-hover: 262 70% 52%;
+    /* Sidebar - Secullum Light Theme */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 25% 27%;
+    --sidebar-primary: 197 100% 43%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 20% 96%;
+    --sidebar-accent-foreground: 215 25% 27%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 197 100% 43%;
+    --sidebar-muted: 215 15% 60%;
+    --sidebar-hover: 210 20% 96%;
 
     /* Chart Colors */
     --chart-1: 198 93% 59%;
