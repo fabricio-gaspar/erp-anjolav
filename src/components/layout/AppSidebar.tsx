@@ -48,9 +48,10 @@ interface NavItemProps {
   icon: React.ElementType;
   label: string;
   end?: boolean;
+  compact?: boolean;
 }
 
-const NavItem = ({ to, icon: Icon, label, end = false }: NavItemProps) => {
+const NavItem = ({ to, icon: Icon, label, end = false, compact = false }: NavItemProps) => {
   const temPermissao = useTemPermissao(to);
   const location = useLocation();
   const { isCollapsed } = useSidebarContext();
@@ -62,14 +63,15 @@ const NavItem = ({ to, icon: Icon, label, end = false }: NavItemProps) => {
     <NavLink
       to={to}
       className={cn(
-        "group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative mx-2",
+        "group flex items-center gap-3 rounded-lg font-medium transition-all duration-200 relative mx-2",
+        compact ? "px-2.5 py-1.5 text-xs gap-2" : "px-3 py-2.5 text-sm",
         isActive
           ? "bg-white/20 text-white"
           : "text-white/80 hover:bg-white/10 hover:text-white",
         isCollapsed && "justify-center mx-1 px-2"
       )}
     >
-      <Icon className="w-5 h-5 flex-shrink-0" />
+      <Icon className={cn("flex-shrink-0", compact ? "w-4 h-4" : "w-5 h-5")} />
       {!isCollapsed && (
         <span className="flex-1 truncate">{label}</span>
       )}
@@ -97,9 +99,10 @@ interface NavGroupProps {
   icon: React.ElementType;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  compact?: boolean;
 }
 
-const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavGroupProps) => {
+const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compact = false }: NavGroupProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const { isCollapsed } = useSidebarContext();
   const location = useLocation();
@@ -108,7 +111,6 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavG
     ? children.some((child: any) => child?.props?.to && location.pathname.startsWith(child.props.to))
     : false;
 
-  // Filter out null children (hidden by permissions)
   const visibleChildren = Array.isArray(children) 
     ? children.filter((child: any) => child !== null) 
     : children;
@@ -125,14 +127,15 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavG
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center gap-3 w-full px-3 py-2.5 mx-2 rounded-lg text-sm font-medium transition-all duration-200",
+          "flex items-center gap-3 w-full rounded-lg font-medium transition-all duration-200",
+          compact ? "px-2.5 py-1.5 mx-2 text-xs gap-2" : "px-3 py-2.5 mx-2 text-sm",
           (isOpen || hasActiveChild)
             ? "bg-white/10 text-white"
             : "text-white/80 hover:bg-white/10 hover:text-white"
         )}
         style={{ width: 'calc(100% - 16px)' }}
       >
-        <GroupIcon className="w-5 h-5 flex-shrink-0" />
+        <GroupIcon className={cn("flex-shrink-0", compact ? "w-4 h-4" : "w-5 h-5")} />
         <span className="flex-1 text-left truncate">{title}</span>
         <ChevronDown
           className={cn(
@@ -151,7 +154,11 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true }: NavG
   );
 };
 
-const UserSection = () => {
+interface UserSectionProps {
+  compact?: boolean;
+}
+
+const UserSection = ({ compact = false }: UserSectionProps) => {
   const { isCollapsed } = useSidebarContext();
   const navigate = useNavigate();
   const { user, funcionario, signOut } = useAuth();
@@ -183,11 +190,15 @@ const UserSection = () => {
 
   const userButton = (
     <button className={cn(
-      "flex items-center gap-3 w-full p-2 rounded-lg hover:bg-white/10 transition-colors",
+      "flex items-center w-full rounded-lg hover:bg-white/10 transition-colors",
+      compact ? "gap-2 p-1.5" : "gap-3 p-2",
       isCollapsed && "justify-center p-2"
     )}>
       <div className="relative">
-        <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+        <div className={cn(
+          "rounded-full bg-white/20 flex items-center justify-center overflow-hidden",
+          compact ? "w-7 h-7" : "w-9 h-9"
+        )}>
           {avatarUrl ? (
             <img 
               src={avatarUrl} 
@@ -195,14 +206,14 @@ const UserSection = () => {
               className="w-full h-full object-cover"
             />
           ) : (
-            <span className="text-white text-sm font-semibold">{getInitials(displayName)}</span>
+            <span className={cn("text-white font-semibold", compact ? "text-xs" : "text-sm")}>{getInitials(displayName)}</span>
           )}
         </div>
       </div>
       {!isCollapsed && (
         <div className="flex-1 min-w-0 text-left">
-          <p className="text-sm font-medium text-white truncate">{displayName}</p>
-          <p className="text-xs text-white/60 truncate">{displayRole}</p>
+          <p className={cn("font-medium text-white truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
+          <p className={cn("text-white/60 truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
         </div>
       )}
       {!isCollapsed && (
@@ -285,6 +296,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   const { configuracao } = useConfiguracoesGerais();
   
   const effectiveCollapsed = isMobile ? false : isCollapsed;
+  const compact = !!isMobile;
 
   const nomeEmpresa = configuracao?.nome_empresa || "AnjoLav";
   const logoUrl = configuracao?.logo_url;
@@ -301,7 +313,8 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
         {/* Logo */}
         <div className={cn(
-          "h-14 flex items-center justify-center transition-all",
+          "flex items-center justify-center transition-all",
+          compact ? "h-12 px-2" : "h-14",
           effectiveCollapsed ? "px-2" : "px-3"
         )}>
           {logoUrl ? (
@@ -310,60 +323,63 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
               alt={nomeEmpresa}
               className={cn(
                 "object-contain",
-                effectiveCollapsed ? "h-8 max-w-[40px]" : "h-9 max-w-[180px]"
+                effectiveCollapsed ? "h-8 max-w-[40px]" : compact ? "h-7 max-w-[150px]" : "h-9 max-w-[180px]"
               )}
             />
           ) : (
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center">
-                <span className="text-white font-bold text-lg">{primeiraLetra}</span>
+            <div className={cn("flex items-center", compact ? "gap-2" : "gap-3")}>
+              <div className={cn(
+                "rounded-xl bg-black flex items-center justify-center",
+                compact ? "w-7 h-7" : "w-9 h-9"
+              )}>
+                <span className={cn("text-white font-bold", compact ? "text-sm" : "text-lg")}>{primeiraLetra}</span>
               </div>
               {!effectiveCollapsed && (
-                <span className="font-bold text-base text-white">{nomeEmpresa}</span>
+                <span className={cn("font-bold text-white", compact ? "text-sm" : "text-base")}>{nomeEmpresa}</span>
               )}
             </div>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto pb-4 pt-2 space-y-1" onClick={onItemClick}>
-          <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end />
+        <nav className={cn("flex-1 overflow-y-auto space-y-0.5", compact ? "pb-2 pt-1" : "pb-4 pt-2 space-y-1")} onClick={onItemClick}>
+          <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end compact={compact} />
 
-          <NavGroup title="Comercial" icon={Users} defaultOpen>
-            <NavItem to="/clientes" icon={Users} label="Clientes" />
-            <NavItem to="/produtos" icon={Package} label="Produtos" />
-            <NavItem to="/fornecedores" icon={Building2} label="Fornecedores" />
+          <NavGroup title="Comercial" icon={Users} defaultOpen compact={compact}>
+            <NavItem to="/clientes" icon={Users} label="Clientes" compact={compact} />
+            <NavItem to="/produtos" icon={Package} label="Produtos" compact={compact} />
+            <NavItem to="/fornecedores" icon={Building2} label="Fornecedores" compact={compact} />
           </NavGroup>
 
-          <NavGroup title="Operacional" icon={Factory}>
-            <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" />
-            <NavItem to="/producao" icon={Factory} label="Produção" />
-            <NavItem to="/agenda" icon={Calendar} label="Agenda" />
+          <NavGroup title="Operacional" icon={Factory} compact={compact}>
+            <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" compact={compact} />
+            <NavItem to="/producao" icon={Factory} label="Produção" compact={compact} />
+            <NavItem to="/agenda" icon={Calendar} label="Agenda" compact={compact} />
           </NavGroup>
 
-          <NavGroup title="Financeiro" icon={Wallet}>
-            <NavItem to="/financeiro" icon={DollarSign} label="Visão Geral" />
-            <NavItem to="/lancamentos" icon={Receipt} label="PDV Industrial" />
-            <NavItem to="/caixa" icon={CreditCard} label="PDV Loja" />
-            <NavItem to="/relatorios/caixa" icon={BarChart3} label="Histórico Caixas" />
-            <NavItem to="/contas" icon={Wallet} label="Contas" />
-            <NavItem to="/estoque" icon={Package} label="Estoque" />
+          <NavGroup title="Financeiro" icon={Wallet} compact={compact}>
+            <NavItem to="/financeiro" icon={DollarSign} label="Visão Geral" compact={compact} />
+            <NavItem to="/lancamentos" icon={Receipt} label="PDV Industrial" compact={compact} />
+            <NavItem to="/caixa" icon={CreditCard} label="PDV Loja" compact={compact} />
+            <NavItem to="/relatorios/caixa" icon={BarChart3} label="Histórico Caixas" compact={compact} />
+            <NavItem to="/contas" icon={Wallet} label="Contas" compact={compact} />
+            <NavItem to="/estoque" icon={Package} label="Estoque" compact={compact} />
           </NavGroup>
 
-          <NavGroup title="Relatórios" icon={PieChart}>
-            <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Clientes" />
-            <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" />
+          <NavGroup title="Relatórios" icon={PieChart} compact={compact}>
+            <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Clientes" compact={compact} />
+            <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" compact={compact} />
           </NavGroup>
 
           {/* Bottom items */}
-          <div className="pt-4 mt-4 border-t border-white/10">
-            <NavItem to="/configuracoes" icon={Settings} label="Configurações" />
+          <div className={cn("border-t border-white/10", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
+            <NavItem to="/configuracoes" icon={Settings} label="Configurações" compact={compact} />
           </div>
         </nav>
 
         {/* User Section */}
-        <div className="border-t border-white/10 p-3">
-          <UserSection />
+        <div className={cn("border-t border-white/10", compact ? "p-2" : "p-3")}>
+          <UserSection compact={compact} />
         </div>
       </aside>
     </TooltipProvider>
