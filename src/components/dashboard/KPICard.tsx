@@ -50,7 +50,7 @@ export function KPICard({ title, value, icon: Icon, iconColor = "primary", trend
     )}>
       {/* Icon */}
       <div className={cn("kpi-card-icon", styles.iconBg)}>
-        <Icon className={cn("w-4 h-4", styles.iconText)} />
+        <Icon className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", styles.iconText)} />
       </div>
 
       {/* Title */}

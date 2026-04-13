@@ -26,30 +26,30 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
     <div className="finance-card">
       {/* Header */}
       <div className="finance-card-header">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div
             className={cn(
-              "w-12 h-12 rounded-xl flex items-center justify-center",
+              "w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0",
               isReceivable ? "bg-success/10" : "bg-slate-100"
             )}
           >
             <Icon
               className={cn(
-                "w-6 h-6",
+                "w-5 h-5 sm:w-6 sm:h-6",
                 isReceivable ? "text-success" : "text-slate-500"
               )}
             />
           </div>
-          <div>
-            <h3 className="font-bold text-slate-800">{title}</h3>
-            <p className="text-xs text-slate-500">{subtitle}</p>
+          <div className="min-w-0">
+            <h3 className="font-bold text-slate-800 truncate">{title}</h3>
+            <p className="text-xs text-slate-500 truncate">{subtitle}</p>
           </div>
         </div>
-        <div className="text-right">
+        <div className="text-left sm:text-right flex-shrink-0">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Total</p>
           <p
             className={cn(
-              "text-2xl font-bold",
+              "text-xl sm:text-2xl font-bold",
               isReceivable ? "text-success" : "text-slate-800"
             )}
           >
