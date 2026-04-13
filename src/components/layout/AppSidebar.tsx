@@ -48,9 +48,10 @@ interface NavItemProps {
   icon: React.ElementType;
   label: string;
   end?: boolean;
+  compact?: boolean;
 }
 
-const NavItem = ({ to, icon: Icon, label, end = false }: NavItemProps) => {
+const NavItem = ({ to, icon: Icon, label, end = false, compact = false }: NavItemProps) => {
   const temPermissao = useTemPermissao(to);
   const location = useLocation();
   const { isCollapsed } = useSidebarContext();
@@ -62,14 +63,15 @@ const NavItem = ({ to, icon: Icon, label, end = false }: NavItemProps) => {
     <NavLink
       to={to}
       className={cn(
-        "group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative mx-2",
+        "group flex items-center gap-3 rounded-lg font-medium transition-all duration-200 relative mx-2",
+        compact ? "px-2.5 py-1.5 text-xs gap-2" : "px-3 py-2.5 text-sm",
         isActive
           ? "bg-white/20 text-white"
           : "text-white/80 hover:bg-white/10 hover:text-white",
         isCollapsed && "justify-center mx-1 px-2"
       )}
     >
-      <Icon className="w-5 h-5 flex-shrink-0" />
+      <Icon className={cn("flex-shrink-0", compact ? "w-4 h-4" : "w-5 h-5")} />
       {!isCollapsed && (
         <span className="flex-1 truncate">{label}</span>
       )}
