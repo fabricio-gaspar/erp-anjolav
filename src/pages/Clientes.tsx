@@ -12,14 +12,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Plus, Eye, Pencil, Ban, Trash2, Building2, Home, Loader2 } from "lucide-react";
+import { Search, Plus, Eye, Pencil, Ban, Trash2, Building2, Home, Loader2, User } from "lucide-react";
 import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
 import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
 import { ClientePagamento } from "@/components/clientes/ClientePagamento";
 import { ClienteConfiguracao } from "@/components/clientes/ClienteConfiguracao";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
 import { ClienteTabelaPrecos } from "@/components/clientes/ClienteTabelaPrecos";
-import { useClientes, type Cliente } from "@/hooks/useClientes";
+import { useClientes, useClienteById, type Cliente } from "@/hooks/useClientes";
 import { BrasilApiCnpjResponse } from "@/services/apiServices";
 import {
   AlertDialog,
@@ -42,6 +42,7 @@ const Clientes = () => {
   const [cnpjData, setCnpjData] = useState<BrasilApiCnpjResponse | null>(null);
 
   const { clientes, isLoading, deleteCliente, updateCliente } = useClientes();
+  const { data: selectedCliente } = useClienteById(selectedClienteId);
 
   const filteredClientes = clientes.filter((cliente) => {
     const matchesSearch =
