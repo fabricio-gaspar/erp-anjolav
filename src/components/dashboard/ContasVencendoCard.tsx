@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, CreditCard } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { differenceInDays, startOfDay, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -25,7 +25,7 @@ export function ContasVencendoCard() {
 
   if (contasUrgentes.length === 0) {
     return (
-      <Card className="border-success/20 bg-success/5">
+      <Card className="border-slate-200/80 shadow-none" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" />
@@ -33,7 +33,7 @@ export function ContasVencendoCard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-slate-400">
             Nenhuma conta vencendo nos próximos 3 dias
           </p>
         </CardContent>
@@ -42,12 +42,12 @@ export function ContasVencendoCard() {
   }
 
   return (
-    <Card className="border-destructive/20 bg-destructive/5">
+    <Card className="border-slate-200/80 shadow-none" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-destructive" />
           Contas a Pagar
-          <Badge variant="destructive" className="ml-auto">
+          <Badge variant="destructive" className="ml-auto text-[10px]">
             {contasUrgentes.length}
           </Badge>
         </CardTitle>
@@ -59,25 +59,19 @@ export function ContasVencendoCard() {
               <div
                 key={c.id}
                 onClick={() => navigate("/contas-pagar")}
-                className="flex items-center justify-between text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0 cursor-pointer hover:bg-muted/50 -mx-2 px-2 py-1 rounded-md transition-colors"
+                className="flex items-center justify-between text-sm border-b border-slate-50 pb-2 last:border-0 last:pb-0 cursor-pointer hover:bg-slate-50 -mx-2 px-2 py-1 rounded-md transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{c.fornecedor || c.descricao}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="font-medium text-sm text-slate-700 truncate">{c.fornecedor || c.descricao}</p>
+                  <p className="text-xs text-slate-400">
                     R$ {Number(c.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} • {format(new Date(c.vencimento), "dd/MM", { locale: ptBR })}
                   </p>
                 </div>
                 <Badge
-                  variant={c.diasRestantes < 0 ? "destructive" : c.diasRestantes === 0 ? "destructive" : "outline"}
-                  className="ml-2 shrink-0"
+                  variant={c.diasRestantes <= 0 ? "destructive" : "outline"}
+                  className="ml-2 shrink-0 text-[10px]"
                 >
-                  {c.diasRestantes < 0
-                    ? "Vencida"
-                    : c.diasRestantes === 0
-                    ? "Hoje"
-                    : c.diasRestantes === 1
-                    ? "Amanhã"
-                    : `${c.diasRestantes} dias`}
+                  {c.diasRestantes < 0 ? "Vencida" : c.diasRestantes === 0 ? "Hoje" : c.diasRestantes === 1 ? "Amanhã" : `${c.diasRestantes} dias`}
                 </Badge>
               </div>
             ))}

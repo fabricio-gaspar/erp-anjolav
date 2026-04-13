@@ -1,5 +1,4 @@
 import { AppLayout } from "@/components/layout/AppLayout";
-import { SectionHeader } from "@/components/ui/section-header";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { FinanceCard } from "@/components/dashboard/FinanceCard";
 import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
@@ -11,7 +10,6 @@ import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
 import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
 import { ContratosVencendoCard } from "@/components/dashboard/ContratosVencendoCard";
 import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
-import { Badge } from "@/components/ui/badge";
 import {
   FileText, 
   AlertCircle, 
@@ -20,13 +18,6 @@ import {
   TrendingUp, 
   TrendingDown, 
   Loader2,
-  Scale,
-  Clock,
-  User,
-  Activity,
-  BarChart3,
-  Wallet,
-  CalendarDays,
   ShoppingCart,
   ArrowDownCircle,
   DollarSign,
@@ -58,7 +49,6 @@ const Dashboard = () => {
   const { contas: contasPagar } = useContasPagar();
   const { data: caixaAberto } = useCaixaAberto();
 
-  // Permissões por módulo
   const temFinanceiro = useTemPermissaoModulo("faturamento");
   const temContasPagar = useTemPermissaoModulo("contas_pagar");
   const temProducao = useTemPermissaoModulo("producao");
@@ -73,11 +63,9 @@ const Dashboard = () => {
   const formatCurrency = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  // Calcular dados financeiros
   const contasPendentes = contasPagar.filter((c) => c.status === "pendente");
   const totalContasPagar = contasPendentes.reduce((acc, c) => acc + Number(c.valor), 0);
 
-  // Preparar KPIs - sempre visíveis como métricas rápidas
   const kpis = [
     ...(temOrdens ? [{
       title: "OS em Aberto",
@@ -129,7 +117,6 @@ const Dashboard = () => {
     }] : []),
   ];
 
-  // Preparar gargalos de produção
   const gargalos = metricas?.gargalos || {};
   const totalGargalos = Object.values(gargalos).reduce((a, b) => a + b, 0);
   const bottleneckItems = Object.entries(gargalos)
@@ -143,7 +130,6 @@ const Dashboard = () => {
     }))
     .sort((a, b) => b.osCount - a.osCount);
 
-  // Preparar resumo de processamento com dados de histórico
   const processingItems: ProcessingItem[] = osEmProcessamento.slice(0, 5).map((os: any) => {
     const ultimoHistorico = os.historico?.[os.historico.length - 1];
     const tempoNaEtapa = ultimoHistorico
@@ -153,9 +139,7 @@ const Dashboard = () => {
     let quantidadePecasHistorico = 0;
     (os.historico || []).forEach((h: any) => {
       const dados = h.dados_formulario || {};
-      if (dados.quantidade_pecas) {
-        quantidadePecasHistorico = dados.quantidade_pecas;
-      }
+      if (dados.quantidade_pecas) quantidadePecasHistorico = dados.quantidade_pecas;
     });
 
     let pecasItens = 0;
@@ -165,13 +149,8 @@ const Dashboard = () => {
     (os.itens || []).forEach((item: any) => {
       const qtd = Number(item.quantidade) || 0;
       pecasItens += qtd;
-      
-      if (item.produto?.peso_medio_kg) {
-        pesoEstimado += qtd * Number(item.produto.peso_medio_kg);
-      }
-      if (item.produto?.tempo_processo_min) {
-        tempoTotalProcessoMin += qtd * Number(item.produto.tempo_processo_min);
-      }
+      if (item.produto?.peso_medio_kg) pesoEstimado += qtd * Number(item.produto.peso_medio_kg);
+      if (item.produto?.tempo_processo_min) tempoTotalProcessoMin += qtd * Number(item.produto.tempo_processo_min);
     });
 
     const pecasFinal = quantidadePecasHistorico || pecasItens;
@@ -198,9 +177,7 @@ const Dashboard = () => {
         status = "delayed";
       } else {
         const diffDias = Math.ceil((dataPrevisaoCalc.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDias <= 1) {
-          status = "at_risk";
-        }
+        if (diffDias <= 1) status = "at_risk";
       }
     }
 
@@ -216,7 +193,6 @@ const Dashboard = () => {
     };
   });
 
-  // Preparar agenda do dia
   const retiradasAgenda = retiradas.map((r: any) => ({
     id: r.id,
     clientName: r.cliente?.razao_social || "Cliente",
@@ -233,7 +209,6 @@ const Dashboard = () => {
     osNumero: e.os_numero || null,
   }));
 
-  // Recomendação baseada em dados
   const maiorGargalo = bottleneckItems[0];
   const recommendation = maiorGargalo
     ? `A etapa "${maiorGargalo.stage}" está com ${maiorGargalo.osCount} OS. Considere realocar recursos ou priorizar esta fase.`
@@ -252,12 +227,12 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Métricas e visão operacional">
-      <div className="space-y-2">
-        {/* Painel 1: KPIs - Métricas Rápidas (sempre visível se houver ao menos 1 KPI) */}
+      <div className="space-y-5">
+        {/* KPIs */}
         {kpis.length > 0 && (
-          <section className="content-panel">
-            <SectionHeader icon={BarChart3} title="Métricas Rápidas" />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+          <section>
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">Métricas Rápidas</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {kpis.map((kpi, index) => (
                 <KPICard
                   key={index}
@@ -271,11 +246,11 @@ const Dashboard = () => {
           </section>
         )}
 
-        {/* Painel Financeiro + Alertas combinados */}
+        {/* Financeiro & Alertas */}
         {(temFinanceiro || temContasPagar || temProdutos || temClientes) && (
-          <section className="content-panel">
-            <SectionHeader icon={Wallet} title="Financeiro & Alertas" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <section>
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">Financeiro & Alertas</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {temFinanceiro && (
                 <FinanceCard
                   title="Contas a Receber"
@@ -310,39 +285,36 @@ const Dashboard = () => {
           </section>
         )}
 
-        {/* Painel Caixa PDV - só se tem acesso ao caixa */}
+        {/* Caixa PDV */}
         {temCaixa && (
-          <section className="content-panel">
-            <SectionHeader icon={ShoppingCart} title="Caixa PDV" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <section>
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">Caixa PDV</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <CaixaResumoCard />
             </div>
           </section>
         )}
 
+        {/* Agenda do Dia */}
         {temAgenda && (
-          <section className="content-panel">
-            <SectionHeader icon={CalendarDays} title="Agenda do Dia" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <section>
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">Agenda do Dia</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
               <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
             </div>
           </section>
         )}
 
-        {/* Painel 4: Gargalos + OS em Processamento - só se tem acesso à produção */}
+        {/* Gargalos + OS em Processamento */}
         {temProducao && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-            <section className="content-panel">
-              <SectionHeader icon={Activity} title="Gargalos de Produção" />
+          <section>
+            <h2 className="text-sm font-semibold text-slate-700 mb-3">Produção</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <ProductionBottleneck
                 items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
                 recommendation={recommendation}
               />
-            </section>
-
-            <section className="content-panel">
-              <SectionHeader icon={FileText} title="OS em Processamento" />
               <ProcessingSummary
                 items={
                   processingItems.length > 0
@@ -350,8 +322,8 @@ const Dashboard = () => {
                     : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
                 }
               />
-            </section>
-          </div>
+            </div>
+          </section>
         )}
       </div>
     </AppLayout>

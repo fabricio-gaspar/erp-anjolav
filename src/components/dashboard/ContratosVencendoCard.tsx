@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useContratosAtivos } from "@/hooks/useContratosAluguel";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, FileCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { differenceInDays, startOfDay } from "date-fns";
 
 export function ContratosVencendoCard() {
@@ -24,7 +24,7 @@ export function ContratosVencendoCard() {
 
   if (contratosUrgentes.length === 0) {
     return (
-      <Card className="border-success/20 bg-success/5">
+      <Card className="border-slate-200/80 shadow-none" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" />
@@ -32,21 +32,19 @@ export function ContratosVencendoCard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Nenhum contrato vencendo nos próximos 30 dias
-          </p>
+          <p className="text-sm text-slate-400">Nenhum contrato vencendo nos próximos 30 dias</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-warning/20 bg-warning/5">
+    <Card className="border-slate-200/80 shadow-none" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-warning" />
           Contratos Vencendo
-          <Badge variant="secondary" className="ml-auto bg-warning/20 text-warning-foreground">
+          <Badge variant="secondary" className="ml-auto text-[10px]">
             {contratosUrgentes.length}
           </Badge>
         </CardTitle>
@@ -60,21 +58,17 @@ export function ContratosVencendoCard() {
                 <div
                   key={c.id}
                   onClick={() => navigate("/clientes")}
-                  className="flex items-center justify-between text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0 cursor-pointer hover:bg-muted/50 -mx-2 px-2 py-1 rounded-md transition-colors"
+                  className="flex items-center justify-between text-sm border-b border-slate-50 pb-2 last:border-0 last:pb-0 cursor-pointer hover:bg-slate-50 -mx-2 px-2 py-1 rounded-md transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{clienteNome}</p>
-                    <p className="text-xs text-muted-foreground">{c.descricao}</p>
+                    <p className="font-medium text-sm text-slate-700 truncate">{clienteNome}</p>
+                    <p className="text-xs text-slate-400">{c.descricao}</p>
                   </div>
                   <Badge
-                    variant={c.diasRestantes < 0 ? "destructive" : c.diasRestantes <= 7 ? "destructive" : "outline"}
-                    className="ml-2 shrink-0"
+                    variant={c.diasRestantes <= 7 ? "destructive" : "outline"}
+                    className="ml-2 shrink-0 text-[10px]"
                   >
-                    {c.diasRestantes < 0
-                      ? "Vencido"
-                      : c.diasRestantes === 0
-                      ? "Hoje"
-                      : `${c.diasRestantes} dias`}
+                    {c.diasRestantes < 0 ? "Vencido" : c.diasRestantes === 0 ? "Hoje" : `${c.diasRestantes} dias`}
                   </Badge>
                 </div>
               );
