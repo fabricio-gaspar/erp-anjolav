@@ -97,10 +97,46 @@ const Clientes = () => {
       <div className="content-panel">
         <div className="space-y-4">
         {activeTab !== "lista" && (
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={handleBackToList}>
-              Voltar para Lista
-            </Button>
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={handleBackToList}>
+                Voltar para Lista
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                {selectedCliente ? (
+                  <Building2 className="h-5 w-5 text-primary" />
+                ) : (
+                  <User className="h-5 w-5 text-primary" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold text-foreground truncate">
+                    {selectedCliente?.razao_social || "Novo Cliente"}
+                  </h3>
+                  {selectedCliente && (
+                    <StatusBadge
+                      variant={selectedCliente.classificacao === "industrial" ? "warning" : "info"}
+                    >
+                      {selectedCliente.classificacao === "industrial" ? "Industrial" : "Residencial"}
+                    </StatusBadge>
+                  )}
+                </div>
+                {selectedCliente && (
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    {selectedCliente.nome_fantasia && (
+                      <span>{selectedCliente.nome_fantasia}</span>
+                    )}
+                    {selectedCliente.cpf_cnpj && (
+                      <span>• {selectedCliente.cpf_cnpj}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
