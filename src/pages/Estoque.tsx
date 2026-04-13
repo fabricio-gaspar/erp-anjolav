@@ -110,13 +110,13 @@ export default function Estoque() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Categoria</TableHead>
+                  <TableHead className="hidden sm:table-cell">Categoria</TableHead>
                   <TableHead className="text-right">Qtd. Atual</TableHead>
-                  <TableHead className="text-right">Mínimo</TableHead>
-                  <TableHead className="text-right">Custo Unit.</TableHead>
-                  <TableHead>Fornecedor</TableHead>
+                  <TableHead className="text-right hidden md:table-cell">Mínimo</TableHead>
+                  <TableHead className="text-right hidden lg:table-cell">Custo Unit.</TableHead>
+                  <TableHead className="hidden lg:table-cell">Fornecedor</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-[100px]">Ações</TableHead>
+                  <TableHead className="w-[80px] sm:w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -129,12 +129,12 @@ export default function Estoque() {
                     const status = getStatus(p);
                     return (
                       <TableRow key={p.id}>
-                        <TableCell className="font-medium">{p.nome}</TableCell>
-                        <TableCell><Badge variant="secondary">{CATEGORIAS.find(c => c.value === p.categoria)?.label || p.categoria}</Badge></TableCell>
+                        <TableCell className="font-medium truncate max-w-[150px]">{p.nome}</TableCell>
+                        <TableCell className="hidden sm:table-cell"><Badge variant="secondary">{CATEGORIAS.find(c => c.value === p.categoria)?.label || p.categoria}</Badge></TableCell>
                         <TableCell className="text-right">{p.quantidade_atual} {p.unidade}</TableCell>
-                        <TableCell className="text-right">{p.quantidade_minima} {p.unidade}</TableCell>
-                        <TableCell className="text-right">R$ {p.preco_custo?.toFixed(2)}</TableCell>
-                        <TableCell>{p.fornecedores?.nome || "—"}</TableCell>
+                        <TableCell className="text-right hidden md:table-cell">{p.quantidade_minima} {p.unidade}</TableCell>
+                        <TableCell className="text-right hidden lg:table-cell">R$ {p.preco_custo?.toFixed(2)}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{p.fornecedores?.nome || "—"}</TableCell>
                         <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
                         <TableCell>
                           <div className="flex gap-1">
