@@ -687,13 +687,13 @@ const Faturamento = () => {
               </div>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
                 <div className="bg-card border rounded-lg p-4 flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Total Previsto
                     </p>
-                    <p className="text-2xl font-bold text-foreground mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-foreground mt-1 truncate">
                       {formatCurrency(summary.totalPrevisto)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -710,7 +710,7 @@ const Faturamento = () => {
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Pendente
                     </p>
-                    <p className="text-2xl font-bold text-warning mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-warning mt-1 truncate">
                       {formatCurrency(summary.pendente)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Aguardando pagamento</p>
@@ -725,7 +725,7 @@ const Faturamento = () => {
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Recebido
                     </p>
-                    <p className="text-2xl font-bold text-success mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-success mt-1 truncate">
                       {formatCurrency(summary.pago)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Faturas pagas</p>
@@ -755,14 +755,15 @@ const Faturamento = () => {
                     <p>Nenhuma fatura neste período</p>
                   </div>
                 ) : (
+                  <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="font-semibold">CLIENTE</TableHead>
                         <TableHead className="font-semibold">VALOR</TableHead>
-                        <TableHead className="font-semibold">PROGRESSO</TableHead>
+                        <TableHead className="font-semibold hidden md:table-cell">PROGRESSO</TableHead>
                         <TableHead className="font-semibold">STATUS</TableHead>
-                        <TableHead className="font-semibold">Nº NF</TableHead>
+                        <TableHead className="font-semibold hidden lg:table-cell">Nº NF</TableHead>
                         <TableHead className="font-semibold text-right">AÇÕES</TableHead>
                       </TableRow>
                     </TableHeader>
