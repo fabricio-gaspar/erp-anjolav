@@ -1,41 +1,35 @@
 
 
-## Plano: Exibir nome do cliente nas abas de cadastro
+## Plano: Melhorar o Calendário de Dia de Vencimento
 
 ### Problema
-Ao navegar pelas abas (Dados, Endereço, Pagamento, Config., Contrato, Preços), não há indicação visual de qual cliente está sendo editado.
+O seletor de "Dia de Vencimento" (linhas 199-220 do `ClientePagamento.tsx`) é uma grade de 31 botões pequenos sem visual de calendário. Fica confuso e visualmente pobre.
 
 ### Solução
-Adicionar um banner/header acima das abas (quando `selectedClienteId` existe) mostrando o nome da empresa e classificação (Industrial/Residencial). Quando for novo cliente (sem ID), exibir "Novo Cliente".
+Redesenhar o seletor de dias com visual de calendário real:
 
-### Implementação
+- Organizar em grid 7 colunas com header dos dias da semana (Dom-Sáb)
+- Botões maiores e mais espaçados
+- Dia selecionado com destaque circular (estilo calendário)
+- Adicionar ícone de calendário no título da seção
+- Card envolvendo o seletor para dar mais destaque visual
+- Manter a mesma lógica (selecionar dia 1-31)
 
-**Arquivo: `src/pages/Clientes.tsx`**
-- Usar o hook `useClienteById(selectedClienteId)` para obter os dados do cliente selecionado
-- Quando `activeTab !== "lista"`, renderizar um banner com:
-  - Nome/Razão Social do cliente (ou "Novo Cliente")
-  - Nome Fantasia (se houver)
-  - Badge Industrial/Residencial
-  - CPF/CNPJ
-- Posicionar entre o botão "Voltar para Lista" e as abas
-
-### Outros módulos
-- **Fornecedores**: usa Dialog modal (já exibe nome no título do modal) -- não precisa
-- **Produtos**: usa form inline com nome visível no campo -- não precisa
-- **Ordens de Serviço**: `DetalhesOS` e `NovaOS` já exibem dados do cliente no próprio formulário -- não precisa
-
-Apenas o módulo **Clientes** precisa desta alteração.
+### Arquivo alterado
+- `src/components/clientes/ClientePagamento.tsx` — seção "Dia de Vencimento" (linhas 194-220)
 
 ### Resultado visual
 ```text
-[← Voltar para Lista]
-
-┌─────────────────────────────────────────────┐
-│ 🏢 Lavanderia Industrial ABC Ltda     [ID1] │
-│    Nome Fantasia: ABC Lavanderia             │
-│    CNPJ: 12.345.678/0001-90                  │
-└─────────────────────────────────────────────┘
-
-[Lista] [Dados] [Endereço] [Pagamento] [Config] [Contrato] [Preços]
+📅 Dia de Vencimento
+┌──────────────────────────────┐
+│  1   2   3   4   5   6   7  │
+│  8   9  10  11  12  13  14  │
+│ 15  16  17  18  19  20  21  │
+│ 22  23  24  25  26  27  28  │
+│ 29  30  31                   │
+└──────────────────────────────┘
+  O vencimento será no dia 10 de cada mês
 ```
+
+Dias organizados em 7 colunas, botão selecionado com fundo primário circular, hover suave, dentro de um Card com borda sutil.
 
