@@ -61,33 +61,33 @@ const DashboardFinanceiro = () => {
         </Tabs>
 
         {/* Top KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="p-4 border-l-4 border-l-primary">
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">SALDO ATUAL</p>
-            <p className="text-2xl font-bold text-primary mt-1">{formatCurrency(saldoAtual)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Receitas - Despesas</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+          <Card className="p-3 sm:p-4 border-l-4 border-l-primary min-w-0">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-primary truncate">SALDO ATUAL</p>
+            <p className="text-lg sm:text-2xl font-bold text-primary mt-1 truncate">{formatCurrency(saldoAtual)}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Receitas - Despesas</p>
           </Card>
 
-          <Card className="p-4 border-l-4 border-l-success">
-            <p className="text-xs font-semibold uppercase tracking-wider text-success">RECEITAS TOTAIS</p>
-            <p className="text-2xl font-bold text-success mt-1">{formatCurrency(receitasTotais)}</p>
-            <p className="text-xs text-muted-foreground mt-1">
+          <Card className="p-3 sm:p-4 border-l-4 border-l-success min-w-0">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-success truncate">RECEITAS</p>
+            <p className="text-lg sm:text-2xl font-bold text-success mt-1 truncate">{formatCurrency(receitasTotais)}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">
               {setor === "todos" ? `Faturas + Caixa (${receitasCount})` :
                setor === "industrial" ? `Faturas pagas (${receitasCount})` :
                `Vendas PDV (${receitasCount})`}
             </p>
           </Card>
 
-          <Card className="p-4 border-l-4 border-l-destructive">
-            <p className="text-xs font-semibold uppercase tracking-wider text-destructive">DESPESAS TOTAIS</p>
-            <p className="text-2xl font-bold text-destructive mt-1">{formatCurrency(despesasTotais)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Apenas Pagas ({despesasCount})</p>
+          <Card className="p-3 sm:p-4 border-l-4 border-l-destructive min-w-0">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-destructive truncate">DESPESAS</p>
+            <p className="text-lg sm:text-2xl font-bold text-destructive mt-1 truncate">{formatCurrency(despesasTotais)}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Apenas Pagas ({despesasCount})</p>
           </Card>
 
-          <Card className="p-4 border-l-4 border-l-violet-500">
-            <p className="text-xs font-semibold uppercase tracking-wider text-violet-600">MARGEM DE LUCRO</p>
-            <p className="text-2xl font-bold text-violet-600 mt-1">{margemLucro}%</p>
-            <p className="text-xs text-muted-foreground mt-1">Rentabilidade</p>
+          <Card className="p-3 sm:p-4 border-l-4 border-l-violet-500 min-w-0">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-violet-600 truncate">MARGEM LUCRO</p>
+            <p className="text-lg sm:text-2xl font-bold text-violet-600 mt-1">{margemLucro}%</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Rentabilidade</p>
           </Card>
         </div>
 
