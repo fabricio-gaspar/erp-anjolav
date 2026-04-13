@@ -58,6 +58,7 @@ const Lancamentos = () => {
                 <ClipboardList className="w-4 h-4" />Conferência
               </TabsTrigger>
             </TabsList>
+            </div>
 
             <TabsContent value="novo" className="mt-4">
               <NovoLancamentoTab onNavigateTab={setActiveTab} />
