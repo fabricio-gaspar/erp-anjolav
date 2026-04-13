@@ -788,7 +788,7 @@ const Faturamento = () => {
                             <TableCell className="font-semibold">
                               {formatCurrency(Number(fatura.valor_total))}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden md:table-cell">
                               {/* Indicador de progresso com 4 bolinhas */}
                               <div className="flex items-center gap-1">
                                 <div 
@@ -826,7 +826,7 @@ const Faturamento = () => {
                                 {statusConfig.label}
                               </StatusBadge>
                             </TableCell>
-                            <TableCell className="text-sm text-muted-foreground font-mono">
+                            <TableCell className="text-sm text-muted-foreground font-mono hidden lg:table-cell">
                               {fatura.numero_nf || "-"}
                             </TableCell>
                             <TableCell className="text-right">
