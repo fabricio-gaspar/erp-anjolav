@@ -190,11 +190,15 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
 
   const userButton = (
     <button className={cn(
-      "flex items-center gap-3 w-full p-2 rounded-lg hover:bg-white/10 transition-colors",
+      "flex items-center w-full rounded-lg hover:bg-white/10 transition-colors",
+      compact ? "gap-2 p-1.5" : "gap-3 p-2",
       isCollapsed && "justify-center p-2"
     )}>
       <div className="relative">
-        <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+        <div className={cn(
+          "rounded-full bg-white/20 flex items-center justify-center overflow-hidden",
+          compact ? "w-7 h-7" : "w-9 h-9"
+        )}>
           {avatarUrl ? (
             <img 
               src={avatarUrl} 
@@ -202,14 +206,14 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
               className="w-full h-full object-cover"
             />
           ) : (
-            <span className="text-white text-sm font-semibold">{getInitials(displayName)}</span>
+            <span className={cn("text-white font-semibold", compact ? "text-xs" : "text-sm")}>{getInitials(displayName)}</span>
           )}
         </div>
       </div>
       {!isCollapsed && (
         <div className="flex-1 min-w-0 text-left">
-          <p className="text-sm font-medium text-white truncate">{displayName}</p>
-          <p className="text-xs text-white/60 truncate">{displayRole}</p>
+          <p className={cn("font-medium text-white truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
+          <p className={cn("text-white/60 truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
         </div>
       )}
       {!isCollapsed && (
