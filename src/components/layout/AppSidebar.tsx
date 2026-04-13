@@ -128,7 +128,7 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compac
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "flex items-center gap-3 w-full rounded-lg font-medium transition-all duration-200",
-          compact ? "px-2.5 py-1.5 mx-2 text-xs gap-2" : "px-3 py-2.5 mx-2 text-sm",
+          compact ? "px-2 py-1.5 mx-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 mx-2 text-sm",
           (isOpen || hasActiveChild)
             ? "bg-white/10 text-white"
             : "text-white/80 hover:bg-white/10 hover:text-white"
