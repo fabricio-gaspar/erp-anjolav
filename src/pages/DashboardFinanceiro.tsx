@@ -123,7 +123,7 @@ const DashboardFinanceiro = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Vencidos / Hoje</p>
-                  <p className="text-3xl font-bold text-foreground mt-1">{formatCurrency(aReceberVencido + aReceberHoje)}</p>
+                  <p className="text-xl sm:text-3xl font-bold text-foreground mt-1 truncate">{formatCurrency(aReceberVencido + aReceberHoje)}</p>
                 </div>
                 <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
                   <TrendingUp className="w-5 h-5 text-success" />
@@ -144,7 +144,7 @@ const DashboardFinanceiro = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Vencidos / Hoje</p>
-                  <p className="text-3xl font-bold text-foreground mt-1">{formatCurrency(aPagarVencido + aPagarHoje)}</p>
+                  <p className="text-xl sm:text-3xl font-bold text-foreground mt-1 truncate">{formatCurrency(aPagarVencido + aPagarHoje)}</p>
                 </div>
                 <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
                   <TrendingDown className="w-5 h-5 text-destructive" />
