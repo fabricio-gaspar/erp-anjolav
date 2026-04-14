@@ -360,6 +360,9 @@ function FuncionariosTab({
     email: "",
     login: "",
     senha: "",
+    data_admissao: "",
+    carga_horaria: "44",
+    dias_trabalhados: ["seg", "ter", "qua", "qui", "sex"],
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -386,6 +389,9 @@ function FuncionariosTab({
       email: "",
       login: "",
       senha: "",
+      data_admissao: "",
+      carga_horaria: "44",
+      dias_trabalhados: ["seg", "ter", "qua", "qui", "sex"],
     });
     setAvatarFile(null);
     setAvatarPreview(null);
