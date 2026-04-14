@@ -33,6 +33,9 @@ import { useFaturas } from "@/hooks/useFaturas";
 import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const etapaLabels: Record<string, string> = {
   retirada: "Retirado",
