@@ -32,6 +32,7 @@ const routeNames: Record<string, string> = {
   "/relatorios/clientes": "Relatórios de Cliente",
   "/relatorios/proximidade": "Proximidade",
   "/relatorios/caixa": "Relatório de Caixa",
+  "/relatorios/quilometragem": "Quilometragem",
   "/relatorios/financeiro": "Relatório Financeiro",
   "/configuracoes": "Configurações",
 };

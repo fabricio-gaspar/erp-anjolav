@@ -371,6 +371,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
           <NavGroup title="Relatórios" icon={PieChart} compact={compact}>
             <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Clientes" compact={compact} />
             <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" compact={compact} />
+            <NavItem to="/relatorios/quilometragem" icon={BarChart3} label="Quilometragem" compact={compact} />
           </NavGroup>
 
           {/* Bottom items */}
