@@ -1,24 +1,43 @@
 
 
-## Plano: Mostrar resumo do último caixa fechado no Dashboard
+## Análise dos Cards do Dashboard
 
-### Problema
-O `CaixaResumoCard` só consulta caixas com status "ABERTO". Quando o caixa é fechado, o card mostra apenas "Nenhum caixa aberto no momento" — sem nenhum resumo do caixa que acabou de ser fechado.
+### Cards Funcionando Corretamente ✓
+1. **KPICard** — Exibe métricas rápidas (OS em Aberto, Entregas Atrasadas, Clientes Ativos, Peças Processadas, Caixa status, Vendas, Sangrias, Saldo Esperado). Adapta-se conforme permissões do usuário.
+2. **CaixaResumoCard** — Mostra caixa aberto OU último caixa fechado (como você pediu). Exibe operador, valores, diferença com cores.
+3. **EventosDoDiaCard** — Eventos do dia com ícones por tipo e botão "Ver agenda completa".
+4. **FeriasProximasCard** — Férias próximas com alerta de vencidas.
+5. **BillingClosuresCard** — Fechamentos próximos com badges coloridas por urgência.
+6. **ContasVencendoCard** — Contas a pagar vencendo em 3 dias.
+7. **EstoqueBaixoCard** — Itens abaixo do estoque mínimo.
+8. **ContratosVencendoCard** — Contratos vencendo em 30 dias.
+9. **DailySchedule** — Retiradas e entregas do dia.
+10. **ProductionBottleneck** — Gargalos de produção com barra de progresso.
+11. **ProcessingSummary** — OS em processamento com status colorido (No Prazo/Atrasado/Em Risco).
 
-### Solução
+### Problemas Encontrados
 
-#### `src/components/dashboard/CaixaResumoCard.tsx`
-- Quando não há caixa aberto, buscar o **último caixa fechado** (ordenado por `data_fechamento DESC`, limit 1)
-- Exibir o resumo do último fechamento com:
-  - Badge "Fechado" (amarelo/secondary)
-  - Operador, data/hora do fechamento
-  - Valores: Abertura, Vendas, Sangrias, Reforços, Esperado, **Contado**, **Diferença**
-  - A diferença com cor: verde se positiva/zero, vermelho se negativa
-- Manter o comportamento atual quando há caixa aberto (mostra o caixa aberto)
+#### 1. FinanceCard "Contas a Receber" — Estático/Em Desenvolvimento
+- O card "Contas a Receber" está com `total={0}`, `items={[]}` e subtitle "Em desenvolvimento". Não busca dados reais.
 
-#### `src/hooks/useCaixa.ts`
-- Adicionar hook `useUltimoCaixaFechado()` que busca o último caixa com status "FECHADO" ordenado por `data_fechamento DESC`
+#### 2. OperationalCosts — Importado mas Nunca Usado
+- O componente `OperationalCosts` é importado na linha 5 mas nunca renderizado no Dashboard. É import morto.
+
+#### 3. FinanceCard "Ver Todas" — Botão Sem Ação
+- O botão "Ver Todas" nos FinanceCards não tem `onClick` — não navega para nenhuma página.
+
+### Plano de Correção
+
+#### `src/pages/Dashboard.tsx`
+- Remover import não utilizado de `OperationalCosts`
+- Adicionar navegação no botão "Ver Todas" do FinanceCard de Contas a Pagar (→ `/contas-pagar`)
+
+#### `src/components/dashboard/FinanceCard.tsx`
+- Adicionar prop `onViewAll?: () => void` e vincular ao botão "Ver Todas"
+
+#### Dashboard — Contas a Receber
+- Conectar o card "Contas a Receber" a dados reais das faturas pendentes (via `useFaturas` ou `useDadosFaturamento`), ou remover o card se a funcionalidade ainda não está pronta
 
 ### Resultado
-Após fechar o caixa, o Dashboard mostrará o resumo completo do último fechamento com todos os valores e a diferença de conferência.
+Dashboard limpo sem imports mortos, botões funcionais com navegação, e transparência sobre cards em desenvolvimento.
 
