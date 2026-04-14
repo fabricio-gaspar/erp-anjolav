@@ -45,12 +45,14 @@ const etapaLabels: Record<string, string> = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { metricas, isLoading: isLoadingMetricas } = useMetricasProducao();
   const { retiradas, entregas, isLoading: isLoadingAgenda } = useAgendaDia();
   const { osEmProcessamento, isLoading: isLoadingResumo } = useResumoProcessamento();
   const { data: metricasAvancadas } = useMetricasProducaoAvancadas();
   const { contas: contasPagar } = useContasPagar();
   const { data: caixaAberto } = useCaixaAberto();
+  const { faturas } = useFaturas();
 
   const temFinanceiro = useTemPermissaoModulo("faturamento");
   const temContasPagar = useTemPermissaoModulo("contas_pagar");
