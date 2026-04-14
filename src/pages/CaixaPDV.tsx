@@ -735,7 +735,7 @@ const CaixaPDV = () => {
                 Nenhum produto encontrado
               </div>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-10 gap-2">
                 {filteredProdutos.map((produto) => {
                   const preco = getPrecoForProduto(produto);
                   const hasSpecialPrice = preco !== produto.preco;
