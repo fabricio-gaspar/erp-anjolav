@@ -10,6 +10,7 @@ import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
 import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
 import { ContratosVencendoCard } from "@/components/dashboard/ContratosVencendoCard";
 import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
+import { RolsLojaCard } from "@/components/dashboard/RolsLojaCard";
 import { EventosDoDiaCard } from "@/components/dashboard/EventosDoDiaCard";
 import { FeriasProximasCard } from "@/components/dashboard/FeriasProximasCard";
 import {
@@ -357,6 +358,7 @@ const Dashboard = () => {
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Caixa PDV</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <CaixaResumoCard />
+              <RolsLojaCard />
             </div>
           </section>
         )}

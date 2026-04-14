@@ -326,6 +326,7 @@ const CaixaPDV = () => {
         valor_pago: dados.pagoAgora ? dados.valorTotal : 0,
         urgente: dados.urgente,
         percentual_urgencia: dados.percentualUrgencia,
+        origem: "loja",
       });
 
       // 2. Inserir todos os itens
