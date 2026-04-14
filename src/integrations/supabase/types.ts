@@ -942,6 +942,45 @@ export type Database = {
         }
         Relationships: []
       }
+      eventos_agenda: {
+        Row: {
+          concluido: boolean
+          cor: string | null
+          created_at: string
+          data_evento: string
+          descricao: string | null
+          horario: string | null
+          id: string
+          tipo: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          concluido?: boolean
+          cor?: string | null
+          created_at?: string
+          data_evento: string
+          descricao?: string | null
+          horario?: string | null
+          id?: string
+          tipo?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          concluido?: boolean
+          cor?: string | null
+          created_at?: string
+          data_evento?: string
+          descricao?: string | null
+          horario?: string | null
+          id?: string
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       faturas: {
         Row: {
           asaas_charge_id: string | null
@@ -1144,10 +1183,13 @@ export type Database = {
         Row: {
           ativo: boolean
           avatar_url: string | null
+          carga_horaria: number | null
           cargo: string
           cpf: string | null
           created_at: string
+          data_admissao: string | null
           departamento: string | null
+          dias_trabalhados: string[] | null
           email: string | null
           id: string
           login: string
@@ -1159,10 +1201,13 @@ export type Database = {
         Insert: {
           ativo?: boolean
           avatar_url?: string | null
+          carga_horaria?: number | null
           cargo: string
           cpf?: string | null
           created_at?: string
+          data_admissao?: string | null
           departamento?: string | null
+          dias_trabalhados?: string[] | null
           email?: string | null
           id?: string
           login: string
@@ -1174,10 +1219,13 @@ export type Database = {
         Update: {
           ativo?: boolean
           avatar_url?: string | null
+          carga_horaria?: number | null
           cargo?: string
           cpf?: string | null
           created_at?: string
+          data_admissao?: string | null
           departamento?: string | null
+          dias_trabalhados?: string[] | null
           email?: string | null
           id?: string
           login?: string

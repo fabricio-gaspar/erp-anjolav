@@ -10,6 +10,8 @@ import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
 import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
 import { ContratosVencendoCard } from "@/components/dashboard/ContratosVencendoCard";
 import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
+import { EventosDoDiaCard } from "@/components/dashboard/EventosDoDiaCard";
+import { FeriasProximasCard } from "@/components/dashboard/FeriasProximasCard";
 import {
   FileText, 
   AlertCircle, 
@@ -294,6 +296,15 @@ const Dashboard = () => {
             </div>
           </section>
         )}
+
+        {/* Eventos & Férias */}
+        <section>
+          <h2 className="text-sm font-semibold text-slate-700 mb-3">Lembretes & RH</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <EventosDoDiaCard />
+            <FeriasProximasCard />
+          </div>
+        </section>
 
         {/* Agenda do Dia */}
         {temAgenda && (

@@ -30,6 +30,7 @@ import PortalCliente from "./pages/PortalCliente";
 import Fornecedores from "./pages/Fornecedores";
 import Estoque from "./pages/Estoque";
 import HistoricoCaixas from "./pages/HistoricoCaixas";
+import AgendaEventos from "./pages/AgendaEventos";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,7 @@ const App = () => (
               <Route path="/relatorios/clientes" element={<ProtectedRoute><RelatoriosCliente /></ProtectedRoute>} />
               <Route path="/relatorios/proximidade" element={<ProtectedRoute><RelatorioProximidade /></ProtectedRoute>} />
               <Route path="/relatorios/caixa" element={<ProtectedRoute><HistoricoCaixas /></ProtectedRoute>} />
+              <Route path="/agenda-eventos" element={<ProtectedRoute><AgendaEventos /></ProtectedRoute>} />
 
               {/* Redirects for old routes */}
               <Route path="/faturamento" element={<Navigate to="/lancamentos?tab=faturas" replace />} />

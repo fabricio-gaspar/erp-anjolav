@@ -360,6 +360,9 @@ function FuncionariosTab({
     email: "",
     login: "",
     senha: "",
+    data_admissao: "",
+    carga_horaria: "44",
+    dias_trabalhados: ["seg", "ter", "qua", "qui", "sex"],
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -386,6 +389,9 @@ function FuncionariosTab({
       email: "",
       login: "",
       senha: "",
+      data_admissao: "",
+      carga_horaria: "44",
+      dias_trabalhados: ["seg", "ter", "qua", "qui", "sex"],
     });
     setAvatarFile(null);
     setAvatarPreview(null);
@@ -558,6 +564,64 @@ function FuncionariosTab({
                       onChange={(e) => setFormData({ ...formData, cpf: formatCPF(e.target.value) })}
                       placeholder="000.000.000-00"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Dados RH */}
+              <div>
+                <h4 className="text-sm font-semibold text-emerald-600 mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Dados de RH
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Data de Admissão</Label>
+                    <Input
+                      type="date"
+                      value={formData.data_admissao}
+                      onChange={(e) => setFormData({ ...formData, data_admissao: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Carga Horária (h/semana)</Label>
+                    <Input
+                      type="number"
+                      value={formData.carga_horaria}
+                      onChange={(e) => setFormData({ ...formData, carga_horaria: e.target.value })}
+                      min={1}
+                      max={60}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Dias Trabalhados</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { key: "seg", label: "Seg" },
+                        { key: "ter", label: "Ter" },
+                        { key: "qua", label: "Qua" },
+                        { key: "qui", label: "Qui" },
+                        { key: "sex", label: "Sex" },
+                        { key: "sab", label: "Sáb" },
+                        { key: "dom", label: "Dom" },
+                      ].map((d) => (
+                        <Button
+                          key={d.key}
+                          type="button"
+                          size="sm"
+                          variant={formData.dias_trabalhados.includes(d.key) ? "default" : "outline"}
+                          className="h-7 text-xs px-2"
+                          onClick={() => {
+                            const dias = formData.dias_trabalhados.includes(d.key)
+                              ? formData.dias_trabalhados.filter((x) => x !== d.key)
+                              : [...formData.dias_trabalhados, d.key];
+                            setFormData({ ...formData, dias_trabalhados: dias });
+                          }}
+                        >
+                          {d.label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -804,6 +868,9 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
     cpf: "",
     email: "",
     login: "",
+    data_admissao: "",
+    carga_horaria: "44",
+    dias_trabalhados: ["seg", "ter", "qua", "qui", "sex"] as string[],
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -820,6 +887,9 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
         cpf: funcionario.cpf || "",
         email: funcionario.email || "",
         login: funcionario.login,
+        data_admissao: funcionario.data_admissao || "",
+        carga_horaria: String(funcionario.carga_horaria || 44),
+        dias_trabalhados: funcionario.dias_trabalhados || ["seg", "ter", "qua", "qui", "sex"],
       });
       setAvatarUrl(funcionario.avatar_url || null);
       setAvatarFile(null);
@@ -873,6 +943,9 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
         email: formData.email || undefined,
         login: formData.login,
         avatar_url: finalAvatarUrl,
+        data_admissao: formData.data_admissao || null,
+        carga_horaria: formData.carga_horaria ? Number(formData.carga_horaria) : null,
+        dias_trabalhados: formData.dias_trabalhados.length > 0 ? formData.dias_trabalhados : null,
       });
       
       onClose();
@@ -932,6 +1005,44 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
             <div className="space-y-2 col-span-2">
               <Label>Email</Label>
               <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Data de Admissão</Label>
+              <Input type="date" value={formData.data_admissao} onChange={(e) => setFormData({ ...formData, data_admissao: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Carga Horária (h/semana)</Label>
+              <Input type="number" value={formData.carga_horaria} onChange={(e) => setFormData({ ...formData, carga_horaria: e.target.value })} min={1} max={60} />
+            </div>
+            <div className="space-y-2 col-span-2">
+              <Label>Dias Trabalhados</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { key: "seg", label: "Seg" },
+                  { key: "ter", label: "Ter" },
+                  { key: "qua", label: "Qua" },
+                  { key: "qui", label: "Qui" },
+                  { key: "sex", label: "Sex" },
+                  { key: "sab", label: "Sáb" },
+                  { key: "dom", label: "Dom" },
+                ].map((d) => (
+                  <Button
+                    key={d.key}
+                    type="button"
+                    size="sm"
+                    variant={formData.dias_trabalhados.includes(d.key) ? "default" : "outline"}
+                    className="h-7 text-xs px-2"
+                    onClick={() => {
+                      const dias = formData.dias_trabalhados.includes(d.key)
+                        ? formData.dias_trabalhados.filter((x) => x !== d.key)
+                        : [...formData.dias_trabalhados, d.key];
+                      setFormData({ ...formData, dias_trabalhados: dias });
+                    }}
+                  >
+                    {d.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
