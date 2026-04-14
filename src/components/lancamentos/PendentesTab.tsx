@@ -59,6 +59,16 @@ export function PendentesTab() {
   const { data: lancamentosComItens } = useLancamentosComItens(selectedLancamentos);
   const { data: itensLancamentoSelecionado = [], isLoading: isLoadingItensLancamento } = useItensLancamento(lancamentoSelecionado?.id || null);
 
+  const handleEtapaChange = async (lancamentoId: string, novaEtapa: string) => {
+    try {
+      await supabase.from("lancamentos").update({ etapa: novaEtapa }).eq("id", lancamentoId);
+      updateLancamento.mutate({ id: lancamentoId });
+      toast.success(`Etapa atualizada para ${etapaConfig[novaEtapa]?.label || novaEtapa}`);
+    } catch (error: any) {
+      toast.error("Erro ao atualizar etapa");
+    }
+  };
+
   const lancamentosFiltrados = useMemo(() => {
     const industrialOnly = lancamentosPendentes.filter(l => l.cliente?.classificacao === "industrial");
     if (!clienteFiltroId) return industrialOnly;
