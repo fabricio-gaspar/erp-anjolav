@@ -2,7 +2,6 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { FinanceCard } from "@/components/dashboard/FinanceCard";
 import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
-import { OperationalCosts } from "@/components/dashboard/OperationalCosts";
 import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
 import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
@@ -29,8 +28,10 @@ import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { useCaixaAberto } from "@/hooks/useCaixa";
 import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { useFaturas } from "@/hooks/useFaturas";
 import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 
 const etapaLabels: Record<string, string> = {
   retirada: "Retirado",

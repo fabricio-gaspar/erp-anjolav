@@ -17,9 +17,10 @@ interface FinanceCardProps {
   icon: LucideIcon;
   variant: "receivable" | "payable";
   items?: FinanceItem[];
+  onViewAll?: () => void;
 }
 
-export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items = [] }: FinanceCardProps) {
+export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items = [], onViewAll }: FinanceCardProps) {
   const isReceivable = variant === "receivable";
 
   return (
@@ -75,6 +76,7 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
           variant="ghost" 
           size="sm"
           className="w-full text-slate-400 hover:text-slate-600 h-7 text-xs"
+          onClick={onViewAll}
         >
           <Eye className="w-3 h-3 mr-1.5" />
           Ver Todas
