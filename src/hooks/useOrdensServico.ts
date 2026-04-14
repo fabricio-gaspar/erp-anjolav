@@ -25,6 +25,7 @@ export interface OrdemServico {
   valor_pago: number | null;
   urgente: boolean | null;
   percentual_urgencia: number | null;
+  origem: string;
   // Relacionamentos
   cliente?: {
     razao_social: string;

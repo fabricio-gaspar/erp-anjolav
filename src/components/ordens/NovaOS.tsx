@@ -74,6 +74,7 @@ export function NovaOS({ onSuccess }: NovaOSProps) {
         valor_pago: 0,
         urgente: prioridade === "urgente",
         percentual_urgencia: 0,
+        origem: "industrial",
       });
 
       // Registrar no histórico de produção

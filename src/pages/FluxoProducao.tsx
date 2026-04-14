@@ -70,7 +70,7 @@ const FluxoProducao = () => {
   const osIds = useMemo(() => ordensServico.map((os) => os.id), [ordensServico]);
   const { data: historicosPorOS = {} } = useHistoricoMultiplasOS(osIds);
 
-  // Agrupar OS por status (excluindo "entregue" e "cancelada" do fluxo)
+  // Agrupar OS por status (excluindo "entregue", "cancelada" e OS de loja)
   const osByStatus = useMemo(() => {
     const grouped: Record<string, typeof ordensServico> = {};
     columns.forEach((col) => {
@@ -80,6 +80,8 @@ const FluxoProducao = () => {
     ordensServico
       .filter((os) => {
         if (os.status === "cancelada") return false;
+        // Excluir OS da loja
+        if ((os as any).origem === "loja") return false;
         // Mostrar entregues apenas do dia atual
         if (os.status === "entregue") {
           const hoje = new Date().toISOString().split("T")[0];
