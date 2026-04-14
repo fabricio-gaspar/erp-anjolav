@@ -253,14 +253,15 @@ export function PendentesTab() {
           </div>
         ) : (
           <Table>
-            <TableHeader>
+           <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-12"></TableHead>
                 <TableHead className="font-semibold">ROL</TableHead>
                 <TableHead className="font-semibold">CLIENTE</TableHead>
                 <TableHead className="font-semibold">DATA</TableHead>
+                <TableHead className="font-semibold">ETAPA</TableHead>
+                <TableHead className="font-semibold">PAGAMENTO</TableHead>
                 <TableHead className="font-semibold">VALOR</TableHead>
-                <TableHead className="font-semibold">OBS</TableHead>
                 <TableHead className="font-semibold w-24">AÇÕES</TableHead>
               </TableRow>
             </TableHeader>
