@@ -887,6 +887,9 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
         cpf: funcionario.cpf || "",
         email: funcionario.email || "",
         login: funcionario.login,
+        data_admissao: funcionario.data_admissao || "",
+        carga_horaria: String(funcionario.carga_horaria || 44),
+        dias_trabalhados: funcionario.dias_trabalhados || ["seg", "ter", "qua", "qui", "sex"],
       });
       setAvatarUrl(funcionario.avatar_url || null);
       setAvatarFile(null);
