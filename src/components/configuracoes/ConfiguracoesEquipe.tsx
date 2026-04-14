@@ -1003,6 +1003,44 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
               <Label>Email</Label>
               <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
             </div>
+            <div className="space-y-2">
+              <Label>Data de Admissão</Label>
+              <Input type="date" value={formData.data_admissao} onChange={(e) => setFormData({ ...formData, data_admissao: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Carga Horária (h/semana)</Label>
+              <Input type="number" value={formData.carga_horaria} onChange={(e) => setFormData({ ...formData, carga_horaria: e.target.value })} min={1} max={60} />
+            </div>
+            <div className="space-y-2 col-span-2">
+              <Label>Dias Trabalhados</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { key: "seg", label: "Seg" },
+                  { key: "ter", label: "Ter" },
+                  { key: "qua", label: "Qua" },
+                  { key: "qui", label: "Qui" },
+                  { key: "sex", label: "Sex" },
+                  { key: "sab", label: "Sáb" },
+                  { key: "dom", label: "Dom" },
+                ].map((d) => (
+                  <Button
+                    key={d.key}
+                    type="button"
+                    size="sm"
+                    variant={formData.dias_trabalhados.includes(d.key) ? "default" : "outline"}
+                    className="h-7 text-xs px-2"
+                    onClick={() => {
+                      const dias = formData.dias_trabalhados.includes(d.key)
+                        ? formData.dias_trabalhados.filter((x) => x !== d.key)
+                        : [...formData.dias_trabalhados, d.key];
+                      setFormData({ ...formData, dias_trabalhados: dias });
+                    }}
+                  >
+                    {d.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
