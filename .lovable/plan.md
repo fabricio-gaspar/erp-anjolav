@@ -1,22 +1,18 @@
 
+## Plano: Cards de produtos menores e quadrados no PDV
 
-## Plano: Renomear opções de pagamento/logística + Datas no ROL
+### Alteração em `src/pages/CaixaPDV.tsx`
 
-### Alterações
+#### Grid (linha 738)
+- Aumentar colunas: `grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2`
 
-#### 1. `src/components/delivery/LogisticaSection.tsx` — Renomear "Vai Buscar"
-- Linha 115: "Vai Buscar" → "Retirada no Local"
-- Linha 116: "Cliente retira na loja" → manter ou ajustar subtítulo
-
-#### 2. `src/components/caixa/PagamentoModal.tsx` — Renomear "Pagar na Entrega"
-- Linha 390: "Pagar na Entrega" → "Pagamento na Retirada"
-- Linha 391: "Quando for buscar" → "Quando retirar o pedido"
-
-#### 3. `src/components/lancamentos/PendentesTab.tsx` — Adicionar colunas de data
-- Adicionar coluna **ENTRADA** (data_lancamento) e **ENTREGA** (data_entrega) na tabela
-- A coluna DATA atual (linha 261/299) será dividida em duas: Entrada e Entrega
-- Se `data_entrega` for null, exibir "—"
+#### Card/button (linhas 748-777)
+- Reduzir padding: `p-2` em vez de `p-3`
+- Forçar formato quadrado: `aspect-square` + `flex flex-col justify-between`
+- Reduzir tamanho do nome: `text-xs` com `line-clamp-2`
+- Reduzir tamanho do preço: `text-sm font-bold` em vez de `text-lg font-bold`
+- Código do produto: manter `text-[10px]`
+- Remover unidade label para economizar espaço
 
 ### Resultado
-Terminologia corrigida no PDV ("Retirada no Local" e "Pagamento na Retirada") e ROL exibindo data de entrada e data de entrega separadamente.
-
+Cards compactos, quadrados, mostrando apenas nome e preço, com mais produtos visíveis por linha.
