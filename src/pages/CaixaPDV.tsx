@@ -735,7 +735,7 @@ const CaixaPDV = () => {
                 Nenhum produto encontrado
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                 {filteredProdutos.map((produto) => {
                   const preco = getPrecoForProduto(produto);
                   const hasSpecialPrice = preco !== produto.preco;
@@ -746,33 +746,30 @@ const CaixaPDV = () => {
                       onClick={() => addToCart(produto)}
                       disabled={!caixaAberto}
                       className={cn(
-                        "bg-card border rounded-lg p-3 text-left hover:shadow-md hover:border-primary transition-all relative",
+                        "bg-card border rounded-lg p-2 text-left hover:shadow-md hover:border-primary transition-all relative aspect-square flex flex-col justify-between",
                         !caixaAberto && "opacity-50 cursor-not-allowed"
                       )}
                     >
                       {produto.codigo && (
-                        <span className="absolute top-2 right-2 text-[10px] font-mono bg-muted px-1 rounded text-muted-foreground">
+                        <span className="absolute top-1 right-1 text-[10px] font-mono bg-muted px-1 rounded text-muted-foreground">
                           {produto.codigo}
                         </span>
                       )}
-                      <h3 className="font-semibold text-sm text-foreground mb-1 line-clamp-2 pr-12">
+                      <h3 className="font-semibold text-xs text-foreground line-clamp-2 pr-8">
                         {produto.nome}
                       </h3>
-                      <div className="flex items-baseline justify-between">
-                        <div>
-                          <span className={cn(
-                            "text-lg font-bold",
-                            hasSpecialPrice ? "text-success" : "text-primary"
-                          )}>
-                            R$ {preco.toFixed(2).replace(".", ",")}
+                      <div>
+                        <span className={cn(
+                          "text-sm font-bold",
+                          hasSpecialPrice ? "text-success" : "text-primary"
+                        )}>
+                          R$ {preco.toFixed(2).replace(".", ",")}
+                        </span>
+                        {hasSpecialPrice && (
+                          <span className="text-[10px] text-muted-foreground line-through ml-1">
+                            R$ {produto.preco.toFixed(2).replace(".", ",")}
                           </span>
-                          {hasSpecialPrice && (
-                            <span className="text-xs text-muted-foreground line-through ml-1">
-                              R$ {produto.preco.toFixed(2).replace(".", ",")}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{getUnidadeLabel(produto.unidade)}</span>
+                        )}
                       </div>
                     </button>
                   );
