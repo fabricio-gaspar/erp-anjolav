@@ -9,8 +9,10 @@ export interface Lancamento {
   data_entrega: string | null;
   observacao: string | null;
   status: string;
+  etapa: string;
   valor_total: number;
   numero_rol: string | null;
+  fatura_id: string | null;
   created_at: string;
   updated_at: string;
   cliente?: {

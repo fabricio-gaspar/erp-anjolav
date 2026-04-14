@@ -156,7 +156,14 @@ export function FaturasTab() {
                         <div className={cn("w-2.5 h-2.5 rounded-full", fatura.data_envio ? "bg-success" : "bg-muted-foreground/30")} title="Envio" />
                       </div>
                     </TableCell>
-                    <TableCell><StatusBadge variant={statusConfig.variant}>{statusConfig.label}</StatusBadge></TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <StatusBadge variant={statusConfig.variant}>{statusConfig.label}</StatusBadge>
+                        {fatura.forma_pagamento && (
+                          <span className="text-[10px] text-muted-foreground capitalize">{fatura.forma_pagamento.replace(/_/g, " ")}</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground font-mono">{fatura.numero_nf || "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
