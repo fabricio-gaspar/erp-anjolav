@@ -250,7 +250,7 @@ export function PendentesTab() {
                       <TableCell className="py-2">
                         <Checkbox checked={allSelected} onCheckedChange={() => handleToggleAllFromCliente(clienteId, clienteIds)} className={someSelected && !allSelected ? "opacity-50" : ""} />
                       </TableCell>
-                      <TableCell colSpan={5} className="py-2">
+                      <TableCell colSpan={6} className="py-2">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">{cliente?.razao_social || "Cliente"}</span>
                           <span className="text-xs text-muted-foreground">({clienteLancamentos.length} lançamento{clienteLancamentos.length > 1 ? "s" : ""})</span>
