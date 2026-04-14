@@ -11,6 +11,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { User, Eye, Edit, Trash2, Package, Loader2, Play, X } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -24,6 +27,19 @@ import { EditarLancamentoModal } from "@/components/faturamento/EditarLancamento
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDadosFaturamentoCompletos } from "@/hooks/useDadosFaturamento";
+
+const etapaConfig: Record<string, { label: string; className: string }> = {
+  em_processo: { label: "Em Processo", className: "bg-destructive/10 text-destructive border-destructive/30" },
+  prateleira: { label: "Prateleira", className: "bg-warning/10 text-warning border-warning/30" },
+  entregue: { label: "Entregue", className: "bg-success/10 text-success border-success/30" },
+};
+
+const getPaymentStatus = (lancamento: LancamentoType) => {
+  if (lancamento.status === "faturado" && lancamento.fatura_id) {
+    return { label: "Faturado", className: "text-warning" };
+  }
+  return { label: "Pendente", className: "text-destructive" };
+};
 
 export function PendentesTab() {
   const [searchParams, setSearchParams] = useSearchParams();
