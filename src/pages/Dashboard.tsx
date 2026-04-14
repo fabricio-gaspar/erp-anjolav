@@ -71,6 +71,9 @@ const Dashboard = () => {
   const contasPendentes = contasPagar.filter((c) => c.status === "pendente");
   const totalContasPagar = contasPendentes.reduce((acc, c) => acc + Number(c.valor), 0);
 
+  const faturasPendentes = (faturas || []).filter((f) => f.status === "pendente" || f.status === "nota_emitida" || f.status === "enviado");
+  const totalContasReceber = faturasPendentes.reduce((acc, f) => acc + Number(f.valor_total), 0);
+
   const kpis = [
     ...(temOrdens ? [{
       title: "OS em Aberto",
@@ -259,11 +262,18 @@ const Dashboard = () => {
               {temFinanceiro && (
                 <FinanceCard
                   title="Contas a Receber"
-                  subtitle="Em desenvolvimento"
-                  total={0}
+                  subtitle={`${faturasPendentes.length} pendentes`}
+                  total={totalContasReceber}
                   icon={TrendingUp}
                   variant="receivable"
-                  items={[]}
+                  items={faturasPendentes.slice(0, 3).map((f) => ({
+                    id: f.id,
+                    status: f.data_vencimento && new Date(f.data_vencimento) < new Date() ? "vencida" as const : "a_vencer" as const,
+                    clientName: f.cliente?.razao_social || "Cliente",
+                    value: Number(f.valor_total),
+                    dueDate: f.data_vencimento ? format(new Date(f.data_vencimento), "dd/MM", { locale: ptBR }) : "-",
+                  }))}
+                  onViewAll={() => navigate("/faturamento")}
                 />
               )}
               {temContasPagar && (
@@ -280,6 +290,7 @@ const Dashboard = () => {
                     value: Number(c.valor),
                     dueDate: format(new Date(c.vencimento), "dd/MM", { locale: ptBR }),
                   }))}
+                  onViewAll={() => navigate("/contas-pagar")}
                 />
               )}
               {temFinanceiro && <BillingClosuresCard />}
