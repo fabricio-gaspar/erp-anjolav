@@ -74,11 +74,11 @@ export function KPICard({ title, value, icon: Icon, iconColor = "primary", trend
         </div>
 
         {/* Sparkline */}
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0 ml-3">
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0 ml-2">
           <div className={cn("kpi-card-icon", styles.iconBg)}>
             <Icon className={cn("w-4 h-4", styles.iconText)} />
           </div>
-          <svg width="50" height="24" viewBox="0 0 50 24" className="opacity-30">
+          <svg width="40" height="20" viewBox="0 0 50 24" className="opacity-30 hidden xl:block">
             <path
               d={sparkline}
               fill="none"
