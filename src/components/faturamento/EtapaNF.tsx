@@ -30,6 +30,7 @@ import {
   List,
   MapPin,
   Gavel,
+  Info,
 } from "lucide-react";
 import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
 import { NFSePreviewOficial, type NFSeOficialData } from "./NFSePreviewOficial";
@@ -44,6 +45,7 @@ import {
 } from "@/lib/faturamentoUtils";
 import { NATUREZAS_OPERACAO, type NaturezaOperacao, validarCpfCnpj } from "@/lib/validacoesFiscais";
 import type { DadosFaturamento } from "./FaturamentoModal";
+import { ConfigBadge } from "./ConfigBadge";
 
 interface EtapaNFProps {
   dados: DadosFaturamento;
@@ -336,14 +338,17 @@ export function EtapaNF({
           <div className="flex items-center gap-2 mb-4">
             <Receipt className="w-5 h-5 text-primary" />
             <h3 className="font-semibold">Prévia da Nota Fiscal</h3>
-            <Badge variant="outline" className="ml-auto">
+             <Badge variant="outline" className="ml-auto">
               {configuracaoAtiva.ambiente === "producao" ? "Produção" : "Homologação"}
             </Badge>
             {/* Show which CNPJ emissor is being used */}
             {dados.configPagamento?.cnpj_emissor_id && (
-              <Badge variant="secondary" className="text-xs">
-                {configuracaoAtiva.nome || configuracaoAtiva.razao_social}
-              </Badge>
+              <>
+                <Badge variant="secondary" className="text-xs">
+                  {configuracaoAtiva.nome || configuracaoAtiva.razao_social}
+                </Badge>
+                <span className="text-xs text-green-600">✓ Cadastro</span>
+              </>
             )}
           </div>
 
