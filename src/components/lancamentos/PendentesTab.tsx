@@ -316,6 +316,7 @@ export function PendentesTab() {
                           })()}
                         </TableCell>
                         <TableCell className="font-medium">{formatCurrency(Number(lancamento.valor_total))}</TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setLancamentoSelecionado(lancamento); setVisualizarItensOpen(true); }} title="Ver itens"><Eye className="w-3.5 h-3.5" /></Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setLancamentoSelecionado(lancamento); setEditarLancamentoOpen(true); }} title="Editar"><Edit className="w-3.5 h-3.5" /></Button>
