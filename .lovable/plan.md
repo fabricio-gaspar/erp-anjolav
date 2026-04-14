@@ -1,32 +1,39 @@
 
 
-## Análise do Fluxo Atual
+## Plano: ROLs da PDV Loja separados da Produção + Card no Dashboard
 
-### Como funciona hoje
-- **Cards "Retiradas/Entregas do Dia"** no Dashboard → vêm da tabela `agendamentos` (agenda de coletas/entregas)
-- **Relatório de Quilometragem** → vem da tabela `rotas_entrega` (rotas com km_inicial/km_final)
-- **São tabelas separadas**, sem vínculo direto
+### Problema atual
+- OS criadas pelo PDV Loja vão para o Fluxo de Produção (Kanban) junto com as industriais
+- Não há como distinguir a origem de uma OS (PDV Loja vs Industrial/Lançamentos)
+- Não existe card no Dashboard para acompanhar ROLs da loja
 
-### Fluxo do motorista (já correto)
-1. Uma rota é criada em `rotas_entrega` com paradas (clientes)
-2. Motorista clica "Iniciar Rota" → grava `km_inicial` e `status = em_rota`
-3. Motorista clica "Finalizar Rota" → grava `km_final` e `status = concluida`
-4. O relatório já filtra apenas `status = concluida` com `km_inicial` e `km_final` preenchidos
+### Alterações
 
-**O relatório já só mostra rotas finalizadas pelo motorista.** Isso está correto.
+#### 1. Migração: adicionar coluna `origem` na tabela `ordens_servico`
+```sql
+ALTER TABLE public.ordens_servico 
+ADD COLUMN origem text NOT NULL DEFAULT 'industrial';
+```
+Valores: `'industrial'` (padrão, compatível com OS existentes) e `'loja'`.
 
-### O problema
-Os agendamentos do dia (cards do Dashboard) não geram automaticamente rotas de entrega. São dados separados. Ou seja, se o motorista faz retiradas/entregas que estão nos agendamentos mas ninguém cria uma rota em `rotas_entrega`, a quilometragem não é registrada.
+#### 2. `src/pages/CaixaPDV.tsx` — Marcar origem como `'loja'`
+Na criação da OS (linha ~311), adicionar `origem: 'loja'` ao payload do `createOrdemServico`.
 
-### Plano de Correção
+#### 3. `src/pages/FluxoProducao.tsx` — Filtrar apenas industriais
+Adicionar `.eq("origem", "industrial")` na query de OS do Kanban, excluindo OS da loja.
 
-#### 1. Vincular agendamentos às rotas
-Quando os agendamentos do dia são exibidos no Dashboard, adicionar um botão/ação para "Gerar Rota" que cria automaticamente uma `rota_entrega` com as paradas baseadas nos agendamentos do dia (retiradas e entregas).
+#### 4. Novo componente `src/components/dashboard/RolsLojaCard.tsx`
+- Card com título "ROLs Loja"
+- Lista OS com `origem = 'loja'` e status diferente de `entregue`/`cancelada`
+- Cada ROL exibe: número, cliente, data retirada, previsão entrega, valor
+- **Cores por status**: retirada (azul), separacao (amarelo), lavagem (roxo), secagem (laranja), passadoria (pink), embalagem (cyan), expedicao (verde), entregue (cinza)
+- **Filtro**: toggle entre "Data Retirada" e "Data Entrega" + seletor de data
+- Ao clicar num ROL, navega para `/caixa` (onde o operador pode consultar a OS)
 
-#### 2. Alternativa mais simples
-Se as rotas já estão sendo criadas manualmente pelo módulo de Logística (que já existe), o fluxo já está correto:
-- Rota criada → Motorista inicia (km_inicial) → Motorista finaliza (km_final) → Aparece no relatório
+#### 5. `src/pages/Dashboard.tsx` — Adicionar o card
+Inserir `RolsLojaCard` na seção "Caixa PDV" (condicionado a `temCaixa`).
 
-### Pergunta para você
-As rotas já estão sendo criadas pelo módulo de Logística antes do motorista sair? Ou você quer que os agendamentos do dia automaticamente virem rotas para o motorista registrar a quilometragem?
+### Resultado
+- OS da loja não aparecem mais no Kanban de produção
+- Dashboard mostra card com ROLs da loja, coloridos por status, filtráveis por data
 
