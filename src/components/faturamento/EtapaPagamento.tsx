@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   CreditCard,
   QrCode,
@@ -24,6 +25,7 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/lib/faturamentoUtils";
 import { BOLETO_ENABLED } from "@/lib/featureFlags";
 import type { DadosFaturamento } from "./FaturamentoModal";
+import { ConfigBadge } from "./ConfigBadge";
 
 interface EtapaPagamentoProps {
   dados: DadosFaturamento;
@@ -229,7 +231,10 @@ export function EtapaPagamento({
       <div className="flex items-center gap-2 mb-4">
         <CreditCard className="w-5 h-5 text-primary" />
         <h3 className="font-semibold">Configurar Pagamento</h3>
-        <Badge variant="secondary" className="ml-auto capitalize">
+        {configPagamento?.forma_pagamento ? (
+          <span className="ml-auto text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">✓ Cadastro</span>
+        ) : null}
+        <Badge variant="secondary" className={configPagamento?.forma_pagamento ? "" : "ml-auto"}>
           {formaPagamento}
         </Badge>
         {dados.clienteRegimeTributario && (
@@ -241,6 +246,22 @@ export function EtapaPagamento({
           </Badge>
         )}
       </div>
+
+      {!configPagamento?.forma_pagamento && (
+        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+          <AlertCircle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
+            Configure a forma de pagamento no cadastro do cliente para agilizar o faturamento.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {configPagamento?.dia_fechamento && configPagamento?.condicao_pagamento && (
+        <ConfigBadge
+          label="Vencimento"
+          value={`Fechamento dia ${configPagamento.dia_fechamento} • ${configPagamento.condicao_pagamento}`}
+        />
+      )}
 
       <Card className="p-6">
         <div className="flex justify-between items-center mb-4">

@@ -30,6 +30,7 @@ import {
   List,
   MapPin,
   Gavel,
+  Info,
 } from "lucide-react";
 import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
 import { NFSePreviewOficial, type NFSeOficialData } from "./NFSePreviewOficial";
@@ -44,6 +45,7 @@ import {
 } from "@/lib/faturamentoUtils";
 import { NATUREZAS_OPERACAO, type NaturezaOperacao, validarCpfCnpj } from "@/lib/validacoesFiscais";
 import type { DadosFaturamento } from "./FaturamentoModal";
+import { ConfigBadge } from "./ConfigBadge";
 
 interface EtapaNFProps {
   dados: DadosFaturamento;
@@ -336,14 +338,17 @@ export function EtapaNF({
           <div className="flex items-center gap-2 mb-4">
             <Receipt className="w-5 h-5 text-primary" />
             <h3 className="font-semibold">Prévia da Nota Fiscal</h3>
-            <Badge variant="outline" className="ml-auto">
+             <Badge variant="outline" className="ml-auto">
               {configuracaoAtiva.ambiente === "producao" ? "Produção" : "Homologação"}
             </Badge>
             {/* Show which CNPJ emissor is being used */}
             {dados.configPagamento?.cnpj_emissor_id && (
-              <Badge variant="secondary" className="text-xs">
-                {configuracaoAtiva.nome || configuracaoAtiva.razao_social}
-              </Badge>
+              <>
+                <Badge variant="secondary" className="text-xs">
+                  {configuracaoAtiva.nome || configuracaoAtiva.razao_social}
+                </Badge>
+                <span className="text-xs text-green-600">✓ Cadastro</span>
+              </>
             )}
           </div>
 
@@ -451,73 +456,90 @@ export function EtapaNF({
           </div>
 
           {/* Tipo de Descrição */}
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-4">
-              <FileText className="w-4 h-4 text-muted-foreground" />
-              <h4 className="font-medium text-sm">TIPO DE DESCRIÇÃO PARA NOTA FISCAL</h4>
-            </div>
-            
-            <RadioGroup 
-              value={tipoDescricao} 
-              onValueChange={(value) => setTipoDescricao(value as "itens" | "padrao")}
-              className="space-y-3"
-            >
-              <div className="flex items-start space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
-                <RadioGroupItem value="itens" id="itens" className="mt-0.5" />
-                <div className="flex-1">
-                  <Label htmlFor="itens" className="flex items-center gap-2 cursor-pointer font-medium">
-                    <List className="w-4 h-4" />
-                    Listar itens detalhados
-                  </Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Cada item será listado com nome, quantidade e valor unitário
-                  </p>
+          {dados.configPagamento?.listar_itens_detalhados !== null && dados.configPagamento?.listar_itens_detalhados !== undefined && dados.configPagamento?.descricao_nf_id ? (
+            <ConfigBadge
+              label="Descrição NF"
+              value={tipoDescricao === "itens" ? "Itens detalhados" : (descricaoPadraoSelecionada || "Descrição pré-cadastrada")}
+            />
+          ) : (
+            <>
+              {!dados.configPagamento?.descricao_nf_id && (
+                <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+                  <Info className="h-4 w-4 text-amber-500" />
+                  <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
+                    Configure a Descrição NF padrão no cadastro do cliente para agilizar o faturamento.
+                  </AlertDescription>
+                </Alert>
+              )}
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  <h4 className="font-medium text-sm">TIPO DE DESCRIÇÃO PARA NOTA FISCAL</h4>
                 </div>
-              </div>
-              
-              <div className="flex items-start space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
-                <RadioGroupItem value="padrao" id="padrao" className="mt-0.5" />
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="padrao" className="flex items-center gap-2 cursor-pointer font-medium">
-                    <FileText className="w-4 h-4" />
-                    Usar descrição pré-cadastrada
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Usar uma descrição padrão configurada em Configurações &gt; Fiscal
-                  </p>
+                
+                <RadioGroup 
+                  value={tipoDescricao} 
+                  onValueChange={(value) => setTipoDescricao(value as "itens" | "padrao")}
+                  className="space-y-3"
+                >
+                  <div className="flex items-start space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="itens" id="itens" className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label htmlFor="itens" className="flex items-center gap-2 cursor-pointer font-medium">
+                        <List className="w-4 h-4" />
+                        Listar itens detalhados
+                      </Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Cada item será listado com nome, quantidade e valor unitário
+                      </p>
+                    </div>
+                  </div>
                   
-                  {tipoDescricao === "padrao" && (
-                    <div className="pt-2">
-                      {descricoesAtivas.length > 0 ? (
-                        <Select 
-                          value={descricaoPadraoSelecionada} 
-                          onValueChange={setDescricaoPadraoSelecionada}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Selecione uma descrição..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {descricoesAtivas.map((desc) => (
-                              <SelectItem key={desc.id} value={desc.descricao}>
-                                {desc.descricao}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
-                          <AlertCircle className="h-4 w-4 text-amber-500" />
-                          <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
-                            Nenhuma descrição pré-cadastrada. Configure em Configurações &gt; Fiscal.
-                          </AlertDescription>
-                        </Alert>
+                  <div className="flex items-start space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
+                    <RadioGroupItem value="padrao" id="padrao" className="mt-0.5" />
+                    <div className="flex-1 space-y-2">
+                      <Label htmlFor="padrao" className="flex items-center gap-2 cursor-pointer font-medium">
+                        <FileText className="w-4 h-4" />
+                        Usar descrição pré-cadastrada
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Usar uma descrição padrão configurada em Configurações &gt; Fiscal
+                      </p>
+                      
+                      {tipoDescricao === "padrao" && (
+                        <div className="pt-2">
+                          {descricoesAtivas.length > 0 ? (
+                            <Select 
+                              value={descricaoPadraoSelecionada} 
+                              onValueChange={setDescricaoPadraoSelecionada}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Selecione uma descrição..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {descricoesAtivas.map((desc) => (
+                                  <SelectItem key={desc.id} value={desc.descricao}>
+                                    {desc.descricao}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+                              <AlertCircle className="h-4 w-4 text-amber-500" />
+                              <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
+                                Nenhuma descrição pré-cadastrada. Configure em Configurações &gt; Fiscal.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </div>
-            </RadioGroup>
-          </Card>
+                  </div>
+                </RadioGroup>
+              </Card>
+            </>
+          )}
 
               {/* Serviços */}
               <Card className="p-4">

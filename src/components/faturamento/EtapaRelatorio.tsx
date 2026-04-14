@@ -14,13 +14,14 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileText, Download, ChevronRight, Loader2, AlertTriangle, Map, List } from "lucide-react";
+import { FileText, Download, ChevronRight, Loader2, AlertTriangle, Map, List, Info } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFaturas, useValidateLancamentosForFatura } from "@/hooks/useFaturas";
 import { useLinkLancamentosToFatura } from "@/hooks/useLancamentos";
 import { gerarSnapshotItens, formatCurrency } from "@/lib/faturamentoUtils";
 import type { DadosFaturamento } from "./FaturamentoModal";
+import { ConfigBadge } from "./ConfigBadge";
 
 interface EtapaRelatorioProps {
   dados: DadosFaturamento;
@@ -41,9 +42,11 @@ export function EtapaRelatorio({
     dados.configPagamento?.observacao_faturamento || dados.observacao || ""
   );
   // Use centralized data: tipo_relatorio from dados.configCliente
+  const tipoRelatorioConfigurado = !!dados.configCliente?.tipo_relatorio;
   const [tipoRelatorio, setTipoRelatorio] = useState<string>(
     dados.configCliente?.tipo_relatorio || "detalhado"
   );
+  const observacaoConfigurada = !!dados.configPagamento?.observacao_faturamento;
 
   const { createFatura } = useFaturas();
   const linkLancamentos = useLinkLancamentosToFatura();
@@ -203,30 +206,51 @@ export function EtapaRelatorio({
         </Alert>
       )}
 
+      {/* Alerta de campos não configurados */}
+      {(!tipoRelatorioConfigurado || !observacaoConfigurada) && (
+        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+          <Info className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
+            {!tipoRelatorioConfigurado && !observacaoConfigurada
+              ? "Configure o Tipo de Relatório e a Observação da Fatura no cadastro do cliente para agilizar o faturamento."
+              : !tipoRelatorioConfigurado
+              ? "Configure o Tipo de Relatório no cadastro do cliente para agilizar o faturamento."
+              : "Configure a Observação da Fatura no cadastro do cliente para agilizar o faturamento."}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Seletor de Tipo de Relatório */}
-      <Card className="p-4">
-        <Label className="text-sm font-medium mb-3 block">Tipo de Relatório</Label>
-        <RadioGroup
-          value={tipoRelatorio}
-          onValueChange={setTipoRelatorio}
-          className="flex gap-4"
-        >
-          <div className="flex items-center space-x-2 bg-muted/50 px-4 py-3 rounded-lg border border-transparent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-            <RadioGroupItem value="mapa" id="tipo-mapa" />
-            <Label htmlFor="tipo-mapa" className="cursor-pointer flex items-center gap-2">
-              <Map className="w-4 h-4" />
-              Mapa de Peças
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2 bg-muted/50 px-4 py-3 rounded-lg border border-transparent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-            <RadioGroupItem value="detalhado" id="tipo-detalhado" />
-            <Label htmlFor="tipo-detalhado" className="cursor-pointer flex items-center gap-2">
-              <List className="w-4 h-4" />
-              Relatório Detalhado
-            </Label>
-          </div>
-        </RadioGroup>
-      </Card>
+      {tipoRelatorioConfigurado ? (
+        <ConfigBadge
+          label="Tipo de Relatório"
+          value={tipoRelatorio === "mapa" ? "Mapa de Peças" : "Relatório Detalhado"}
+        />
+      ) : (
+        <Card className="p-4">
+          <Label className="text-sm font-medium mb-3 block">Tipo de Relatório</Label>
+          <RadioGroup
+            value={tipoRelatorio}
+            onValueChange={setTipoRelatorio}
+            className="flex gap-4"
+          >
+            <div className="flex items-center space-x-2 bg-muted/50 px-4 py-3 rounded-lg border border-transparent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+              <RadioGroupItem value="mapa" id="tipo-mapa" />
+              <Label htmlFor="tipo-mapa" className="cursor-pointer flex items-center gap-2">
+                <Map className="w-4 h-4" />
+                Mapa de Peças
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2 bg-muted/50 px-4 py-3 rounded-lg border border-transparent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+              <RadioGroupItem value="detalhado" id="tipo-detalhado" />
+              <Label htmlFor="tipo-detalhado" className="cursor-pointer flex items-center gap-2">
+                <List className="w-4 h-4" />
+                Relatório Detalhado
+              </Label>
+            </div>
+          </RadioGroup>
+        </Card>
+      )}
 
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-4">
@@ -303,19 +327,26 @@ export function EtapaRelatorio({
       </Card>
 
       {/* Campo de Observação */}
-      <Card className="p-4">
-        <Label className="text-sm font-medium mb-2 block">Observação da Fatura (opcional)</Label>
-        <Textarea
+      {observacaoConfigurada ? (
+        <ConfigBadge
+          label="Observação da Fatura"
           value={observacaoFatura}
-          onChange={(e) => setObservacaoFatura(e.target.value)}
-          placeholder="Adicione observações que serão salvas junto com a fatura..."
-          rows={3}
-          className="resize-none"
         />
-        <p className="text-xs text-muted-foreground mt-1">
-          Essas observações ficarão registradas na fatura para consulta futura.
-        </p>
-      </Card>
+      ) : (
+        <Card className="p-4">
+          <Label className="text-sm font-medium mb-2 block">Observação da Fatura (opcional)</Label>
+          <Textarea
+            value={observacaoFatura}
+            onChange={(e) => setObservacaoFatura(e.target.value)}
+            placeholder="Adicione observações que serão salvas junto com a fatura..."
+            rows={3}
+            className="resize-none"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Essas observações ficarão registradas na fatura para consulta futura.
+          </p>
+        </Card>
+      )}
 
       <div className="flex items-center gap-2">
         <Checkbox
