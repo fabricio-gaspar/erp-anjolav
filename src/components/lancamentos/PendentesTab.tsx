@@ -258,7 +258,8 @@ export function PendentesTab() {
                 <TableHead className="w-12"></TableHead>
                 <TableHead className="font-semibold">ROL</TableHead>
                 <TableHead className="font-semibold">CLIENTE</TableHead>
-                <TableHead className="font-semibold">DATA</TableHead>
+                <TableHead className="font-semibold">ENTRADA</TableHead>
+                <TableHead className="font-semibold">ENTREGA</TableHead>
                 <TableHead className="font-semibold">ETAPA</TableHead>
                 <TableHead className="font-semibold">PAGAMENTO</TableHead>
                 <TableHead className="font-semibold">VALOR</TableHead>
@@ -277,7 +278,7 @@ export function PendentesTab() {
                       <TableCell className="py-2">
                         <Checkbox checked={allSelected} onCheckedChange={() => handleToggleAllFromCliente(clienteId, clienteIds)} className={someSelected && !allSelected ? "opacity-50" : ""} />
                       </TableCell>
-                      <TableCell colSpan={7} className="py-2">
+                      <TableCell colSpan={8} className="py-2">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">{cliente?.razao_social || "Cliente"}</span>
                           <span className="text-xs text-muted-foreground">({clienteLancamentos.length} lançamento{clienteLancamentos.length > 1 ? "s" : ""})</span>
@@ -297,6 +298,7 @@ export function PendentesTab() {
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">{cliente?.nome_fantasia || "-"}</TableCell>
                         <TableCell className="text-sm">{format(new Date(lancamento.data_lancamento), "dd/MM/yyyy")}</TableCell>
+                        <TableCell className="text-sm">{lancamento.data_entrega ? format(new Date(lancamento.data_entrega), "dd/MM/yyyy") : "—"}</TableCell>
                         <TableCell>
                           <Select value={lancamento.etapa || "em_processo"} onValueChange={(v) => handleEtapaChange(lancamento.id, v)}>
                             <SelectTrigger className="h-7 w-[130px] text-xs">
