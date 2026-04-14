@@ -1,33 +1,32 @@
 
 
-## Plano: Relatório de Quilometragem por Motorista
+## Análise do Fluxo Atual
 
-### Objetivo
-Criar um novo relatório que mostra quantos quilometros cada motorista rodou, com filtro por período (dia, semana ou mes).
+### Como funciona hoje
+- **Cards "Retiradas/Entregas do Dia"** no Dashboard → vêm da tabela `agendamentos` (agenda de coletas/entregas)
+- **Relatório de Quilometragem** → vem da tabela `rotas_entrega` (rotas com km_inicial/km_final)
+- **São tabelas separadas**, sem vínculo direto
 
-### Fonte dos Dados
-A tabela `rotas_entrega` ja possui os campos `km_inicial`, `km_final`, `motorista_id` e `data`. O calculo e simples: `km_final - km_inicial = km_rodado` por rota. Agrupando por motorista e somando, temos o total.
+### Fluxo do motorista (já correto)
+1. Uma rota é criada em `rotas_entrega` com paradas (clientes)
+2. Motorista clica "Iniciar Rota" → grava `km_inicial` e `status = em_rota`
+3. Motorista clica "Finalizar Rota" → grava `km_final` e `status = concluida`
+4. O relatório já filtra apenas `status = concluida` com `km_inicial` e `km_final` preenchidos
 
-### Alteracoes
+**O relatório já só mostra rotas finalizadas pelo motorista.** Isso está correto.
 
-#### 1. Nova pagina `src/pages/RelatorioKilometragem.tsx`
-- Filtro de periodo: Hoje, Esta Semana, Este Mes, Personalizado (date pickers)
-- Tabela com colunas: Motorista, Total Rotas, KM Total, KM Media/Rota
-- Card de resumo no topo: Total KM rodados, Total rotas concluidas, Media KM/dia
-- Busca rotas com status `concluida` no periodo selecionado, agrupando por `motorista_id`
-- Join com `motoristas` para nome e com `veiculos` para placa
-- Botao de exportar CSV
-- Detalhamento: ao clicar no motorista, expande mostrando cada rota (data, veiculo, km_inicial, km_final, km_rodado)
+### O problema
+Os agendamentos do dia (cards do Dashboard) não geram automaticamente rotas de entrega. São dados separados. Ou seja, se o motorista faz retiradas/entregas que estão nos agendamentos mas ninguém cria uma rota em `rotas_entrega`, a quilometragem não é registrada.
 
-#### 2. Rota em `src/App.tsx`
-- Adicionar rota `/relatorios/quilometragem` apontando para o novo componente
+### Plano de Correção
 
-#### 3. Menu lateral em `src/components/layout/AppSidebar.tsx`
-- Adicionar item "Quilometragem" no grupo Relatorios, com icone `Gauge` ou `Route`
+#### 1. Vincular agendamentos às rotas
+Quando os agendamentos do dia são exibidos no Dashboard, adicionar um botão/ação para "Gerar Rota" que cria automaticamente uma `rota_entrega` com as paradas baseadas nos agendamentos do dia (retiradas e entregas).
 
-#### 4. Header em `src/components/layout/AppHeader.tsx`
-- Adicionar titulo da rota no mapa de titulos
+#### 2. Alternativa mais simples
+Se as rotas já estão sendo criadas manualmente pelo módulo de Logística (que já existe), o fluxo já está correto:
+- Rota criada → Motorista inicia (km_inicial) → Motorista finaliza (km_final) → Aparece no relatório
 
-### Resultado
-Novo relatorio acessivel pelo menu Relatorios > Quilometragem, mostrando KM rodados por motorista com filtro de periodo e exportacao CSV.
+### Pergunta para você
+As rotas já estão sendo criadas pelo módulo de Logística antes do motorista sair? Ou você quer que os agendamentos do dia automaticamente virem rotas para o motorista registrar a quilometragem?
 
