@@ -10,6 +10,7 @@ export interface Lancamento {
   observacao: string | null;
   status: string;
   valor_total: number;
+  numero_rol: string | null;
   created_at: string;
   updated_at: string;
   cliente?: {

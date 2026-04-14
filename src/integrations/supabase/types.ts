@@ -1482,6 +1482,7 @@ export type Database = {
           data_lancamento: string
           fatura_id: string | null
           id: string
+          numero_rol: string | null
           observacao: string | null
           status: string
           updated_at: string
@@ -1494,6 +1495,7 @@ export type Database = {
           data_lancamento?: string
           fatura_id?: string | null
           id?: string
+          numero_rol?: string | null
           observacao?: string | null
           status?: string
           updated_at?: string
@@ -1506,6 +1508,7 @@ export type Database = {
           data_lancamento?: string
           fatura_id?: string | null
           id?: string
+          numero_rol?: string | null
           observacao?: string | null
           status?: string
           updated_at?: string

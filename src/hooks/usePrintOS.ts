@@ -151,6 +151,7 @@ export interface LancamentosPrintData {
   dataEmissao: Date;
   previsaoEntrega?: Date;
   observacoes?: string;
+  numeroRol?: string;
 }
 
 export function usePrintLancamento() {
@@ -166,8 +167,8 @@ export function usePrintLancamento() {
         return false;
       }
 
-      // Generate a temporary OS number
-      const tempNumero = `L${Date.now().toString().slice(-6)}`;
+      // Use numero_rol if provided, otherwise generate temporary
+      const tempNumero = data.numeroRol || `L${Date.now().toString().slice(-6)}`;
 
       const osData: PrintOSData = {
         numero: tempNumero,
@@ -213,7 +214,7 @@ export function usePrintLancamento() {
         return false;
       }
 
-      const tempNumero = `L${Date.now().toString().slice(-6)}`;
+      const tempNumero = data.numeroRol || `L${Date.now().toString().slice(-6)}`;
 
       // Generate one label per item type
       if (data.itens.length > 0) {

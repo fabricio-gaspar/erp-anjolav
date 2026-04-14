@@ -185,7 +185,8 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
         });
       }
       setItems([]); setSelectedClienteId(null); setObservacao("");
-      toast.success("Lançamento registrado com sucesso!", {
+      const rolNum = lancamento.numero_rol || "Lançamento";
+      toast.success(`${rolNum} registrado com sucesso!`, {
         description: "Veja na aba 'Pendentes' para processar a cobrança.",
         action: { label: "Ver Pendentes", onClick: () => onNavigateTab("pendentes") },
       });

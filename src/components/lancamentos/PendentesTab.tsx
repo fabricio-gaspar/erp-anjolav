@@ -230,6 +230,7 @@ export function PendentesTab() {
             <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-12"></TableHead>
+                <TableHead className="font-semibold">ROL</TableHead>
                 <TableHead className="font-semibold">CLIENTE</TableHead>
                 <TableHead className="font-semibold">DATA</TableHead>
                 <TableHead className="font-semibold">VALOR</TableHead>
@@ -249,7 +250,7 @@ export function PendentesTab() {
                       <TableCell className="py-2">
                         <Checkbox checked={allSelected} onCheckedChange={() => handleToggleAllFromCliente(clienteId, clienteIds)} className={someSelected && !allSelected ? "opacity-50" : ""} />
                       </TableCell>
-                      <TableCell colSpan={5} className="py-2">
+                      <TableCell colSpan={6} className="py-2">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">{cliente?.razao_social || "Cliente"}</span>
                           <span className="text-xs text-muted-foreground">({clienteLancamentos.length} lançamento{clienteLancamentos.length > 1 ? "s" : ""})</span>
@@ -260,6 +261,7 @@ export function PendentesTab() {
                     {clienteLancamentos.map(lancamento => (
                       <TableRow key={lancamento.id} className={`hover:bg-muted/20 ${selectedLancamentos.includes(lancamento.id) ? "bg-primary/5" : ""}`}>
                         <TableCell className="pl-8"><Checkbox checked={selectedLancamentos.includes(lancamento.id)} onCheckedChange={() => handleToggleLancamento(lancamento.id)} /></TableCell>
+                        <TableCell><Badge variant="outline" className="font-mono text-xs">{lancamento.numero_rol || "-"}</Badge></TableCell>
                         <TableCell className="text-muted-foreground text-sm">{cliente?.nome_fantasia || "-"}</TableCell>
                         <TableCell className="text-sm">{format(new Date(lancamento.data_lancamento), "dd/MM/yyyy")}</TableCell>
                         <TableCell className="font-medium">{formatCurrency(Number(lancamento.valor_total))}</TableCell>
