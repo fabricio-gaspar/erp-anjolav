@@ -2054,6 +2054,7 @@ export type Database = {
           motorista_id: string | null
           numero: string
           observacoes: string | null
+          origem: string
           pago_na_entrada: boolean | null
           percentual_urgencia: number | null
           prioridade: string | null
@@ -2077,6 +2078,7 @@ export type Database = {
           motorista_id?: string | null
           numero: string
           observacoes?: string | null
+          origem?: string
           pago_na_entrada?: boolean | null
           percentual_urgencia?: number | null
           prioridade?: string | null
@@ -2100,6 +2102,7 @@ export type Database = {
           motorista_id?: string | null
           numero?: string
           observacoes?: string | null
+          origem?: string
           pago_na_entrada?: boolean | null
           percentual_urgencia?: number | null
           prioridade?: string | null
