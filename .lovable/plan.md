@@ -1,44 +1,40 @@
 
 
-## Plano: Sistema de Eventos + Férias de Funcionários no Dashboard
+## Plano: Cores de status no ROL (etapa + pagamento)
 
-### 1. Migração de Banco de Dados
+### Situação atual
+- A tabela `lancamentos` tem `status` com valores: `pendente` e `faturado`
+- Não existe um campo para rastrear a **etapa de produção** do ROL (em processo / prateleira / entregue)
+- A tabela `faturas` tem `status` (pendente/pago/cancelado) e `forma_pagamento`, mas o lançamento individual não tem informação de pagamento própria
+- Na listagem de Pendentes, o ROL aparece apenas com badge `outline` sem cor
 
-**Tabela `eventos_agenda` (nova)**
-- `id`, `titulo`, `descricao`, `data_evento DATE`, `horario TIME`, `tipo` (lembrete/reuniao/tarefa/outro), `cor` (para visual no calendário), `concluido BOOLEAN DEFAULT false`, `created_at`, `updated_at`
+### Alterações
 
-**Tabela `funcionarios` — novos campos**
-- `data_admissao DATE` — data de admissão
-- `carga_horaria INTEGER DEFAULT 44` — horas semanais
-- `dias_trabalhados TEXT[] DEFAULT '{seg,ter,qua,qui,sex}'` — dias da semana
+#### 1. Migração — Novo campo `etapa` na tabela `lancamentos`
+- Adicionar coluna `etapa TEXT DEFAULT 'em_processo'` com valores: `em_processo`, `prateleira`, `entregue`
+- Isso permite rastrear onde o ROL está fisicamente, independente do status de faturamento
 
-### 2. Nova Página: Agenda de Eventos (`src/pages/AgendaEventos.tsx`)
-- Calendário mensal com destaque nos dias que possuem eventos
-- Lista de eventos do dia selecionado
-- Formulário lateral/modal para criar/editar evento (título, descrição, data, horário, tipo)
-- Marcar evento como concluído
-- Rota: `/agenda-eventos`
+#### 2. `src/hooks/useLancamentos.ts` — Atualizar interface
+- Adicionar `etapa` na interface `Lancamento`
 
-### 3. Hook `useEventosAgenda`
-- CRUD completo da tabela `eventos_agenda`
-- Query para eventos do dia atual (para o Dashboard)
+#### 3. `src/components/lancamentos/PendentesTab.tsx` — Cores por etapa + pagamento
+- Badge do ROL colorido por etapa:
+  - **Vermelho** (`bg-destructive/10 text-destructive`): Em Processo
+  - **Amarelo** (`bg-warning/10 text-warning`): Prateleira
+  - **Verde** (`bg-success/10 text-success`): Entregue
+- Adicionar coluna **ETAPA** com dropdown para alterar a etapa diretamente na tabela
+- Adicionar coluna **PAGAMENTO** mostrando status da fatura vinculada:
+  - Vermelho: Não faturado / Pendente
+  - Verde: Pago
+  - Cinza: Sem fatura
 
-### 4. Hook `useFeriasProximas`
-- Consulta `funcionarios` onde `data_admissao` + N anos = próximos 30 dias
-- Calcula período aquisitivo e data de férias devidas
-- Retorna lista de funcionários com férias próximas
+#### 4. `src/components/lancamentos/FaturasTab.tsx` — Cor de pagamento + forma
+- Na coluna STATUS já existe com cores (warning=pendente, success=pago, danger=cancelado)
+- Adicionar exibição da `forma_pagamento` ao lado do status quando disponível (ex: "Pago · Boleto")
 
-### 5. Formulário de Funcionários — Novos Campos
-- Adicionar campos `data_admissao`, `carga_horaria`, `dias_trabalhados` no formulário existente em Configurações > Equipe
-- Atualizar `useFuncionarios` com os novos campos na interface
-
-### 6. Dashboard — 2 Cards Novos
-- **Card "Eventos do Dia"**: lista eventos de hoje com ícone, horário e título. Link para `/agenda-eventos`.
-- **Card "Férias Próximas"**: lista funcionários com férias vencendo nos próximos 30 dias, mostrando nome, data de admissão e dias restantes.
-
-### 7. Sidebar
-- Adicionar item "Agenda Pessoal" ou "Eventos" no menu lateral apontando para `/agenda-eventos`
+#### 5. `src/components/lancamentos/NovoLancamentoTab.tsx`
+- Permitir selecionar a etapa inicial ao criar o lançamento (padrão: "Em Processo")
 
 ### Resultado
-Sistema completo de lembretes com calendário visual, formulário de eventos, controle de férias baseado na data de admissão, e dois cards no Dashboard alertando sobre eventos do dia e férias próximas de funcionários.
+Cada ROL na listagem terá indicação visual colorida da etapa de produção (vermelho/amarelo/verde) e do status de pagamento, com possibilidade de alterar a etapa diretamente na tabela.
 
