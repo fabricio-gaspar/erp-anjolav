@@ -14,6 +14,9 @@ export interface Funcionario {
   login: string;
   ativo: boolean;
   avatar_url: string | null;
+  data_admissao: string | null;
+  carga_horaria: number | null;
+  dias_trabalhados: string[] | null;
   created_at: string;
   updated_at: string;
 }
