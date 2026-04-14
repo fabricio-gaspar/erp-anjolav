@@ -44,6 +44,9 @@ export interface UpdateFuncionarioData {
   login?: string;
   ativo?: boolean;
   avatar_url?: string;
+  data_admissao?: string | null;
+  carga_horaria?: number | null;
+  dias_trabalhados?: string[] | null;
 }
 
 // Get all employees

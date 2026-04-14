@@ -943,6 +943,9 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
         email: formData.email || undefined,
         login: formData.login,
         avatar_url: finalAvatarUrl,
+        data_admissao: formData.data_admissao || null,
+        carga_horaria: formData.carga_horaria ? Number(formData.carga_horaria) : null,
+        dias_trabalhados: formData.dias_trabalhados.length > 0 ? formData.dias_trabalhados : null,
       });
       
       onClose();
