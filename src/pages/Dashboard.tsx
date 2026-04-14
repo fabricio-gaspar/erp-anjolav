@@ -2,7 +2,6 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { FinanceCard } from "@/components/dashboard/FinanceCard";
 import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
-import { OperationalCosts } from "@/components/dashboard/OperationalCosts";
 import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
 import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
@@ -29,8 +28,10 @@ import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { useCaixaAberto } from "@/hooks/useCaixa";
 import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { useFaturas } from "@/hooks/useFaturas";
 import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 
 const etapaLabels: Record<string, string> = {
   retirada: "Retirado",
@@ -44,12 +45,14 @@ const etapaLabels: Record<string, string> = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { metricas, isLoading: isLoadingMetricas } = useMetricasProducao();
   const { retiradas, entregas, isLoading: isLoadingAgenda } = useAgendaDia();
   const { osEmProcessamento, isLoading: isLoadingResumo } = useResumoProcessamento();
   const { data: metricasAvancadas } = useMetricasProducaoAvancadas();
   const { contas: contasPagar } = useContasPagar();
   const { data: caixaAberto } = useCaixaAberto();
+  const { faturas } = useFaturas();
 
   const temFinanceiro = useTemPermissaoModulo("faturamento");
   const temContasPagar = useTemPermissaoModulo("contas_pagar");
@@ -67,6 +70,9 @@ const Dashboard = () => {
 
   const contasPendentes = contasPagar.filter((c) => c.status === "pendente");
   const totalContasPagar = contasPendentes.reduce((acc, c) => acc + Number(c.valor), 0);
+
+  const faturasPendentes = (faturas || []).filter((f) => f.status === "pendente" || f.status === "nota_emitida" || f.status === "enviado");
+  const totalContasReceber = faturasPendentes.reduce((acc, f) => acc + Number(f.valor_total), 0);
 
   const kpis = [
     ...(temOrdens ? [{
@@ -256,11 +262,18 @@ const Dashboard = () => {
               {temFinanceiro && (
                 <FinanceCard
                   title="Contas a Receber"
-                  subtitle="Em desenvolvimento"
-                  total={0}
+                  subtitle={`${faturasPendentes.length} pendentes`}
+                  total={totalContasReceber}
                   icon={TrendingUp}
                   variant="receivable"
-                  items={[]}
+                  items={faturasPendentes.slice(0, 3).map((f) => ({
+                    id: f.id,
+                    status: f.data_vencimento && new Date(f.data_vencimento) < new Date() ? "vencida" as const : "a_vencer" as const,
+                    clientName: f.cliente?.razao_social || "Cliente",
+                    value: Number(f.valor_total),
+                    dueDate: f.data_vencimento ? format(new Date(f.data_vencimento), "dd/MM", { locale: ptBR }) : "-",
+                  }))}
+                  onViewAll={() => navigate("/faturamento")}
                 />
               )}
               {temContasPagar && (
@@ -277,6 +290,7 @@ const Dashboard = () => {
                     value: Number(c.valor),
                     dueDate: format(new Date(c.vencimento), "dd/MM", { locale: ptBR }),
                   }))}
+                  onViewAll={() => navigate("/contas-pagar")}
                 />
               )}
               {temFinanceiro && <BillingClosuresCard />}
