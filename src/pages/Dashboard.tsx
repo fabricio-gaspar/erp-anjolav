@@ -83,7 +83,7 @@ const Dashboard = () => {
     setIsGeneratingRoute(true);
     try {
       // Get motorista from first agendamento that has one
-      const motoristaId = agendamentos.find((a: any) => a.motorista_id)?.motorista_id || null;
+      const motoristaId = agendamentos.find((a: any) => a.motorista_id)?.motorista_id as string | null || null;
 
       // Create the route
       const rota = await createRota.mutateAsync({
@@ -375,8 +375,8 @@ const Dashboard = () => {
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Agenda do Dia</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
-              <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
+              <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} onGenerateRoute={() => handleGenerateRoute("retirada")} isGeneratingRoute={isGeneratingRoute} />
+              <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} onGenerateRoute={() => handleGenerateRoute("entrega")} isGeneratingRoute={isGeneratingRoute} />
             </div>
           </section>
         )}
