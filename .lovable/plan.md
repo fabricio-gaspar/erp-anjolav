@@ -1,18 +1,24 @@
 
-## Plano: Cards de produtos menores e quadrados no PDV
 
-### Alteração em `src/pages/CaixaPDV.tsx`
+## Plano: Mostrar resumo do último caixa fechado no Dashboard
 
-#### Grid (linha 738)
-- Aumentar colunas: `grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2`
+### Problema
+O `CaixaResumoCard` só consulta caixas com status "ABERTO". Quando o caixa é fechado, o card mostra apenas "Nenhum caixa aberto no momento" — sem nenhum resumo do caixa que acabou de ser fechado.
 
-#### Card/button (linhas 748-777)
-- Reduzir padding: `p-2` em vez de `p-3`
-- Forçar formato quadrado: `aspect-square` + `flex flex-col justify-between`
-- Reduzir tamanho do nome: `text-xs` com `line-clamp-2`
-- Reduzir tamanho do preço: `text-sm font-bold` em vez de `text-lg font-bold`
-- Código do produto: manter `text-[10px]`
-- Remover unidade label para economizar espaço
+### Solução
+
+#### `src/components/dashboard/CaixaResumoCard.tsx`
+- Quando não há caixa aberto, buscar o **último caixa fechado** (ordenado por `data_fechamento DESC`, limit 1)
+- Exibir o resumo do último fechamento com:
+  - Badge "Fechado" (amarelo/secondary)
+  - Operador, data/hora do fechamento
+  - Valores: Abertura, Vendas, Sangrias, Reforços, Esperado, **Contado**, **Diferença**
+  - A diferença com cor: verde se positiva/zero, vermelho se negativa
+- Manter o comportamento atual quando há caixa aberto (mostra o caixa aberto)
+
+#### `src/hooks/useCaixa.ts`
+- Adicionar hook `useUltimoCaixaFechado()` que busca o último caixa com status "FECHADO" ordenado por `data_fechamento DESC`
 
 ### Resultado
-Cards compactos, quadrados, mostrando apenas nome e preço, com mais produtos visíveis por linha.
+Após fechar o caixa, o Dashboard mostrará o resumo completo do último fechamento com todos os valores e a diferença de conferência.
+
