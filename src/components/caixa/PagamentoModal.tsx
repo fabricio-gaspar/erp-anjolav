@@ -387,8 +387,8 @@ export function PagamentoModal({
                     : "border-muted hover:border-muted-foreground/30"
                 )}
               >
-                <p className="font-semibold">Pagar na Entrega</p>
-                <p className="text-xs text-muted-foreground mt-1">Quando for buscar</p>
+                <p className="font-semibold">Pagamento na Retirada</p>
+                <p className="text-xs text-muted-foreground mt-1">Quando retirar o pedido</p>
               </button>
               <button
                 type="button"

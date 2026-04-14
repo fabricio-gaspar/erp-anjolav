@@ -112,7 +112,7 @@ export function LogisticaSection({
             )}
           >
             <Store className="w-5 h-5 mx-auto mb-1 text-primary" />
-            <p className="font-semibold text-sm">Vai Buscar</p>
+            <p className="font-semibold text-sm">Retirada no Local</p>
             <p className="text-xs text-muted-foreground">Cliente retira na loja</p>
           </button>
           <button
