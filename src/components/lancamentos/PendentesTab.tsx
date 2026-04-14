@@ -11,6 +11,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { User, Eye, Edit, Trash2, Package, Loader2, Play, X } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -24,6 +27,19 @@ import { EditarLancamentoModal } from "@/components/faturamento/EditarLancamento
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDadosFaturamentoCompletos } from "@/hooks/useDadosFaturamento";
+
+const etapaConfig: Record<string, { label: string; className: string }> = {
+  em_processo: { label: "Em Processo", className: "bg-destructive/10 text-destructive border-destructive/30" },
+  prateleira: { label: "Prateleira", className: "bg-warning/10 text-warning border-warning/30" },
+  entregue: { label: "Entregue", className: "bg-success/10 text-success border-success/30" },
+};
+
+const getPaymentStatus = (lancamento: LancamentoType) => {
+  if (lancamento.status === "faturado" && lancamento.fatura_id) {
+    return { label: "Faturado", className: "text-warning" };
+  }
+  return { label: "Pendente", className: "text-destructive" };
+};
 
 export function PendentesTab() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,6 +58,16 @@ export function PendentesTab() {
   const { lancamentos: lancamentosPendentes, isLoading, updateLancamento, deleteLancamento } = useLancamentosPendentes();
   const { data: lancamentosComItens } = useLancamentosComItens(selectedLancamentos);
   const { data: itensLancamentoSelecionado = [], isLoading: isLoadingItensLancamento } = useItensLancamento(lancamentoSelecionado?.id || null);
+
+  const handleEtapaChange = async (lancamentoId: string, novaEtapa: string) => {
+    try {
+      await supabase.from("lancamentos").update({ etapa: novaEtapa }).eq("id", lancamentoId);
+      updateLancamento.mutate({ id: lancamentoId });
+      toast.success(`Etapa atualizada para ${etapaConfig[novaEtapa]?.label || novaEtapa}`);
+    } catch (error: any) {
+      toast.error("Erro ao atualizar etapa");
+    }
+  };
 
   const lancamentosFiltrados = useMemo(() => {
     const industrialOnly = lancamentosPendentes.filter(l => l.cliente?.classificacao === "industrial");
@@ -227,14 +253,15 @@ export function PendentesTab() {
           </div>
         ) : (
           <Table>
-            <TableHeader>
+           <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-12"></TableHead>
                 <TableHead className="font-semibold">ROL</TableHead>
                 <TableHead className="font-semibold">CLIENTE</TableHead>
                 <TableHead className="font-semibold">DATA</TableHead>
+                <TableHead className="font-semibold">ETAPA</TableHead>
+                <TableHead className="font-semibold">PAGAMENTO</TableHead>
                 <TableHead className="font-semibold">VALOR</TableHead>
-                <TableHead className="font-semibold">OBS</TableHead>
                 <TableHead className="font-semibold w-24">AÇÕES</TableHead>
               </TableRow>
             </TableHeader>
@@ -250,7 +277,7 @@ export function PendentesTab() {
                       <TableCell className="py-2">
                         <Checkbox checked={allSelected} onCheckedChange={() => handleToggleAllFromCliente(clienteId, clienteIds)} className={someSelected && !allSelected ? "opacity-50" : ""} />
                       </TableCell>
-                      <TableCell colSpan={6} className="py-2">
+                      <TableCell colSpan={7} className="py-2">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">{cliente?.razao_social || "Cliente"}</span>
                           <span className="text-xs text-muted-foreground">({clienteLancamentos.length} lançamento{clienteLancamentos.length > 1 ? "s" : ""})</span>
@@ -261,11 +288,34 @@ export function PendentesTab() {
                     {clienteLancamentos.map(lancamento => (
                       <TableRow key={lancamento.id} className={`hover:bg-muted/20 ${selectedLancamentos.includes(lancamento.id) ? "bg-primary/5" : ""}`}>
                         <TableCell className="pl-8"><Checkbox checked={selectedLancamentos.includes(lancamento.id)} onCheckedChange={() => handleToggleLancamento(lancamento.id)} /></TableCell>
-                        <TableCell><Badge variant="outline" className="font-mono text-xs">{lancamento.numero_rol || "-"}</Badge></TableCell>
+                        <TableCell>
+                          {(() => {
+                            const etapa = lancamento.etapa || "em_processo";
+                            const config = etapaConfig[etapa] || etapaConfig.em_processo;
+                            return <Badge variant="outline" className={`font-mono text-xs border ${config.className}`}>{lancamento.numero_rol || "-"}</Badge>;
+                          })()}
+                        </TableCell>
                         <TableCell className="text-muted-foreground text-sm">{cliente?.nome_fantasia || "-"}</TableCell>
                         <TableCell className="text-sm">{format(new Date(lancamento.data_lancamento), "dd/MM/yyyy")}</TableCell>
+                        <TableCell>
+                          <Select value={lancamento.etapa || "em_processo"} onValueChange={(v) => handleEtapaChange(lancamento.id, v)}>
+                            <SelectTrigger className="h-7 w-[130px] text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="em_processo"><span className="text-destructive">🔴 Em Processo</span></SelectItem>
+                              <SelectItem value="prateleira"><span className="text-warning">🟡 Prateleira</span></SelectItem>
+                              <SelectItem value="entregue"><span className="text-success">🟢 Entregue</span></SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const payment = getPaymentStatus(lancamento);
+                            return <span className={`text-xs font-medium ${payment.className}`}>{payment.label}</span>;
+                          })()}
+                        </TableCell>
                         <TableCell className="font-medium">{formatCurrency(Number(lancamento.valor_total))}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">{lancamento.observacao || "-"}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setLancamentoSelecionado(lancamento); setVisualizarItensOpen(true); }} title="Ver itens"><Eye className="w-3.5 h-3.5" /></Button>
