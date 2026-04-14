@@ -4,6 +4,7 @@ import { FinanceCard } from "@/components/dashboard/FinanceCard";
 import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
 import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
+import { useRotasEntregaMutations } from "@/hooks/useRotasEntrega";
 import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
 import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
 import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
@@ -32,6 +33,9 @@ import { useFaturas } from "@/hooks/useFaturas";
 import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const etapaLabels: Record<string, string> = {
   retirada: "Retirado",
@@ -53,6 +57,8 @@ const Dashboard = () => {
   const { contas: contasPagar } = useContasPagar();
   const { data: caixaAberto } = useCaixaAberto();
   const { faturas } = useFaturas();
+  const { createRota, addParada } = useRotasEntregaMutations();
+  const [isGeneratingRoute, setIsGeneratingRoute] = useState(false);
 
   const temFinanceiro = useTemPermissaoModulo("faturamento");
   const temContasPagar = useTemPermissaoModulo("contas_pagar");
@@ -64,6 +70,50 @@ const Dashboard = () => {
   const temCaixa = useTemPermissaoModulo("caixa");
 
   const isLoading = isLoadingMetricas || isLoadingAgenda || isLoadingResumo;
+
+  const handleGenerateRoute = async (tipo: "retirada" | "entrega") => {
+    const hoje = new Date().toISOString().split("T")[0];
+    const agendamentos = tipo === "retirada" ? retiradas : entregas;
+    
+    if (!agendamentos || agendamentos.length === 0) {
+      toast.error("Nenhum agendamento para gerar rota");
+      return;
+    }
+
+    setIsGeneratingRoute(true);
+    try {
+      // Get motorista from first agendamento that has one
+      const motoristaId = (agendamentos.find((a: any) => (a as any).motorista_id) as any)?.motorista_id || null;
+
+      // Create the route
+      const rota = await createRota.mutateAsync({
+        data: hoje,
+        motorista_id: motoristaId,
+        status: "planejada",
+        observacoes: `Rota gerada automaticamente - ${tipo === "retirada" ? "Retiradas" : "Entregas"} do dia`,
+      });
+
+      // Create stops for each agendamento
+      for (let i = 0; i < agendamentos.length; i++) {
+        const ag = agendamentos[i] as any;
+        await addParada.mutateAsync({
+          rota_id: rota.id,
+          ordem: i + 1,
+          tipo: tipo,
+          cliente_id: ag.cliente_id,
+          agendamento_id: ag.id,
+          observacoes: ag.observacoes || null,
+        });
+      }
+
+      toast.success(`Rota de ${tipo === "retirada" ? "retiradas" : "entregas"} criada com ${agendamentos.length} parada(s)!`);
+      navigate("/agenda");
+    } catch (error: any) {
+      toast.error("Erro ao gerar rota: " + error.message);
+    } finally {
+      setIsGeneratingRoute(false);
+    }
+  };
 
   const formatCurrency = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -325,8 +375,8 @@ const Dashboard = () => {
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Agenda do Dia</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
-              <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
+              <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} onGenerateRoute={() => handleGenerateRoute("retirada")} isGeneratingRoute={isGeneratingRoute} />
+              <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} onGenerateRoute={() => handleGenerateRoute("entrega")} isGeneratingRoute={isGeneratingRoute} />
             </div>
           </section>
         )}

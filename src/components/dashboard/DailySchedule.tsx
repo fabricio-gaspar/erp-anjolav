@@ -1,5 +1,6 @@
-import { Truck, Package, Clock, ChevronRight } from "lucide-react";
+import { Truck, Package, Clock, ChevronRight, Route, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface ScheduleItem {
@@ -15,9 +16,11 @@ interface DailyScheduleProps {
   type: "pickup" | "delivery";
   items: ScheduleItem[];
   count: number;
+  onGenerateRoute?: () => void;
+  isGeneratingRoute?: boolean;
 }
 
-export function DailySchedule({ type, items, count }: DailyScheduleProps) {
+export function DailySchedule({ type, items, count, onGenerateRoute, isGeneratingRoute }: DailyScheduleProps) {
   const isPickup = type === "pickup";
   const Icon = isPickup ? Truck : Package;
   const title = isPickup ? "Retiradas do Dia" : "Entregas do Dia";
@@ -29,12 +32,33 @@ export function DailySchedule({ type, items, count }: DailyScheduleProps) {
           <Icon className={cn("w-4 h-4", isPickup ? "text-primary" : "text-success")} />
           <h3 className="font-semibold text-sm text-slate-800">{title}</h3>
         </div>
-        <span className={cn(
-          "text-xs font-semibold px-2 py-0.5 rounded-full",
-          isPickup ? "bg-primary/8 text-primary" : "bg-success/8 text-success"
-        )}>
-          {count}
-        </span>
+        <div className="flex items-center gap-2">
+          {onGenerateRoute && items.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 text-[10px] px-2 gap-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onGenerateRoute();
+              }}
+              disabled={isGeneratingRoute}
+            >
+              {isGeneratingRoute ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Route className="w-3 h-3" />
+              )}
+              Gerar Rota
+            </Button>
+          )}
+          <span className={cn(
+            "text-xs font-semibold px-2 py-0.5 rounded-full",
+            isPickup ? "bg-primary/8 text-primary" : "bg-success/8 text-success"
+          )}>
+            {count}
+          </span>
+        </div>
       </div>
 
       {items.length === 0 ? (
