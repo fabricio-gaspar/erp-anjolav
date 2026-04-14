@@ -74,6 +74,25 @@ export const useCaixaAberto = () => {
   });
 };
 
+// Get last closed cash register
+export const useUltimoCaixaFechado = () => {
+  return useQuery({
+    queryKey: ["ultimo-caixa-fechado"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("caixas")
+        .select("*")
+        .eq("status", "FECHADO")
+        .order("data_fechamento", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data as Caixa | null;
+    },
+  });
+};
+
 // Get all cash registers with optional date filter
 export const useCaixas = (startDate?: Date, endDate?: Date) => {
   return useQuery({
