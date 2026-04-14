@@ -144,8 +144,6 @@ export function RolsLojaCard() {
                         R$ {Number(rol.valor_total).toFixed(2).replace(".", ",")}
                       </span>
                     )}
-                      </span>
-                    )}
                     <Badge
                       variant="outline"
                       className={cn("text-[9px] px-1.5 py-0 h-4 border", cfg.color)}
