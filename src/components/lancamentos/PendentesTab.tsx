@@ -277,7 +277,7 @@ export function PendentesTab() {
                       <TableCell className="py-2">
                         <Checkbox checked={allSelected} onCheckedChange={() => handleToggleAllFromCliente(clienteId, clienteIds)} className={someSelected && !allSelected ? "opacity-50" : ""} />
                       </TableCell>
-                      <TableCell colSpan={6} className="py-2">
+                      <TableCell colSpan={7} className="py-2">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">{cliente?.razao_social || "Cliente"}</span>
                           <span className="text-xs text-muted-foreground">({clienteLancamentos.length} lançamento{clienteLancamentos.length > 1 ? "s" : ""})</span>
@@ -288,12 +288,34 @@ export function PendentesTab() {
                     {clienteLancamentos.map(lancamento => (
                       <TableRow key={lancamento.id} className={`hover:bg-muted/20 ${selectedLancamentos.includes(lancamento.id) ? "bg-primary/5" : ""}`}>
                         <TableCell className="pl-8"><Checkbox checked={selectedLancamentos.includes(lancamento.id)} onCheckedChange={() => handleToggleLancamento(lancamento.id)} /></TableCell>
-                        <TableCell><Badge variant="outline" className="font-mono text-xs">{lancamento.numero_rol || "-"}</Badge></TableCell>
+                        <TableCell>
+                          {(() => {
+                            const etapa = lancamento.etapa || "em_processo";
+                            const config = etapaConfig[etapa] || etapaConfig.em_processo;
+                            return <Badge variant="outline" className={`font-mono text-xs border ${config.className}`}>{lancamento.numero_rol || "-"}</Badge>;
+                          })()}
+                        </TableCell>
                         <TableCell className="text-muted-foreground text-sm">{cliente?.nome_fantasia || "-"}</TableCell>
                         <TableCell className="text-sm">{format(new Date(lancamento.data_lancamento), "dd/MM/yyyy")}</TableCell>
-                        <TableCell className="font-medium">{formatCurrency(Number(lancamento.valor_total))}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">{lancamento.observacao || "-"}</TableCell>
                         <TableCell>
+                          <Select value={lancamento.etapa || "em_processo"} onValueChange={(v) => handleEtapaChange(lancamento.id, v)}>
+                            <SelectTrigger className="h-7 w-[130px] text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="em_processo"><span className="text-destructive">🔴 Em Processo</span></SelectItem>
+                              <SelectItem value="prateleira"><span className="text-warning">🟡 Prateleira</span></SelectItem>
+                              <SelectItem value="entregue"><span className="text-success">🟢 Entregue</span></SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const payment = getPaymentStatus(lancamento);
+                            return <span className={`text-xs font-medium ${payment.className}`}>{payment.label}</span>;
+                          })()}
+                        </TableCell>
+                        <TableCell className="font-medium">{formatCurrency(Number(lancamento.valor_total))}</TableCell>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setLancamentoSelecionado(lancamento); setVisualizarItensOpen(true); }} title="Ver itens"><Eye className="w-3.5 h-3.5" /></Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setLancamentoSelecionado(lancamento); setEditarLancamentoOpen(true); }} title="Editar"><Edit className="w-3.5 h-3.5" /></Button>
