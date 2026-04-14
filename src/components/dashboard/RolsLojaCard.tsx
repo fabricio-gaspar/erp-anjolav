@@ -141,7 +141,9 @@ export function RolsLojaCard() {
                     </span>
                     {rol.valor_total != null && (
                       <span className="text-[10px] font-medium whitespace-nowrap">
-                        {formatCurrency(Number(rol.valor_total))}
+                        R$ {Number(rol.valor_total).toFixed(2).replace(".", ",")}
+                      </span>
+                    )}
                       </span>
                     )}
                     <Badge
