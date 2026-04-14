@@ -1528,6 +1528,7 @@ export type Database = {
           created_at: string
           data_entrega: string | null
           data_lancamento: string
+          etapa: string
           fatura_id: string | null
           id: string
           numero_rol: string | null
@@ -1541,6 +1542,7 @@ export type Database = {
           created_at?: string
           data_entrega?: string | null
           data_lancamento?: string
+          etapa?: string
           fatura_id?: string | null
           id?: string
           numero_rol?: string | null
@@ -1554,6 +1556,7 @@ export type Database = {
           created_at?: string
           data_entrega?: string | null
           data_lancamento?: string
+          etapa?: string
           fatura_id?: string | null
           id?: string
           numero_rol?: string | null
