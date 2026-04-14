@@ -83,7 +83,7 @@ const Dashboard = () => {
     setIsGeneratingRoute(true);
     try {
       // Get motorista from first agendamento that has one
-      const motoristaId = agendamentos.find((a: any) => a.motorista_id)?.motorista_id as string | null || null;
+      const motoristaId = (agendamentos.find((a: any) => (a as any).motorista_id) as any)?.motorista_id || null;
 
       // Create the route
       const rota = await createRota.mutateAsync({
