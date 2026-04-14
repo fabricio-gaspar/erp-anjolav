@@ -1,31 +1,44 @@
 
 
-## Plano: Número de ROL individual por lançamento
+## Plano: Sistema de Eventos + Férias de Funcionários no Dashboard
 
-### Contexto
-Atualmente a tabela `lancamentos` não possui um campo de numeração sequencial (número do ROL). Cada lançamento já é registrado individualmente (um registro por operação), então a separação já existe — falta apenas a **numeração automática**.
+### 1. Migração de Banco de Dados
 
-### Alterações
+**Tabela `eventos_agenda` (nova)**
+- `id`, `titulo`, `descricao`, `data_evento DATE`, `horario TIME`, `tipo` (lembrete/reuniao/tarefa/outro), `cor` (para visual no calendário), `concluido BOOLEAN DEFAULT false`, `created_at`, `updated_at`
 
-#### 1. Migração — Adicionar coluna `numero_rol` + trigger de auto-numeração
-- Adicionar coluna `numero_rol TEXT` na tabela `lancamentos`
-- Criar trigger `generate_rol_number` que gera número sequencial no formato `ROL-YYYY-NNNNNN` (ex: `ROL-2026-000001`) ao inserir um novo lançamento
-- Preencher retroativamente os lançamentos existentes com números sequenciais
+**Tabela `funcionarios` — novos campos**
+- `data_admissao DATE` — data de admissão
+- `carga_horaria INTEGER DEFAULT 44` — horas semanais
+- `dias_trabalhados TEXT[] DEFAULT '{seg,ter,qua,qui,sex}'` — dias da semana
 
-#### 2. `src/hooks/useLancamentos.ts`
-- Incluir `numero_rol` na interface `Lancamento`
-- O campo virá automaticamente do select `*`
+### 2. Nova Página: Agenda de Eventos (`src/pages/AgendaEventos.tsx`)
+- Calendário mensal com destaque nos dias que possuem eventos
+- Lista de eventos do dia selecionado
+- Formulário lateral/modal para criar/editar evento (título, descrição, data, horário, tipo)
+- Marcar evento como concluído
+- Rota: `/agenda-eventos`
 
-#### 3. `src/components/lancamentos/NovoLancamentoTab.tsx`
-- Após finalizar, exibir o `numero_rol` no toast de sucesso: "ROL-2026-000001 registrado com sucesso!"
-- Exibir o número do ROL no cabeçalho do painel de itens quando disponível
+### 3. Hook `useEventosAgenda`
+- CRUD completo da tabela `eventos_agenda`
+- Query para eventos do dia atual (para o Dashboard)
 
-#### 4. `src/components/lancamentos/PendentesTab.tsx`
-- Exibir coluna/badge com o `numero_rol` em cada lançamento pendente
+### 4. Hook `useFeriasProximas`
+- Consulta `funcionarios` onde `data_admissao` + N anos = próximos 30 dias
+- Calcula período aquisitivo e data de férias devidas
+- Retorna lista de funcionários com férias próximas
 
-#### 5. `src/hooks/usePrintOS.ts` — Impressão do ROL
-- Passar `numero_rol` para os dados de impressão para que apareça no ROL impresso
+### 5. Formulário de Funcionários — Novos Campos
+- Adicionar campos `data_admissao`, `carga_horaria`, `dias_trabalhados` no formulário existente em Configurações > Equipe
+- Atualizar `useFuncionarios` com os novos campos na interface
+
+### 6. Dashboard — 2 Cards Novos
+- **Card "Eventos do Dia"**: lista eventos de hoje com ícone, horário e título. Link para `/agenda-eventos`.
+- **Card "Férias Próximas"**: lista funcionários com férias vencendo nos próximos 30 dias, mostrando nome, data de admissão e dias restantes.
+
+### 7. Sidebar
+- Adicionar item "Agenda Pessoal" ou "Eventos" no menu lateral apontando para `/agenda-eventos`
 
 ### Resultado
-Cada lançamento recebe automaticamente um número de ROL único e sequencial (ROL-2026-000001), exibido na listagem, na impressão e no toast de confirmação.
+Sistema completo de lembretes com calendário visual, formulário de eventos, controle de férias baseado na data de admissão, e dois cards no Dashboard alertando sobre eventos do dia e férias próximas de funcionários.
 
