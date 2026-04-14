@@ -57,6 +57,8 @@ const Dashboard = () => {
   const { contas: contasPagar } = useContasPagar();
   const { data: caixaAberto } = useCaixaAberto();
   const { faturas } = useFaturas();
+  const { createRota, addParada } = useRotasEntregaMutations();
+  const [isGeneratingRoute, setIsGeneratingRoute] = useState(false);
 
   const temFinanceiro = useTemPermissaoModulo("faturamento");
   const temContasPagar = useTemPermissaoModulo("contas_pagar");
@@ -68,6 +70,50 @@ const Dashboard = () => {
   const temCaixa = useTemPermissaoModulo("caixa");
 
   const isLoading = isLoadingMetricas || isLoadingAgenda || isLoadingResumo;
+
+  const handleGenerateRoute = async (tipo: "retirada" | "entrega") => {
+    const hoje = new Date().toISOString().split("T")[0];
+    const agendamentos = tipo === "retirada" ? retiradas : entregas;
+    
+    if (!agendamentos || agendamentos.length === 0) {
+      toast.error("Nenhum agendamento para gerar rota");
+      return;
+    }
+
+    setIsGeneratingRoute(true);
+    try {
+      // Get motorista from first agendamento that has one
+      const motoristaId = agendamentos.find((a: any) => a.motorista_id)?.motorista_id || null;
+
+      // Create the route
+      const rota = await createRota.mutateAsync({
+        data: hoje,
+        motorista_id: motoristaId,
+        status: "planejada",
+        observacoes: `Rota gerada automaticamente - ${tipo === "retirada" ? "Retiradas" : "Entregas"} do dia`,
+      });
+
+      // Create stops for each agendamento
+      for (let i = 0; i < agendamentos.length; i++) {
+        const ag = agendamentos[i] as any;
+        await addParada.mutateAsync({
+          rota_id: rota.id,
+          ordem: i + 1,
+          tipo: tipo,
+          cliente_id: ag.cliente_id,
+          agendamento_id: ag.id,
+          observacoes: ag.observacoes || null,
+        });
+      }
+
+      toast.success(`Rota de ${tipo === "retirada" ? "retiradas" : "entregas"} criada com ${agendamentos.length} parada(s)!`);
+      navigate("/agenda");
+    } catch (error: any) {
+      toast.error("Erro ao gerar rota: " + error.message);
+    } finally {
+      setIsGeneratingRoute(false);
+    }
+  };
 
   const formatCurrency = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
