@@ -11,7 +11,7 @@ import { format, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { formatCurrencyInput } from "@/lib/currencyUtils";
+
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   retirada: { label: "Retirado", color: "bg-blue-100 text-blue-700 border-blue-200" },
