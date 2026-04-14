@@ -868,6 +868,9 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
     cpf: "",
     email: "",
     login: "",
+    data_admissao: "",
+    carga_horaria: "44",
+    dias_trabalhados: ["seg", "ter", "qua", "qui", "sex"] as string[],
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
