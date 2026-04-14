@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Send,
   FileText,
@@ -53,6 +54,7 @@ export function EtapaEnvio({
   const [sendEmail, setSendEmail] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [selectedDocs, setSelectedDocs] = useState<string[]>(["ROL"]);
 
   const { updateFatura } = useFaturas();
   const { createEnvio } = useHistoricoEnvios(faturaId);
@@ -199,7 +201,7 @@ export function EtapaEnvio({
         canal: "whatsapp",
         destinatario: dados.clienteTelefone,
         mensagem: mensagem,
-        documentos_enviados: ["ROL", numeroNF ? "NF" : "", paymentData ? "Pagamento" : ""].filter(Boolean),
+        documentos_enviados: selectedDocs,
         status: "enviado",
       });
     }
@@ -228,7 +230,7 @@ export function EtapaEnvio({
         canal: "email",
         destinatario: dados.clienteEmail,
         mensagem: mensagem,
-        documentos_enviados: ["ROL", numeroNF ? "NF" : "", paymentData ? "Pagamento" : ""].filter(Boolean),
+        documentos_enviados: selectedDocs,
         status: "enviado",
       });
     }
@@ -300,55 +302,93 @@ export function EtapaEnvio({
 
       {/* Downloads */}
       <Card className="p-4">
-        <h4 className="font-medium text-sm mb-4">Arquivos Gerados</h4>
+        <h4 className="font-medium text-sm mb-4">Arquivos Gerados — Selecione para enviar</h4>
         <div className="grid sm:grid-cols-3 gap-3">
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex flex-col gap-2"
-            onClick={handleDownloadROL}
-          >
-            <FileText className="w-6 h-6 text-primary" />
-            <span className="text-sm">ROL</span>
-            <Download className="w-4 h-4 text-muted-foreground" />
-          </Button>
+          <div className="relative">
+            <div className="absolute top-2 left-2 z-10">
+              <Checkbox
+                checked={selectedDocs.includes("ROL")}
+                onCheckedChange={(checked) => {
+                  setSelectedDocs(prev =>
+                    checked ? [...prev, "ROL"] : prev.filter(d => d !== "ROL")
+                  );
+                }}
+              />
+            </div>
+            <Button
+              variant="outline"
+              className={`h-auto py-4 flex flex-col gap-2 w-full ${selectedDocs.includes("ROL") ? "border-primary bg-primary/5" : ""}`}
+              onClick={handleDownloadROL}
+            >
+              <FileText className="w-6 h-6 text-primary" />
+              <span className="text-sm">ROL</span>
+              <Download className="w-4 h-4 text-muted-foreground" />
+            </Button>
+          </div>
 
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex flex-col gap-2"
-            onClick={handleDownloadNF}
-            disabled={!numeroNF}
-          >
-            <Receipt className="w-6 h-6 text-green-600" />
-            <span className="text-sm">Nota Fiscal</span>
-            {numeroNF ? (
-              <Badge variant="secondary" className="text-xs">
-                {numeroNF.slice(-8)}
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-xs">
-                Não emitida
-              </Badge>
-            )}
-          </Button>
+          <div className="relative">
+            <div className="absolute top-2 left-2 z-10">
+              <Checkbox
+                checked={selectedDocs.includes("NF")}
+                onCheckedChange={(checked) => {
+                  setSelectedDocs(prev =>
+                    checked ? [...prev, "NF"] : prev.filter(d => d !== "NF")
+                  );
+                }}
+                disabled={!numeroNF}
+              />
+            </div>
+            <Button
+              variant="outline"
+              className={`h-auto py-4 flex flex-col gap-2 w-full ${selectedDocs.includes("NF") ? "border-primary bg-primary/5" : ""}`}
+              onClick={handleDownloadNF}
+              disabled={!numeroNF}
+            >
+              <Receipt className="w-6 h-6 text-green-600" />
+              <span className="text-sm">Nota Fiscal</span>
+              {numeroNF ? (
+                <Badge variant="secondary" className="text-xs">
+                  {numeroNF.slice(-8)}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs">
+                  Não emitida
+                </Badge>
+              )}
+            </Button>
+          </div>
 
-          <Button
-            variant="outline"
-            className="h-auto py-4 flex flex-col gap-2"
-            onClick={handleDownloadPayment}
-            disabled={!paymentData}
-          >
-            <CreditCard className="w-6 h-6 text-blue-600" />
-            <span className="text-sm">Pagamento</span>
-            {paymentData ? (
-              <Badge variant="secondary" className="text-xs capitalize">
-                {paymentData.type}
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-xs">
-                Não configurado
-              </Badge>
-            )}
-          </Button>
+          <div className="relative">
+            <div className="absolute top-2 left-2 z-10">
+              <Checkbox
+                checked={selectedDocs.includes("Pagamento")}
+                onCheckedChange={(checked) => {
+                  setSelectedDocs(prev =>
+                    checked ? [...prev, "Pagamento"] : prev.filter(d => d !== "Pagamento")
+                  );
+                }}
+                disabled={!paymentData}
+              />
+            </div>
+            <Button
+              variant="outline"
+              className={`h-auto py-4 flex flex-col gap-2 w-full ${selectedDocs.includes("Pagamento") ? "border-primary bg-primary/5" : ""}`}
+              onClick={handleDownloadPayment}
+              disabled={!paymentData}
+            >
+              <CreditCard className="w-6 h-6 text-blue-600" />
+              <span className="text-sm">Pagamento</span>
+              {paymentData ? (
+                <Badge variant="secondary" className="text-xs capitalize">
+                  {paymentData.type}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs">
+                  Não configurado
+                </Badge>
+              )}
+            </Button>
+          </div>
         </div>
       </Card>
 
