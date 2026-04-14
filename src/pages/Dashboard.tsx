@@ -4,6 +4,7 @@ import { FinanceCard } from "@/components/dashboard/FinanceCard";
 import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
 import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
+import { useRotasEntregaMutations } from "@/hooks/useRotasEntrega";
 import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
 import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
 import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
