@@ -276,21 +276,30 @@ export function ConfiguracoesDados() {
 
   const handleConfirmDelete = async () => {
     if (!deleteEntity) return;
+    if (deleteConfirmText !== "EXCLUIR") return;
 
+    setIsDeletingEntity(true);
     try {
-      // Note: Actual deletion would require proper cascade handling
+      const removed = await deleteEntityData(deleteEntity.table);
       toast({
-        title: "Exclusão solicitada",
-        description: `A exclusão de ${deleteEntity.name} requer confirmação adicional do administrador do sistema.`,
+        title: "Exclusão concluída",
+        description: `${deleteEntity.name}: registros removidos com sucesso.`,
       });
+      refetch();
+      setDeleteEntity(null);
+      setDeleteConfirmText("");
     } catch (error) {
+      const msg = error instanceof Error ? error.message : "Erro desconhecido";
+      const friendly = msg.includes("violates foreign key")
+        ? "Não foi possível excluir: existem registros relacionados em outras tabelas. Exclua primeiro as tabelas dependentes."
+        : msg;
       toast({
         title: "Erro na exclusão",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
+        description: friendly,
         variant: "destructive",
       });
     } finally {
-      setDeleteEntity(null);
+      setIsDeletingEntity(false);
     }
   };
 
