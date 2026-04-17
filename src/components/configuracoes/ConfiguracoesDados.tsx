@@ -643,7 +643,12 @@ export function ConfiguracoesDados() {
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteEntity} onOpenChange={() => setDeleteEntity(null)}>
+      <AlertDialog open={!!deleteEntity} onOpenChange={(open) => {
+        if (!open) {
+          setDeleteEntity(null);
+          setDeleteConfirmText("");
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
@@ -651,31 +656,52 @@ export function ConfiguracoesDados() {
               Confirmar Exclusão
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <p>
+              <span className="block">
                 Você está prestes a excluir <strong>todos os {deleteEntity?.count} registro(s)</strong> de{" "}
                 <strong>{deleteEntity?.name}</strong>.
-              </p>
-              <p className="text-red-600 font-medium">
+              </span>
+              <span className="block text-red-600 font-medium">
                 Esta ação é IRREVERSÍVEL e pode afetar dados relacionados em outras tabelas.
-              </p>
-              <p>
+              </span>
+              <span className="block">
                 Recomendamos exportar um backup antes de prosseguir.
-              </p>
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              Digite <span className="font-mono bg-muted px-1 rounded">EXCLUIR</span> para confirmar:
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+              placeholder="Digite EXCLUIR"
+              className="font-mono"
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <Button variant="outline" onClick={() => deleteEntity && handleExportEntity(deleteEntity)}>
+            <AlertDialogCancel disabled={isDeletingEntity}>Cancelar</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => deleteEntity && handleExportEntity(deleteEntity)}
+              disabled={isDeletingEntity}
+            >
               <Download className="w-4 h-4 mr-2" />
               Exportar Primeiro
             </Button>
-            <AlertDialogAction
+            <Button
+              variant="destructive"
               onClick={handleConfirmDelete}
+              disabled={deleteConfirmText !== "EXCLUIR" || isDeletingEntity}
               className="bg-red-600 hover:bg-red-700"
             >
-              <Trash2 className="w-4 h-4 mr-2" />
+              {isDeletingEntity ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
               Confirmar Exclusão
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
