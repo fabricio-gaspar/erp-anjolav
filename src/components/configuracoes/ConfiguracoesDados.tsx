@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -276,14 +275,23 @@ export function ConfiguracoesDados() {
 
   const handleConfirmDelete = async () => {
     if (!deleteEntity) return;
-    if (deleteConfirmText !== "EXCLUIR") return;
+
+    const confirmText = deleteConfirmText.trim().toUpperCase();
+    if (confirmText !== "EXCLUIR") {
+      toast({
+        title: "Confirmação obrigatória",
+        description: "Digite EXCLUIR para confirmar a remoção dos registros.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsDeletingEntity(true);
     try {
       const removed = await deleteEntityData(deleteEntity.table);
       toast({
         title: "Exclusão concluída",
-        description: `${deleteEntity.name}: registros removidos com sucesso.`,
+        description: `${removed} registro(s) removido(s) de ${deleteEntity.name}.`,
       });
       refetch();
       setDeleteEntity(null);
@@ -619,7 +627,10 @@ export function ConfiguracoesDados() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => setDeleteEntity(entity)}
+                          onClick={() => {
+                            setDeleteConfirmText("");
+                            setDeleteEntity(entity);
+                          }}
                           disabled={entity.count === 0}
                           className="text-xs"
                         >
