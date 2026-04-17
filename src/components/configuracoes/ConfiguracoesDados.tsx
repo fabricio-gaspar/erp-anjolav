@@ -68,6 +68,8 @@ export function ConfiguracoesDados() {
   const [isResetting, setIsResetting] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeletingEntity, setIsDeletingEntity] = useState(false);
 
   const filteredEntities = useMemo(() => {
     if (!data?.entities) return [];
