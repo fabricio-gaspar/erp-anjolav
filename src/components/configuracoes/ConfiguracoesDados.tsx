@@ -44,7 +44,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useDataManagement, exportEntityData, exportAllData, deleteAllData, importAllData, EntityStats } from "@/hooks/useDataManagement";
+import { useDataManagement, exportEntityData, exportAllData, deleteAllData, deleteEntityData, importAllData, EntityStats } from "@/hooks/useDataManagement";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bomb } from "lucide-react";
