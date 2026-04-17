@@ -44,7 +44,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useDataManagement, exportEntityData, exportAllData, deleteAllData, importAllData, EntityStats } from "@/hooks/useDataManagement";
+import { useDataManagement, exportEntityData, exportAllData, deleteAllData, deleteEntityData, importAllData, EntityStats } from "@/hooks/useDataManagement";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bomb } from "lucide-react";
@@ -68,6 +68,8 @@ export function ConfiguracoesDados() {
   const [isResetting, setIsResetting] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeletingEntity, setIsDeletingEntity] = useState(false);
 
   const filteredEntities = useMemo(() => {
     if (!data?.entities) return [];
@@ -274,21 +276,30 @@ export function ConfiguracoesDados() {
 
   const handleConfirmDelete = async () => {
     if (!deleteEntity) return;
+    if (deleteConfirmText !== "EXCLUIR") return;
 
+    setIsDeletingEntity(true);
     try {
-      // Note: Actual deletion would require proper cascade handling
+      const removed = await deleteEntityData(deleteEntity.table);
       toast({
-        title: "Exclusão solicitada",
-        description: `A exclusão de ${deleteEntity.name} requer confirmação adicional do administrador do sistema.`,
+        title: "Exclusão concluída",
+        description: `${deleteEntity.name}: registros removidos com sucesso.`,
       });
+      refetch();
+      setDeleteEntity(null);
+      setDeleteConfirmText("");
     } catch (error) {
+      const msg = error instanceof Error ? error.message : "Erro desconhecido";
+      const friendly = msg.includes("violates foreign key")
+        ? "Não foi possível excluir: existem registros relacionados em outras tabelas. Exclua primeiro as tabelas dependentes."
+        : msg;
       toast({
         title: "Erro na exclusão",
-        description: error instanceof Error ? error.message : "Erro desconhecido",
+        description: friendly,
         variant: "destructive",
       });
     } finally {
-      setDeleteEntity(null);
+      setIsDeletingEntity(false);
     }
   };
 
@@ -632,7 +643,12 @@ export function ConfiguracoesDados() {
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteEntity} onOpenChange={() => setDeleteEntity(null)}>
+      <AlertDialog open={!!deleteEntity} onOpenChange={(open) => {
+        if (!open) {
+          setDeleteEntity(null);
+          setDeleteConfirmText("");
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
@@ -640,31 +656,52 @@ export function ConfiguracoesDados() {
               Confirmar Exclusão
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <p>
+              <span className="block">
                 Você está prestes a excluir <strong>todos os {deleteEntity?.count} registro(s)</strong> de{" "}
                 <strong>{deleteEntity?.name}</strong>.
-              </p>
-              <p className="text-red-600 font-medium">
+              </span>
+              <span className="block text-red-600 font-medium">
                 Esta ação é IRREVERSÍVEL e pode afetar dados relacionados em outras tabelas.
-              </p>
-              <p>
+              </span>
+              <span className="block">
                 Recomendamos exportar um backup antes de prosseguir.
-              </p>
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              Digite <span className="font-mono bg-muted px-1 rounded">EXCLUIR</span> para confirmar:
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+              placeholder="Digite EXCLUIR"
+              className="font-mono"
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <Button variant="outline" onClick={() => deleteEntity && handleExportEntity(deleteEntity)}>
+            <AlertDialogCancel disabled={isDeletingEntity}>Cancelar</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => deleteEntity && handleExportEntity(deleteEntity)}
+              disabled={isDeletingEntity}
+            >
               <Download className="w-4 h-4 mr-2" />
               Exportar Primeiro
             </Button>
-            <AlertDialogAction
+            <Button
+              variant="destructive"
               onClick={handleConfirmDelete}
+              disabled={deleteConfirmText !== "EXCLUIR" || isDeletingEntity}
               className="bg-red-600 hover:bg-red-700"
             >
-              <Trash2 className="w-4 h-4 mr-2" />
+              {isDeletingEntity ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
               Confirmar Exclusão
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
