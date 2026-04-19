@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { resolveLoginToEmail } from "@/lib/authByLogin";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,35 +60,19 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const { data: funcionario, error: fetchError } = await supabase
-        .rpc("get_employee_email_by_login", { p_login: trimmedLogin })
-        .maybeSingle();
+      const lookup = await resolveLoginToEmail(trimmedLogin);
 
-      if (fetchError) {
-        setFormError("Não foi possível verificar o login. Tente novamente.");
+      if (lookup.ok === false) {
+        if (lookup.reason === "lookup_error") {
+          setFormError(lookup.message);
+        } else {
+          setLoginError(lookup.message);
+        }
         setIsLoading(false);
         return;
       }
 
-      if (!funcionario) {
-        setLoginError("Login não encontrado");
-        setIsLoading(false);
-        return;
-      }
-
-      if (!funcionario.ativo) {
-        setLoginError("Funcionário inativo. Contate o administrador.");
-        setIsLoading(false);
-        return;
-      }
-
-      if (!funcionario.email) {
-        setLoginError("Funcionário sem email cadastrado. Contate o administrador.");
-        setIsLoading(false);
-        return;
-      }
-
-      const { error } = await signIn(funcionario.email, password);
+      const { error } = await signIn(lookup.email, password);
       if (error) {
         setPasswordError("Senha incorreta");
         setIsLoading(false);
@@ -96,7 +80,8 @@ const Login = () => {
       }
 
       navigate(from, { replace: true });
-    } catch {
+    } catch (err) {
+      console.error("[Login] erro inesperado:", err);
       setFormError("Erro inesperado ao fazer login. Tente novamente.");
     }
 
