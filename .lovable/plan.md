@@ -2,43 +2,45 @@
 
 ## Diagnóstico
 
-O erro de "permissão do administrador" **não é uma permissão real** — é uma mensagem placeholder hardcoded na função `handleConfirmDelete` (linhas 275-293 de `src/components/configuracoes/ConfiguracoesDados.tsx`).
+O componente global `Input` (`src/components/ui/input.tsx`) força **TODOS** os campos de texto a:
+1. Converter o valor para maiúsculas no `onChange` (linha 18)
+2. Aplicar a classe CSS `uppercase` (linha 28)
 
-Quando o usuário clica em excluir uma entidade individual (ex: só Clientes, só Produtos), o código atual apenas mostra o toast `"A exclusão de X requer confirmação adicional do administrador do sistema."` e **nunca chama nenhuma função de exclusão real**. A função `deleteEntityData` existe no hook mas não está conectada.
+Isso afeta o sistema inteiro. No Login, mesmo passando `skipUppercase`, qualquer outro campo no app continua forçando caixa alta — o que é uma "pegadinha" para senhas e logins modernos.
 
-Já a exclusão geral ("ZERAR TUDO") funciona corretamente, exigindo a palavra-chave.
+Além disso, a tela atual:
+- Não dá feedback visual claro de erro inline (só toast)
+- Não tem indicador de Caps Lock ativo (o usuário digitou senha em maiúsculas sem perceber)
+- Não tem validação visual em tempo real
 
-## Plano de Correção
+## Plano de Reescrita
 
-Aplicar o mesmo padrão de confirmação por palavra-chave para exclusão individual de entidades.
+### 1. Reescrever `src/pages/Login.tsx` com padrão moderno
+- Layout limpo, centrado, com **detecção de Caps Lock** (alerta visual quando ativo) — resolve o caso da senha digitada em maiúsculas sem querer
+- Campo Login usando `<input>` HTML nativo (não o `Input` shadcn), evitando qualquer transformação. Aceita letras maiúsculas, minúsculas, números e caracteres especiais **exatamente como digitados**
+- Campo Senha igual, com toggle de visibilidade (Eye/EyeOff)
+- Mensagens de erro inline (abaixo dos campos), em vermelho, além do toast
+- Botão "Entrar" com loading state
+- Autocomplete adequado (`username` e `current-password`) para gerenciadores de senha
+- Visual elegante mantendo a identidade Secullum (header azul, card branco)
 
-### Alteração em `src/components/configuracoes/ConfiguracoesDados.tsx`
+### 2. Lógica de autenticação (sem mudanças funcionais grandes)
+- Mantém busca case-insensitive por `login` (`.ilike`) na tabela `funcionarios`
+- Trim no login (sem alterar caixa)
+- Senha enviada **exatamente** como digitada
+- Erros tratados granularmente:
+  - Login não encontrado → mensagem inline
+  - Funcionário inativo → mensagem inline
+  - Credenciais inválidas → mensagem inline
+  - Erro de rede → toast
 
-**1. Importar `deleteEntityData`** do hook `useDataManagement`.
-
-**2. Adicionar estado para confirmação:**
-```ts
-const [deleteConfirmText, setDeleteConfirmText] = useState("");
-const [isDeletingEntity, setIsDeletingEntity] = useState(false);
-```
-
-**3. Reescrever `handleConfirmDelete`** para realmente excluir:
-- Validar que o usuário digitou `EXCLUIR` (palavra-chave)
-- Chamar `deleteEntityData(deleteEntity.table)`
-- Mostrar toast de sucesso com a quantidade removida
-- Tratar erros reais (FK, RLS) exibindo mensagem clara
-- Atualizar a listagem com `refetch()`
-
-**4. Atualizar o `AlertDialog` de exclusão individual** para incluir:
-- Aviso claro do que será apagado (nome da entidade + contagem)
-- Campo `Input` exigindo digitar `EXCLUIR` para liberar o botão
-- Botão "Excluir" desabilitado até a palavra-chave correta + estado de loading
-- Limpar `deleteConfirmText` ao fechar o modal
+### 3. NÃO mexer no `Input` global
+- Outras telas dependem do comportamento "uppercase". Mudar isso quebraria cadastros, formulários, etc.
+- Solução: o Login usa `<input>` nativo estilizado com Tailwind, sem passar pelo wrapper `Input` que aplica uppercase
 
 ### Resultado
-
-- Exclusão individual de entidades passa a funcionar de fato
-- Mantém o padrão de segurança do sistema (palavra-chave obrigatória, igual ao "ZERAR TUDO")
-- Mensagem enganosa de "requer permissão do administrador" é removida
-- Erros reais (ex: violação de chave estrangeira) são exibidos ao usuário
+- Login aceita `ADMIN`, `admin`, `Admin` — todos funcionam (banco usa `.ilike`)
+- Senha aceita exatamente `Fag886633@#$` (sem alterar Fag→FAG)
+- Aviso de Caps Lock evita o erro mais comum (senha em maiúsculas por engano)
+- Visual moderno, com feedback inline e suporte a gerenciadores de senha
 
