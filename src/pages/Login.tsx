@@ -61,9 +61,7 @@ const Login = () => {
 
     try {
       const { data: funcionario, error: fetchError } = await supabase
-        .from("funcionarios")
-        .select("email, ativo")
-        .ilike("login", trimmedLogin)
+        .rpc("get_employee_email_by_login", { p_login: trimmedLogin })
         .maybeSingle();
 
       if (fetchError) {
