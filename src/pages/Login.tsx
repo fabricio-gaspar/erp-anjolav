@@ -62,7 +62,7 @@ const Login = () => {
     try {
       const lookup = await resolveLoginToEmail(trimmedLogin);
 
-      if (!lookup.ok) {
+      if (lookup.ok === false) {
         if (lookup.reason === "lookup_error") {
           setFormError(lookup.message);
         } else {
