@@ -2620,6 +2620,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_employee_email_by_login: {
+        Args: { p_login: string }
+        Returns: {
+          ativo: boolean
+          email: string
+        }[]
+      }
       get_funcionario_for_user: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
