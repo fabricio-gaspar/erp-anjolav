@@ -28,11 +28,11 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // Buscar email do funcionário pelo login
+      // Buscar email do funcionário pelo login (case-insensitive)
       const { data: funcionario, error: fetchError } = await supabase
         .from("funcionarios")
         .select("email")
-        .eq("login", login.toUpperCase())
+        .ilike("login", login.trim())
         .eq("ativo", true)
         .maybeSingle();
 
@@ -98,6 +98,7 @@ const Login = () => {
                   onChange={(e) => setLogin(e.target.value)}
                   required
                   disabled={isLoading}
+                  skipUppercase
                 />
               </div>
 
