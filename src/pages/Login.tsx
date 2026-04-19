@@ -220,7 +220,7 @@ const Login = () => {
                   </p>
                 )}
                 {capsLock && (
-                  <p className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-1">
+                  <p className="text-xs text-warning flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />
                     Caps Lock está ativado
                   </p>
