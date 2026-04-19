@@ -1,46 +1,56 @@
 
+Diagnóstico do problema:
+- O erro que o usuário está vendo no navegador é “Login não encontrado”.
+- O código atual de `src/pages/Login.tsx` já usa `rpc("get_employee_email_by_login")`, que é o fluxo correto para contornar o RLS da tabela `funcionarios`.
+- Porém, o replay e os requests do preview mostram outra coisa: o navegador ainda está fazendo `GET /rest/v1/funcionarios?select=email,ativo&login=ilike.wfdigital`, que é a lógica antiga e retorna vazio por causa do RLS.
+- Os logs de autenticação do backend mostram que `wfdigital` e `ADMIN` conseguem autenticar no backend com sucesso. Ou seja: o principal problema não parece ser a senha nem o banco de autenticação, e sim que o frontend em uso está com a lógica antiga / inconsistente.
 
-## Diagnóstico
+O que vou corrigir:
+1. Verificar e reparar o vínculo do usuário no banco
+- Conferir no banco o registro de `wfdigital` em `funcionarios`:
+  - `login`
+  - `email`
+  - `ativo`
+  - `user_id`
+  - `cargo`
+- Conferir se o `user_id` bate com o usuário de autenticação criado para `wfdigital`.
+- Validar também o `ADMIN` para garantir que os dois mestres estão consistentes.
+- Se houver divergência, corrigir o registro e o vínculo.
 
-O componente global `Input` (`src/components/ui/input.tsx`) força **TODOS** os campos de texto a:
-1. Converter o valor para maiúsculas no `onChange` (linha 18)
-2. Aplicar a classe CSS `uppercase` (linha 28)
+2. Unificar o fluxo de login
+- Garantir que o login use só um caminho:
+  - resolver login -> email pela função `get_employee_email_by_login`
+  - autenticar via `signInWithPassword`
+- Remover qualquer caminho legado que ainda consulte `funcionarios` diretamente por REST.
+- Se existir código duplicado em outros pontos, centralizar a resolução do login para evitar regressão.
 
-Isso afeta o sistema inteiro. No Login, mesmo passando `skipUppercase`, qualquer outro campo no app continua forçando caixa alta — o que é uma "pegadinha" para senhas e logins modernos.
+3. Forçar consistência entre código e preview
+- Aplicar uma mudança explícita no fluxo de login para disparar novo build e garantir que o preview carregue a versão correta.
+- Confirmar que o navegador passa a chamar a RPC e não mais `rest/v1/funcionarios?...login=ilike...`.
 
-Além disso, a tela atual:
-- Não dá feedback visual claro de erro inline (só toast)
-- Não tem indicador de Caps Lock ativo (o usuário digitou senha em maiúsculas sem perceber)
-- Não tem validação visual em tempo real
+4. Endurecer o pós-login
+- Depois do `signIn`, validar se o usuário autenticado possui um funcionário vinculado.
+- Se não possuir, mostrar erro claro em vez de deixar o sistema em estado ambíguo.
+- Isso evita situações em que a autenticação funciona no backend, mas a aplicação fica sem contexto do colaborador.
 
-## Plano de Reescrita
+5. Validar ponta a ponta
+- Testar login com:
+  - `wfdigital / Fag886633@#$`
+  - `ADMIN / Fag886633@#$`
+- Confirmar:
+  - lookup do login funcionando
+  - autenticação funcionando
+  - redirecionamento para `/`
+  - carregamento do `funcionario`
+  - ausência do erro “Login não encontrado”
 
-### 1. Reescrever `src/pages/Login.tsx` com padrão moderno
-- Layout limpo, centrado, com **detecção de Caps Lock** (alerta visual quando ativo) — resolve o caso da senha digitada em maiúsculas sem querer
-- Campo Login usando `<input>` HTML nativo (não o `Input` shadcn), evitando qualquer transformação. Aceita letras maiúsculas, minúsculas, números e caracteres especiais **exatamente como digitados**
-- Campo Senha igual, com toggle de visibilidade (Eye/EyeOff)
-- Mensagens de erro inline (abaixo dos campos), em vermelho, além do toast
-- Botão "Entrar" com loading state
-- Autocomplete adequado (`username` e `current-password`) para gerenciadores de senha
-- Visual elegante mantendo a identidade Secullum (header azul, card branco)
+Arquivos envolvidos:
+- `src/pages/Login.tsx`
+- `src/contexts/AuthContext.tsx`
+- possivelmente uma camada utilitária para centralizar autenticação por login
+- banco: revisão dos dados em `funcionarios` e do vínculo com autenticação
 
-### 2. Lógica de autenticação (sem mudanças funcionais grandes)
-- Mantém busca case-insensitive por `login` (`.ilike`) na tabela `funcionarios`
-- Trim no login (sem alterar caixa)
-- Senha enviada **exatamente** como digitada
-- Erros tratados granularmente:
-  - Login não encontrado → mensagem inline
-  - Funcionário inativo → mensagem inline
-  - Credenciais inválidas → mensagem inline
-  - Erro de rede → toast
-
-### 3. NÃO mexer no `Input` global
-- Outras telas dependem do comportamento "uppercase". Mudar isso quebraria cadastros, formulários, etc.
-- Solução: o Login usa `<input>` nativo estilizado com Tailwind, sem passar pelo wrapper `Input` que aplica uppercase
-
-### Resultado
-- Login aceita `ADMIN`, `admin`, `Admin` — todos funcionam (banco usa `.ilike`)
-- Senha aceita exatamente `Fag886633@#$` (sem alterar Fag→FAG)
-- Aviso de Caps Lock evita o erro mais comum (senha em maiúsculas por engano)
-- Visual moderno, com feedback inline e suporte a gerenciadores de senha
-
+Detalhe técnico importante:
+- Não encontrei evidência de defeito estrutural no banco de autenticação.
+- A evidência mais forte aponta para frontend antigo/legado ainda executando a consulta bloqueada por RLS.
+- Mesmo assim, vou validar e corrigir também os registros do banco para encerrar o problema de vez.
