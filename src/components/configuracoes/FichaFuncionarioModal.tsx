@@ -39,7 +39,11 @@ interface Props {
   onOpenChange: (o: boolean) => void;
 }
 
-const TIPOS_CONTRATO = ["CLT", "PJ", "Estágio", "Temporário", "Autônomo"];
+const TIPOS_CONTRATO = ["CLT", "PJ", "Estágio", "Temporário", "Autônomo", "PRO-LABORE"];
+const EMPREGADORES = [
+  { cnpj: "23.227.029/0001-06", nome: "LAVANDERIA SAO ROQUE LTDA" },
+  { cnpj: "08.350.030/0001-97", nome: "ANJOLAV" },
+];
 const REGIMES = ["mensalista", "horista", "comissionado"];
 const ESTADO_CIVIL = ["Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)", "União Estável"];
 const ESCOLARIDADE = [
