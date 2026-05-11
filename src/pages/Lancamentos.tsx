@@ -2,11 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, Package, Receipt } from "lucide-react";
+import { FileText, Package, Receipt, History } from "lucide-react";
 import { useLancamentosPendentes } from "@/hooks/useLancamentos";
 import { NovoLancamentoTab } from "@/components/lancamentos/NovoLancamentoTab";
 import { PendentesTab } from "@/components/lancamentos/PendentesTab";
 import { FaturasTab } from "@/components/lancamentos/FaturasTab";
+import { HistoricoROLsTab } from "@/components/lancamentos/HistoricoROLsTab";
 
 const Lancamentos = () => {
   const [searchParams, setSearchParams] = useSearchParams();
