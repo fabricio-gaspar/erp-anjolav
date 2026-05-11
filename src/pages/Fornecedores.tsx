@@ -404,66 +404,6 @@ export default function Fornecedores() {
               </div>
             </div>
 
-            <Separator />
-
-            <div>
-              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-                <CalendarClock className="w-4 h-4" />
-                Pagamento Recorrente
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <Label>Valor</Label>
-                  <Input
-                    skipUppercase
-                    value={
-                      form.valor_recorrente != null
-                        ? typeof form.valor_recorrente === "number"
-                          ? formatNumberToCurrency(form.valor_recorrente)
-                          : String(form.valor_recorrente)
-                        : ""
-                    }
-                    onChange={(e) => {
-                      const v = formatCurrencyInput(e.target.value);
-                      setForm({ ...form, valor_recorrente: v as any });
-                    }}
-                    placeholder="0,00"
-                  />
-                </div>
-                <div>
-                  <Label>Dia Vencimento</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={form.dia_vencimento ?? ""}
-                    onChange={(e) => setForm({ ...form, dia_vencimento: e.target.value ? parseInt(e.target.value) : null })}
-                    placeholder="Ex: 10"
-                  />
-                </div>
-                <div>
-                  <Label>Frequência</Label>
-                  <Select value={form.frequencia_pagamento || "mensal"} onValueChange={(v) => setForm({ ...form, frequencia_pagamento: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(FREQUENCIAS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Configure para gerar contas a pagar automaticamente e receber alertas no Dashboard.
-              </p>
-            </div>
-
-            <Separator />
-
-            <div>
-              <Label>Observações</Label>
-              <Textarea value={form.observacoes || ""} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} rows={2} />
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalAberto(false)}>Cancelar</Button>
