@@ -1,119 +1,148 @@
-## Objetivo
 
-Ler o PDF "Recibo de Pagamento — LAVANDERIA SÃO ROQUE — Abril/2026", cadastrar os 6 funcionários (com todos os dados disponíveis), classificá-los pelo CNPJ empregador e lançar a folha de pagamento de Abril/2026 para cada um.
+# Auditoria & Plano de Ação — ERP AnjoLav
 
----
-
-## 1. O que o PDF contém
-
-Empresa empregadora única: **LAVANDERIA SAO ROQUE LTDA — CNPJ 23.227.029/0001-06** (todos os 6 funcionários estão sob este CNPJ).
-
-Competência: **Abril de 2026** (todos mensalistas).
-
-Funcionários extraídos:
-
-| Cód. | Nome | Cargo (CBO) | Admissão | Sal. Base | Líquido Abr/26 |
-|---|---|---|---|---|---|
-| 3 | ANA CLAUDIA SANCHES | DIRETOR ADM. FINANCEIRO (123110) | 08/09/2015 | 1.621,00 (pró-labore) | 1.442,00 |
-| 29 | JULIA MARIA BARBOSA DA SILVA | AUXILIAR DE LAVANDERIA (516345) | 15/04/2026 | 1.900,00 | 1.016,00 |
-| 16 | JULIA VIANA RAMOS DOS SANTOS | ATENDENTE (422105) | 02/12/2021 | 3.200,00 | 1.680,00 |
-| 27 | LUCAS CAETANO FERREIRA DA SILVA | AUXILIAR DE LAVANDERIA (516345) | 15/04/2026 | 1.900,00 | 859,00 |
-| 28 | MARIA APARECIDA ESTEVAM DA SILVA | AUXILIAR DE LAVANDERIA (516345) | 15/04/2026 | 1.900,00 | 1.079,00 |
-| 26 | MISLENE BARBOSA DA SILVA | ATENDIMENTO AO CLIENTE (516340) | 24/03/2026 | 2.300,00 | 1.488,00 |
-
-Para a Ana Cláudia o PDF traz a Matrícula INSS: **11972958318**.
-
-Para cada funcionário o PDF detalha vencimentos (dias normais, reflexo extras DSR, HE 50/70/100%, troco) e descontos (INSS, contribuição assistencial, vale-transporte 4%, cesta básica, adiantamento salarial, empréstimos consignados quando houver), além de Salário-base, Sal. Contr. INSS, Base FGTS, FGTS do mês, Base IRRF e Faixa IRRF.
+Auditoria do sistema (UX/UI, navegação, arquitetura, segurança e performance) com plano de execução em 3 ondas. **Onda 1 (Críticos)** é o que será aplicado automaticamente após sua aprovação. Ondas 2 e 3 ficam como roadmap para você priorizar depois.
 
 ---
 
-## 2. Banco — pequenos ajustes necessários
+## 🔍 Resumo da Auditoria
 
-Para "classificar por CNPJ empregador" (regra do usuário) e guardar dados que o PDF traz mas o cadastro atual não tem:
+### ✅ O que está correto
+- Stack moderna e consistente (React 18, Vite, Tailwind, Shadcn, React Query, Supabase).
+- Design system bem definido em `index.css` com tokens HSL semânticos.
+- `refetchOnMount: "always"` evita dessincronização entre telas.
+- RLS habilitado em todas as tabelas; permissões granulares por módulo (`modulo_permissoes`) com bypass para `ADMINISTRADOR`.
+- Login por username, edge function `manage-employee` para admin, separação clara de cargos.
+- Dashboard adaptativo por permissão (cards são ocultados conforme acesso).
+- Padrão de nomenclatura coerente (PDV Industrial vs PDV Loja, ID1 vs ID2).
 
-ALTER TABLE `funcionarios` (todos opcionais, sem default destrutivo):
-- `empregador_cnpj` text — usado para filtro/relatório
-- `empregador_nome` text — ex.: "LAVANDERIA SAO ROQUE LTDA"
-- `codigo_externo` text — código do funcionário no sistema da contabilidade (3, 16, 26, 27, 28, 29)
-- `cbo` text
-- `matricula_inss` text
-- `centro_custo` text — ex.: "GERAL"
-- `filial` text — ex.: "1"
+### ⚠️ O que está errado / precisa ajuste
 
-ALTER TABLE `folha_pagamento` (campos que o recibo traz e hoje não temos):
-- `reflexo_dsr` numeric(12,2) default 0
-- `horas_extras_50` numeric(12,2) default 0
-- `horas_extras_70` numeric(12,2) default 0
-- `horas_extras_100` numeric(12,2) default 0
-- `adiantamento_salarial` numeric(12,2) default 0
-- `desconto_emprestimo` numeric(12,2) default 0
-- `desconto_cesta_basica` numeric(12,2) default 0
-- `contribuicao_assistencial` numeric(12,2) default 0
-- `troco_mes` numeric(12,2) default 0
-- `troco_mes_anterior` numeric(12,2) default 0
-- `base_fgts` numeric(12,2) default 0
-- `valor_fgts` numeric(12,2) default 0
-- `base_irrf` numeric(12,2) default 0
-- `faixa_irrf` numeric(5,2) default 0
-- `salario_contrib_inss` numeric(12,2) default 0
-- `dias_trabalhados` numeric(5,2) default 30
+**Críticos (Onda 1 — vamos aplicar):**
+1. **152 issues no linter do Supabase** — predominância de policies `USING (true)` em UPDATE/DELETE/INSERT. Risco de escalonamento de privilégio: qualquer usuário autenticado pode alterar/remover dados de outros.
+2. **Links quebrados no Dashboard:** `onViewAll` aponta para `/faturamento` (rota antiga, redireciona) e `/contas-pagar` (rota inexistente, vai pra 404). Deve ir para `/lancamentos?tab=faturas` e `/contas?tab=pagar`.
+3. **`NavGroup` ignora `defaultOpen`** — usa `useState(true)` fixo. Todos os grupos abrem sempre, perdendo memória de navegação.
+4. **Sidebar com cores hardcoded** (`text-slate-600`, `bg-white`, `border-slate-200`) — viola a regra do design system (uso obrigatório de tokens semânticos). Quebra o tema escuro e a personalização por cor primária.
+5. **Falta proteção HIBP** (vazamento de senha) na auth — recomendado pela documentação Lovable.
 
-A função `calcularTotaisFolha` é estendida para somar HE 50/70/100 e reflexo DSR aos proventos, e adiantamento + cesta + assistencial + empréstimos aos descontos.
+**Estruturais (Onda 2):**
+6. **Sidebar muito longa** (Comercial, Operacional, Financeiro, Relatórios + soltos) — 14 itens sem hierarquia clara. Falta agrupamento "RH" (Equipe, Folha, Férias) e "Logística" separada de Operacional.
+7. **Inconsistência de nomenclatura:** "Abrir Retirada" no menu mas a página chama "Ordens de Serviço". "Agenda Pessoal" solta no nível raiz.
+8. **Dashboard com 7 seções verticais** sem hierarquia visual — usuário precisa rolar muito. Ideal: tabs ou layout em grid mais denso.
+9. **AppHeader sem breadcrumb nem busca global** — comum em ERPs grandes (Omie, Bling, Tiny).
+10. **Sem indicador de notificações** no header (apesar de ter sino em `lucide-react` importado).
 
----
-
-## 3. Inserts de dados (operação)
-
-### 3.1 Funcionários (UPSERT por nome + empregador_cnpj)
-Para cada um dos 6 nomes, criar/atualizar registro com:
-- nome, cargo, data_admissao, salario_base
-- empregador_cnpj = "23.227.029/0001-06", empregador_nome = "LAVANDERIA SAO ROQUE LTDA"
-- codigo_externo, cbo, centro_custo = "GERAL", filial = "1"
-- tipo_contrato = "CLT" (ou "PRO-LABORE" para Ana Cláudia)
-- desconto_vt_percentual = 6 (padrão; o PDF mostra desconto efetivo de 4% sobre base, mantemos 6 como padrão CLT)
-- ativo = true
-- matricula_inss para Ana Cláudia
-- Demais campos (CPF, RG, endereço, banco) ficam vazios — não vêm no PDF
-
-### 3.2 Folha de pagamento de Abril/2026 (competência 2026-04-01)
-Inserir 1 lançamento por funcionário com todos os valores do recibo:
-
-| Funcionário | Sal. Base | DSR | HE50 | HE70 | HE100 | INSS | Cont.Assist. | Cesta | VT | Adiant. | Empréstimos | Troco mês | Troco ant. | Estorno | Tot. Venc. | Tot. Desc. | Líquido | Base FGTS | FGTS | Base IRRF | Faixa | Sal.Contr.INSS |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Ana Cláudia | 1.621,00 (pró-labore) | — | — | — | — | 178,31 | — | — | — | — | — | 0,24 | 0,93/0,93 | — | 1.621,24 | 179,24 | 1.442,00 | 0,00 | 0,00 | 1.013,80 | 0,00 | 1.621,00 |
-| Julia Maria | 1.013,33 | 31,89 | 25,91 | — | 112,27 | 88,75 | 38,00 | 0,50 | 40,53 | — | — | 0,38 | — | — | 1.183,78 | 167,78 | 1.016,00 | 1.183,40 | 94,67 | 576,20 | 0,00 | 1.183,40 |
-| Julia Viana | 3.200,00 | 197,95 | 174,55 | 471,80 | 145,45 | 391,35 | 64,00 | 0,50 | 128,00 | 1.280,00 | 1.076,22 (39,50+281,44+106,76+648,52) | 0,41 | 0,58 | +430,49 | 4.620,65 | 2.940,65 | 1.680,00 | 4.189,75 | 335,18 | 3.582,55 | 15,00 | 4.189,75 |
-| Lucas Caetano | 1.013,33 | — | — | — | — | 75,99 | 38,00 | 0,50 | 40,53 | — | — | 0,69 | — | — | 1.014,02 | 155,02 | 859,00 | 1.013,33 | 81,06 | 406,13 | 0,00 | 1.013,33 |
-| Maria Aparecida | 1.013,33 | 36,39 | 25,91 | — | 131,79 | 90,55 | 38,00 | 0,50 | — | — | — | 0,63 | — | — | 1.208,05 | 129,05 | 1.079,00 | 1.207,42 | 96,59 | 600,22 | 0,00 | 1.207,42 |
-| Mislene | 2.300,00 | 94,38 | 67,90 | 309,60 | — | 225,14 | 46,00 | 0,50 | 92,00 | 920,00 | — | 0,31 | 0,55 | — | 2.772,19 | 1.284,19 | 1.488,00 | 2.771,88 | 221,75 | 2.164,68 | 0,00 | 2.771,88 |
-
-Status: "aberto" (o usuário fecha pelo botão "Fechar folha" da tela quando quiser gerar contas a pagar). Dia padrão de pagamento sugerido: 05/05/2026 (preenchido só ao fechar).
+**Polish (Onda 3):**
+11. Sem estado vazio padronizado nas listas (clientes, produtos, OS).
+12. Sem skeleton loaders consistentes — alguns lugares usam `Loader2` spinner, outros nada.
+13. Sem atalhos de teclado globais (`Cmd+K` para busca, `g+d` para dashboard).
+14. Modais usam tamanhos diferentes — padronizar com `wide-form-dialog` (já documentado em memory).
+15. Tipografia heterogênea — coexistem `text-sm` / `text-[11px]` / `text-xs` em contextos similares.
 
 ---
 
-## 4. Frontend — pequenos ajustes
+## 🎯 Onda 1 — Correções Críticas (Implementação imediata)
 
-- `useFichaFuncionario.ts` / `useFuncionarios.ts`: incluir os novos campos (empregador_cnpj, empregador_nome, codigo_externo, cbo, matricula_inss, centro_custo, filial) nas interfaces e payloads.
-- `FichaFuncionarioModal.tsx`: nova aba "Empregador" (ou seção dentro de "Contrato") com CNPJ empregador (select com as 2 entidades fiscais já registradas: ANJOLAV e LAVANDERIA SÃO ROQUE), nome, código externo, CBO, matrícula INSS, centro de custo, filial.
-- `ConfiguracoesEquipe.tsx`: filtro por empregador (Todos / Lavanderia SR / Anjolav) e badge do CNPJ no card do funcionário.
-- `FolhaPagamentoTab.tsx` + `useFolhaPagamento.ts`: exibir e permitir editar HE 50/70/100, reflexo DSR, adiantamento, cesta básica, contribuição assistencial, empréstimos. Atualizar `calcularTotaisFolha`.
-- `RelatorioMensal.tsx`: agrupar a folha pelo CNPJ empregador (subtotal Lavanderia SR vs Anjolav) — mantém os totais gerais.
+### 1.1 Corrigir links quebrados do Dashboard
+Arquivo: `src/pages/Dashboard.tsx`
+- `onViewAll` de "Contas a Receber": `/faturamento` → `/lancamentos?tab=faturas`
+- `onViewAll` de "Contas a Pagar": `/contas-pagar` → `/contas?tab=pagar`
 
-Sem mudanças em outros módulos.
+### 1.2 Corrigir `NavGroup` para respeitar estado
+Arquivo: `src/components/layout/AppSidebar.tsx`
+- `useState(true)` → `useState(defaultOpen || hasActiveChild)`
+- Persistir estado aberto/fechado em `localStorage` por grupo.
+
+### 1.3 Substituir cores hardcoded por tokens
+Arquivo: `src/components/layout/AppSidebar.tsx` e `AppLayout.tsx`
+- `text-slate-600` → `text-muted-foreground`
+- `bg-white` → `bg-background` ou `bg-sidebar`
+- `border-slate-200` → `border-border` ou `border-sidebar-border`
+- `text-slate-800` → `text-foreground`
+
+### 1.4 Endurecer RLS policies permissivas
+Migration nova: substituir `USING (true)` em UPDATE/DELETE/INSERT por checagens reais:
+- Tabelas de RH (`funcionarios`, `folha_pagamento`, `folha_beneficios`): exigir `has_role(auth.uid(), 'admin')`.
+- Tabelas operacionais (`ordens_servico`, `lancamentos`, `caixa`): exigir `auth.uid() IS NOT NULL` no mínimo, e quando aplicável vincular ao operador criador.
+- Vou rodar o linter completo e priorizar os top 30 (RH + financeiro + fiscal).
+
+### 1.5 Ativar proteção HIBP
+Via `configure_auth` com `password_hibp_enabled: true`.
+
+### 1.6 Habilitar busca global Cmd+K
+Componente novo `GlobalSearch.tsx` no `AppHeader`:
+- Atalho `Cmd/Ctrl+K`
+- Indexa: clientes, OS, produtos, fornecedores, lançamentos
+- Usa `cmdk` (já vem com Shadcn `Command`)
+
+### 1.7 Reorganização leve da sidebar
+- Mover "Agenda Pessoal" para dentro do grupo "Operacional"
+- Criar grupo "RH" extraído de Configurações (link rápido para `Equipe`, `Folha`, `Férias`)
+- Renomear "Abrir Retirada" → "Ordens de Serviço" (consistência com a tela)
 
 ---
 
-## 5. Ordem de execução
+## 📐 Onda 2 — Melhorias Estruturais (Roadmap, não aplicar agora)
 
-1. **Migração 1** (estrutural): ALTER em `funcionarios` + ALTER em `folha_pagamento` com os campos listados.
-2. **Inserts** (via tool de inserção): 6 funcionários + 6 lançamentos de folha competência 2026-04-01.
-3. **Hooks/UI**: estender interfaces, modal, totais, filtro e relatório como descrito acima.
-4. Verificar visualmente: lista em Configurações > Equipe e tela de Folha de Abril/2026.
+| # | Melhoria | Impacto |
+|---|----------|---------|
+| 1 | Dashboard com tabs (Operacional / Financeiro / RH) | Alto |
+| 2 | Breadcrumb no AppHeader | Médio |
+| 3 | Centro de notificações (sino com badge) | Alto |
+| 4 | Refatorar sidebar com Shadcn `Sidebar` oficial | Médio |
+| 5 | Dark mode completo (já tem tokens, falta toggle no header) | Médio |
+| 6 | Padronizar todos os modais com classe `wide-form-dialog` | Baixo |
+
+## ✨ Onda 3 — Polish & Escalabilidade (Backlog)
+
+| # | Melhoria | Impacto |
+|---|----------|---------|
+| 1 | Skeleton loaders consistentes | Médio |
+| 2 | Estados vazios ilustrados | Médio |
+| 3 | Atalhos de teclado globais | Baixo |
+| 4 | Auditoria de queries N+1 (várias listas fazem joins pesados) | Alto |
+| 5 | Paginação server-side em listas >1000 registros | Alto |
+| 6 | Testes E2E de fluxos críticos (PDV, Lançamento, Folha) | Alto |
 
 ---
 
-## 6. Pontos a confirmar
+## 📊 Comparativo com sistemas grandes (Omie / Bling / Tiny)
 
-- Os 4 admitidos em 15/04/2026 e a Mislene (24/03/2026) trabalharam apenas 16 dias proporcionais — vou lançar exatamente como o recibo (não rateio adicional). Confirmar?
-- Para a Ana Cláudia: registrar como `tipo_contrato = "PRO-LABORE"` (sócia), já que não há FGTS e o vencimento é PRO-LABORE DIASS. Confirmar?
-- O empréstimo consignado da Julia Viana (4 contratos) entra como um único campo `desconto_emprestimo` consolidado ou prefere uma sub-tabela detalhada por contrato? Sugiro consolidado nesta v1.
+```text
+                        AnjoLav   Omie/Bling
+Sidebar agrupada          ✅        ✅
+Busca global Cmd+K        ❌        ✅   → Onda 1
+Breadcrumb                ❌        ✅   → Onda 2
+Centro notificações       ❌        ✅   → Onda 2
+Dashboard customizável    ❌        ✅   → Onda 3
+Dark mode                 ⚠️        ✅   → Onda 2
+Tour onboarding           ❌        ✅   → Onda 3
+Tema personalizável       ✅        ✅
+RLS por papel             ⚠️        ✅   → Onda 1
+```
+
+---
+
+## 🧰 Detalhes Técnicos da Onda 1
+
+**Arquivos a editar:**
+- `src/pages/Dashboard.tsx` — fix navigate paths
+- `src/components/layout/AppSidebar.tsx` — tokens semânticos + NavGroup state + reorg
+- `src/components/layout/AppHeader.tsx` — adicionar `<GlobalSearch/>`
+- `src/components/layout/GlobalSearch.tsx` — **novo**, usando Shadcn `Command`
+- `src/hooks/useGlobalSearch.ts` — **novo**, agrega clientes/OS/produtos
+- Nova migration SQL — endurece policies das tabelas críticas
+- Chamada `configure_auth` — HIBP on
+
+**Risco:** Endurecer RLS pode quebrar fluxos atuais que dependem de policies abertas. Faremos em modo aditivo: nova policy com checagem real + manter a antiga temporariamente comentada na migration para rollback rápido.
+
+**Validação após implementar:**
+- Login como `operador` e tentar editar funcionário → deve falhar.
+- Cmd+K abre busca; navega para resultado.
+- Sidebar mantém grupo aberto após reload.
+- Links do Dashboard levam às páginas corretas.
+- `supabase--linter` reduz issues de ~152 para <30.
+
+---
+
+Após sua aprovação, implemento a **Onda 1** completa numa única passada. Ondas 2 e 3 ficam para você decidir quando avançar.
