@@ -176,6 +176,16 @@ const RelatorioMensal = () => {
             {/* Despesas - Folha */}
             <Card className="p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2"><Users className="w-4 h-4 text-orange-600" />Folha de Funcionários — R$ {formatNumberToCurrency(data.despesasFolha)}</h3>
+              {data.folhaPorEmpregador && data.folhaPorEmpregador.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+                  {data.folhaPorEmpregador.map((e) => (
+                    <Card key={e.cnpj || e.nome} className="p-2 bg-muted/30">
+                      <div className="text-xs text-muted-foreground">{e.nome} {e.cnpj && `— ${e.cnpj}`}</div>
+                      <div className="text-sm font-bold">R$ {formatNumberToCurrency(e.total)} <span className="text-xs font-normal text-muted-foreground">({e.count} func.)</span></div>
+                    </Card>
+                  ))}
+                </div>
+              )}
               {data.folhaItens.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum lançamento de folha neste mês. Gere a folha em Configurações → Equipe → Folha de Pagamento.</p>
               ) : (
