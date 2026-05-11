@@ -202,8 +202,36 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
         )
         .reduce((s: number, c: any) => s + Number(c.valor), 0);
 
+      // Benefícios extras
+      const folhaMap = new Map((flr.data || []).map((x: any) => [x.id, x]));
+      const beneficiosExtrasItens = beneficiosExtras.map((b: any) => {
+        const fol = folhaMap.get(b.folha_id);
+        return {
+          id: b.id,
+          funcionario: fol?.funcionario?.nome || "—",
+          empregador: fol?.funcionario?.empregador_nome || "—",
+          nome: b.nome,
+          categoria: b.categoria || "Outros",
+          tipo: (b.tipo || "beneficio") as "beneficio" | "desconto",
+          valor: Number(b.valor || 0),
+        };
+      });
+      const despesasBeneficiosExtras = beneficiosExtrasItens.reduce(
+        (s, b) => s + (b.tipo === "beneficio" ? b.valor : 0),
+        0,
+      );
+      const catMap = new Map<string, { categoria: string; total: number; count: number }>();
+      beneficiosExtrasItens.forEach((b) => {
+        const sign = b.tipo === "beneficio" ? 1 : -1;
+        const cur = catMap.get(b.categoria) || { categoria: b.categoria, total: 0, count: 0 };
+        cur.total += sign * b.valor;
+        cur.count += 1;
+        catMap.set(b.categoria, cur);
+      });
+      const beneficiosExtrasPorCategoria = Array.from(catMap.values());
+
       const despesasTotais =
-        despesasFolha + despesasProdutos + despesasContasMensais + despesasImpostos + despesasOutras;
+        despesasFolha + despesasProdutos + despesasContasMensais + despesasImpostos + despesasOutras + despesasBeneficiosExtras;
 
       const lucro = receitasTotais - despesasTotais;
       const margem = receitasTotais > 0 ? (lucro / receitasTotais) * 100 : 0;
@@ -219,11 +247,14 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
         despesasContasMensais,
         despesasImpostos,
         despesasOutras,
+        despesasBeneficiosExtras,
         despesasTotais,
         lucro,
         margem,
         folhaItens,
         folhaPorEmpregador,
+        beneficiosExtrasItens,
+        beneficiosExtrasPorCategoria,
         contasItens: contas
           .filter((c: any) => !isCat(c.categoria, CAT_FOLHA))
           .map((c: any) => ({
