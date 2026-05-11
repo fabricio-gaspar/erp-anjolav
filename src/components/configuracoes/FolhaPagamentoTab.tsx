@@ -78,6 +78,21 @@ export function FolhaPagamentoTab() {
             <Label>Competência</Label>
             <Input type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
           </div>
+          {empregadores.length > 0 && (
+            <div>
+              <Label>Empregador (CNPJ)</Label>
+              <select
+                className="border rounded h-10 px-2 bg-background text-sm"
+                value={empregadorFiltro}
+                onChange={(e) => setEmpregadorFiltro(e.target.value)}
+              >
+                <option value="todos">Todos</option>
+                {empregadores.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <Button
             variant="outline"
             onClick={() => gerar.mutate(competencia)}
