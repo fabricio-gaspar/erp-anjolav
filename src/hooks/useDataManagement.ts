@@ -235,35 +235,49 @@ export async function deleteAllData(): Promise<{ deleted: number; errors: string
 
 // Ordem de inserção respeitando dependências de FK (inversa da exclusão)
 const insertionOrder = [
-  // Primeiro: tabelas principais (sem FK)
+  // Principais (sem FK)
   "clientes",
   "produtos",
   "funcionarios",
   "veiculos",
   "motoristas",
-  // Segundo: tabelas que dependem das principais
-  "contratos_aluguel",
-  "ordens_servico",
-  "agendamentos",
-  "faturas",
-  "lancamentos",
-  "contas_pagar",
-  "caixas",
-  "asaas_charges",
-  // Terceiro: tabelas dependentes (filhas)
+  "fornecedores",
+  "estoque_produtos",
+  // Dependem das principais
   "enderecos_clientes",
   "configuracoes_cliente",
   "configuracoes_pagamento_cliente",
   "precos_especiais",
   "modulo_permissoes",
-  "caixa_movimentacoes",
-  "asaas_webhook_events",
-  "lancamentos_fatura",
+  "contratos_aluguel",
   "itens_contrato_aluguel",
+  "agendamentos",
+  "eventos_agenda",
+  "ordens_servico",
   "itens_ordem_servico",
+  "lotes_producao",
+  "lotes_ordens",
+  "rotas_entrega",
+  "paradas_rota",
+  "lancamentos",
   "itens_lancamento",
+  "lancamentos_cliente",
+  "itens_lancamento_cliente",
+  "orcamentos",
+  "faturas",
+  "lancamentos_fatura",
+  "contas_pagar",
+  "folha_pagamento",
+  "folha_beneficios",
+  "caixas",
+  "caixa_movimentacoes",
+  "asaas_charges",
+  "asaas_webhook_events",
+  "movimentacoes_estoque",
   "historico_producao",
   "historico_envios",
+  "mensagens_log",
+  "notificacoes_enviadas",
 ];
 
 export async function importAllData(
