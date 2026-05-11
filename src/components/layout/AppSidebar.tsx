@@ -367,9 +367,10 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
           </NavGroup>
 
           <NavGroup title="Operacional" icon={Factory} compact={compact}>
-            <NavItem to="/ordens" icon={ClipboardList} label="Abrir Retirada" compact={compact} />
+            <NavItem to="/ordens" icon={ClipboardList} label="Ordens de Serviço" compact={compact} />
             <NavItem to="/producao" icon={Factory} label="Produção" compact={compact} />
             <NavItem to="/agenda" icon={Calendar} label="Agenda" compact={compact} />
+            <NavItem to="/agenda-eventos" icon={Calendar} label="Agenda Pessoal" compact={compact} />
           </NavGroup>
 
           <NavGroup title="Financeiro" icon={Wallet} compact={compact}>
@@ -380,8 +381,6 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
             <NavItem to="/contas" icon={Wallet} label="Contas" compact={compact} />
             <NavItem to="/estoque" icon={Package} label="Estoque" compact={compact} />
           </NavGroup>
-
-          <NavItem to="/agenda-eventos" icon={Calendar} label="Agenda Pessoal" compact={compact} />
 
           <NavGroup title="Relatórios" icon={PieChart} compact={compact}>
             <NavItem to="/relatorios/mensal" icon={BarChart3} label="Mensal (Lucro)" compact={compact} />

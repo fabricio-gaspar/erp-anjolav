@@ -1,4 +1,4 @@
-import { Bell, ChevronRight, Search, Menu } from "lucide-react";
+import { Bell, ChevronRight, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation, Link } from "react-router-dom";
 import {
@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { GlobalSearch } from "@/components/layout/GlobalSearch";
 
 interface AppHeaderProps {
   title?: string;
@@ -19,7 +20,7 @@ const routeNames: Record<string, string> = {
   "/": "Dashboard",
   "/clientes": "Clientes",
   "/produtos": "Produtos & Serviços",
-  "/ordens": "Abrir Retirada",
+  "/ordens": "Ordens de Serviço",
   "/producao": "Fluxo de Produção",
   "/agenda": "Agenda",
   "/financeiro": "Dashboard Financeiro",
@@ -109,13 +110,7 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-white/70 hover:text-white hover:bg-white/10">
-          <Search className="w-4 h-4" />
-          <span className="text-sm">Buscar...</span>
-          <kbd className="hidden lg:inline-flex h-5 items-center gap-1 rounded border border-white/20 bg-white/10 px-1.5 font-mono text-[10px] font-medium text-white/60">
-            ⌘K
-          </kbd>
-        </Button>
+        <GlobalSearch />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
