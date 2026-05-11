@@ -200,6 +200,7 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
         lucro,
         margem,
         folhaItens,
+        folhaPorEmpregador,
         contasItens: contas
           .filter((c: any) => !isCat(c.categoria, CAT_FOLHA))
           .map((c: any) => ({
