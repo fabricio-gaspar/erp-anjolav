@@ -395,7 +395,6 @@ export function PendentesTab() {
       ) : (
         <div className="space-y-3">
           {renderBloco("quinzenal")}
-          {renderBloco("mensal")}
           {renderBloco("outro")}
         </div>
       )}
