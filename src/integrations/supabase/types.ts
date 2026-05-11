@@ -1124,18 +1124,30 @@ export type Database = {
       }
       folha_pagamento: {
         Row: {
+          adiantamento_salarial: number | null
+          base_fgts: number | null
+          base_irrf: number | null
           comissoes: number
           competencia: string
           conta_pagar_id: string | null
+          contribuicao_assistencial: number | null
           created_at: string
           custo_total_empresa: number
           data_pagamento: string | null
+          desconto_cesta_basica: number | null
+          desconto_emprestimo: number | null
           desconto_inss: number
           desconto_irrf: number
           desconto_vt: number
+          dias_trabalhados: number | null
+          estorno_provisao: number | null
+          faixa_irrf: number | null
           funcionario_id: string
           gratificacao: number
           horas_extras: number
+          horas_extras_100: number | null
+          horas_extras_50: number | null
+          horas_extras_70: number | null
           id: string
           liquido: number
           observacoes: string | null
@@ -1143,28 +1155,45 @@ export type Database = {
           outros_descontos: number
           plano_odontologico: number
           plano_saude: number
+          reflexo_dsr: number | null
           salario_base: number
+          salario_contrib_inss: number | null
           status: string
           total_descontos: number
           total_proventos: number
+          troco_mes: number | null
+          troco_mes_anterior: number | null
           updated_at: string
           vale_alimentacao: number
           vale_refeicao: number
           vale_transporte: number
+          valor_fgts: number | null
         }
         Insert: {
+          adiantamento_salarial?: number | null
+          base_fgts?: number | null
+          base_irrf?: number | null
           comissoes?: number
           competencia: string
           conta_pagar_id?: string | null
+          contribuicao_assistencial?: number | null
           created_at?: string
           custo_total_empresa?: number
           data_pagamento?: string | null
+          desconto_cesta_basica?: number | null
+          desconto_emprestimo?: number | null
           desconto_inss?: number
           desconto_irrf?: number
           desconto_vt?: number
+          dias_trabalhados?: number | null
+          estorno_provisao?: number | null
+          faixa_irrf?: number | null
           funcionario_id: string
           gratificacao?: number
           horas_extras?: number
+          horas_extras_100?: number | null
+          horas_extras_50?: number | null
+          horas_extras_70?: number | null
           id?: string
           liquido?: number
           observacoes?: string | null
@@ -1172,28 +1201,45 @@ export type Database = {
           outros_descontos?: number
           plano_odontologico?: number
           plano_saude?: number
+          reflexo_dsr?: number | null
           salario_base?: number
+          salario_contrib_inss?: number | null
           status?: string
           total_descontos?: number
           total_proventos?: number
+          troco_mes?: number | null
+          troco_mes_anterior?: number | null
           updated_at?: string
           vale_alimentacao?: number
           vale_refeicao?: number
           vale_transporte?: number
+          valor_fgts?: number | null
         }
         Update: {
+          adiantamento_salarial?: number | null
+          base_fgts?: number | null
+          base_irrf?: number | null
           comissoes?: number
           competencia?: string
           conta_pagar_id?: string | null
+          contribuicao_assistencial?: number | null
           created_at?: string
           custo_total_empresa?: number
           data_pagamento?: string | null
+          desconto_cesta_basica?: number | null
+          desconto_emprestimo?: number | null
           desconto_inss?: number
           desconto_irrf?: number
           desconto_vt?: number
+          dias_trabalhados?: number | null
+          estorno_provisao?: number | null
+          faixa_irrf?: number | null
           funcionario_id?: string
           gratificacao?: number
           horas_extras?: number
+          horas_extras_100?: number | null
+          horas_extras_50?: number | null
+          horas_extras_70?: number | null
           id?: string
           liquido?: number
           observacoes?: string | null
@@ -1201,14 +1247,19 @@ export type Database = {
           outros_descontos?: number
           plano_odontologico?: number
           plano_saude?: number
+          reflexo_dsr?: number | null
           salario_base?: number
+          salario_contrib_inss?: number | null
           status?: string
           total_descontos?: number
           total_proventos?: number
+          troco_mes?: number | null
+          troco_mes_anterior?: number | null
           updated_at?: string
           vale_alimentacao?: number
           vale_refeicao?: number
           vale_transporte?: number
+          valor_fgts?: number | null
         }
         Relationships: [
           {
@@ -1287,9 +1338,12 @@ export type Database = {
           banco_tipo_conta: string | null
           carga_horaria: number | null
           cargo: string
+          cbo: string | null
+          centro_custo: string | null
           cnh_categoria: string | null
           cnh_numero: string | null
           cnh_validade: string | null
+          codigo_externo: string | null
           comissao_percentual: number | null
           contato_emergencia_nome: string | null
           contato_emergencia_parentesco: string | null
@@ -1307,14 +1361,18 @@ export type Database = {
           desconto_vt_percentual: number | null
           dias_trabalhados: string[] | null
           email: string | null
+          empregador_cnpj: string | null
+          empregador_nome: string | null
           endereco: Json | null
           escolaridade: string | null
           estado_civil: string | null
+          filial: string | null
           genero: string | null
           gratificacao: number | null
           id: string
           insalubridade_percentual: number | null
           login: string
+          matricula_inss: string | null
           nacionalidade: string | null
           naturalidade: string | null
           nome: string
@@ -1352,9 +1410,12 @@ export type Database = {
           banco_tipo_conta?: string | null
           carga_horaria?: number | null
           cargo: string
+          cbo?: string | null
+          centro_custo?: string | null
           cnh_categoria?: string | null
           cnh_numero?: string | null
           cnh_validade?: string | null
+          codigo_externo?: string | null
           comissao_percentual?: number | null
           contato_emergencia_nome?: string | null
           contato_emergencia_parentesco?: string | null
@@ -1372,14 +1433,18 @@ export type Database = {
           desconto_vt_percentual?: number | null
           dias_trabalhados?: string[] | null
           email?: string | null
+          empregador_cnpj?: string | null
+          empregador_nome?: string | null
           endereco?: Json | null
           escolaridade?: string | null
           estado_civil?: string | null
+          filial?: string | null
           genero?: string | null
           gratificacao?: number | null
           id?: string
           insalubridade_percentual?: number | null
           login: string
+          matricula_inss?: string | null
           nacionalidade?: string | null
           naturalidade?: string | null
           nome: string
@@ -1417,9 +1482,12 @@ export type Database = {
           banco_tipo_conta?: string | null
           carga_horaria?: number | null
           cargo?: string
+          cbo?: string | null
+          centro_custo?: string | null
           cnh_categoria?: string | null
           cnh_numero?: string | null
           cnh_validade?: string | null
+          codigo_externo?: string | null
           comissao_percentual?: number | null
           contato_emergencia_nome?: string | null
           contato_emergencia_parentesco?: string | null
@@ -1437,14 +1505,18 @@ export type Database = {
           desconto_vt_percentual?: number | null
           dias_trabalhados?: string[] | null
           email?: string | null
+          empregador_cnpj?: string | null
+          empregador_nome?: string | null
           endereco?: Json | null
           escolaridade?: string | null
           estado_civil?: string | null
+          filial?: string | null
           genero?: string | null
           gratificacao?: number | null
           id?: string
           insalubridade_percentual?: number | null
           login?: string
+          matricula_inss?: string | null
           nacionalidade?: string | null
           naturalidade?: string | null
           nome?: string
