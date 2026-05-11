@@ -40,9 +40,8 @@ type CicloKey = "quinzenal" | "mensal" | "outro";
 const cicloConfig: Record<CicloKey, { label: string; icon: React.ComponentType<{ className?: string }>; headerClass: string; iconClass: string }> = {
   quinzenal: { label: "Fechamento Quinzenal", icon: CalendarDays, headerClass: "bg-info/10 border-info/30", iconClass: "text-info" },
   mensal: { label: "Fechamento Mensal", icon: Calendar, headerClass: "bg-primary/10 border-primary/30", iconClass: "text-primary" },
-  outro: { label: "Sem Ciclo Definido / Avulso", headerClass: "bg-muted border-border", icon: CalendarClock, iconClass: "text-muted-foreground" },
+  outro: { label: "Avulso / Outros", headerClass: "bg-muted border-border", icon: CalendarClock, iconClass: "text-muted-foreground" },
 };
-void cicloConfig.mensal;
 
 const getPaymentStatus = (lancamento: LancamentoType) => {
   if (lancamento.status === "faturado" && lancamento.fatura_id) {
