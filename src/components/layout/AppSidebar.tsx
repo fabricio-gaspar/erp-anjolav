@@ -103,13 +103,28 @@ interface NavGroupProps {
 }
 
 const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compact = false }: NavGroupProps) => {
-  const [isOpen, setIsOpen] = useState(true);
   const { isCollapsed } = useSidebarContext();
   const location = useLocation();
-  
-  const hasActiveChild = Array.isArray(children) 
+
+  const hasActiveChild = Array.isArray(children)
     ? children.some((child: any) => child?.props?.to && location.pathname.startsWith(child.props.to))
     : false;
+
+  const storageKey = `sidebar-group:${title}`;
+  const [isOpen, setIsOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return defaultOpen;
+    const stored = window.localStorage.getItem(storageKey);
+    if (stored !== null) return stored === "1";
+    return defaultOpen || hasActiveChild;
+  });
+
+  const toggle = () => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      try { window.localStorage.setItem(storageKey, next ? "1" : "0"); } catch {}
+      return next;
+    });
+  };
 
   const visibleChildren = Array.isArray(children) 
     ? children.filter((child: any) => child !== null) 
@@ -125,7 +140,7 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compac
   return (
     <div className="mb-1">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggle}
         className={cn(
           "flex items-center gap-3 w-full rounded-lg font-medium transition-all duration-200",
           compact ? "px-2 py-1.5 mx-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 mx-2 text-sm",

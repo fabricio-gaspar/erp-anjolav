@@ -324,7 +324,7 @@ const Dashboard = () => {
                     value: Number(f.valor_total),
                     dueDate: f.data_vencimento ? format(new Date(f.data_vencimento), "dd/MM", { locale: ptBR }) : "-",
                   }))}
-                  onViewAll={() => navigate("/faturamento")}
+                  onViewAll={() => navigate("/lancamentos?tab=faturas")}
                 />
               )}
               {temContasPagar && (
@@ -341,7 +341,7 @@ const Dashboard = () => {
                     value: Number(c.valor),
                     dueDate: format(new Date(c.vencimento), "dd/MM", { locale: ptBR }),
                   }))}
-                  onViewAll={() => navigate("/contas-pagar")}
+                  onViewAll={() => navigate("/contas?tab=pagar")}
                 />
               )}
               {temFinanceiro && <BillingClosuresCard />}
