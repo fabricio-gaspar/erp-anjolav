@@ -18,6 +18,7 @@ export interface RelatorioMensalData {
   despesasContasMensais: number;
   despesasImpostos: number;
   despesasOutras: number;
+  despesasBeneficiosExtras: number;
   despesasTotais: number;
 
   // Resultado
@@ -37,6 +38,16 @@ export interface RelatorioMensalData {
     custoTotal: number;
   }>;
   folhaPorEmpregador: Array<{ cnpj: string; nome: string; total: number; count: number }>;
+  beneficiosExtrasItens: Array<{
+    id: string;
+    funcionario: string;
+    empregador: string;
+    nome: string;
+    categoria: string;
+    tipo: "beneficio" | "desconto";
+    valor: number;
+  }>;
+  beneficiosExtrasPorCategoria: Array<{ categoria: string; total: number; count: number }>;
   contasItens: Array<{
     id: string;
     descricao: string;
@@ -106,6 +117,18 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
       if (vr.error) throw vr.error;
       if (flr.error) throw flr.error;
       if (cr.error) throw cr.error;
+
+      // 5. Benefícios extras vinculados às folhas do mês
+      const folhaIds = (flr.data || []).map((f: any) => f.id);
+      let beneficiosExtras: any[] = [];
+      if (folhaIds.length) {
+        const { data: bx, error: ebx } = await supabase
+          .from("folha_beneficios" as any)
+          .select("*")
+          .in("folha_id", folhaIds);
+        if (ebx) throw ebx;
+        beneficiosExtras = bx || [];
+      }
 
       const faturasFiltered = (fr.data || []).filter((f: any) => {
         if (!incluiIndustrial) return false;
