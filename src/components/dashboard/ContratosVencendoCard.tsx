@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useContratosAtivos } from "@/hooks/useContratosAluguel";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { FileSignature, CheckCircle2 } from "lucide-react";
 import { differenceInDays, startOfDay } from "date-fns";
 
 export function ContratosVencendoCard() {
@@ -12,47 +12,55 @@ export function ContratosVencendoCard() {
 
   const hoje = startOfDay(new Date());
 
-  const contratosUrgentes = contratos
-    .filter((c: any) => c.data_fim)
-    .map((c: any) => {
-      const fim = startOfDay(new Date(c.data_fim));
-      const dias = differenceInDays(fim, hoje);
+  const lista = (contratos as any[])
+    .map((c) => {
+      const dias = c.data_fim ? differenceInDays(startOfDay(new Date(c.data_fim)), hoje) : null;
       return { ...c, diasRestantes: dias };
     })
-    .filter((c: any) => c.diasRestantes <= 30)
-    .sort((a: any, b: any) => a.diasRestantes - b.diasRestantes);
+    .sort((a, b) => {
+      if (a.diasRestantes === null && b.diasRestantes === null) return 0;
+      if (a.diasRestantes === null) return 1;
+      if (b.diasRestantes === null) return -1;
+      return a.diasRestantes - b.diasRestantes;
+    });
 
-  if (contratosUrgentes.length === 0) {
+  if (lista.length === 0) {
     return (
       <Card className="border-slate-200/80 shadow-none" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-success" />
-            Contratos
+            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            Contratos Ativos
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-slate-400">Nenhum contrato vencendo nos próximos 30 dias</p>
+          <p className="text-sm text-slate-400">Nenhum contrato cadastrado</p>
         </CardContent>
       </Card>
     );
   }
 
+  const renderBadge = (dias: number | null) => {
+    if (dias === null) return <Badge variant="outline" className="ml-2 shrink-0 text-[10px]">Sem prazo</Badge>;
+    if (dias < 0) return <Badge variant="destructive" className="ml-2 shrink-0 text-[10px]">Vencido</Badge>;
+    if (dias <= 7) return <Badge variant="destructive" className="ml-2 shrink-0 text-[10px]">{dias === 0 ? "Hoje" : `${dias}d`}</Badge>;
+    if (dias <= 30) return <Badge className="ml-2 shrink-0 text-[10px] bg-warning text-warning-foreground">{dias}d</Badge>;
+    return <Badge variant="outline" className="ml-2 shrink-0 text-[10px] text-success border-success/30">Ativo</Badge>;
+  };
+
   return (
     <Card className="border-slate-200/80 shadow-none" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-warning" />
-          Contratos Vencendo
-          <Badge variant="secondary" className="ml-auto text-[10px]">
-            {contratosUrgentes.length}
-          </Badge>
+          <FileSignature className="h-4 w-4 text-primary" />
+          Contratos Ativos
+          <Badge variant="secondary" className="ml-auto text-[10px]">{lista.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <ScrollArea className="max-h-[180px] px-6 pb-4">
           <div className="space-y-2">
-            {contratosUrgentes.map((c: any) => {
+            {lista.map((c: any) => {
               const clienteNome = c.clientes?.nome_fantasia || c.clientes?.razao_social || "Cliente";
               return (
                 <div
@@ -62,14 +70,11 @@ export function ContratosVencendoCard() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-slate-700 truncate">{clienteNome}</p>
-                    <p className="text-xs text-slate-400">{c.descricao}</p>
+                    <p className="text-xs text-slate-400 truncate">
+                      {c.descricao || "Contrato"} • R$ {Number(c.valor_servico || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </p>
                   </div>
-                  <Badge
-                    variant={c.diasRestantes <= 7 ? "destructive" : "outline"}
-                    className="ml-2 shrink-0 text-[10px]"
-                  >
-                    {c.diasRestantes < 0 ? "Vencido" : c.diasRestantes === 0 ? "Hoje" : `${c.diasRestantes} dias`}
-                  </Badge>
+                  {renderBadge(c.diasRestantes)}
                 </div>
               );
             })}
