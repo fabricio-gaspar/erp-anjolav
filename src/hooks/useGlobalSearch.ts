@@ -18,8 +18,8 @@ export const useGlobalSearch = (term: string) => {
     queryFn: async (): Promise<GlobalSearchResult[]> => {
       const t = `%${trimmed}%`;
       const [clientes, produtos, fornecedores, ordens, lancamentos] = await Promise.all([
-        supabase.from("clientes").select("id,razao_social,nome_fantasia,cnpj_cpf").or(`razao_social.ilike.${t},nome_fantasia.ilike.${t},cnpj_cpf.ilike.${t}`).limit(5),
-        supabase.from("produtos").select("id,nome,sku").or(`nome.ilike.${t},sku.ilike.${t}`).limit(5),
+        supabase.from("clientes").select("id,razao_social,nome_fantasia,cpf_cnpj").or(`razao_social.ilike.${t},nome_fantasia.ilike.${t},cpf_cnpj.ilike.${t}`).limit(5),
+        supabase.from("produtos").select("id,nome,codigo").or(`nome.ilike.${t},codigo.ilike.${t}`).limit(5),
         supabase.from("fornecedores").select("id,nome,cnpj_cpf").or(`nome.ilike.${t},cnpj_cpf.ilike.${t}`).limit(5),
         supabase.from("ordens_servico").select("id,numero,cliente:clientes(razao_social)").ilike("numero", t).limit(5),
         supabase.from("lancamentos").select("id,numero_rol,cliente:clientes(razao_social)").ilike("numero_rol", t).limit(5),
@@ -30,13 +30,13 @@ export const useGlobalSearch = (term: string) => {
       clientes.data?.forEach((c: any) => out.push({
         id: c.id, type: "cliente",
         label: c.razao_social || c.nome_fantasia || "Cliente",
-        sublabel: c.cnpj_cpf || undefined,
+        sublabel: c.cpf_cnpj || undefined,
         route: `/clientes?id=${c.id}`,
       }));
       produtos.data?.forEach((p: any) => out.push({
         id: p.id, type: "produto",
         label: p.nome,
-        sublabel: p.sku || undefined,
+        sublabel: p.codigo || undefined,
         route: `/produtos?id=${p.id}`,
       }));
       fornecedores.data?.forEach((f: any) => out.push({
