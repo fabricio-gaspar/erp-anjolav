@@ -1122,6 +1122,104 @@ export type Database = {
           },
         ]
       }
+      folha_pagamento: {
+        Row: {
+          comissoes: number
+          competencia: string
+          conta_pagar_id: string | null
+          created_at: string
+          custo_total_empresa: number
+          data_pagamento: string | null
+          desconto_inss: number
+          desconto_irrf: number
+          desconto_vt: number
+          funcionario_id: string
+          gratificacao: number
+          horas_extras: number
+          id: string
+          liquido: number
+          observacoes: string | null
+          outros_beneficios: number
+          outros_descontos: number
+          plano_odontologico: number
+          plano_saude: number
+          salario_base: number
+          status: string
+          total_descontos: number
+          total_proventos: number
+          updated_at: string
+          vale_alimentacao: number
+          vale_refeicao: number
+          vale_transporte: number
+        }
+        Insert: {
+          comissoes?: number
+          competencia: string
+          conta_pagar_id?: string | null
+          created_at?: string
+          custo_total_empresa?: number
+          data_pagamento?: string | null
+          desconto_inss?: number
+          desconto_irrf?: number
+          desconto_vt?: number
+          funcionario_id: string
+          gratificacao?: number
+          horas_extras?: number
+          id?: string
+          liquido?: number
+          observacoes?: string | null
+          outros_beneficios?: number
+          outros_descontos?: number
+          plano_odontologico?: number
+          plano_saude?: number
+          salario_base?: number
+          status?: string
+          total_descontos?: number
+          total_proventos?: number
+          updated_at?: string
+          vale_alimentacao?: number
+          vale_refeicao?: number
+          vale_transporte?: number
+        }
+        Update: {
+          comissoes?: number
+          competencia?: string
+          conta_pagar_id?: string | null
+          created_at?: string
+          custo_total_empresa?: number
+          data_pagamento?: string | null
+          desconto_inss?: number
+          desconto_irrf?: number
+          desconto_vt?: number
+          funcionario_id?: string
+          gratificacao?: number
+          horas_extras?: number
+          id?: string
+          liquido?: number
+          observacoes?: string | null
+          outros_beneficios?: number
+          outros_descontos?: number
+          plano_odontologico?: number
+          plano_saude?: number
+          salario_base?: number
+          status?: string
+          total_descontos?: number
+          total_proventos?: number
+          updated_at?: string
+          vale_alimentacao?: number
+          vale_refeicao?: number
+          vale_transporte?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folha_pagamento_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           ativo: boolean
@@ -1183,56 +1281,197 @@ export type Database = {
         Row: {
           ativo: boolean
           avatar_url: string | null
+          banco_agencia: string | null
+          banco_conta: string | null
+          banco_nome: string | null
+          banco_tipo_conta: string | null
           carga_horaria: number | null
           cargo: string
+          cnh_categoria: string | null
+          cnh_numero: string | null
+          cnh_validade: string | null
+          comissao_percentual: number | null
+          contato_emergencia_nome: string | null
+          contato_emergencia_parentesco: string | null
+          contato_emergencia_telefone: string | null
           cpf: string | null
           created_at: string
+          ctps_numero: string | null
+          ctps_serie: string | null
+          ctps_uf: string | null
           data_admissao: string | null
+          data_demissao: string | null
+          data_nascimento: string | null
           departamento: string | null
+          desconto_inss_percentual: number | null
+          desconto_vt_percentual: number | null
           dias_trabalhados: string[] | null
           email: string | null
+          endereco: Json | null
+          escolaridade: string | null
+          estado_civil: string | null
+          genero: string | null
+          gratificacao: number | null
           id: string
+          insalubridade_percentual: number | null
           login: string
+          nacionalidade: string | null
+          naturalidade: string | null
           nome: string
+          nome_mae: string | null
+          nome_pai: string | null
+          observacoes: string | null
+          outros_beneficios: number | null
+          outros_descontos: number | null
+          periculosidade: boolean | null
+          pis: string | null
+          pix_chave: string | null
+          pix_tipo_chave: string | null
+          plano_odontologico: number | null
+          plano_saude: number | null
+          regime_jornada: string | null
+          rg: string | null
+          rg_orgao_emissor: string | null
+          salario_base: number | null
           telefone: string | null
+          tipo_contrato: string | null
+          titulo_eleitor: string | null
           updated_at: string
           user_id: string | null
+          vale_alimentacao: number | null
+          vale_refeicao: number | null
+          vale_transporte: number | null
+          valor_hora: number | null
         }
         Insert: {
           ativo?: boolean
           avatar_url?: string | null
+          banco_agencia?: string | null
+          banco_conta?: string | null
+          banco_nome?: string | null
+          banco_tipo_conta?: string | null
           carga_horaria?: number | null
           cargo: string
+          cnh_categoria?: string | null
+          cnh_numero?: string | null
+          cnh_validade?: string | null
+          comissao_percentual?: number | null
+          contato_emergencia_nome?: string | null
+          contato_emergencia_parentesco?: string | null
+          contato_emergencia_telefone?: string | null
           cpf?: string | null
           created_at?: string
+          ctps_numero?: string | null
+          ctps_serie?: string | null
+          ctps_uf?: string | null
           data_admissao?: string | null
+          data_demissao?: string | null
+          data_nascimento?: string | null
           departamento?: string | null
+          desconto_inss_percentual?: number | null
+          desconto_vt_percentual?: number | null
           dias_trabalhados?: string[] | null
           email?: string | null
+          endereco?: Json | null
+          escolaridade?: string | null
+          estado_civil?: string | null
+          genero?: string | null
+          gratificacao?: number | null
           id?: string
+          insalubridade_percentual?: number | null
           login: string
+          nacionalidade?: string | null
+          naturalidade?: string | null
           nome: string
+          nome_mae?: string | null
+          nome_pai?: string | null
+          observacoes?: string | null
+          outros_beneficios?: number | null
+          outros_descontos?: number | null
+          periculosidade?: boolean | null
+          pis?: string | null
+          pix_chave?: string | null
+          pix_tipo_chave?: string | null
+          plano_odontologico?: number | null
+          plano_saude?: number | null
+          regime_jornada?: string | null
+          rg?: string | null
+          rg_orgao_emissor?: string | null
+          salario_base?: number | null
           telefone?: string | null
+          tipo_contrato?: string | null
+          titulo_eleitor?: string | null
           updated_at?: string
           user_id?: string | null
+          vale_alimentacao?: number | null
+          vale_refeicao?: number | null
+          vale_transporte?: number | null
+          valor_hora?: number | null
         }
         Update: {
           ativo?: boolean
           avatar_url?: string | null
+          banco_agencia?: string | null
+          banco_conta?: string | null
+          banco_nome?: string | null
+          banco_tipo_conta?: string | null
           carga_horaria?: number | null
           cargo?: string
+          cnh_categoria?: string | null
+          cnh_numero?: string | null
+          cnh_validade?: string | null
+          comissao_percentual?: number | null
+          contato_emergencia_nome?: string | null
+          contato_emergencia_parentesco?: string | null
+          contato_emergencia_telefone?: string | null
           cpf?: string | null
           created_at?: string
+          ctps_numero?: string | null
+          ctps_serie?: string | null
+          ctps_uf?: string | null
           data_admissao?: string | null
+          data_demissao?: string | null
+          data_nascimento?: string | null
           departamento?: string | null
+          desconto_inss_percentual?: number | null
+          desconto_vt_percentual?: number | null
           dias_trabalhados?: string[] | null
           email?: string | null
+          endereco?: Json | null
+          escolaridade?: string | null
+          estado_civil?: string | null
+          genero?: string | null
+          gratificacao?: number | null
           id?: string
+          insalubridade_percentual?: number | null
           login?: string
+          nacionalidade?: string | null
+          naturalidade?: string | null
           nome?: string
+          nome_mae?: string | null
+          nome_pai?: string | null
+          observacoes?: string | null
+          outros_beneficios?: number | null
+          outros_descontos?: number | null
+          periculosidade?: boolean | null
+          pis?: string | null
+          pix_chave?: string | null
+          pix_tipo_chave?: string | null
+          plano_odontologico?: number | null
+          plano_saude?: number | null
+          regime_jornada?: string | null
+          rg?: string | null
+          rg_orgao_emissor?: string | null
+          salario_base?: number | null
           telefone?: string | null
+          tipo_contrato?: string | null
+          titulo_eleitor?: string | null
           updated_at?: string
           user_id?: string | null
+          vale_alimentacao?: number | null
+          vale_refeicao?: number | null
+          vale_transporte?: number | null
+          valor_hora?: number | null
         }
         Relationships: []
       }

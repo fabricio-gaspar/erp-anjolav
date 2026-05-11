@@ -32,6 +32,7 @@ import Estoque from "./pages/Estoque";
 import HistoricoCaixas from "./pages/HistoricoCaixas";
 import AgendaEventos from "./pages/AgendaEventos";
 import RelatorioKilometragem from "./pages/RelatorioKilometragem";
+import RelatorioMensal from "./pages/RelatorioMensal";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,6 +85,7 @@ const App = () => (
               <Route path="/relatorios/caixa" element={<ProtectedRoute><HistoricoCaixas /></ProtectedRoute>} />
               <Route path="/agenda-eventos" element={<ProtectedRoute><AgendaEventos /></ProtectedRoute>} />
               <Route path="/relatorios/quilometragem" element={<ProtectedRoute><RelatorioKilometragem /></ProtectedRoute>} />
+              <Route path="/relatorios/mensal" element={<ProtectedRoute><RelatorioMensal /></ProtectedRoute>} />
 
               {/* Redirects for old routes */}
               <Route path="/faturamento" element={<Navigate to="/lancamentos?tab=faturas" replace />} />
