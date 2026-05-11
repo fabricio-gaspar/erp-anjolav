@@ -95,7 +95,7 @@ export const useFolhaPagamento = (competencia: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("folha_pagamento" as any)
-        .select("*, funcionario:funcionarios(id, nome, cargo)")
+        .select("*, funcionario:funcionarios(id, nome, cargo, empregador_cnpj, empregador_nome)")
         .eq("competencia", competencia)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -258,7 +258,7 @@ export const useFolhaMesPorIntervalo = (inicio: Date, fim: Date) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("folha_pagamento" as any)
-        .select("*, funcionario:funcionarios(id, nome, cargo)")
+        .select("*, funcionario:funcionarios(id, nome, cargo, empregador_cnpj, empregador_nome)")
         .gte("competencia", compInicio)
         .lte("competencia", compFim);
       if (error) throw error;
