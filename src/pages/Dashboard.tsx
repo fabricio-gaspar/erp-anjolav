@@ -9,6 +9,8 @@ import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard"
 import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
 import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
 import { ContratosVencendoCard } from "@/components/dashboard/ContratosVencendoCard";
+import { InadimplenciaCard } from "@/components/dashboard/InadimplenciaCard";
+import { NFsPendentesCard } from "@/components/dashboard/NFsPendentesCard";
 import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
 import { RolsLojaCard } from "@/components/dashboard/RolsLojaCard";
 import { EventosDoDiaCard } from "@/components/dashboard/EventosDoDiaCard";
@@ -327,23 +329,8 @@ const Dashboard = () => {
                   onViewAll={() => navigate("/lancamentos?tab=faturas")}
                 />
               )}
-              {temContasPagar && (
-                <FinanceCard
-                  title="Contas a Pagar"
-                  subtitle={`${contasPendentes.length} pendentes`}
-                  total={totalContasPagar}
-                  icon={TrendingDown}
-                  variant="payable"
-                  items={contasPendentes.slice(0, 3).map((c) => ({
-                    id: c.id,
-                    status: new Date(c.vencimento) < new Date() ? "vencida" as const : "a_vencer" as const,
-                    clientName: c.fornecedor || c.descricao,
-                    value: Number(c.valor),
-                    dueDate: format(new Date(c.vencimento), "dd/MM", { locale: ptBR }),
-                  }))}
-                  onViewAll={() => navigate("/contas?tab=pagar")}
-                />
-              )}
+              {temFinanceiro && <InadimplenciaCard />}
+              {temFinanceiro && <NFsPendentesCard />}
               {temFinanceiro && <BillingClosuresCard />}
               {temContasPagar && <ContasVencendoCard />}
               {temProdutos && <EstoqueBaixoCard />}
