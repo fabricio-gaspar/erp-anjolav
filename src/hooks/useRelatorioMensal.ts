@@ -28,12 +28,15 @@ export interface RelatorioMensalData {
   folhaItens: Array<{
     funcionario: string;
     cargo: string;
+    empregadorCnpj: string;
+    empregadorNome: string;
     salario: number;
     beneficios: number;
     descontos: number;
     liquido: number;
     custoTotal: number;
   }>;
+  folhaPorEmpregador: Array<{ cnpj: string; nome: string; total: number; count: number }>;
   contasItens: Array<{
     id: string;
     descricao: string;
