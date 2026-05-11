@@ -367,8 +367,8 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
           </NavGroup>
 
           <NavGroup title="Operacional" icon={Factory} compact={compact}>
-            <NavItem to="/ordens" icon={ClipboardList} label="Ordens de Serviço" compact={compact} />
             <NavItem to="/producao" icon={Factory} label="Produção" compact={compact} />
+            <NavItem to="/ordens" icon={ClipboardList} label="Relatório do Fluxo" compact={compact} />
             <NavItem to="/agenda" icon={Calendar} label="Agenda" compact={compact} />
             <NavItem to="/agenda-eventos" icon={Calendar} label="Agenda Pessoal" compact={compact} />
           </NavGroup>

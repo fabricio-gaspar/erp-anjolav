@@ -59,7 +59,7 @@ export function useConfirmarRetiradaAgendamento() {
           cliente_id: agendamento.cliente_id,
           motorista_id: agendamento.motorista_id,
           data_retirada: hoje,
-          status: "retirada",
+          status: "separacao",
           prioridade: "normal",
           origem: "industrial",
           agendamento_id: agendamento.id,
@@ -78,8 +78,8 @@ export function useConfirmarRetiradaAgendamento() {
       await supabase.from("historico_producao").insert({
         ordem_servico_id: os.id,
         etapa_anterior: null,
-        etapa_nova: "retirada",
-        observacoes: "Retirada confirmada via Fluxo de Produção",
+        etapa_nova: "separacao",
+        observacoes: "Retirada confirmada via Fluxo de Produção — enviado direto para Separação",
       });
 
       return os;
@@ -88,7 +88,7 @@ export function useConfirmarRetiradaAgendamento() {
       qc.invalidateQueries({ queryKey: ["ordens_servico"] });
       qc.invalidateQueries({ queryKey: ["agendamentos_retirada_pendentes"] });
       qc.invalidateQueries({ queryKey: ["agendamentos"] });
-      toast.success(`Retirada confirmada — OS ${os.numero} criada`);
+      toast.success(`Retirada confirmada — OS ${os.numero} enviada para Separação`);
     },
     onError: (e: Error) => toast.error("Erro ao confirmar retirada: " + e.message),
   });
