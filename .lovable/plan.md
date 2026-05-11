@@ -1,148 +1,94 @@
 
-# Auditoria & Plano de Ação — ERP AnjoLav
+# Ajustes no Dashboard
 
-Auditoria do sistema (UX/UI, navegação, arquitetura, segurança e performance) com plano de execução em 3 ondas. **Onda 1 (Críticos)** é o que será aplicado automaticamente após sua aprovação. Ondas 2 e 3 ficam como roadmap para você priorizar depois.
+## 1. Cards duplicados de "Contas a Pagar" — confirmado
 
----
+Existem **dois cards** sobre contas a pagar:
 
-## 🔍 Resumo da Auditoria
+| Card | Origem | O que mostra |
+|------|--------|--------------|
+| **FinanceCard "Contas a Pagar"** | `Dashboard.tsx` linhas 330-346 | Total geral pendente + 3 últimas |
+| **ContasVencendoCard** | `ContasVencendoCard.tsx` | Apenas contas vencendo nos próximos 3 dias (alerta) |
 
-### ✅ O que está correto
-- Stack moderna e consistente (React 18, Vite, Tailwind, Shadcn, React Query, Supabase).
-- Design system bem definido em `index.css` com tokens HSL semânticos.
-- `refetchOnMount: "always"` evita dessincronização entre telas.
-- RLS habilitado em todas as tabelas; permissões granulares por módulo (`modulo_permissoes`) com bypass para `ADMINISTRADOR`.
-- Login por username, edge function `manage-employee` para admin, separação clara de cargos.
-- Dashboard adaptativo por permissão (cards são ocultados conforme acesso).
-- Padrão de nomenclatura coerente (PDV Industrial vs PDV Loja, ID1 vs ID2).
+**Decisão:** Remover o **FinanceCard "Contas a Pagar"** e manter apenas o **ContasVencendoCard** (mais útil porque é um alerta de urgência com prazo). O total geral já aparece em outras telas (Contas, Visão Geral).
 
-### ⚠️ O que está errado / precisa ajuste
-
-**Críticos (Onda 1 — vamos aplicar):**
-1. **152 issues no linter do Supabase** — predominância de policies `USING (true)` em UPDATE/DELETE/INSERT. Risco de escalonamento de privilégio: qualquer usuário autenticado pode alterar/remover dados de outros.
-2. **Links quebrados no Dashboard:** `onViewAll` aponta para `/faturamento` (rota antiga, redireciona) e `/contas-pagar` (rota inexistente, vai pra 404). Deve ir para `/lancamentos?tab=faturas` e `/contas?tab=pagar`.
-3. **`NavGroup` ignora `defaultOpen`** — usa `useState(true)` fixo. Todos os grupos abrem sempre, perdendo memória de navegação.
-4. **Sidebar com cores hardcoded** (`text-slate-600`, `bg-white`, `border-slate-200`) — viola a regra do design system (uso obrigatório de tokens semânticos). Quebra o tema escuro e a personalização por cor primária.
-5. **Falta proteção HIBP** (vazamento de senha) na auth — recomendado pela documentação Lovable.
-
-**Estruturais (Onda 2):**
-6. **Sidebar muito longa** (Comercial, Operacional, Financeiro, Relatórios + soltos) — 14 itens sem hierarquia clara. Falta agrupamento "RH" (Equipe, Folha, Férias) e "Logística" separada de Operacional.
-7. **Inconsistência de nomenclatura:** "Abrir Retirada" no menu mas a página chama "Ordens de Serviço". "Agenda Pessoal" solta no nível raiz.
-8. **Dashboard com 7 seções verticais** sem hierarquia visual — usuário precisa rolar muito. Ideal: tabs ou layout em grid mais denso.
-9. **AppHeader sem breadcrumb nem busca global** — comum em ERPs grandes (Omie, Bling, Tiny).
-10. **Sem indicador de notificações** no header (apesar de ter sino em `lucide-react` importado).
-
-**Polish (Onda 3):**
-11. Sem estado vazio padronizado nas listas (clientes, produtos, OS).
-12. Sem skeleton loaders consistentes — alguns lugares usam `Loader2` spinner, outros nada.
-13. Sem atalhos de teclado globais (`Cmd+K` para busca, `g+d` para dashboard).
-14. Modais usam tamanhos diferentes — padronizar com `wide-form-dialog` (já documentado em memory).
-15. Tipografia heterogênea — coexistem `text-sm` / `text-[11px]` / `text-xs` em contextos similares.
+→ Mantemos o **FinanceCard "Contas a Receber"** porque ele tem função diferente (totalizador + lista de faturas, sem alerta equivalente).
 
 ---
 
-## 🎯 Onda 1 — Correções Críticas (Implementação imediata)
+## 2. Card "Contratos Vencendo" não lista nada
 
-### 1.1 Corrigir links quebrados do Dashboard
-Arquivo: `src/pages/Dashboard.tsx`
-- `onViewAll` de "Contas a Receber": `/faturamento` → `/lancamentos?tab=faturas`
-- `onViewAll` de "Contas a Pagar": `/contas-pagar` → `/contas?tab=pagar`
+**Causa raiz identificada:** o card filtra contratos com `c.data_fim` definido. No banco existe **1 contrato ativo**, mas com `data_fim = NULL`. Por isso não aparece nada.
 
-### 1.2 Corrigir `NavGroup` para respeitar estado
-Arquivo: `src/components/layout/AppSidebar.tsx`
-- `useState(true)` → `useState(defaultOpen || hasActiveChild)`
-- Persistir estado aberto/fechado em `localStorage` por grupo.
-
-### 1.3 Substituir cores hardcoded por tokens
-Arquivo: `src/components/layout/AppSidebar.tsx` e `AppLayout.tsx`
-- `text-slate-600` → `text-muted-foreground`
-- `bg-white` → `bg-background` ou `bg-sidebar`
-- `border-slate-200` → `border-border` ou `border-sidebar-border`
-- `text-slate-800` → `text-foreground`
-
-### 1.4 Endurecer RLS policies permissivas
-Migration nova: substituir `USING (true)` em UPDATE/DELETE/INSERT por checagens reais:
-- Tabelas de RH (`funcionarios`, `folha_pagamento`, `folha_beneficios`): exigir `has_role(auth.uid(), 'admin')`.
-- Tabelas operacionais (`ordens_servico`, `lancamentos`, `caixa`): exigir `auth.uid() IS NOT NULL` no mínimo, e quando aplicável vincular ao operador criador.
-- Vou rodar o linter completo e priorizar os top 30 (RH + financeiro + fiscal).
-
-### 1.5 Ativar proteção HIBP
-Via `configure_auth` com `password_hibp_enabled: true`.
-
-### 1.6 Habilitar busca global Cmd+K
-Componente novo `GlobalSearch.tsx` no `AppHeader`:
-- Atalho `Cmd/Ctrl+K`
-- Indexa: clientes, OS, produtos, fornecedores, lançamentos
-- Usa `cmdk` (já vem com Shadcn `Command`)
-
-### 1.7 Reorganização leve da sidebar
-- Mover "Agenda Pessoal" para dentro do grupo "Operacional"
-- Criar grupo "RH" extraído de Configurações (link rápido para `Equipe`, `Folha`, `Férias`)
-- Renomear "Abrir Retirada" → "Ordens de Serviço" (consistência com a tela)
+**Correção:**
+- Renomear o card para **"Contratos Ativos"**.
+- Listar **todos os contratos ativos** dos clientes.
+- Mostrar badge:
+  - "Sem prazo" (cinza) se `data_fim` for NULL
+  - "X dias" (amarelo) se faltar ≤ 30 dias
+  - "Vencido" (vermelho) se já passou
+  - "Ativo" (verde) se faltar > 30 dias
+- Mostrar valor mensal do contrato (`valor_servico`) ao lado do nome do cliente.
+- Click → leva pra `/clientes` na aba contratos do cliente.
 
 ---
 
-## 📐 Onda 2 — Melhorias Estruturais (Roadmap, não aplicar agora)
+## 3. Itens prioritários novos no Dashboard
 
-| # | Melhoria | Impacto |
-|---|----------|---------|
-| 1 | Dashboard com tabs (Operacional / Financeiro / RH) | Alto |
-| 2 | Breadcrumb no AppHeader | Médio |
-| 3 | Centro de notificações (sino com badge) | Alto |
-| 4 | Refatorar sidebar com Shadcn `Sidebar` oficial | Médio |
-| 5 | Dark mode completo (já tem tokens, falta toggle no header) | Médio |
-| 6 | Padronizar todos os modais com classe `wide-form-dialog` | Baixo |
+Análise do que falta para um ERP de lavanderia industrial maduro:
 
-## ✨ Onda 3 — Polish & Escalabilidade (Backlog)
+| # | Card sugerido | Justificativa | Prioridade |
+|---|---|---|---|
+| A | **Inadimplência consolidada** (faturas vencidas + valor total atrasado) | Hoje só mostra "a receber" geral, não destaca vencidos | 🔴 Alta |
+| B | **Top 5 Clientes do Mês** (por faturamento) | Visão comercial — quem está gerando receita | 🟡 Média |
+| C | **NFs Pendentes de Emissão** (lançamentos sem nota emitida) | Risco fiscal, multa se atrasar | 🔴 Alta |
+| D | **Aniversariantes do Mês** (clientes + funcionários) | Engajamento / RH | 🟢 Baixa |
+| E | **Veículos em manutenção / próximos** | Gestão de frota | 🟢 Baixa |
 
-| # | Melhoria | Impacto |
-|---|----------|---------|
-| 1 | Skeleton loaders consistentes | Médio |
-| 2 | Estados vazios ilustrados | Médio |
-| 3 | Atalhos de teclado globais | Baixo |
-| 4 | Auditoria de queries N+1 (várias listas fazem joins pesados) | Alto |
-| 5 | Paginação server-side em listas >1000 registros | Alto |
-| 6 | Testes E2E de fluxos críticos (PDV, Lançamento, Folha) | Alto |
+**Sugestão:** Implementar **A** e **C** agora (críticos operacionais). B/D/E ficam como roadmap.
 
 ---
 
-## 📊 Comparativo com sistemas grandes (Omie / Bling / Tiny)
+## 📋 Plano de execução
 
-```text
-                        AnjoLav   Omie/Bling
-Sidebar agrupada          ✅        ✅
-Busca global Cmd+K        ❌        ✅   → Onda 1
-Breadcrumb                ❌        ✅   → Onda 2
-Centro notificações       ❌        ✅   → Onda 2
-Dashboard customizável    ❌        ✅   → Onda 3
-Dark mode                 ⚠️        ✅   → Onda 2
-Tour onboarding           ❌        ✅   → Onda 3
-Tema personalizável       ✅        ✅
-RLS por papel             ⚠️        ✅   → Onda 1
-```
+### 3.1 Remover duplicação
+- Em `src/pages/Dashboard.tsx`, remover bloco `FinanceCard` "Contas a Pagar" (linhas 330-346) e ajustar o grid da seção "Financeiro & Alertas".
+
+### 3.2 Corrigir Card de Contratos
+- Editar `src/components/dashboard/ContratosVencendoCard.tsx`:
+  - Remover filtro `c.data_fim`.
+  - Adicionar lógica de status por prazo.
+  - Exibir valor mensal.
+  - Renomear para "Contratos Ativos".
+
+### 3.3 Adicionar Card "Inadimplência"
+- Novo componente `src/components/dashboard/InadimplenciaCard.tsx`.
+- Hook reutiliza `useFaturas` e filtra `data_vencimento < hoje && status !== 'pago'`.
+- Exibe: total devido, qtd faturas vencidas, top 3 clientes inadimplentes.
+
+### 3.4 Adicionar Card "NFs Pendentes"
+- Novo componente `src/components/dashboard/NFsPendentesCard.tsx`.
+- Filtra lançamentos com `status_nf in ('pendente','erro')`.
+- Mostra qtd + valor total + ação "Emitir agora".
+
+### 3.5 Memory update
+- Atualizar `mem://features/dashboard/adaptive-profiles-pdv` com a nova composição do dashboard.
 
 ---
 
-## 🧰 Detalhes Técnicos da Onda 1
+## 🧰 Detalhes técnicos
 
-**Arquivos a editar:**
-- `src/pages/Dashboard.tsx` — fix navigate paths
-- `src/components/layout/AppSidebar.tsx` — tokens semânticos + NavGroup state + reorg
-- `src/components/layout/AppHeader.tsx` — adicionar `<GlobalSearch/>`
-- `src/components/layout/GlobalSearch.tsx` — **novo**, usando Shadcn `Command`
-- `src/hooks/useGlobalSearch.ts` — **novo**, agrega clientes/OS/produtos
-- Nova migration SQL — endurece policies das tabelas críticas
-- Chamada `configure_auth` — HIBP on
-
-**Risco:** Endurecer RLS pode quebrar fluxos atuais que dependem de policies abertas. Faremos em modo aditivo: nova policy com checagem real + manter a antiga temporariamente comentada na migration para rollback rápido.
+**Arquivos editados:**
+- `src/pages/Dashboard.tsx` — remove FinanceCard payable, adiciona Inadimplência + NFs Pendentes na seção "Financeiro & Alertas"
+- `src/components/dashboard/ContratosVencendoCard.tsx` — refatoração da lógica
+- `src/components/dashboard/InadimplenciaCard.tsx` — **novo**
+- `src/components/dashboard/NFsPendentesCard.tsx` — **novo**
 
 **Validação após implementar:**
-- Login como `operador` e tentar editar funcionário → deve falhar.
-- Cmd+K abre busca; navega para resultado.
-- Sidebar mantém grupo aberto após reload.
-- Links do Dashboard levam às páginas corretas.
-- `supabase--linter` reduz issues de ~152 para <30.
+- Dashboard mostra apenas 1 menção a "Contas a Pagar" (alerta de 3 dias).
+- Card "Contratos Ativos" lista o contrato existente (CONTRATO DE ALUGUEL) com badge "Sem prazo".
+- Cards novos aparecem apenas se houver dados ou alertas pertinentes (estado vazio elegante).
 
 ---
 
-Após sua aprovação, implemento a **Onda 1** completa numa única passada. Ondas 2 e 3 ficam para você decidir quando avançar.
+Aprovando, implemento as 4 mudanças (remover duplicado + corrigir contratos + 2 cards novos) numa única passada.
