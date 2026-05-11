@@ -15,7 +15,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useClientes } from "@/hooks/useClientes";
 import { VisualizarItensModal } from "@/components/faturamento/VisualizarItensModal";
-import { formatCurrencyBR } from "@/lib/currencyUtils";
+import { useItensLancamento, type Lancamento } from "@/hooks/useLancamentos";
+import { formatNumberToCurrency } from "@/lib/currencyUtils";
+
+const formatCurrencyBR = (v: number) => formatNumberToCurrency(v).replace("R$ ", "");
 
 type StatusFiltro = "todos" | "pendente" | "faturado";
 
