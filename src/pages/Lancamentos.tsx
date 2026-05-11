@@ -48,6 +48,9 @@ const Lancamentos = () => {
               <TabsTrigger value="faturas" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-1">
                 <Receipt className="w-4 h-4" />Faturas Geradas
               </TabsTrigger>
+              <TabsTrigger value="historico" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-1">
+                <History className="w-4 h-4" />Histórico de ROLs
+              </TabsTrigger>
             </TabsList>
             </div>
 
