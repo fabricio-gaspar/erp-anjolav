@@ -85,7 +85,7 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
       // 3. Folha do mês
       const folhaQuery = supabase
         .from("folha_pagamento" as any)
-        .select("*, funcionario:funcionarios(nome, cargo)")
+        .select("*, funcionario:funcionarios(nome, cargo, empregador_cnpj, empregador_nome)")
         .eq("competencia", competencia);
 
       // 4. Contas a pagar do mês (por vencimento)
