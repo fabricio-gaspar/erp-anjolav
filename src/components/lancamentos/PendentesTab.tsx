@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,24 +15,32 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { User, Eye, Edit, Trash2, Package, Loader2, Play, X } from "lucide-react";
+import { User, Eye, Edit, Trash2, Package, Loader2, Play, X, ChevronDown, ChevronRight, Calendar, CalendarDays, CalendarClock } from "lucide-react";
 import { format } from "date-fns";
 import {
   useLancamentosPendentes, useLancamentosComItens, useItensLancamento,
   type Lancamento as LancamentoType, type ItemLancamento,
 } from "@/hooks/useLancamentos";
-import { useFaturas, type Fatura } from "@/hooks/useFaturas";
 import { FaturamentoModal, type DadosFaturamento, type LancamentoItem as FaturaLancamentoItem } from "@/components/faturamento/FaturamentoModal";
 import { VisualizarItensModal } from "@/components/faturamento/VisualizarItensModal";
 import { EditarLancamentoModal } from "@/components/faturamento/EditarLancamentoModal";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDadosFaturamentoCompletos } from "@/hooks/useDadosFaturamento";
+import { cn } from "@/lib/utils";
 
 const etapaConfig: Record<string, { label: string; className: string }> = {
   em_processo: { label: "Em Processo", className: "bg-destructive/10 text-destructive border-destructive/30" },
   prateleira: { label: "Prateleira", className: "bg-warning/10 text-warning border-warning/30" },
   entregue: { label: "Entregue", className: "bg-success/10 text-success border-success/30" },
+};
+
+type CicloKey = "quinzenal" | "mensal" | "outro";
+
+const cicloConfig: Record<CicloKey, { label: string; icon: React.ComponentType<{ className?: string }>; headerClass: string; iconClass: string }> = {
+  quinzenal: { label: "Fechamento Quinzenal", icon: CalendarDays, headerClass: "bg-info/10 border-info/30", iconClass: "text-info" },
+  mensal: { label: "Fechamento Mensal", icon: Calendar, headerClass: "bg-primary/10 border-primary/30", iconClass: "text-primary" },
+  outro: { label: "Sem Ciclo Definido / Avulso", headerClass: "bg-muted border-border", icon: CalendarClock, iconClass: "text-muted-foreground" },
 };
 
 const getPaymentStatus = (lancamento: LancamentoType) => {
@@ -54,6 +63,7 @@ export function PendentesTab() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [lancamentoParaExcluir, setLancamentoParaExcluir] = useState<LancamentoType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [collapsedBlocos, setCollapsedBlocos] = useState<Record<CicloKey, boolean>>({ quinzenal: false, mensal: false, outro: false });
 
   const { lancamentos: lancamentosPendentes, isLoading, updateLancamento, deleteLancamento } = useLancamentosPendentes();
   const { data: lancamentosComItens } = useLancamentosComItens(selectedLancamentos);
@@ -75,6 +85,32 @@ export function PendentesTab() {
     return industrialOnly.filter(l => l.cliente_id === clienteFiltroId);
   }, [lancamentosPendentes, clienteFiltroId]);
 
+  // Buscar tipo_faturamento dos clientes envolvidos
+  const clienteIds = useMemo(() => Array.from(new Set(lancamentosFiltrados.map(l => l.cliente_id))), [lancamentosFiltrados]);
+
+  const { data: tipoFaturamentoMap = {} } = useQuery({
+    queryKey: ["tipo_faturamento_clientes", clienteIds],
+    queryFn: async () => {
+      if (clienteIds.length === 0) return {};
+      const { data, error } = await supabase
+        .from("configuracoes_pagamento_cliente")
+        .select("cliente_id, tipo_faturamento")
+        .in("cliente_id", clienteIds);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data || []).forEach((row: any) => { map[row.cliente_id] = row.tipo_faturamento || "mensal"; });
+      return map;
+    },
+    enabled: clienteIds.length > 0,
+  });
+
+  const getCiclo = (clienteId: string): CicloKey => {
+    const tipo = tipoFaturamentoMap[clienteId] || "mensal";
+    if (tipo === "quinzenal") return "quinzenal";
+    if (tipo === "mensal") return "mensal";
+    return "outro";
+  };
+
   const clienteFiltroInfo = useMemo(() => {
     if (!clienteFiltroId || lancamentosFiltrados.length === 0) return null;
     return lancamentosFiltrados[0]?.cliente;
@@ -93,14 +129,16 @@ export function PendentesTab() {
     setSelectedLancamentos([]);
   };
 
-  const lancamentosPorCliente = useMemo(() => {
-    const groups: Record<string, LancamentoType[]> = {};
+  // Agrupa: ciclo -> clienteId -> lancamentos[]
+  const lancamentosPorBloco = useMemo(() => {
+    const blocos: Record<CicloKey, Record<string, LancamentoType[]>> = { quinzenal: {}, mensal: {}, outro: {} };
     lancamentosFiltrados.forEach(l => {
-      if (!groups[l.cliente_id]) groups[l.cliente_id] = [];
-      groups[l.cliente_id].push(l);
+      const ciclo = getCiclo(l.cliente_id);
+      if (!blocos[ciclo][l.cliente_id]) blocos[ciclo][l.cliente_id] = [];
+      blocos[ciclo][l.cliente_id].push(l);
     });
-    return groups;
-  }, [lancamentosFiltrados]);
+    return blocos;
+  }, [lancamentosFiltrados, tipoFaturamentoMap]);
 
   const handleToggleLancamento = (id: string) => {
     setSelectedLancamentos(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -125,8 +163,7 @@ export function PendentesTab() {
     return first.cliente;
   }, [lancamentosFiltrados, selectedLancamentos]);
 
-  // Fetch complete client data for billing using centralized hook
-  const { dados: dadosClienteCompletos, isLoading: isLoadingDadosCliente } = useDadosFaturamentoCompletos(
+  const { dados: dadosClienteCompletos } = useDadosFaturamentoCompletos(
     clienteSelecionadoFaturamento?.id || null
   );
 
@@ -141,26 +178,22 @@ export function PendentesTab() {
     const datas = lancamentosComItens.map(l => new Date(l.data_lancamento));
     const pInicio = datas.length > 0 ? format(Math.min(...datas.map(d => d.getTime())), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
     const pFim = datas.length > 0 ? format(Math.max(...datas.map(d => d.getTime())), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd");
-    
+
     const cli = dadosClienteCompletos.cliente;
-    
+
     return {
       clienteId: clienteSelecionadoFaturamento.id,
       clienteNome: clienteSelecionadoFaturamento.razao_social,
       clienteDocumento: clienteSelecionadoFaturamento.cpf_cnpj || "",
       clienteEmail: cli?.email || clienteSelecionadoFaturamento.email || null,
       clienteTelefone: cli?.telefone || clienteSelecionadoFaturamento.telefone || null,
-      // Dados completos do cliente
       clienteTipoPessoa: cli?.tipo_pessoa || "cnpj",
       clienteInscricaoMunicipal: cli?.inscricao_municipal || null,
       clienteInscricaoEstadual: cli?.inscricao_estadual || null,
       clienteRegimeTributario: cli?.regime_tributario || null,
       clienteClassificacao: cli?.classificacao || "industrial",
-      // Endereço completo
       clienteEndereco: dadosClienteCompletos.endereco || null,
-      // Configurações de pagamento
       configPagamento: dadosClienteCompletos.configPagamento || null,
-      // Configurações gerais do cliente
       configCliente: dadosClienteCompletos.configCliente || null,
       itens: allItens,
       valorTotal: totalSelecionado,
@@ -207,53 +240,33 @@ export function PendentesTab() {
 
   const formatCurrency = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
-  return (
-    <div className="space-y-4">
-      {clienteFiltroId && (
-        <Card className="p-4 bg-primary/10 border-primary/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center"><User className="w-4 h-4 text-primary" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Filtrando por cliente</p>
-                <p className="font-semibold">{clienteFiltroInfo?.razao_social || "Cliente"}</p>
-              </div>
-              <Badge variant="secondary" className="ml-2">{lancamentosFiltrados.length} lançamento(s) pendente(s)</Badge>
-            </div>
-            <Button variant="ghost" size="sm" onClick={handleClearFilter} className="gap-2"><X className="w-4 h-4" />Limpar filtro</Button>
-          </div>
-        </Card>
-      )}
+  const renderBloco = (ciclo: CicloKey) => {
+    const grupo = lancamentosPorBloco[ciclo];
+    const clientesNoBloco = Object.entries(grupo);
+    if (clientesNoBloco.length === 0) return null;
+    const cfg = cicloConfig[ciclo];
+    const Icon = cfg.icon;
+    const collapsed = collapsedBlocos[ciclo];
+    const totalLancs = clientesNoBloco.reduce((s, [, ls]) => s + ls.length, 0);
+    const totalValor = clientesNoBloco.reduce((s, [, ls]) => s + ls.reduce((a, l) => a + Number(l.valor_total), 0), 0);
 
-      {selectedLancamentos.length > 0 && (
-        <Card className="p-4 border-primary/30 bg-primary/5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div><p className="text-sm text-muted-foreground">Selecionados</p><p className="font-bold text-lg">{selectedLancamentos.length} lançamento(s)</p></div>
-              <div><p className="text-sm text-muted-foreground">Valor Total</p><p className="font-bold text-primary">{formatCurrency(totalSelecionado)}</p></div>
-              {clienteSelecionadoFaturamento && <div><p className="text-sm text-muted-foreground">Cliente</p><p className="font-medium">{clienteSelecionadoFaturamento.razao_social}</p></div>}
-            </div>
-            <Button onClick={handleGerarFatura} disabled={!clienteSelecionadoFaturamento} className="gap-2 bg-success hover:bg-success/90"><Play className="w-4 h-4" />Gerar Fatura</Button>
-          </div>
-          {!clienteSelecionadoFaturamento && selectedLancamentos.length > 0 && (
-            <p className="text-sm text-destructive mt-2">Selecione lançamentos de um único cliente para gerar a fatura</p>
-          )}
-        </Card>
-      )}
-
-      <div className="bg-card border rounded-lg overflow-hidden">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-        ) : lancamentosFiltrados.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <Package className="w-12 h-12 mb-4 opacity-50" />
-            <p>Nenhum lançamento pendente</p>
-            <p className="text-sm">{clienteFiltroId ? "Este cliente não possui lançamentos pendentes" : "Os lançamentos finalizados aparecem aqui"}</p>
-            {clienteFiltroId && <Button variant="link" onClick={handleClearFilter} className="mt-2">Ver todos os clientes</Button>}
-          </div>
-        ) : (
+    return (
+      <Card key={ciclo} className="overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setCollapsedBlocos(prev => ({ ...prev, [ciclo]: !prev[ciclo] }))}
+          className={cn("w-full flex items-center gap-3 p-3 border-b transition-colors hover:opacity-90", cfg.headerClass)}
+        >
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          <Icon className={cn("w-5 h-5", cfg.iconClass)} />
+          <span className="font-semibold uppercase text-sm tracking-wide">{cfg.label}</span>
+          <Badge variant="secondary" className="ml-2">{clientesNoBloco.length} cliente{clientesNoBloco.length > 1 ? "s" : ""}</Badge>
+          <Badge variant="secondary">{totalLancs} ROL{totalLancs > 1 ? "s" : ""}</Badge>
+          <span className={cn("ml-auto font-bold", cfg.iconClass)}>{formatCurrency(totalValor)}</span>
+        </button>
+        {!collapsed && (
           <Table>
-           <TableHeader>
+            <TableHeader>
               <TableRow className="bg-muted/50">
                 <TableHead className="w-12"></TableHead>
                 <TableHead className="font-semibold">ROL</TableHead>
@@ -267,16 +280,16 @@ export function PendentesTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.entries(lancamentosPorCliente).map(([clienteId, clienteLancamentos]) => {
+              {clientesNoBloco.map(([clienteId, clienteLancamentos]) => {
                 const cliente = clienteLancamentos[0]?.cliente;
-                const clienteIds = clienteLancamentos.map(l => l.id);
-                const allSelected = clienteIds.every(id => selectedLancamentos.includes(id));
-                const someSelected = clienteIds.some(id => selectedLancamentos.includes(id));
+                const ids = clienteLancamentos.map(l => l.id);
+                const allSelected = ids.every(id => selectedLancamentos.includes(id));
+                const someSelected = ids.some(id => selectedLancamentos.includes(id));
                 return (
                   <React.Fragment key={clienteId}>
                     <TableRow className="bg-muted/30 hover:bg-muted/40">
                       <TableCell className="py-2">
-                        <Checkbox checked={allSelected} onCheckedChange={() => handleToggleAllFromCliente(clienteId, clienteIds)} className={someSelected && !allSelected ? "opacity-50" : ""} />
+                        <Checkbox checked={allSelected} onCheckedChange={() => handleToggleAllFromCliente(clienteId, ids)} className={someSelected && !allSelected ? "opacity-50" : ""} />
                       </TableCell>
                       <TableCell colSpan={8} className="py-2">
                         <div className="flex items-center gap-2">
@@ -333,7 +346,60 @@ export function PendentesTab() {
             </TableBody>
           </Table>
         )}
-      </div>
+      </Card>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {clienteFiltroId && (
+        <Card className="p-4 bg-primary/10 border-primary/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center"><User className="w-4 h-4 text-primary" /></div>
+              <div>
+                <p className="text-sm text-muted-foreground">Filtrando por cliente</p>
+                <p className="font-semibold">{clienteFiltroInfo?.razao_social || "Cliente"}</p>
+              </div>
+              <Badge variant="secondary" className="ml-2">{lancamentosFiltrados.length} lançamento(s) pendente(s)</Badge>
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleClearFilter} className="gap-2"><X className="w-4 h-4" />Limpar filtro</Button>
+          </div>
+        </Card>
+      )}
+
+      {selectedLancamentos.length > 0 && (
+        <Card className="p-4 border-primary/30 bg-primary/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div><p className="text-sm text-muted-foreground">Selecionados</p><p className="font-bold text-lg">{selectedLancamentos.length} lançamento(s)</p></div>
+              <div><p className="text-sm text-muted-foreground">Valor Total</p><p className="font-bold text-primary">{formatCurrency(totalSelecionado)}</p></div>
+              {clienteSelecionadoFaturamento && <div><p className="text-sm text-muted-foreground">Cliente</p><p className="font-medium">{clienteSelecionadoFaturamento.razao_social}</p></div>}
+            </div>
+            <Button onClick={handleGerarFatura} disabled={!clienteSelecionadoFaturamento} className="gap-2 bg-success hover:bg-success/90"><Play className="w-4 h-4" />Gerar Fatura</Button>
+          </div>
+          {!clienteSelecionadoFaturamento && selectedLancamentos.length > 0 && (
+            <p className="text-sm text-destructive mt-2">Selecione lançamentos de um único cliente para gerar a fatura</p>
+          )}
+        </Card>
+      )}
+
+      {isLoading ? (
+        <div className="bg-card border rounded-lg flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+      ) : lancamentosFiltrados.length === 0 ? (
+        <div className="bg-card border rounded-lg flex flex-col items-center justify-center py-12 text-muted-foreground">
+          <Package className="w-12 h-12 mb-4 opacity-50" />
+          <p>Nenhum lançamento pendente</p>
+          <p className="text-sm">{clienteFiltroId ? "Este cliente não possui lançamentos pendentes" : "Os lançamentos finalizados aparecem aqui"}</p>
+          {clienteFiltroId && <Button variant="link" onClick={handleClearFilter} className="mt-2">Ver todos os clientes</Button>}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {renderBloco("quinzenal")}
+          {renderBloco("mensal")}
+          {renderBloco("outro")}
+        </div>
+      )}
 
       {/* Modals */}
       <FaturamentoModal open={faturamentoModalOpen} onOpenChange={(open) => { if (!open) setWizardDados(null); setFaturamentoModalOpen(open); }} dados={wizardDados} onComplete={handleFaturamentoConcluido} faturaExistente={null} />
