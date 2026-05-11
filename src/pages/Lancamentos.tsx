@@ -66,6 +66,10 @@ const Lancamentos = () => {
               <FaturasTab />
             </TabsContent>
 
+            <TabsContent value="historico" className="mt-4">
+              <HistoricoROLsTab />
+            </TabsContent>
+
           </Tabs>
         </div>
       </div>
