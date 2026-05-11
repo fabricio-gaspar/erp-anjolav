@@ -319,6 +319,7 @@ const RelatorioMensal = () => {
                 <div className="flex justify-between text-destructive"><span>(-) Contas Mensais</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasContasMensais)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Impostos</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasImpostos)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Outras Despesas</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasOutras)}</span></div>
+                <div className="flex justify-between text-destructive"><span>(-) Benefícios Extras Folha</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasBeneficiosExtras)}</span></div>
                 <div className="border-t-2 border-primary pt-2 mt-2 flex justify-between text-lg font-bold">
                   <span>= Lucro Líquido</span>
                   <span className={`font-mono ${data.lucro >= 0 ? "text-emerald-600" : "text-destructive"}`}>R$ {formatNumberToCurrency(data.lucro)}</span>
