@@ -2,13 +2,11 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, Package, Receipt, ClipboardList } from "lucide-react";
+import { FileText, Package, Receipt } from "lucide-react";
 import { useLancamentosPendentes } from "@/hooks/useLancamentos";
 import { NovoLancamentoTab } from "@/components/lancamentos/NovoLancamentoTab";
 import { PendentesTab } from "@/components/lancamentos/PendentesTab";
 import { FaturasTab } from "@/components/lancamentos/FaturasTab";
-import { ConferenciaTab } from "@/components/lancamentos/ConferenciaTab";
-import type { ItemOS } from "@/hooks/useConferenciaProducao";
 
 const Lancamentos = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -25,15 +23,10 @@ const Lancamentos = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (tabFromUrl && ["novo", "pendentes", "faturas", "conferencia"].includes(tabFromUrl)) {
+    if (tabFromUrl && ["novo", "pendentes", "faturas"].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
   }, []);
-
-  const handleUsarParaLancamento = (clienteId: string, itens: ItemOS[]) => {
-    // Switch to novo tab - the NovoLancamentoTab handles its own state
-    setActiveTab("novo");
-  };
 
   return (
     <AppLayout title="Lançamentos" subtitle="Registre a produção diária e gerencie o faturamento">
@@ -54,9 +47,6 @@ const Lancamentos = () => {
               <TabsTrigger value="faturas" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-1">
                 <Receipt className="w-4 h-4" />Faturas Geradas
               </TabsTrigger>
-              <TabsTrigger value="conferencia" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-1">
-                <ClipboardList className="w-4 h-4" />Conferência
-              </TabsTrigger>
             </TabsList>
             </div>
 
@@ -72,9 +62,6 @@ const Lancamentos = () => {
               <FaturasTab />
             </TabsContent>
 
-            <TabsContent value="conferencia" className="mt-4">
-              <ConferenciaTab onUsarParaLancamento={handleUsarParaLancamento} />
-            </TabsContent>
           </Tabs>
         </div>
       </div>

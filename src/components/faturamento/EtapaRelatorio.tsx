@@ -326,26 +326,12 @@ export function EtapaRelatorio({
         </div>
       </Card>
 
-      {/* Campo de Observação */}
-      {observacaoConfigurada ? (
+      {/* Observação da Fatura: usa apenas o configurado no cadastro do cliente */}
+      {observacaoConfigurada && (
         <ConfigBadge
           label="Observação da Fatura"
           value={observacaoFatura}
         />
-      ) : (
-        <Card className="p-4">
-          <Label className="text-sm font-medium mb-2 block">Observação da Fatura (opcional)</Label>
-          <Textarea
-            value={observacaoFatura}
-            onChange={(e) => setObservacaoFatura(e.target.value)}
-            placeholder="Adicione observações que serão salvas junto com a fatura..."
-            rows={3}
-            className="resize-none"
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Essas observações ficarão registradas na fatura para consulta futura.
-          </p>
-        </Card>
       )}
 
       <div className="flex items-center gap-2">
