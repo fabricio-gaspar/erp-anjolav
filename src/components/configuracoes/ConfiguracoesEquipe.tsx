@@ -63,8 +63,12 @@ import {
   Calendar,
   Link as LinkIcon,
   Check,
-  X
+  X,
+  FileText,
+  Wallet
 } from "lucide-react";
+import { FichaFuncionarioModal } from "./FichaFuncionarioModal";
+import { FolhaPagamentoTab } from "./FolhaPagamentoTab";
 import { 
   useFuncionarios, 
   useCreateFuncionario, 
