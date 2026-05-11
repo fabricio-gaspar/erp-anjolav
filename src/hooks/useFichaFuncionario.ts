@@ -76,6 +76,14 @@ export interface FichaFuncionarioData {
   banco_tipo_conta?: string | null;
   pix_chave?: string | null;
   pix_tipo_chave?: string | null;
+  // Empregador
+  empregador_cnpj?: string | null;
+  empregador_nome?: string | null;
+  codigo_externo?: string | null;
+  cbo?: string | null;
+  matricula_inss?: string | null;
+  centro_custo?: string | null;
+  filial?: string | null;
   // Geral
   observacoes?: string | null;
   ativo?: boolean;

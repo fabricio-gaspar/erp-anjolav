@@ -28,12 +28,15 @@ export interface RelatorioMensalData {
   folhaItens: Array<{
     funcionario: string;
     cargo: string;
+    empregadorCnpj: string;
+    empregadorNome: string;
     salario: number;
     beneficios: number;
     descontos: number;
     liquido: number;
     custoTotal: number;
   }>;
+  folhaPorEmpregador: Array<{ cnpj: string; nome: string; total: number; count: number }>;
   contasItens: Array<{
     id: string;
     descricao: string;
@@ -82,7 +85,7 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
       // 3. Folha do mês
       const folhaQuery = supabase
         .from("folha_pagamento" as any)
-        .select("*, funcionario:funcionarios(nome, cargo)")
+        .select("*, funcionario:funcionarios(nome, cargo, empregador_cnpj, empregador_nome)")
         .eq("competencia", competencia);
 
       // 4. Contas a pagar do mês (por vencimento)
@@ -122,7 +125,9 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
       const folhaItens = (flr.data || []).map((f: any) => ({
         funcionario: f.funcionario?.nome || "—",
         cargo: f.funcionario?.cargo || "—",
-        salario: Number(f.salario_base || 0) + Number(f.horas_extras || 0) + Number(f.comissoes || 0) + Number(f.gratificacao || 0),
+        empregadorCnpj: f.funcionario?.empregador_cnpj || "",
+        empregadorNome: f.funcionario?.empregador_nome || "—",
+        salario: Number(f.salario_base || 0) + Number(f.horas_extras || 0) + Number(f.horas_extras_50 || 0) + Number(f.horas_extras_70 || 0) + Number(f.horas_extras_100 || 0) + Number(f.reflexo_dsr || 0) + Number(f.comissoes || 0) + Number(f.gratificacao || 0),
         beneficios:
           Number(f.vale_transporte || 0) +
           Number(f.vale_alimentacao || 0) +
@@ -135,6 +140,16 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
         custoTotal: Number(f.custo_total_empresa || 0),
       }));
       const despesasFolha = folhaItens.reduce((s, x) => s + x.custoTotal, 0);
+
+      const folhaPorEmpregadorMap = new Map<string, { cnpj: string; nome: string; total: number; count: number }>();
+      folhaItens.forEach((it) => {
+        const key = it.empregadorCnpj || "sem_cnpj";
+        const cur = folhaPorEmpregadorMap.get(key) || { cnpj: it.empregadorCnpj, nome: it.empregadorNome, total: 0, count: 0 };
+        cur.total += it.custoTotal;
+        cur.count += 1;
+        folhaPorEmpregadorMap.set(key, cur);
+      });
+      const folhaPorEmpregador = Array.from(folhaPorEmpregadorMap.values());
 
       // Contas
       const contas = cr.data || [];
@@ -185,6 +200,7 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
         lucro,
         margem,
         folhaItens,
+        folhaPorEmpregador,
         contasItens: contas
           .filter((c: any) => !isCat(c.categoria, CAT_FOLHA))
           .map((c: any) => ({

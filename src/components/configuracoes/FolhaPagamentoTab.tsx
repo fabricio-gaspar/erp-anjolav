@@ -43,12 +43,20 @@ export function FolhaPagamentoTab() {
   const competencia = `${mes}-01`;
   const [dataPagamento, setDataPagamento] = useState(format(today, "yyyy-MM-dd"));
   const [showFechar, setShowFechar] = useState(false);
+  const [empregadorFiltro, setEmpregadorFiltro] = useState<string>("todos");
 
-  const { data: folhas = [], isLoading } = useFolhaPagamento(competencia);
+  const { data: folhasAll = [], isLoading } = useFolhaPagamento(competencia);
   const gerar = useGerarFolhaMes();
   const fechar = useFecharFolhaMes();
   const update = useUpdateFolha();
   const del = useDeleteFolha();
+
+  const empregadores = Array.from(
+    new Set(folhasAll.map((f) => f.funcionario?.empregador_cnpj).filter(Boolean))
+  ) as string[];
+  const folhas = empregadorFiltro === "todos"
+    ? folhasAll
+    : folhasAll.filter((f) => f.funcionario?.empregador_cnpj === empregadorFiltro);
 
   const totalProventos = folhas.reduce((s, f) => s + Number(f.total_proventos || 0), 0);
   const totalDescontos = folhas.reduce((s, f) => s + Number(f.total_descontos || 0), 0);
@@ -70,6 +78,21 @@ export function FolhaPagamentoTab() {
             <Label>Competência</Label>
             <Input type="month" value={mes} onChange={(e) => setMes(e.target.value)} />
           </div>
+          {empregadores.length > 0 && (
+            <div>
+              <Label>Empregador (CNPJ)</Label>
+              <select
+                className="border rounded h-10 px-2 bg-background text-sm"
+                value={empregadorFiltro}
+                onChange={(e) => setEmpregadorFiltro(e.target.value)}
+              >
+                <option value="todos">Todos</option>
+                {empregadores.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <Button
             variant="outline"
             onClick={() => gerar.mutate(competencia)}
@@ -146,18 +169,22 @@ export function FolhaPagamentoTab() {
                       <TableCell>
                         <div className="font-medium">{f.funcionario?.nome}</div>
                         <div className="text-xs text-muted-foreground">{f.funcionario?.cargo}</div>
+                        {f.funcionario?.empregador_cnpj && (
+                          <Badge variant="outline" className="mt-1 text-[10px]">
+                            {f.funcionario.empregador_nome || f.funcionario.empregador_cnpj}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>R$ {formatNumberToCurrency(Number(f.salario_base))}</TableCell>
                       <TableCell>
-                        {isAberto ? (
-                          <Input
-                            className="w-24 h-8"
-                            defaultValue={formatNumberToCurrency(Number(f.horas_extras))}
-                            onBlur={(e) => updateField(f.id, "horas_extras", e.target.value)}
-                          />
-                        ) : (
-                          `R$ ${formatNumberToCurrency(Number(f.horas_extras))}`
-                        )}
+                        <div className="text-xs space-y-0.5">
+                          {Number(f.horas_extras_50 || 0) > 0 && <div>50%: R$ {formatNumberToCurrency(Number(f.horas_extras_50))}</div>}
+                          {Number(f.horas_extras_70 || 0) > 0 && <div>70%: R$ {formatNumberToCurrency(Number(f.horas_extras_70))}</div>}
+                          {Number(f.horas_extras_100 || 0) > 0 && <div>100%: R$ {formatNumberToCurrency(Number(f.horas_extras_100))}</div>}
+                          {Number(f.reflexo_dsr || 0) > 0 && <div className="text-muted-foreground">DSR: R$ {formatNumberToCurrency(Number(f.reflexo_dsr))}</div>}
+                          {Number(f.horas_extras || 0) > 0 && <div>Outras: R$ {formatNumberToCurrency(Number(f.horas_extras))}</div>}
+                          {!Number(f.horas_extras_50) && !Number(f.horas_extras_70) && !Number(f.horas_extras_100) && !Number(f.horas_extras) && <span className="text-muted-foreground">—</span>}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {isAberto ? (

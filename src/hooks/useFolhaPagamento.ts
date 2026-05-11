@@ -9,6 +9,10 @@ export interface FolhaPagamento {
   competencia: string;
   salario_base: number;
   horas_extras: number;
+  horas_extras_50?: number;
+  horas_extras_70?: number;
+  horas_extras_100?: number;
+  reflexo_dsr?: number;
   comissoes: number;
   gratificacao: number;
   vale_transporte: number;
@@ -21,6 +25,19 @@ export interface FolhaPagamento {
   desconto_irrf: number;
   desconto_vt: number;
   outros_descontos: number;
+  adiantamento_salarial?: number;
+  desconto_emprestimo?: number;
+  desconto_cesta_basica?: number;
+  contribuicao_assistencial?: number;
+  troco_mes?: number;
+  troco_mes_anterior?: number;
+  estorno_provisao?: number;
+  base_fgts?: number;
+  valor_fgts?: number;
+  base_irrf?: number;
+  faixa_irrf?: number;
+  salario_contrib_inss?: number;
+  dias_trabalhados?: number;
   total_proventos: number;
   total_descontos: number;
   liquido: number;
@@ -29,15 +46,21 @@ export interface FolhaPagamento {
   data_pagamento: string | null;
   conta_pagar_id: string | null;
   observacoes: string | null;
-  funcionario?: { id: string; nome: string; cargo: string };
+  funcionario?: { id: string; nome: string; cargo: string; empregador_cnpj?: string; empregador_nome?: string };
 }
 
 export function calcularTotaisFolha(f: Partial<FolhaPagamento>) {
   const proventos =
     Number(f.salario_base || 0) +
     Number(f.horas_extras || 0) +
+    Number(f.horas_extras_50 || 0) +
+    Number(f.horas_extras_70 || 0) +
+    Number(f.horas_extras_100 || 0) +
+    Number(f.reflexo_dsr || 0) +
     Number(f.comissoes || 0) +
-    Number(f.gratificacao || 0);
+    Number(f.gratificacao || 0) +
+    Number(f.estorno_provisao || 0) +
+    Number(f.troco_mes || 0);
   const beneficios =
     Number(f.vale_transporte || 0) +
     Number(f.vale_alimentacao || 0) +
@@ -49,9 +72,13 @@ export function calcularTotaisFolha(f: Partial<FolhaPagamento>) {
     Number(f.desconto_inss || 0) +
     Number(f.desconto_irrf || 0) +
     Number(f.desconto_vt || 0) +
-    Number(f.outros_descontos || 0);
+    Number(f.outros_descontos || 0) +
+    Number(f.adiantamento_salarial || 0) +
+    Number(f.desconto_emprestimo || 0) +
+    Number(f.desconto_cesta_basica || 0) +
+    Number(f.contribuicao_assistencial || 0) +
+    Number(f.troco_mes_anterior || 0);
   const liquido = proventos - descontos;
-  // Custo total empresa: proventos + benefícios + 36% de encargos sobre salário base
   const encargos = Number(f.salario_base || 0) * 0.36;
   const custoTotal = proventos + beneficios + encargos;
   return {
@@ -68,7 +95,7 @@ export const useFolhaPagamento = (competencia: string) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("folha_pagamento" as any)
-        .select("*, funcionario:funcionarios(id, nome, cargo)")
+        .select("*, funcionario:funcionarios(id, nome, cargo, empregador_cnpj, empregador_nome)")
         .eq("competencia", competencia)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -231,7 +258,7 @@ export const useFolhaMesPorIntervalo = (inicio: Date, fim: Date) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("folha_pagamento" as any)
-        .select("*, funcionario:funcionarios(id, nome, cargo)")
+        .select("*, funcionario:funcionarios(id, nome, cargo, empregador_cnpj, empregador_nome)")
         .gte("competencia", compInicio)
         .lte("competencia", compFim);
       if (error) throw error;

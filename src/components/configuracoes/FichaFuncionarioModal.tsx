@@ -39,7 +39,11 @@ interface Props {
   onOpenChange: (o: boolean) => void;
 }
 
-const TIPOS_CONTRATO = ["CLT", "PJ", "Estágio", "Temporário", "Autônomo"];
+const TIPOS_CONTRATO = ["CLT", "PJ", "Estágio", "Temporário", "Autônomo", "PRO-LABORE"];
+const EMPREGADORES = [
+  { cnpj: "23.227.029/0001-06", nome: "LAVANDERIA SAO ROQUE LTDA" },
+  { cnpj: "08.350.030/0001-97", nome: "ANJOLAV" },
+];
 const REGIMES = ["mensalista", "horista", "comissionado"];
 const ESTADO_CIVIL = ["Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)", "União Estável"];
 const ESCOLARIDADE = [
@@ -203,6 +207,32 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
                 <div><Label>Data de Admissão</Label><Input type="date" value={form.data_admissao || ""} onChange={(e) => set("data_admissao", e.target.value)} /></div>
                 <div><Label>Data de Demissão</Label><Input type="date" value={form.data_demissao || ""} onChange={(e) => set("data_demissao", e.target.value || null)} /></div>
                 <div><Label>Carga Horária Semanal</Label><Input type="number" value={form.carga_horaria || ""} onChange={(e) => set("carga_horaria", Number(e.target.value))} /></div>
+              </div>
+
+              <div className="border-t pt-3 mt-3">
+                <h4 className="font-semibold text-sm mb-2">Empregador (CNPJ)</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label>Empresa Empregadora</Label>
+                    <Select
+                      value={form.empregador_cnpj || ""}
+                      onValueChange={(v) => {
+                        const emp = EMPREGADORES.find(x => x.cnpj === v);
+                        set("empregador_cnpj", v);
+                        if (emp) set("empregador_nome", emp.nome);
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {EMPREGADORES.map(e => <SelectItem key={e.cnpj} value={e.cnpj}>{e.nome} — {e.cnpj}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label>Código Externo</Label><Input value={form.codigo_externo || ""} onChange={(e) => set("codigo_externo", e.target.value)} /></div>
+                  <div><Label>CBO</Label><Input value={form.cbo || ""} onChange={(e) => set("cbo", e.target.value)} /></div>
+                  <div><Label>Matrícula INSS</Label><Input value={form.matricula_inss || ""} onChange={(e) => set("matricula_inss", e.target.value)} /></div>
+                  <div><Label>Centro de Custo</Label><Input value={form.centro_custo || ""} onChange={(e) => set("centro_custo", e.target.value)} /></div>
+                  <div><Label>Filial</Label><Input value={form.filial || ""} onChange={(e) => set("filial", e.target.value)} /></div>
+                </div>
               </div>
             </TabsContent>
 
