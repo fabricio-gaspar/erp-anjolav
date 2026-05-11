@@ -99,8 +99,9 @@ export const useUpdateFichaFuncionario = () => {
         .update(rest as any)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!f) throw new Error("Sem permissão para editar a ficha (necessário perfil ADMINISTRADOR).");
       return f;
     },
     onSuccess: () => {
