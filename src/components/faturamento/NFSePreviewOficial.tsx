@@ -65,82 +65,204 @@ export interface NFSeOficialData {
   // Ambiente
   ambiente?: "producao" | "homologacao";
   isPrevia?: boolean;
+  // Extras
+  regime_tributario?: string | null;
+  informacoes_adicionais?: string | null;
 }
 
-const formatCurrency = (value: number) => {
-  return value.toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
+const fmt = (v: number) =>
+  v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const formatCNPJ = (cnpj: string | null) => {
   if (!cnpj) return "";
-  const clean = cnpj.replace(/\D/g, "");
-  if (clean.length === 14) {
-    return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
-  }
-  if (clean.length === 11) {
-    return clean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-  }
+  const c = cnpj.replace(/\D/g, "");
+  if (c.length === 14) return c.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  if (c.length === 11) return c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   return cnpj;
 };
 
 const formatCEP = (cep: string | null) => {
   if (!cep) return "";
-  const clean = cep.replace(/\D/g, "");
-  if (clean.length === 8) {
-    return clean.replace(/(\d{5})(\d{3})/, "$1-$2");
-  }
+  const c = cep.replace(/\D/g, "");
+  if (c.length === 8) return c.replace(/(\d{5})(\d{3})/, "$1-$2");
   return cep;
 };
 
-// Shared cell style helpers
-const cellStyle = (extra?: React.CSSProperties): React.CSSProperties => ({
-  border: "1px solid #000",
-  padding: "4px 8px",
-  fontSize: "9px",
+// =================== STYLES ===================
+const BORDER = "1px solid #000";
+const HEADER_BG = "#cfcfcf";
+const SUBHEADER_BG = "#e8e8e8";
+
+const td = (extra?: React.CSSProperties): React.CSSProperties => ({
+  border: BORDER,
+  padding: "3px 5px",
+  fontSize: "8.5px",
+  verticalAlign: "top",
   ...extra,
 });
 
-const headerCellStyle = (extra?: React.CSSProperties): React.CSSProperties => ({
-  border: "1px solid #000",
-  background: "#e0e0e0",
-  padding: "4px 8px",
+const sectionHeader: React.CSSProperties = {
+  border: BORDER,
+  background: HEADER_BG,
+  textAlign: "center",
   fontWeight: "bold",
-  fontSize: "10px",
-  textAlign: "center" as const,
+  fontSize: "9px",
+  padding: "3px",
+};
+
+const subHeader = (extra?: React.CSSProperties): React.CSSProperties => ({
+  border: BORDER,
+  background: SUBHEADER_BG,
+  fontSize: "7.5px",
+  padding: "2px 5px",
+  fontWeight: "normal",
   ...extra,
 });
 
-const labelStyle: React.CSSProperties = {
-  fontSize: "8px",
-  color: "#666",
+const lbl: React.CSSProperties = {
+  fontSize: "6.5px",
+  color: "#333",
   display: "block",
-  marginBottom: "1px",
+  lineHeight: "1.1",
 };
 
-const valueStyle: React.CSSProperties = {
+const val: React.CSSProperties = {
   fontSize: "9px",
-  fontWeight: "bold",
+  color: "#000",
+  display: "block",
+  lineHeight: "1.2",
 };
 
+// Field with label on top, value below — used in many cells
+function Field({
+  label,
+  children,
+  bold,
+}: {
+  label: string;
+  children?: React.ReactNode;
+  bold?: boolean;
+}) {
+  return (
+    <>
+      <span style={lbl}>{label}</span>
+      <span style={{ ...val, fontWeight: bold ? "bold" : "normal" }}>
+        {children ?? "\u00A0"}
+      </span>
+    </>
+  );
+}
+
+// =================== BARCODE ===================
+// Renderização visual de Code128 (barras pseudo-aleatórias derivadas dos dígitos).
+// Não é leitura óptica real, mas reproduz fielmente o visual do modelo.
+function Barcode({ value }: { value: string }) {
+  const digits = value.replace(/\D/g, "") || "0";
+  // Gera larguras de barras a partir dos dígitos
+  const bars: { w: number; fill: boolean }[] = [];
+  // quiet zone start
+  bars.push({ w: 8, fill: false });
+  // start guard
+  bars.push({ w: 2, fill: true });
+  bars.push({ w: 1, fill: false });
+  for (let i = 0; i < digits.length; i++) {
+    const d = parseInt(digits[i], 10);
+    // padrão: 4 elementos por dígito
+    const widths = [
+      ((d * 7) % 3) + 1,
+      ((d * 13) % 3) + 1,
+      ((d * 17) % 2) + 1,
+      ((d * 23) % 3) + 1,
+    ];
+    bars.push({ w: widths[0], fill: true });
+    bars.push({ w: widths[1], fill: false });
+    bars.push({ w: widths[2], fill: true });
+    bars.push({ w: widths[3], fill: false });
+  }
+  // stop guard
+  bars.push({ w: 2, fill: true });
+  bars.push({ w: 1, fill: false });
+  bars.push({ w: 2, fill: true });
+  bars.push({ w: 8, fill: false });
+
+  const totalW = bars.reduce((s, b) => s + b.w, 0);
+  const height = 38;
+  let x = 0;
+
+  return (
+    <div style={{ textAlign: "center" }}>
+      <svg
+        viewBox={`0 0 ${totalW} ${height}`}
+        width="320"
+        height={height}
+        preserveAspectRatio="none"
+        style={{ display: "block", margin: "0 auto" }}
+      >
+        {bars.map((b, i) => {
+          const rect = b.fill ? (
+            <rect key={i} x={x} y={0} width={b.w} height={height} fill="#000" />
+          ) : null;
+          x += b.w;
+          return rect;
+        })}
+      </svg>
+      <div
+        style={{
+          fontFamily: "Courier, monospace",
+          fontSize: "9px",
+          letterSpacing: "2px",
+          marginTop: "2px",
+          fontWeight: "bold",
+        }}
+      >
+        {digits}
+      </div>
+    </div>
+  );
+}
+
+// =================== CONTENT ===================
 function NFSeContent({ data }: { data: NFSeOficialData }) {
-  const endEmitente = data.emitente.endereco;
-  const endTomador = data.tomador.endereco;
+  const ee = data.emitente.endereco;
+  const et = data.tomador.endereco;
 
   const hoje = new Date();
   const dataEmissao = data.data_emissao || hoje.toLocaleDateString("pt-BR");
-  const horaEmissao = hoje.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const codigoVerif = data.codigo_verificacao || data.chave_acesso?.slice(-10) || "PREVIA";
-  const qrCodeUrl = `https://saoroque.govbr.cloud/nfse.portal/verificar/${codigoVerif}`;
+  const horaEmissao = hoje.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const codVerif = data.codigo_verificacao || data.chave_acesso?.slice(-9) || "PREVIA000";
+  const numero = data.numero_nf || "PRÉVIA";
+  const cnpjLimpo = (data.emitente.cnpj || "").replace(/\D/g, "");
+  const chave =
+    data.chave_acesso ||
+    `35506051${cnpjLimpo.padEnd(14, "0")}000000000${(numero || "0").padStart(5, "0")}26041797416559`;
+  const numeroDps = data.numero_dps || numero;
+  const serieDps = data.serie_dps || "49999";
+  const dataHoraDps = data.data_hora_dps || `${dataEmissao} ${horaEmissao}`;
+  const cidadePrest = ee?.cidade || "São Roque";
+  const ufPrest = ee?.uf || "SP";
 
-  const aliquotaEfetiva = data.valor_servico > 0 ? ((data.valor_iss / data.valor_servico) * 100) : data.aliquota_iss;
+  const aliquotaEfetiva =
+    data.valor_servico > 0 ? (data.valor_iss / data.valor_servico) * 100 : data.aliquota_iss;
 
-  // Cálculos da Lei 12741/2012 (estimativas)
   const valorMun = data.valor_iss * 0.88;
   const valorFed = data.valor_iss * 2.96;
   const valorTotalAprox = valorMun + valorFed;
+
+  const portalUrl = "https://webapp1-saoroque.cidade360.cloud/nfse.portal";
+  const qrUrl = `${portalUrl}/verificar/${codVerif}`;
+  const codServ = data.emitente.codigo_servico || "14.10";
+  const codTribNac = data.codigo_tributacao_nacional || "14.10.01";
+  const codTribMun = data.codigo_tributacao_municipal || "1410";
+
+  const isSimples =
+    !data.regime_tributario ||
+    /simples|mei/i.test(data.regime_tributario);
+
+  const barcodeValue = `${numero || "0"}${codVerif}${cnpjLimpo}`;
 
   return (
     <div
@@ -150,7 +272,7 @@ function NFSeContent({ data }: { data: NFSeOficialData }) {
         fontSize: "9px",
         color: "#000",
         background: "#fff",
-        padding: "10px",
+        padding: "8mm",
         maxWidth: "210mm",
         margin: "0 auto",
         position: "relative",
@@ -158,533 +280,557 @@ function NFSeContent({ data }: { data: NFSeOficialData }) {
     >
       {/* Marca d'água */}
       {data.isPrevia && (
-        <div style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%) rotate(-45deg)",
-          fontSize: "60px",
-          color: "rgba(200, 0, 0, 0.12)",
-          fontWeight: "bold",
-          pointerEvents: "none",
-          zIndex: 1,
-          whiteSpace: "nowrap",
-        }}>
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%) rotate(-45deg)",
+            fontSize: "60px",
+            color: "rgba(200, 0, 0, 0.10)",
+            fontWeight: "bold",
+            pointerEvents: "none",
+            zIndex: 1,
+            whiteSpace: "nowrap",
+          }}
+        >
           PRÉVIA - SEM VALOR FISCAL
         </div>
       )}
 
-      {/* ===== CABEÇALHO PRINCIPAL ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
-        <tbody>
-          <tr>
-            <td colSpan={3} style={{
-              border: "1px solid #000",
-              background: "#003366",
-              color: "#fff",
-              textAlign: "center",
-              padding: "6px",
-              fontSize: "14px",
-              fontWeight: "bold",
-            }}>
-              NFS-e&nbsp;&nbsp;&nbsp;Nota Fiscal de Serviço Eletrônica
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      {/* ===== TÍTULO ===== */}
+      <div
+        style={{
+          textAlign: "center",
+          fontWeight: "bold",
+          fontSize: "16px",
+          padding: "4px 0 8px 0",
+          color: "#000",
+        }}
+      >
+        NFS-e&nbsp;&nbsp;Nota Fiscal de Serviço Eletrônica
+      </div>
 
-      {/* ===== EMITENTE + NÚMERO + SÉRIE/DATA ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      {/* ===== BLOCO 1: EMITENTE + QR + NÚMERO/SÉRIE ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
             {/* Emitente */}
-            <td style={cellStyle({ verticalAlign: "top", width: "55%", padding: "8px" })}>
-              <div style={{ fontWeight: "bold", fontSize: "11px", marginBottom: "4px" }}>
+            <td style={td({ width: "55%", padding: "6px 8px" })}>
+              <div style={{ fontWeight: "bold", fontSize: "10px", marginBottom: "2px" }}>
                 {data.emitente.razao_social}
               </div>
-              {endEmitente && (
+              {ee && (
                 <>
-                  <div style={{ fontSize: "9px" }}>
-                    {endEmitente.logradouro}, {endEmitente.numero}
-                    {endEmitente.complemento && ` - ${endEmitente.complemento}`}
+                  <div>
+                    {ee.logradouro}
+                    {ee.numero ? `, ${ee.numero}` : ""}
+                    {ee.complemento ? ` - ${ee.complemento}` : ""}
                   </div>
-                  <div style={{ fontSize: "9px" }}>
-                    CEP: {formatCEP(endEmitente.cep)} - Bairro: {endEmitente.bairro}
+                  <div>
+                    CEP: {formatCEP(ee.cep)} - Bairro: {ee.bairro}
                   </div>
-                  <div style={{ fontSize: "9px" }}>
-                    Município: {endEmitente.cidade} - {endEmitente.uf}
+                  <div>
+                    Município: {ee.cidade} - {ee.uf}
                   </div>
                 </>
               )}
-              <div style={{ fontSize: "9px", marginTop: "3px" }}>
-                E-mail: {data.emitente.email || "comercial@anjolav.com.br"}
-              </div>
-              <div style={{ fontSize: "9px" }}>
-                Fone: {data.emitente.telefone || "(11) 4784-1281"}
-              </div>
-              <div style={{ fontSize: "9px", marginTop: "4px" }}>
-                <span>CNPJ / CPF: {formatCNPJ(data.emitente.cnpj)}</span>
-              </div>
-              <div style={{ fontSize: "9px" }}>
-                <span>Inscrição Estadual: {data.emitente.inscricao_estadual || "ISENTO"}</span>
-              </div>
-              <div style={{ fontSize: "9px" }}>
-                <span>Inscrição Municipal: {data.emitente.inscricao_municipal || "-"}</span>
-              </div>
+              <div>E-mail: {data.emitente.email || "—"}</div>
+              <div>Fone: {data.emitente.telefone || "—"}</div>
             </td>
-            {/* Número e Série */}
-            <td style={cellStyle({ verticalAlign: "top", width: "25%", textAlign: "center", padding: "8px" })}>
-              <div style={{ fontSize: "8px", marginBottom: "2px" }}>Número da NFS-e:</div>
-              <div style={{ fontWeight: "bold", fontSize: "18px", marginBottom: "6px" }}>
-                {data.numero_nf || "PRÉVIA"}
-              </div>
-              <div style={{ fontSize: "9px", marginTop: "4px" }}>
-                Série da NFS-e: <strong>{data.serie || "NACIONAL"}</strong>
-              </div>
-              <div style={{ fontSize: "9px", marginTop: "6px" }}>
-                Data do Serviço: {dataEmissao}
-              </div>
-              <div style={{ fontSize: "9px", marginTop: "4px" }}>
-                Código Verificador:
-              </div>
-              <div style={{ fontSize: "10px", fontWeight: "bold" }}>{codigoVerif}</div>
-            </td>
+
             {/* QR Code */}
-            <td style={cellStyle({ verticalAlign: "top", width: "20%", textAlign: "center", padding: "8px" })}>
-              <QRCodeSVG value={qrCodeUrl} size={85} />
+            <td style={td({ width: "20%", textAlign: "center", padding: "6px" })}>
+              <QRCodeSVG value={qrUrl} size={92} />
+            </td>
+
+            {/* Número / Série / Data / Cód.Verif. */}
+            <td style={{ width: "25%", padding: 0, border: BORDER, verticalAlign: "top" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  <tr>
+                    <td colSpan={2} style={td({ borderTop: "none", borderRight: "none", borderLeft: "none", textAlign: "center", padding: "4px" })}>
+                      <span style={lbl}>Número da NFS-e</span>
+                      <div style={{ fontSize: "16px", fontWeight: "bold" }}>{numero}</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={2} style={td({ borderRight: "none", borderLeft: "none", textAlign: "center", padding: "4px" })}>
+                      <span style={lbl}>Série da NFS-e</span>
+                      <div style={{ fontSize: "11px", fontWeight: "bold" }}>{data.serie || "NACIONAL"}</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={td({ borderLeft: "none", borderBottom: "none", width: "55%", textAlign: "center", padding: "4px" })}>
+                      <span style={lbl}>Data do Serviço</span>
+                      <div style={{ fontSize: "10px", fontWeight: "bold" }}>{dataEmissao}</div>
+                    </td>
+                    <td style={td({ borderRight: "none", borderBottom: "none", textAlign: "center", padding: "4px" })}>
+                      <span style={lbl}>Código Verificador</span>
+                      <div style={{ fontSize: "10px", fontWeight: "bold" }}>{codVerif}</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </td>
           </tr>
         </tbody>
       </table>
 
-      {/* ===== FAIXA PREFEITURA ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      {/* ===== BLOCO 2: CNPJ EMITENTE + PREFEITURA ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td style={cellStyle({
-              background: "#4a4a4a",
-              color: "#fff",
-              padding: "6px",
-              width: "50%",
-              verticalAlign: "top",
-            })}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <div style={{
-                  width: "40px",
-                  height: "40px",
-                  background: "#fff",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "7px",
-                  color: "#333",
-                  fontWeight: "bold",
-                  textAlign: "center",
-                  flexShrink: 0,
-                }}>
+            <td style={td({ width: "18.33%" })}>
+              <Field label="CNPJ / CPF">{formatCNPJ(data.emitente.cnpj)}</Field>
+            </td>
+            <td style={td({ width: "18.33%" })}>
+              <Field label="Inscrição Estadual">{data.emitente.inscricao_estadual || "0"}</Field>
+            </td>
+            <td style={td({ width: "18.34%" })}>
+              <Field label="Inscrição Municipal">{data.emitente.inscricao_municipal || "—"}</Field>
+            </td>
+            <td colSpan={3} style={td({ width: "45%", padding: 0 })}>
+              {/* placeholder - preenchido pela faixa prefeitura abaixo */}
+              &nbsp;
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* ===== BLOCO 3: PREFEITURA + ATRIBUTOS ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <tbody>
+          <tr>
+            <td rowSpan={2} style={td({ width: "40%", padding: "6px" })}>
+              <div style={{ display: "flex", gap: "6px", alignItems: "flex-start" }}>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    border: "1px solid #999",
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "6px",
+                    color: "#666",
+                    fontWeight: "bold",
+                    textAlign: "center",
+                    flexShrink: 0,
+                    background: "#fafafa",
+                  }}
+                >
                   BRASÃO
                 </div>
                 <div>
-                  <div style={{ fontWeight: "bold", fontSize: "10px" }}>PREFEITURA DA ESTANCIA</div>
-                  <div style={{ fontWeight: "bold", fontSize: "10px" }}>TURISTICA DE SAO ROQUE/SP</div>
+                  <div style={{ fontWeight: "bold", fontSize: "9px" }}>PREFEITURA DA ESTANCIA</div>
+                  <div style={{ fontWeight: "bold", fontSize: "9px" }}>TURISTICA DE SAO ROQUE/SP</div>
                   <div style={{ fontSize: "8px" }}>Divisão de Rendas</div>
-                  <div style={{ fontSize: "8px" }}>Fone: (11) 4784-8514</div>
-                  <div style={{ fontSize: "8px" }}>https://saoroque.govbr.cloud/nfse.portal</div>
+                  <div style={{ fontSize: "7.5px" }}>Fone: (11) 4784-8514 - {portalUrl}</div>
                 </div>
               </div>
             </td>
-            <td style={cellStyle({
-              background: "#4a4a4a",
-              color: "#fff",
-              padding: "6px",
-              width: "50%",
-              verticalAlign: "top",
-              textAlign: "right",
-            })}>
-              <div style={{ fontSize: "9px" }}>Dt. de Emissão: {dataEmissao} {horaEmissao}</div>
-              <div style={{ fontSize: "9px", marginTop: "2px" }}>Exigibilidade ISS: <strong>Exigível</strong></div>
-              <div style={{ fontSize: "9px", marginTop: "2px" }}>Município de Prestação Serviço: {endEmitente?.cidade || "São Roque"}/{endEmitente?.uf || "SP"}</div>
-              <div style={{ fontSize: "9px", marginTop: "2px" }}>Tributado no Município: {endEmitente?.cidade || "São Roque"}/{endEmitente?.uf || "SP"}</div>
+            <td style={td({ width: "15%", textAlign: "center" })}>
+              <Field label="Dt. de Emissão" />
+            </td>
+            <td style={td({ width: "15%", textAlign: "center" })}>
+              <Field label="Exigibilidade ISS" />
+            </td>
+            <td style={td({ width: "15%", textAlign: "center" })}>
+              <span style={lbl}>Município de</span>
+              <span style={lbl}>Prestação Serviço</span>
+            </td>
+            <td style={td({ width: "15%", textAlign: "center" })}>
+              <Field label="Tributado no Município" />
+            </td>
+          </tr>
+          <tr>
+            <td style={td({ textAlign: "center", padding: "5px" })}>
+              <span style={{ ...val, fontWeight: "bold" }}>{dataEmissao}</span>
+            </td>
+            <td style={td({ textAlign: "center", padding: "5px" })}>
+              <span style={{ ...val, fontWeight: "bold" }}>Exigível</span>
+            </td>
+            <td style={td({ textAlign: "center", padding: "5px" })}>
+              <span style={{ ...val, fontWeight: "bold" }}>{cidadePrest}/{ufPrest}</span>
+            </td>
+            <td style={td({ textAlign: "center", padding: "5px" })}>
+              <span style={{ ...val, fontWeight: "bold" }}>{cidadePrest}/{ufPrest}</span>
             </td>
           </tr>
         </tbody>
       </table>
 
-      {/* ===== CHAVE DE ACESSO ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      {/* ===== BLOCO 4: CHAVE DE ACESSO + DPS ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td style={cellStyle({ background: "#f0f0f0", padding: "6px", width: "70%" })}>
-              <div style={{ fontSize: "9px", fontWeight: "bold" }}>Chave de Acesso da NFS-e</div>
-              <div style={{ fontSize: "11px", fontFamily: "monospace", letterSpacing: "1px", marginTop: "2px" }}>
-                {data.chave_acesso || "35506051223227029000106000000000003826015784052098"}
+            <td style={td({ width: "50%", padding: "4px 6px" })}>
+              <span style={lbl}>Chave de Acesso da NFS-e</span>
+              <div style={{ fontSize: "9px", letterSpacing: "0.5px", fontFamily: "monospace" }}>
+                {chave}
               </div>
             </td>
-            <td style={cellStyle({ background: "#f0f0f0", padding: "6px", width: "30%", fontSize: "9px" })}>
-              <div>Número DPS: {data.numero_dps || data.numero_nf || "PRÉVIA"}</div>
-              <div>Série DPS: {data.serie_dps || "49999"}</div>
-              <div>Data e hora de Emissão da DPS: {data.data_hora_dps || `${dataEmissao} ${horaEmissao}`}</div>
+            <td style={td({ width: "12%" })}>
+              <Field label="Número DPS">{numeroDps}</Field>
+            </td>
+            <td style={td({ width: "13%" })}>
+              <Field label="Série DPS">{serieDps}</Field>
+            </td>
+            <td style={td({ width: "25%" })}>
+              <Field label="Data e hora de Emissão da DPS">{dataHoraDps}</Field>
             </td>
           </tr>
         </tbody>
       </table>
 
-      {/* ===== TOMADOR DO SERVIÇO ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      {/* ===== TOMADOR ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td colSpan={4} style={headerCellStyle()}>TOMADOR DO SERVIÇO</td>
+            <td colSpan={6} style={sectionHeader}>TOMADOR DO SERVIÇO</td>
           </tr>
           <tr>
-            {/* Coluna esquerda: Nome + Endereço + Cidade */}
-            <td colSpan={2} style={cellStyle({ width: "60%", verticalAlign: "top", padding: "6px" })}>
-              <div>
-                <span style={labelStyle}>Nome / Razão Social:</span>
-                <span style={valueStyle}>{data.tomador.razao_social}</span>
-              </div>
-              {endTomador && (
-                <>
-                  <div style={{ marginTop: "3px" }}>
-                    <span style={labelStyle}>Endereço:</span>
-                    <span style={{ fontSize: "9px" }}>
-                      {endTomador.logradouro}, {endTomador.numero}
-                      {endTomador.complemento && ` - ${endTomador.complemento}`}
-                    </span>
-                  </div>
-                  <div style={{ marginTop: "3px", display: "flex", gap: "16px", flexWrap: "wrap" }}>
-                    <div>
-                      <span style={labelStyle}>Cidade:</span>
-                      <span style={{ fontSize: "9px" }}>{endTomador.cidade}</span>
-                    </div>
-                    <div>
-                      <span style={labelStyle}>UF:</span>
-                      <span style={{ fontSize: "9px" }}>{endTomador.uf}</span>
-                    </div>
-                    <div>
-                      <span style={labelStyle}>Bairro:</span>
-                      <span style={{ fontSize: "9px" }}>{endTomador.bairro}</span>
-                    </div>
-                    <div>
-                      <span style={labelStyle}>CEP:</span>
-                      <span style={{ fontSize: "9px" }}>{formatCEP(endTomador.cep)}</span>
-                    </div>
-                  </div>
-                </>
-              )}
+            <td colSpan={4} style={td({ width: "65%" })}>
+              <Field label="Nome / Razão Social" bold>
+                {data.tomador.razao_social}
+              </Field>
             </td>
-            {/* Coluna direita: CNPJ + IM + IE + Email + Fone */}
-            <td colSpan={2} style={cellStyle({ width: "40%", verticalAlign: "top", padding: "6px" })}>
-              <div>
-                <span style={labelStyle}>CNPJ / CPF:</span>
-                <span style={valueStyle}>{formatCNPJ(data.tomador.cpf_cnpj) || "-"}</span>
-              </div>
-              <div style={{ marginTop: "3px" }}>
-                <span style={labelStyle}>Inscrição Municipal:</span>
-                <span style={{ fontSize: "9px" }}>{data.tomador.inscricao_municipal || "-"}</span>
-              </div>
-              <div style={{ marginTop: "3px" }}>
-                <span style={labelStyle}>Inscrição Estadual:</span>
-                <span style={{ fontSize: "9px" }}>{data.tomador.inscricao_estadual || "-"}</span>
-              </div>
-              <div style={{ marginTop: "3px" }}>
-                <span style={labelStyle}>E-mail:</span>
-                <span style={{ fontSize: "9px" }}>{data.tomador.email || "-"}</span>
-              </div>
-              <div style={{ marginTop: "3px" }}>
-                <span style={labelStyle}>Fone:</span>
-                <span style={{ fontSize: "9px" }}>{data.tomador.telefone || "-"}</span>
-              </div>
+            <td colSpan={2} style={td({ width: "35%" })}>
+              <Field label="CNPJ / CPF" bold>
+                {formatCNPJ(data.tomador.cpf_cnpj) || "—"}
+              </Field>
+            </td>
+          </tr>
+          <tr>
+            <td colSpan={4} style={td()}>
+              <Field label="Endereço">
+                {et?.logradouro}
+                {et?.numero ? `, ${et.numero}` : ""}
+                {et?.complemento ? ` - ${et.complemento}` : ""}
+              </Field>
+            </td>
+            <td style={td()}>
+              <Field label="Inscrição Municipal">{data.tomador.inscricao_municipal || "—"}</Field>
+            </td>
+            <td style={td()}>
+              <Field label="Inscrição Estadual">{data.tomador.inscricao_estadual || "—"}</Field>
+            </td>
+          </tr>
+          <tr>
+            <td style={td({ width: "20%" })}>
+              <Field label="Cidade">{et?.cidade || "—"}</Field>
+            </td>
+            <td style={td({ width: "6%" })}>
+              <Field label="UF">{et?.uf || "—"}</Field>
+            </td>
+            <td style={td({ width: "20%" })}>
+              <Field label="Bairro">{et?.bairro || "—"}</Field>
+            </td>
+            <td style={td({ width: "12%" })}>
+              <Field label="CEP">{formatCEP(et?.cep || null) || "—"}</Field>
+            </td>
+            <td style={td({ width: "27%" })}>
+              <Field label="E-mail">{data.tomador.email || "—"}</Field>
+            </td>
+            <td style={td({ width: "15%" })}>
+              <Field label="Fone">{data.tomador.telefone || "—"}</Field>
             </td>
           </tr>
         </tbody>
       </table>
 
-      {/* ===== INTERMEDIÁRIO DO SERVIÇO ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      {/* ===== INTERMEDIÁRIO ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td colSpan={5} style={headerCellStyle()}>INTERMEDIÁRIO DO SERVIÇO</td>
+            <td colSpan={5} style={sectionHeader}>INTERMEDIÁRIO DO SERVIÇO</td>
           </tr>
           <tr>
-            <td style={cellStyle({ fontSize: "9px" })}><span style={labelStyle}>Nome / Razão Social:</span> *****</td>
-            <td style={cellStyle({ fontSize: "9px" })}><span style={labelStyle}>CNPJ / CPF:</span> *****</td>
-            <td style={cellStyle({ fontSize: "9px" })}><span style={labelStyle}>Inscrição Municipal:</span> *****</td>
-            <td style={cellStyle({ fontSize: "9px" })}><span style={labelStyle}>E-mail:</span> *****</td>
-            <td style={cellStyle({ fontSize: "9px" })}><span style={labelStyle}>Fone:</span> *****</td>
+            <td style={td({ width: "35%" })}>
+              <Field label="Nome / Razão Social">*****</Field>
+            </td>
+            <td style={td({ width: "20%" })}>
+              <Field label="CNPJ / CPF">*****</Field>
+            </td>
+            <td style={td({ width: "15%" })}>
+              <Field label="Inscrição Municipal">*****</Field>
+            </td>
+            <td style={td({ width: "20%" })}>
+              <Field label="E-mail">*****</Field>
+            </td>
+            <td style={td({ width: "10%" })}>
+              <Field label="Fone">*****</Field>
+            </td>
           </tr>
         </tbody>
       </table>
 
       {/* ===== DESCRIÇÃO DOS SERVIÇOS ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td colSpan={5} style={headerCellStyle()}>DESCRIÇÃO DOS SERVIÇOS</td>
+            <td style={{ ...sectionHeader, width: "55%" }}>DESCRIÇÃO DOS SERVIÇOS</td>
+            <td style={subHeader({ textAlign: "right", fontWeight: "bold", width: "12%" })}>VALOR TOTAL</td>
+            <td style={subHeader({ textAlign: "right", fontWeight: "bold", width: "10%" })}>ALIQ. ISSQN</td>
+            <td style={subHeader({ textAlign: "right", fontWeight: "bold", width: "13%" })}>VALOR ISSQN</td>
+            <td style={subHeader({ textAlign: "center", fontWeight: "bold", width: "10%" })}>RETIDO</td>
           </tr>
           <tr>
-            <th style={cellStyle({ fontSize: "8px", background: "#f5f5f5", textAlign: "left", width: "50%" })}>DESCRIÇÃO</th>
-            <th style={cellStyle({ fontSize: "8px", background: "#f5f5f5", textAlign: "right" })}>VALOR TOTAL</th>
-            <th style={cellStyle({ fontSize: "8px", background: "#f5f5f5", textAlign: "right" })}>ALIQ. ISSQN</th>
-            <th style={cellStyle({ fontSize: "8px", background: "#f5f5f5", textAlign: "right" })}>VALOR ISSQN</th>
-            <th style={cellStyle({ fontSize: "8px", background: "#f5f5f5", textAlign: "center" })}>RETIDO</th>
-          </tr>
-          <tr>
-            <td style={cellStyle({ padding: "8px", verticalAlign: "top", minHeight: "60px" })}>
-              <div style={{ whiteSpace: "pre-wrap" }}>{data.descricao_servico}</div>
-              <div style={{ marginTop: "8px", fontSize: "8px", color: "#666" }}>
-                Alíquota Efetiva: {aliquotaEfetiva.toFixed(7)}%
+            <td rowSpan={3} style={td({ padding: "8px", height: "240px", verticalAlign: "top" })}>
+              <div style={{ whiteSpace: "pre-wrap" }}>
+                {data.descricao_servico}.. Alíquota Efetiva: {aliquotaEfetiva.toFixed(10)}%.
               </div>
             </td>
-            <td style={cellStyle({ padding: "8px", fontSize: "10px", textAlign: "right", fontWeight: "bold", verticalAlign: "top" })}>
-              {formatCurrency(data.valor_servico)}
+            <td style={td({ textAlign: "right", padding: "5px", fontWeight: "bold" })}>
+              {fmt(data.valor_servico)}
             </td>
-            <td style={cellStyle({ padding: "8px", fontSize: "10px", textAlign: "right", verticalAlign: "top" })}>
-              {data.aliquota_iss?.toFixed(2)}
+            <td style={td({ textAlign: "right", padding: "5px" })}>
+              {fmt(data.aliquota_iss)}
             </td>
-            <td style={cellStyle({ padding: "8px", fontSize: "10px", textAlign: "right", fontWeight: "bold", verticalAlign: "top" })}>
-              {formatCurrency(data.valor_iss)}
+            <td style={td({ textAlign: "right", padding: "5px", fontWeight: "bold" })}>
+              {fmt(data.valor_iss)}
             </td>
-            <td style={cellStyle({ padding: "8px", fontSize: "10px", textAlign: "center", verticalAlign: "top" })}>
-              Não
+            <td style={td({ textAlign: "center", padding: "5px" })}>Não</td>
+          </tr>
+          <tr>
+            <td style={subHeader({ textAlign: "right", fontWeight: "bold" })}>ALIQ. CBS</td>
+            <td style={subHeader({ textAlign: "right", fontWeight: "bold" })}>VALOR CBS</td>
+            <td style={subHeader({ textAlign: "right", fontWeight: "bold" })}>ALIQ. IBS EST.</td>
+            <td style={subHeader({ textAlign: "center", fontWeight: "bold" })}>VALOR IBS EST.</td>
+          </tr>
+          <tr>
+            <td style={td({ textAlign: "right", padding: "5px" })}>*****</td>
+            <td style={td({ textAlign: "right", padding: "5px" })}>*****</td>
+            <td style={td({ textAlign: "right", padding: "5px" })}>*****</td>
+            <td style={td({ textAlign: "center", padding: "5px" })}>*****</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* ===== CÓDIGOS DO SERVIÇO ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <tbody>
+          <tr>
+            <td style={td({ width: "40%" })}>
+              <Field label="Código do Serviço">{codServ} - Tinturaria e lavanderia.</Field>
+            </td>
+            <td style={td({ width: "20%" })}>
+              <Field label="Código NBS">*********</Field>
+            </td>
+            <td style={td({ width: "20%" })}>
+              <Field label="Indicador de Operações">*********</Field>
+            </td>
+            <td style={td({ width: "20%" })}>
+              <Field label="Classificação Tributária">*********</Field>
+            </td>
+          </tr>
+          <tr>
+            <td style={td()}>
+              <Field label="Código de Tributação Nacional">{codTribNac} - Tinturaria e lavanderia.</Field>
+            </td>
+            <td colSpan={3} style={td()}>
+              <Field label="Código de Tributação Municipal">{codTribMun} - Tinturaria e lavanderia</Field>
             </td>
           </tr>
         </tbody>
       </table>
 
-      {/* ===== INFORMAÇÕES FISCAIS ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      {/* ===== TRIBUTOS LINHA 1 ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td colSpan={3} style={headerCellStyle()}>Informações Fiscais</td>
+            <td style={td({ width: "12%" })}><Field label="CIDE">0,00</Field></td>
+            <td style={td({ width: "12%" })}><Field label="COFINS Importação">0,00</Field></td>
+            <td style={td({ width: "12%" })}><Field label="ICMS">0,00</Field></td>
+            <td style={td({ width: "12%" })}><Field label="IOF">0,00</Field></td>
+            <td style={td({ width: "12%" })}><Field label="IPI">0,00</Field></td>
+            <td style={td({ width: "15%" })}><Field label="PIS/PASEP Importação">0,00</Field></td>
+            <td style={td({ width: "25%" })}><Field label="CST – Situação Tributária PIS/COFINS">0 - Nenhum</Field></td>
           </tr>
           <tr>
-            <td colSpan={3} style={cellStyle({ fontSize: "9px" })}>
-              <strong>Código do Serviço:</strong> {data.emitente.codigo_servico || "14.10"} - Tinturaria e lavanderia.
+            <td colSpan={2} style={td()}>
+              <Field label="Descrição Contrib. Sociais – Retidas">0 - PIS/COFINS/CSLL Não Retidos</Field>
+            </td>
+            <td style={td()}><Field label="Contribuições Sociais – Retidas">0,00</Field></td>
+            <td style={td()}><Field label="Base Cálculo PIS/COFINS">0,00</Field></td>
+            <td style={td()}><Field label="PIS Alíquota">0,00</Field></td>
+            <td style={td()}><Field label="PIS – Apuração Própria">0,00</Field></td>
+            <td style={td({ padding: 0 })}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  <tr>
+                    <td style={{ ...td({ borderTop: "none", borderRight: BORDER, borderBottom: "none", borderLeft: "none", width: "50%" }) }}>
+                      <Field label="COFINS Alíquota">0,00</Field>
+                    </td>
+                    <td style={{ ...td({ borderTop: "none", borderRight: "none", borderBottom: "none", borderLeft: "none" }) }}>
+                      <Field label="COFINS – Apuração Própria">0,00</Field>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </td>
           </tr>
+        </tbody>
+      </table>
+
+      {/* ===== BASE DE CÁLCULO ISSQN ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <tbody>
           <tr>
-            <td colSpan={3} style={cellStyle({ fontSize: "9px" })}>
-              <strong>Código de Tributação Nacional:</strong> {data.codigo_tributacao_nacional || "14.10.01"} - Tinturaria e lavanderia.
+            <td style={td({ width: "16.6%" })}>
+              <Field label="Base Cálculo ISSQN Próprio" bold>{fmt(data.valor_servico)}</Field>
+            </td>
+            <td style={td({ width: "16.6%" })}>
+              <Field label="Valor do ISSQN Próprio" bold>{fmt(data.valor_iss)}</Field>
+            </td>
+            <td style={td({ width: "16.6%" })}>
+              <Field label="Base Cálculo ISSQN Retido">0,00</Field>
+            </td>
+            <td style={td({ width: "16.6%" })}>
+              <Field label="Valor do ISSQN Retido">0,00</Field>
+            </td>
+            <td style={td({ width: "16.6%" })}>
+              <Field label="Valor Total do ISSQN" bold>{fmt(data.valor_iss)}</Field>
+            </td>
+            <td style={td({ width: "16.6%" })}>
+              <Field label="Valor Dedução/Descontos">0,00</Field>
             </td>
           </tr>
         </tbody>
       </table>
 
-      {/* ===== IMPOSTOS - Linha 1: CIDE, COFINS, COFINS Imp, ICMS ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      {/* ===== CBS / IBS ===== */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5", width: "25%" })}><strong>CIDE</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5", width: "25%" })}><strong>COFINS</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5", width: "25%" })}><strong>COFINS Importação</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5", width: "25%" })}><strong>ICMS</strong></td>
-          </tr>
-          <tr>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>0,00</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>0,00</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>0,00</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>0,00</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* ===== VALORES ISSQN - Linha 1: Base Próprio, Valor Próprio, Base Retido ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
-        <tbody>
-          <tr>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Base Cálculo ISSQN Próprio</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Valor do ISSQN Próprio</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Base Cálculo ISSQN Retido</strong></td>
-          </tr>
-          <tr>
-            <td style={cellStyle({ fontSize: "10px", textAlign: "center", fontWeight: "bold" })}>{formatCurrency(data.valor_servico)}</td>
-            <td style={cellStyle({ fontSize: "10px", textAlign: "center", fontWeight: "bold" })}>{formatCurrency(data.valor_iss)}</td>
-            <td style={cellStyle({ fontSize: "10px", textAlign: "center" })}>0,00</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* ===== CBS/IBS ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
-        <tbody>
-          <tr>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Valor do CBS</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Valor do IBS Estadual</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Valor total IBS CBS</strong></td>
-          </tr>
-          <tr>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>*****</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>*****</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}></td>
+            <td style={td({ width: "20%" })}><Field label="Valor do CBS">*****</Field></td>
+            <td style={td({ width: "20%" })}><Field label="Valor do IBS Estadual">*****</Field></td>
+            <td style={td({ width: "25%", background: HEADER_BG, fontWeight: "bold", textAlign: "center", verticalAlign: "middle", fontSize: "9.5px" })}>
+              Valor total IBS CBS
+            </td>
+            <td style={td({ width: "35%", verticalAlign: "middle" })}>*****</td>
           </tr>
         </tbody>
       </table>
 
       {/* ===== VALOR TOTAL / LÍQUIDO ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td style={cellStyle({
-              fontSize: "11px",
-              fontWeight: "bold",
-              textAlign: "center",
-              width: "50%",
-              background: "#e8f4e8",
-              padding: "8px",
-            })}>
-              Valor Total da NFS-e: R$ {formatCurrency(data.valor_servico)}
+            <td style={td({ width: "30%", padding: "6px" })}>
+              <span style={{ ...val, fontSize: "10px" }}>Valor Total da NFS-e</span>
             </td>
-            <td style={cellStyle({
-              fontSize: "11px",
-              fontWeight: "bold",
-              textAlign: "center",
-              width: "50%",
-              background: "#e8f4e8",
-              padding: "8px",
-            })}>
-              Valor Líquido da NFS-e: R$ {formatCurrency(data.valor_servico)}
+            <td style={td({ width: "20%", padding: "6px", textAlign: "left" })}>
+              <span style={{ fontSize: "11px", fontWeight: "bold" }}>{fmt(data.valor_servico)}</span>
             </td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* ===== INFORMAÇÕES FISCAIS - Continuação ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
-        <tbody>
-          <tr>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Código NBS</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Indicador de Operações</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Classificação Tributária</strong></td>
-          </tr>
-          <tr>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>*********</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>*********</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>*********</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* ===== CÓDIGO TRIBUTAÇÃO MUNICIPAL ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
-        <tbody>
-          <tr>
-            <td style={cellStyle({ fontSize: "9px" })}>
-              <strong>Código de Tributação Municipal:</strong> {data.codigo_tributacao_municipal || "1410"} - Tinturaria e lavanderia
+            <td style={td({ width: "30%", padding: "6px" })}>
+              <span style={{ ...val, fontSize: "10px" }}>Valor Líquido da NFS-e</span>
             </td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* ===== IMPOSTOS - Linha 2: IOF, IPI, PIS/PASEP, PIS/PASEP Imp ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
-        <tbody>
-          <tr>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5", width: "25%" })}><strong>IOF</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5", width: "25%" })}><strong>IPI</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5", width: "25%" })}><strong>PIS/PASEP</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5", width: "25%" })}><strong>PIS/PASEP Importação</strong></td>
-          </tr>
-          <tr>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>0,00</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>0,00</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>0,00</td>
-            <td style={cellStyle({ fontSize: "9px", textAlign: "center" })}>0,00</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* ===== VALORES ISSQN RETIDO + TOTAL + DEDUÇÃO ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
-        <tbody>
-          <tr>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Valor do ISSQN Retido</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Valor Total do ISSQN</strong></td>
-            <td style={cellStyle({ fontSize: "8px", textAlign: "center", background: "#f5f5f5" })}><strong>Valor Dedução/Descontos</strong></td>
-          </tr>
-          <tr>
-            <td style={cellStyle({ fontSize: "10px", textAlign: "center" })}>0,00</td>
-            <td style={cellStyle({ fontSize: "10px", textAlign: "center", fontWeight: "bold" })}>{formatCurrency(data.valor_iss)}</td>
-            <td style={cellStyle({ fontSize: "10px", textAlign: "center" })}>0,00</td>
+            <td style={td({ width: "20%", padding: "6px" })}>
+              <span style={{ fontSize: "11px", fontWeight: "bold" }}>{fmt(data.valor_servico)}</span>
+            </td>
           </tr>
         </tbody>
       </table>
 
       {/* ===== INFORMAÇÕES ADICIONAIS ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td colSpan={2} style={headerCellStyle()}>Informações Adicionais</td>
+            <td colSpan={2} style={td({ padding: "4px 6px", borderBottom: "none" })}>
+              <span style={lbl}>Informações Adicionais</span>
+            </td>
           </tr>
           <tr>
-            <td style={cellStyle({ padding: "8px", verticalAlign: "top", width: "85%" })}>
-              <div style={{ fontSize: "9px" }}>NOTA EMITIDA POR ME OU EPP OPTANTE PELO SIMPLES NACIONAL</div>
-              <div style={{ fontSize: "9px" }}>NÃO GERA DIREITO A CRÉDITO FISCAL DE IPI</div>
-              <div style={{ fontSize: "9px", marginTop: "4px" }}>
-                Lei 12741/2012: Mun: R${formatCurrency(valorMun)}; Est: R$0,00; Fed: R${formatCurrency(valorFed)}; Total Aprox: R${formatCurrency(valorTotalAprox)}. Fonte: IBPT.
+            <td style={td({ padding: "6px 8px", width: "82%", borderTop: "none", height: "70px" })}>
+              {isSimples && (
+                <div style={{ fontSize: "8.5px" }}>
+                  NOTA EMITIDA POR ME OU EPP OPTANTE PELO SIMPLES NACIONAL
+                </div>
+              )}
+              <div style={{ fontSize: "8.5px" }}>NÃO GERA DIREITO A CRÉDITO FISCAL DE IPI</div>
+              <div style={{ fontSize: "8.5px" }}>
+                Lei 12741/2012: Mun: R${fmt(valorMun)}; Est: R$0,00; Fed: R${fmt(valorFed)}; Total Aprox: R${fmt(valorTotalAprox)}. Fonte: IBPT.
               </div>
-              <div style={{ fontSize: "8px", marginTop: "4px", color: "#666" }}>
+              <div style={{ fontSize: "8.5px", marginTop: "2px" }}>
                 Campos identificados com **** referem-se a informações de IBS e CBS de preenchimento opcional pelo contribuinte, não informadas na emissão da NFS-e.
               </div>
+              {data.informacoes_adicionais && (
+                <div style={{ fontSize: "8.5px", marginTop: "4px" }}>{data.informacoes_adicionais}</div>
+              )}
             </td>
-            <td style={cellStyle({ padding: "8px", textAlign: "center", verticalAlign: "middle", width: "15%" })}>
-              <QRCodeSVG value={qrCodeUrl} size={65} />
+            <td style={td({ padding: "6px", width: "18%", textAlign: "center", borderTop: "none", verticalAlign: "middle" })}>
+              <QRCodeSVG value={qrUrl} size={70} />
             </td>
           </tr>
         </tbody>
       </table>
 
+      {/* ===== BARCODE ===== */}
+      <div style={{ padding: "8px 0 4px 0" }}>
+        <Barcode value={barcodeValue} />
+      </div>
+
       {/* ===== RECIBO ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 0 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <tbody>
           <tr>
-            <td style={cellStyle({ padding: "8px", width: "45%", verticalAlign: "top", fontSize: "9px" })}>
-              <div>Recebi(emos) de <strong>{data.emitente.razao_social}</strong></div>
-              <div style={{ marginTop: "24px", borderTop: "1px solid #000", width: "80%", paddingTop: "4px", fontSize: "8px" }}>
-                ___/___/_______ &nbsp;&nbsp;&nbsp; Data
+            <td style={td({ width: "55%", padding: "6px 8px" })}>
+              <div style={{ fontSize: "8.5px" }}>
+                Recebi(emos) de <strong>{data.emitente.razao_social}</strong>
               </div>
-              <div style={{ fontSize: "8px", marginTop: "2px" }}>Identificação e assinatura do recebedor</div>
+              <div style={{ fontSize: "8.5px" }}>
+                os serviços constantes da Nota Fiscal Eletrônica indicada ao lado.
+              </div>
+              <div style={{ display: "flex", gap: "16px", marginTop: "12px", alignItems: "flex-end" }}>
+                <div style={{ borderTop: "1px solid #000", paddingTop: "2px", fontSize: "7.5px", width: "30%", textAlign: "center" }}>
+                  ___/___/_____<br />Data
+                </div>
+                <div style={{ borderTop: "1px solid #000", paddingTop: "2px", fontSize: "7.5px", width: "65%", textAlign: "center" }}>
+                  Identificação e assinatura do recebedor
+                </div>
+              </div>
             </td>
-            <td style={cellStyle({ padding: "8px", width: "30%", verticalAlign: "top", fontSize: "9px" })}>
-              <div>Número da NFS-e: <strong>{data.numero_nf || "PRÉVIA"}</strong></div>
-              <div style={{ marginTop: "4px" }}>Competência: {dataEmissao}</div>
+            <td style={td({ width: "25%", padding: "6px 8px" })}>
+              <div style={{ fontSize: "8.5px" }}>Número da NFS-e: <strong>{numero}</strong></div>
+              <div style={{ fontSize: "8.5px" }}>Competência: <strong>{data.competencia || dataEmissao}</strong></div>
+              <div style={{ fontSize: "8.5px" }}>NFS-e: <strong>{codVerif}</strong></div>
             </td>
-            <td style={cellStyle({ padding: "8px", width: "25%", verticalAlign: "top", fontSize: "9px" })}>
-              <div style={{ fontSize: "8px", color: "#666" }}>Número de Controle do Município</div>
-              <div style={{ marginTop: "4px" }}>NFS-e: {codigoVerif}</div>
+            <td style={td({ width: "20%", padding: "6px 8px", textAlign: "center" })}>
+              <span style={lbl}>Número de Controle do Município</span>
             </td>
           </tr>
         </tbody>
       </table>
 
       {/* ===== RODAPÉ ===== */}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <tbody>
-          <tr>
-            <td style={cellStyle({ padding: "4px 8px", fontSize: "8px", background: "#f0f0f0" })}>
-              <div>Consulta realizada em {dataEmissao} às {horaEmissao}.</div>
-              <div>Para consultar a autenticidade acesse: https://saoroque.govbr.cloud/nfse.portal</div>
-            </td>
-            <td style={cellStyle({ padding: "4px 8px", fontSize: "8px", background: "#f0f0f0", textAlign: "right" })}>
-              Página 1 de 1
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div style={{ marginTop: "6px", fontSize: "7.5px", textAlign: "center" }}>
+        Consulta realizada em {dataEmissao} às {horaEmissao}.
+      </div>
+      <div style={{ fontSize: "7.5px", textAlign: "center", fontWeight: "bold" }}>
+        Para consultar a autenticidade acesse: {portalUrl}
+      </div>
+      <div style={{ fontSize: "7.5px", textAlign: "right", marginTop: "8px" }}>
+        Página 1 de 1
+      </div>
 
       {/* Aviso de Prévia */}
       {data.isPrevia && (
-        <div style={{
-          marginTop: "10px",
-          padding: "8px",
-          background: "#fff3cd",
-          border: "1px solid #ffc107",
-          borderRadius: "4px",
-          textAlign: "center",
-          fontSize: "10px",
-          fontWeight: "bold",
-          color: "#856404",
-        }}>
+        <div
+          style={{
+            marginTop: "10px",
+            padding: "6px",
+            background: "#fff3cd",
+            border: "1px solid #ffc107",
+            borderRadius: "4px",
+            textAlign: "center",
+            fontSize: "10px",
+            fontWeight: "bold",
+            color: "#856404",
+          }}
+        >
           ⚠️ ESTA É UMA PRÉVIA - DOCUMENTO SEM VALOR FISCAL
         </div>
       )}
@@ -713,7 +859,7 @@ export function NFSePreviewOficial({
         <head>
           <title>NFS-e - ${data.numero_nf || "Prévia"}</title>
           <style>
-            @page { size: A4; margin: 10mm; }
+            @page { size: A4; margin: 8mm; }
             * { box-sizing: border-box; }
             body { margin: 0; padding: 0; }
           </style>
