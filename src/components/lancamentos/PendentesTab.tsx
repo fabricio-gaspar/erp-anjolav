@@ -42,6 +42,7 @@ const cicloConfig: Record<CicloKey, { label: string; icon: React.ComponentType<{
   mensal: { label: "Fechamento Mensal", icon: Calendar, headerClass: "bg-primary/10 border-primary/30", iconClass: "text-primary" },
   outro: { label: "Sem Ciclo Definido / Avulso", headerClass: "bg-muted border-border", icon: CalendarClock, iconClass: "text-muted-foreground" },
 };
+void cicloConfig.mensal;
 
 const getPaymentStatus = (lancamento: LancamentoType) => {
   if (lancamento.status === "faturado" && lancamento.fatura_id) {
