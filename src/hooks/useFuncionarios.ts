@@ -210,9 +210,14 @@ export const useUpdateFuncionario = () => {
         .update(updateData)
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!funcionario) {
+        throw new Error(
+          "Não foi possível salvar as alterações. Você não tem permissão para editar funcionários (necessário perfil ADMINISTRADOR)."
+        );
+      }
       return funcionario;
     },
     onSuccess: () => {
