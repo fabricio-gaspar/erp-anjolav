@@ -172,13 +172,23 @@ export const HistoricoROLsTab: React.FC = () => {
         </Table>
       </Card>
 
-      {visualizarId && (
-        <VisualizarItensModal
-          isOpen={!!visualizarId}
-          onClose={() => setVisualizarId(null)}
-          lancamentoId={visualizarId}
-        />
-      )}
+      <HistoricoVisualizarWrapper
+        lancamento={filtrados.find((l: any) => l.id === visualizarId) || null}
+        onClose={() => setVisualizarId(null)}
+      />
     </div>
+  );
+};
+
+const HistoricoVisualizarWrapper: React.FC<{ lancamento: any; onClose: () => void }> = ({ lancamento, onClose }) => {
+  const { data: itens = [], isLoading } = useItensLancamento(lancamento?.id || null);
+  return (
+    <VisualizarItensModal
+      open={!!lancamento}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      lancamento={lancamento as Lancamento | null}
+      itens={itens}
+      isLoading={isLoading}
+    />
   );
 };
