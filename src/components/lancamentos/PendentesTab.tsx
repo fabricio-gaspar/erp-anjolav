@@ -107,7 +107,6 @@ export function PendentesTab() {
   const getCiclo = (clienteId: string): CicloKey => {
     const tipo = tipoFaturamentoMap[clienteId] || "mensal";
     if (tipo === "quinzenal") return "quinzenal";
-    if (tipo === "mensal") return "mensal";
     return "outro";
   };
 
