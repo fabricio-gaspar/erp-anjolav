@@ -24,7 +24,7 @@ const Lancamentos = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (tabFromUrl && ["novo", "pendentes", "faturas"].includes(tabFromUrl)) {
+    if (tabFromUrl && ["novo", "pendentes", "faturas", "historico"].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
   }, []);
