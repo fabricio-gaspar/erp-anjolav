@@ -314,9 +314,12 @@ export const useToggleFuncionarioStatus = () => {
         .update({ ativo })
         .eq("id", id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!funcionario) {
+        throw new Error("Sem permissão para alterar o status (necessário perfil ADMINISTRADOR).");
+      }
       return funcionario;
     },
     onSuccess: (data) => {
