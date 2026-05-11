@@ -43,12 +43,20 @@ export function FolhaPagamentoTab() {
   const competencia = `${mes}-01`;
   const [dataPagamento, setDataPagamento] = useState(format(today, "yyyy-MM-dd"));
   const [showFechar, setShowFechar] = useState(false);
+  const [empregadorFiltro, setEmpregadorFiltro] = useState<string>("todos");
 
-  const { data: folhas = [], isLoading } = useFolhaPagamento(competencia);
+  const { data: folhasAll = [], isLoading } = useFolhaPagamento(competencia);
   const gerar = useGerarFolhaMes();
   const fechar = useFecharFolhaMes();
   const update = useUpdateFolha();
   const del = useDeleteFolha();
+
+  const empregadores = Array.from(
+    new Set(folhasAll.map((f) => f.funcionario?.empregador_cnpj).filter(Boolean))
+  ) as string[];
+  const folhas = empregadorFiltro === "todos"
+    ? folhasAll
+    : folhasAll.filter((f) => f.funcionario?.empregador_cnpj === empregadorFiltro);
 
   const totalProventos = folhas.reduce((s, f) => s + Number(f.total_proventos || 0), 0);
   const totalDescontos = folhas.reduce((s, f) => s + Number(f.total_descontos || 0), 0);
