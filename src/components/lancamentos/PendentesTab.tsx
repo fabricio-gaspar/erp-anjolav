@@ -40,7 +40,7 @@ type CicloKey = "quinzenal" | "mensal" | "outro";
 const cicloConfig: Record<CicloKey, { label: string; icon: React.ComponentType<{ className?: string }>; headerClass: string; iconClass: string }> = {
   quinzenal: { label: "Fechamento Quinzenal", icon: CalendarDays, headerClass: "bg-info/10 border-info/30", iconClass: "text-info" },
   mensal: { label: "Fechamento Mensal", icon: Calendar, headerClass: "bg-primary/10 border-primary/30", iconClass: "text-primary" },
-  outro: { label: "Sem Ciclo Definido / Avulso", headerClass: "bg-muted border-border", icon: CalendarClock, iconClass: "text-muted-foreground" },
+  outro: { label: "Avulso / Outros", headerClass: "bg-muted border-border", icon: CalendarClock, iconClass: "text-muted-foreground" },
 };
 
 const getPaymentStatus = (lancamento: LancamentoType) => {
@@ -107,7 +107,6 @@ export function PendentesTab() {
   const getCiclo = (clienteId: string): CicloKey => {
     const tipo = tipoFaturamentoMap[clienteId] || "mensal";
     if (tipo === "quinzenal") return "quinzenal";
-    if (tipo === "mensal") return "mensal";
     return "outro";
   };
 
@@ -396,7 +395,6 @@ export function PendentesTab() {
       ) : (
         <div className="space-y-3">
           {renderBloco("quinzenal")}
-          {renderBloco("mensal")}
           {renderBloco("outro")}
         </div>
       )}
