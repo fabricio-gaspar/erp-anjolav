@@ -2,11 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, Package, Receipt } from "lucide-react";
+import { FileText, Package, Receipt, History } from "lucide-react";
 import { useLancamentosPendentes } from "@/hooks/useLancamentos";
 import { NovoLancamentoTab } from "@/components/lancamentos/NovoLancamentoTab";
 import { PendentesTab } from "@/components/lancamentos/PendentesTab";
 import { FaturasTab } from "@/components/lancamentos/FaturasTab";
+import { HistoricoROLsTab } from "@/components/lancamentos/HistoricoROLsTab";
 
 const Lancamentos = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -23,7 +24,7 @@ const Lancamentos = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (tabFromUrl && ["novo", "pendentes", "faturas"].includes(tabFromUrl)) {
+    if (tabFromUrl && ["novo", "pendentes", "faturas", "historico"].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
   }, []);
@@ -47,6 +48,9 @@ const Lancamentos = () => {
               <TabsTrigger value="faturas" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-1">
                 <Receipt className="w-4 h-4" />Faturas Geradas
               </TabsTrigger>
+              <TabsTrigger value="historico" className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-1">
+                <History className="w-4 h-4" />Histórico de ROLs
+              </TabsTrigger>
             </TabsList>
             </div>
 
@@ -60,6 +64,10 @@ const Lancamentos = () => {
 
             <TabsContent value="faturas" className="mt-4">
               <FaturasTab />
+            </TabsContent>
+
+            <TabsContent value="historico" className="mt-4">
+              <HistoricoROLsTab />
             </TabsContent>
 
           </Tabs>
