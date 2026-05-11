@@ -277,10 +277,14 @@ export function ConfiguracoesEquipe() {
 
       {/* Sub-Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
           <TabsTrigger value="funcionarios" className="gap-2">
             <Users className="w-4 h-4" />
             Funcionários
+          </TabsTrigger>
+          <TabsTrigger value="folha" className="gap-2">
+            <Wallet className="w-4 h-4" />
+            Folha
           </TabsTrigger>
           <TabsTrigger value="motoristas" className="gap-2">
             <UserCheck className="w-4 h-4" />
@@ -301,6 +305,10 @@ export function ConfiguracoesEquipe() {
             deleteFuncionario={deleteFuncionario}
             toggleStatus={toggleFuncionarioStatus}
           />
+        </TabsContent>
+
+        <TabsContent value="folha">
+          <FolhaPagamentoTab />
         </TabsContent>
 
         <TabsContent value="motoristas">
@@ -351,6 +359,7 @@ function FuncionariosTab({
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editItem, setEditItem] = useState<Funcionario | null>(null);
+  const [fichaItem, setFichaItem] = useState<Funcionario | null>(null);
   const [passwordItem, setPasswordItem] = useState<Funcionario | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const changePassword = useChangePassword();
@@ -759,6 +768,9 @@ function FuncionariosTab({
                   <TableCell className="text-primary font-medium">{func.login}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFichaItem(func)} title="Ficha Completa">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditItem(func)} title="Editar">
                         <Pencil className="w-4 h-4 text-muted-foreground" />
                       </Button>
@@ -781,6 +793,13 @@ function FuncionariosTab({
           </Table>
         )}
       </Card>
+
+      {/* Ficha Completa */}
+      <FichaFuncionarioModal
+        open={!!fichaItem}
+        onOpenChange={(o) => !o && setFichaItem(null)}
+        funcionario={fichaItem}
+      />
 
       {/* Edit Modal */}
       <EditFuncionarioModal
