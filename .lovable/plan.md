@@ -1,94 +1,95 @@
+# Fluxo de Produção integrado com a Agenda
 
-# Ajustes no Dashboard
+Hoje o **Fluxo de Produção** mostra apenas OS já criadas, e a **Agenda de Retiradas** vive separada. O motorista precisa abrir a OS manualmente. O objetivo é unificar: tudo que está agendado aparece automaticamente na primeira coluna; o motorista confirma a retirada; a OS é criada e segue o fluxo; ao ser entregue, sai do quadro e vai para uma lista de **Finalizadas**.
 
-## 1. Cards duplicados de "Contas a Pagar" — confirmado
+## 1. Novo desenho do quadro (mais curto e organizado)
 
-Existem **dois cards** sobre contas a pagar:
+Hoje são **8 colunas** (Retirado, Separação, Lavagem, Secagem, Passadoria, Embalagem, Pronto Entrega, Entregue). Proposta enxuta de **6 colunas visíveis** + 1 arquivo:
 
-| Card | Origem | O que mostra |
-|------|--------|--------------|
-| **FinanceCard "Contas a Pagar"** | `Dashboard.tsx` linhas 330-346 | Total geral pendente + 3 últimas |
-| **ContasVencendoCard** | `ContasVencendoCard.tsx` | Apenas contas vencendo nos próximos 3 dias (alerta) |
+```text
+┌────────────┬───────────┬──────────┬───────────┬───────────┬──────────────┐
+│ AGUARDANDO │ SEPARAÇÃO │ LAVAGEM  │ ACABAMENTO│ EMBALAGEM │ PRONTO/SAIU  │
+│  RETIRADA  │           │ + SECAGEM│ (passad.) │           │ P/ ENTREGA   │
+└────────────┴───────────┴──────────┴───────────┴───────────┴──────────────┘
+                                                                    │
+                                                                    ▼
+                                                        [ Lista: Finalizadas ]
+```
 
-**Decisão:** Remover o **FinanceCard "Contas a Pagar"** e manter apenas o **ContasVencendoCard** (mais útil porque é um alerta de urgência com prazo). O total geral já aparece em outras telas (Contas, Visão Geral).
+Mudanças:
+- **Aguardando Retirada** = mistura de *agendamentos do dia* (ainda sem OS) + *OS já com status "retirada"* (motorista pegou mas ainda não chegou no galpão).
+- **Lavagem + Secagem** viram uma coluna só (são processos contínuos da mesma máquina/fluxo).
+- **Pronto / Saiu para entrega** combina `expedicao` em uma única coluna com badge "saiu".
+- **Entregue** sai do kanban e vira uma aba/lista lateral chamada **Finalizadas (hoje)** com filtro por data.
 
-→ Mantemos o **FinanceCard "Contas a Receber"** porque ele tem função diferente (totalizador + lista de faturas, sem alerta equivalente).
+Resultado: quadro cabe em tela 1366px sem scroll horizontal.
 
----
+## 2. Cards de "agendamento" na coluna Aguardando Retirada
 
-## 2. Card "Contratos Vencendo" não lista nada
+Na primeira coluna aparecem dois tipos de card:
 
-**Causa raiz identificada:** o card filtra contratos com `c.data_fim` definido. No banco existe **1 contrato ativo**, mas com `data_fim = NULL`. Por isso não aparece nada.
+- **Card cinza (Agendado)**: vem de `agendamentos` com `tipo='retirada'` e `data` ≤ hoje, status `agendado`/`confirmado`. Mostra cliente, horário, motorista designado e botão **"Confirmar Retirada"**.
+- **Card normal (Em rota)**: OS já criada com `status='retirada'`. Segue o fluxo clicando para avançar.
 
-**Correção:**
-- Renomear o card para **"Contratos Ativos"**.
-- Listar **todos os contratos ativos** dos clientes.
-- Mostrar badge:
-  - "Sem prazo" (cinza) se `data_fim` for NULL
-  - "X dias" (amarelo) se faltar ≤ 30 dias
-  - "Vencido" (vermelho) se já passou
-  - "Ativo" (verde) se faltar > 30 dias
-- Mostrar valor mensal do contrato (`valor_servico`) ao lado do nome do cliente.
-- Click → leva pra `/clientes` na aba contratos do cliente.
+Ao clicar **Confirmar Retirada** no card cinza:
+1. Cria automaticamente uma OS (`ordens_servico`) vinculada ao cliente, com `status='retirada'`, `origem='industrial'`, prioridade `normal` e link para o agendamento.
+2. Marca o `agendamento.status = 'realizado'`.
+3. Registra histórico em `historico_producao` (etapa "retirada", funcionário = motorista logado, observação "Retirada confirmada via app/kanban").
+4. O card vira automaticamente "OS em rota" e segue o fluxo normal.
 
----
+Isso permite que o motorista, pelo celular, abra o Fluxo de Produção e marque a retirada com 1 toque — sem precisar abrir tela de "Nova OS".
 
-## 3. Itens prioritários novos no Dashboard
+## 3. Saída do fluxo + lista de Finalizadas
 
-Análise do que falta para um ERP de lavanderia industrial maduro:
+Quando uma OS chega em **Pronto/Saiu para entrega** e o usuário clica para concluir:
+- Status vira `entregue`, `data_entrega = now()`.
+- O card **some do kanban** imediatamente.
+- Aparece na nova seção **Finalizadas** (aba ao lado dos filtros) com 3 sub-abas:
+  - **Em processo** (atalho que só destaca o que está no kanban — não é arquivo, mas dá visão de lista).
+  - **Aguardando entrega** (status `expedicao` ainda não saiu).
+  - **Finalizadas** (status `entregue`, com filtro de data, default = hoje).
 
-| # | Card sugerido | Justificativa | Prioridade |
-|---|---|---|---|
-| A | **Inadimplência consolidada** (faturas vencidas + valor total atrasado) | Hoje só mostra "a receber" geral, não destaca vencidos | 🔴 Alta |
-| B | **Top 5 Clientes do Mês** (por faturamento) | Visão comercial — quem está gerando receita | 🟡 Média |
-| C | **NFs Pendentes de Emissão** (lançamentos sem nota emitida) | Risco fiscal, multa se atrasar | 🔴 Alta |
-| D | **Aniversariantes do Mês** (clientes + funcionários) | Engajamento / RH | 🟢 Baixa |
-| E | **Veículos em manutenção / próximos** | Gestão de frota | 🟢 Baixa |
+## 4. Melhorias de UX no quadro
 
-**Sugestão:** Implementar **A** e **C** agora (críticos operacionais). B/D/E ficam como roadmap.
+- Ícone de **moto/caminhão** no card quando é agendamento (diferenciar de OS).
+- Badge de horário previsto da retirada destacado em vermelho se já passou.
+- Botão flutuante "**+ Nova OS Avulsa**" no canto, para casos sem agendamento prévio.
+- Contador no header agora mostra: `X aguardando · Y em produção · Z prontas`.
 
----
+## Detalhes técnicos
 
-## 📋 Plano de execução
+**Frontend (`src/pages/FluxoProducao.tsx`)**
+- Reduzir array `columns` para 6 (mesclar lavagem/secagem em uma; remover entregue do kanban).
+- Adicionar fetch de `agendamentos` do dia (hook `useAgendamentos` já existe) ao lado de `useOrdensServico`.
+- Construir `osByStatus['retirada']` concatenando: agendamentos pendentes (tipados como cards "agendamento") + OS com status `retirada`.
+- Coluna "lavagem" agrupa `os.status in ('lavagem','secagem')`.
+- Adicionar `<Tabs>` no topo: **Kanban** | **Aguardando entrega** | **Finalizadas**.
+- Esconder cards `entregue` do kanban (já há lógica — basta remover a coluna).
 
-### 3.1 Remover duplicação
-- Em `src/pages/Dashboard.tsx`, remover bloco `FinanceCard` "Contas a Pagar" (linhas 330-346) e ajustar o grid da seção "Financeiro & Alertas".
+**Novo card** `AgendamentoCard.tsx` em `src/components/producao/`:
+- Recebe agendamento, mostra cliente/horário/motorista.
+- Botão "Confirmar Retirada" → chama mutação `confirmarRetiradaAgendamento` que:
+  - `INSERT` em `ordens_servico` (trigger gera número),
+  - `UPDATE agendamentos SET status='realizado'`,
+  - `INSERT historico_producao`,
+  - invalida queries `ordensServico` e `agendamentos`.
 
-### 3.2 Corrigir Card de Contratos
-- Editar `src/components/dashboard/ContratosVencendoCard.tsx`:
-  - Remover filtro `c.data_fim`.
-  - Adicionar lógica de status por prazo.
-  - Exibir valor mensal.
-  - Renomear para "Contratos Ativos".
+**Backend (migration)**
+- Adicionar coluna opcional `agendamento_id uuid` em `ordens_servico` para rastrear origem (sem FK rígida, igual ao padrão do projeto).
+- Nenhuma RLS nova: políticas existentes já cobrem `authenticated`.
 
-### 3.3 Adicionar Card "Inadimplência"
-- Novo componente `src/components/dashboard/InadimplenciaCard.tsx`.
-- Hook reutiliza `useFaturas` e filtra `data_vencimento < hoje && status !== 'pago'`.
-- Exibe: total devido, qtd faturas vencidas, top 3 clientes inadimplentes.
+**Hook novo** `src/hooks/useFluxoProducao.ts` — agrega `ordensServico` + `agendamentos` do dia e expõe `cardsPorColuna` já mesclados, evitando lógica espalhada na página.
 
-### 3.4 Adicionar Card "NFs Pendentes"
-- Novo componente `src/components/dashboard/NFsPendentesCard.tsx`.
-- Filtra lançamentos com `status_nf in ('pendente','erro')`.
-- Mostra qtd + valor total + ação "Emitir agora".
+## Arquivos a editar/criar
 
-### 3.5 Memory update
-- Atualizar `mem://features/dashboard/adaptive-profiles-pdv` com a nova composição do dashboard.
+- editar: `src/pages/FluxoProducao.tsx` (colunas, tabs, integração agendamentos)
+- criar: `src/components/producao/AgendamentoCard.tsx`
+- criar: `src/components/producao/FinalizadasLista.tsx`
+- criar: `src/hooks/useFluxoProducao.ts`
+- migration: adicionar `agendamento_id` em `ordens_servico`
 
----
+## Fora de escopo (pode ficar para depois)
 
-## 🧰 Detalhes técnicos
-
-**Arquivos editados:**
-- `src/pages/Dashboard.tsx` — remove FinanceCard payable, adiciona Inadimplência + NFs Pendentes na seção "Financeiro & Alertas"
-- `src/components/dashboard/ContratosVencendoCard.tsx` — refatoração da lógica
-- `src/components/dashboard/InadimplenciaCard.tsx` — **novo**
-- `src/components/dashboard/NFsPendentesCard.tsx` — **novo**
-
-**Validação após implementar:**
-- Dashboard mostra apenas 1 menção a "Contas a Pagar" (alerta de 3 dias).
-- Card "Contratos Ativos" lista o contrato existente (CONTRATO DE ALUGUEL) com badge "Sem prazo".
-- Cards novos aparecem apenas se houver dados ou alertas pertinentes (estado vazio elegante).
-
----
-
-Aprovando, implemento as 4 mudanças (remover duplicado + corrigir contratos + 2 cards novos) numa única passada.
+- Notificação push ao motorista quando agendamento é criado.
+- Drag-and-drop entre colunas (hoje é clique).
+- Reabertura de OS finalizada.
