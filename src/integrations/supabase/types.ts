@@ -1122,6 +1122,53 @@ export type Database = {
           },
         ]
       }
+      folha_beneficios: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          folha_id: string
+          funcionario_id: string
+          id: string
+          nome: string
+          observacao: string | null
+          tipo: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          folha_id: string
+          funcionario_id: string
+          id?: string
+          nome: string
+          observacao?: string | null
+          tipo?: string
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          folha_id?: string
+          funcionario_id?: string
+          id?: string
+          nome?: string
+          observacao?: string | null
+          tipo?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folha_beneficios_folha_id_fkey"
+            columns: ["folha_id"]
+            isOneToOne: false
+            referencedRelation: "folha_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       folha_pagamento: {
         Row: {
           adiantamento_salarial: number | null
