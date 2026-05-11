@@ -2402,6 +2402,7 @@ export type Database = {
       }
       ordens_servico: {
         Row: {
+          agendamento_id: string | null
           cliente_id: string
           created_at: string
           data_entrega: string | null
@@ -2426,6 +2427,7 @@ export type Database = {
           veiculo_id: string | null
         }
         Insert: {
+          agendamento_id?: string | null
           cliente_id: string
           created_at?: string
           data_entrega?: string | null
@@ -2450,6 +2452,7 @@ export type Database = {
           veiculo_id?: string | null
         }
         Update: {
+          agendamento_id?: string | null
           cliente_id?: string
           created_at?: string
           data_entrega?: string | null
