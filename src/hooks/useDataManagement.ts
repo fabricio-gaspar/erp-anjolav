@@ -163,32 +163,47 @@ export async function deleteEntityData(table: string): Promise<number> {
 
 // Ordem de exclusão respeitando dependências de FK
 const deletionOrder = [
-  // Primeiro: tabelas dependentes (filhas)
+  // Filhas (dependentes)
+  "notificacoes_enviadas",
+  "mensagens_log",
   "historico_envios",
   "historico_producao",
+  "lotes_ordens",
+  "paradas_rota",
   "itens_lancamento",
+  "itens_lancamento_cliente",
   "itens_ordem_servico",
   "itens_contrato_aluguel",
   "lancamentos_fatura",
   "asaas_webhook_events",
   "caixa_movimentacoes",
+  "movimentacoes_estoque",
+  "folha_beneficios",
   "modulo_permissoes",
   "precos_especiais",
   "configuracoes_cliente",
   "configuracoes_pagamento_cliente",
   "enderecos_clientes",
-  // Segundo: tabelas intermediárias
+  // Intermediárias
   "lancamentos",
+  "lancamentos_cliente",
+  "orcamentos",
   "faturas",
   "ordens_servico",
+  "rotas_entrega",
+  "lotes_producao",
   "agendamentos",
+  "eventos_agenda",
   "contratos_aluguel",
   "contas_pagar",
+  "folha_pagamento",
   "caixas",
   "asaas_charges",
-  // Terceiro: tabelas principais
+  "estoque_produtos",
+  // Principais
   "motoristas",
   "veiculos",
+  "fornecedores",
   "funcionarios",
   "produtos",
   "clientes",
