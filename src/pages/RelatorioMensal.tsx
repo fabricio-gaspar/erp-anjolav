@@ -257,7 +257,59 @@ const RelatorioMensal = () => {
               )}
             </Card>
 
-            {/* Resultado final */}
+            {/* Benefícios extras da folha */}
+            {data.beneficiosExtrasItens.length > 0 && (
+              <Card className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <TrendingDown className="w-4 h-4 text-amber-600" />
+                  Benefícios Extras da Folha
+                  <Badge variant="outline" className="ml-2">Total: R$ {formatNumberToCurrency(data.despesasBeneficiosExtras)}</Badge>
+                </h3>
+                {data.beneficiosExtrasPorCategoria.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    {data.beneficiosExtrasPorCategoria.map((cat) => (
+                      <Card key={cat.categoria} className="p-3">
+                        <div className="text-xs text-muted-foreground">{cat.categoria} ({cat.count})</div>
+                        <div className={`text-lg font-bold ${cat.total < 0 ? "text-destructive" : ""}`}>
+                          R$ {formatNumberToCurrency(cat.total)}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Funcionário</TableHead>
+                      <TableHead>Empregador</TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.beneficiosExtrasItens.map((b) => (
+                      <TableRow key={b.id}>
+                        <TableCell>{b.funcionario}</TableCell>
+                        <TableCell className="text-xs">{b.empregador}</TableCell>
+                        <TableCell>{b.nome}</TableCell>
+                        <TableCell><Badge variant="outline">{b.categoria}</Badge></TableCell>
+                        <TableCell>
+                          <Badge variant={b.tipo === "desconto" ? "destructive" : "secondary"}>
+                            {b.tipo === "desconto" ? "Desconto" : "Benefício"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className={`text-right ${b.tipo === "desconto" ? "text-destructive" : ""}`}>
+                          {b.tipo === "desconto" ? "-" : "+"} R$ {formatNumberToCurrency(b.valor)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
+
             <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10">
               <h3 className="font-semibold mb-3">Resultado Final</h3>
               <div className="space-y-2 text-sm">
@@ -267,6 +319,7 @@ const RelatorioMensal = () => {
                 <div className="flex justify-between text-destructive"><span>(-) Contas Mensais</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasContasMensais)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Impostos</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasImpostos)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Outras Despesas</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasOutras)}</span></div>
+                <div className="flex justify-between text-destructive"><span>(-) Benefícios Extras Folha</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasBeneficiosExtras)}</span></div>
                 <div className="border-t-2 border-primary pt-2 mt-2 flex justify-between text-lg font-bold">
                   <span>= Lucro Líquido</span>
                   <span className={`font-mono ${data.lucro >= 0 ? "text-emerald-600" : "text-destructive"}`}>R$ {formatNumberToCurrency(data.lucro)}</span>
