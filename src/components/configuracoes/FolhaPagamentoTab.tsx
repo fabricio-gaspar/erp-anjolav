@@ -37,6 +37,34 @@ import { useFolhaBeneficiosByFolha } from "@/hooks/useFolhaBeneficios";
 import { formatNumberToCurrency, parseCurrencyToNumber, formatCurrencyInput } from "@/lib/currencyUtils";
 import { format } from "date-fns";
 
+function SalarioField({
+  folhaId,
+  field,
+  value,
+  disabled,
+}: {
+  folhaId: string;
+  field: "adiantamento_salarial" | "salario_base";
+  value: number;
+  disabled?: boolean;
+}) {
+  const update = useUpdateFolha();
+  return (
+    <CurrencyInput
+      showPrefix={false}
+      disabled={disabled}
+      className="h-8 w-28 text-xs px-2"
+      defaultValue={formatNumberToCurrency(value)}
+      onBlur={(e) => {
+        const novo = parseCurrencyToNumber(formatCurrencyInput(e.target.value));
+        if (novo !== value) {
+          update.mutate({ id: folhaId, [field]: novo } as any);
+        }
+      }}
+    />
+  );
+}
+
 export function FolhaPagamentoTab() {
   const today = new Date();
   const [mes, setMes] = useState(format(today, "yyyy-MM"));
