@@ -45,7 +45,6 @@ export function FolhaBeneficiosCompactPopover({ folhaId, funcionarioId, disabled
           size="sm"
           className="h-8 gap-1.5 font-normal"
         >
-          <Plus className="w-3.5 h-3.5" />
           <span>Benefícios</span>
           {ativosCount > 0 && (
             <span className="ml-0.5 text-xs px-1.5 rounded bg-primary text-primary-foreground">
