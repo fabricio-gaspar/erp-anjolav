@@ -202,6 +202,36 @@ export type Database = {
         }
         Relationships: []
       }
+      beneficios_catalogo: {
+        Row: {
+          ativo: boolean
+          cor: string
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       caixa_movimentacoes: {
         Row: {
           caixa_id: string
@@ -1124,6 +1154,7 @@ export type Database = {
       }
       folha_beneficios: {
         Row: {
+          beneficio_id: string | null
           categoria: string | null
           created_at: string
           folha_id: string
@@ -1136,6 +1167,7 @@ export type Database = {
           valor: number
         }
         Insert: {
+          beneficio_id?: string | null
           categoria?: string | null
           created_at?: string
           folha_id: string
@@ -1148,6 +1180,7 @@ export type Database = {
           valor?: number
         }
         Update: {
+          beneficio_id?: string | null
           categoria?: string | null
           created_at?: string
           folha_id?: string
