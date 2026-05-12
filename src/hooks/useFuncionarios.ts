@@ -2,6 +2,24 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Traduz erros comuns de auth (HIBP, senha curta, etc.) para mensagens amigáveis
+const traduzirErroAuth = (raw: string | undefined | null): string => {
+  const msg = (raw || "").toString();
+  if (/known to be weak|pwned|leaked|HIBP/i.test(msg)) {
+    return "Esta senha é muito fraca ou já apareceu em vazamentos públicos. Escolha uma senha mais forte (combine letras maiúsculas, minúsculas, números e símbolos).";
+  }
+  if (/Password should be at least|password.*short|min(imum)? length/i.test(msg)) {
+    return "A senha é muito curta. Use no mínimo 6 caracteres (recomendado 8+).";
+  }
+  if (/already registered|already been registered/i.test(msg)) {
+    return "Este email já está cadastrado no sistema.";
+  }
+  // Caso típico: 'Edge function returned 400: Error, {"error":"..."}'
+  const match = msg.match(/\{"error":"([^"]+)"\}/);
+  if (match) return traduzirErroAuth(match[1]);
+  return msg;
+};
+
 export interface Funcionario {
   id: string;
   user_id: string | null;
