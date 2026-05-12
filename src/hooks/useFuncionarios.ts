@@ -302,8 +302,8 @@ export const useUpdateAuthEmail = () => {
         },
       });
 
-      if (fnError) throw new Error(fnError.message || "Erro ao atualizar email");
-      if (result?.error) throw new Error(result.error);
+      if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao atualizar email");
+      if (result?.error) throw new Error(traduzirErroAuth(result.error));
       return result;
     },
     onSuccess: () => {
