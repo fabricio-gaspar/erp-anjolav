@@ -800,7 +800,7 @@ function FuncionariosTab({
                 const expanded = expandedId === func.id;
                 const folha = folhaPorFunc.get(func.id) || null;
                 return (
-                  <>
+                  <Fragment key={func.id}>
                     <TableRow key={func.id} className={!func.ativo ? "opacity-60" : ""}>
                       <TableCell>
                         <Button
