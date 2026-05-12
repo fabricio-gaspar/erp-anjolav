@@ -144,7 +144,8 @@ export function FolhaPagamentoTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Funcionário</TableHead>
-                  <TableHead className="w-32">Salário</TableHead>
+                  <TableHead className="w-32">Adiantamento</TableHead>
+                  <TableHead className="w-32">Pagamento</TableHead>
                   <TableHead>Benefícios</TableHead>
                   <TableHead className="w-24">Status</TableHead>
                   <TableHead className="w-24"></TableHead>
@@ -164,8 +165,21 @@ export function FolhaPagamentoTab() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="font-semibold tabular-nums">
-                        R$ {formatNumberToCurrency(Number(f.salario_base))}
+                      <TableCell>
+                        <SalarioField
+                          folhaId={f.id}
+                          field="adiantamento_salarial"
+                          value={Number(f.adiantamento_salarial || 0)}
+                          disabled={!isAberto}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <SalarioField
+                          folhaId={f.id}
+                          field="salario_base"
+                          value={Number(f.salario_base || 0)}
+                          disabled={!isAberto}
+                        />
                       </TableCell>
                       <TableCell>
                         <FolhaBeneficiosCompactPopover
