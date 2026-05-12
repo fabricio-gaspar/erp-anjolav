@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,19 +24,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Play, Lock, Trash2 } from "lucide-react";
 import { FolhaBeneficiosPopover } from "./FolhaBeneficiosPopover";
-import { FolhaBeneficiosChips, BENEFICIO_TIPOS } from "./FolhaBeneficiosChips";
+import { FolhaBeneficiosCompactPopover } from "./FolhaBeneficiosCompactPopover";
 import {
   useFolhaPagamento,
   useGerarFolhaMes,
   useFecharFolhaMes,
-  useUpdateFolha,
   useDeleteFolha,
 } from "@/hooks/useFolhaPagamento";
+import { useFolhaBeneficiosByFolha } from "@/hooks/useFolhaBeneficios";
 import { formatNumberToCurrency } from "@/lib/currencyUtils";
 import { format } from "date-fns";
-
-const somaBeneficios = (f: any) =>
-  BENEFICIO_TIPOS.reduce((s, t) => s + Number(f[t.field] || 0), 0);
 
 export function FolhaPagamentoTab() {
   const today = new Date();
@@ -49,7 +46,6 @@ export function FolhaPagamentoTab() {
   const { data: folhasAll = [], isLoading } = useFolhaPagamento(competencia);
   const gerar = useGerarFolhaMes();
   const fechar = useFecharFolhaMes();
-  const update = useUpdateFolha();
   const del = useDeleteFolha();
 
   const empregadores = Array.from(
@@ -59,15 +55,21 @@ export function FolhaPagamentoTab() {
     ? folhasAll
     : folhasAll.filter((f) => f.funcionario?.empregador_cnpj === empregadorFiltro);
 
-  const totalSalarios = folhas.reduce((s, f) => s + Number(f.salario_base || 0), 0);
-  const totalBeneficios = folhas.reduce((s, f) => s + somaBeneficios(f), 0);
-  const totalCusto = totalSalarios + totalBeneficios + totalSalarios * 0.36;
+  // Carrega benefícios de TODAS as folhas para totalizar
+  const { data: todosBeneficios = [] } = useFolhaBeneficiosByFolha(folhas.map((f) => f.id));
 
-  const updateField = (id: string, field: string, valor: number) => {
-    const f = folhas.find((x) => x.id === id);
-    if (!f) return;
-    update.mutate({ ...f, [field]: valor, id } as any);
-  };
+  const beneficiosPorFolha = useMemo(() => {
+    const m = new Map<string, number>();
+    todosBeneficios.forEach((b) => {
+      if (!b.beneficio_id) return;
+      m.set(b.folha_id, (m.get(b.folha_id) || 0) + Number(b.valor || 0));
+    });
+    return m;
+  }, [todosBeneficios]);
+
+  const totalSalarios = folhas.reduce((s, f) => s + Number(f.salario_base || 0), 0);
+  const totalBeneficios = folhas.reduce((s, f) => s + (beneficiosPorFolha.get(f.id) || 0), 0);
+  const totalCusto = totalSalarios + totalBeneficios + totalSalarios * 0.36;
 
   return (
     <div className="space-y-4">
@@ -140,17 +142,15 @@ export function FolhaPagamentoTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Funcionário</TableHead>
-                  <TableHead>Salário</TableHead>
+                  <TableHead className="w-32">Salário</TableHead>
                   <TableHead>Benefícios</TableHead>
-                  <TableHead className="text-right">Total Benef.</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="w-24">Status</TableHead>
+                  <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {folhas.map((f) => {
                   const isAberto = f.status === "aberto";
-                  const totalBen = somaBeneficios(f);
                   return (
                     <TableRow key={f.id}>
                       <TableCell>
@@ -166,14 +166,11 @@ export function FolhaPagamentoTab() {
                         R$ {formatNumberToCurrency(Number(f.salario_base))}
                       </TableCell>
                       <TableCell>
-                        <FolhaBeneficiosChips
-                          folha={f}
+                        <FolhaBeneficiosCompactPopover
+                          folhaId={f.id}
+                          funcionarioId={f.funcionario_id}
                           disabled={!isAberto}
-                          onUpdate={(field, valor) => updateField(f.id, field, valor)}
                         />
-                      </TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">
-                        R$ {formatNumberToCurrency(totalBen)}
                       </TableCell>
                       <TableCell>
                         <Badge variant={isAberto ? "outline" : "secondary"}>{f.status}</Badge>
