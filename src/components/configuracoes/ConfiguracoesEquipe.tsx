@@ -69,6 +69,7 @@ import {
 } from "lucide-react";
 import { FichaFuncionarioModal } from "./FichaFuncionarioModal";
 import { FolhaPagamentoTab } from "./FolhaPagamentoTab";
+import { BeneficiosCatalogoTab } from "./BeneficiosCatalogoTab";
 import { 
   useFuncionarios, 
   useCreateFuncionario, 
