@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrencyToNumber } from "@/lib/currencyUtils";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -345,13 +347,21 @@ export function PagamentoModal({
                   R$
                 </button>
               </div>
-              <Input
-                type="text"
-                value={descontoInput}
-                onChange={(e) => setDescontoInput(e.target.value)}
-                placeholder={descontoTipo === "percentual" ? "0" : "0,00"}
-                className="flex-1"
-              />
+              {descontoTipo === "valor" ? (
+                <CurrencyInput
+                  value={descontoInput}
+                  onChange={(e) => setDescontoInput(e.target.value)}
+                  className="flex-1"
+                />
+              ) : (
+                <Input
+                  type="text"
+                  value={descontoInput}
+                  onChange={(e) => setDescontoInput(e.target.value)}
+                  placeholder="0"
+                  className="flex-1"
+                />
+              )}
             </div>
           </div>
 
