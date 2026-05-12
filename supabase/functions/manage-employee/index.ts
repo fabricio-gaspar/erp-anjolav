@@ -31,6 +31,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Verify caller has admin role
+    const { data: isAdmin } = await supabase.rpc("has_role", {
+      _user_id: caller.id,
+      _role: "admin",
+    });
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: "Acesso negado: requer perfil administrador" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { action } = body;
 
