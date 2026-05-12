@@ -867,7 +867,7 @@ function FuncionariosTab({
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </TableBody>
