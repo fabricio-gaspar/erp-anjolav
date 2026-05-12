@@ -8,6 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrencyToNumber } from "@/lib/currencyUtils";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, Banknote, Smartphone, Receipt } from "lucide-react";
 import { useState } from "react";
@@ -60,7 +62,7 @@ export function ReceberPagamentoModal({
   };
 
   const handleSubmit = async () => {
-    const valor = parseFloat(valorRecebido.replace(",", "."));
+    const valor = parseCurrencyToNumber(valorRecebido);
     
     if (isNaN(valor) || valor <= 0) {
       toast.error("Informe um valor válido");
