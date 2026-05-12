@@ -97,7 +97,10 @@ export function FolhaPagamentoTab() {
     return m;
   }, [todosBeneficios]);
 
-  const totalSalarios = folhas.reduce((s, f) => s + Number(f.salario_base || 0), 0);
+  const totalSalarios = folhas.reduce(
+    (s, f) => s + Number(f.salario_base || 0) + Number((f as any).adiantamento_salarial || 0),
+    0,
+  );
   const totalBeneficios = folhas.reduce((s, f) => s + (beneficiosPorFolha.get(f.id) || 0), 0);
   const totalCusto = totalSalarios + totalBeneficios + totalSalarios * 0.36;
 
