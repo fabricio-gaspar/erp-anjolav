@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -72,7 +74,7 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
     if (contrato) {
       setTemContrato(true);
       setDescricao(contrato.descricao);
-      setValorServico(contrato.valor_servico.toString());
+      setValorServico(formatNumberToCurrency(contrato.valor_servico));
       setDataInicio(contrato.data_inicio);
       setDataFim(contrato.data_fim || "");
       setObservacoes(contrato.observacoes || "");
@@ -100,7 +102,7 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
 
     const data = {
       descricao,
-      valor_servico: parseFloat(valorServico) || 0,
+      valor_servico: parseCurrencyToNumber(valorServico) || 0,
       data_inicio: dataInicio,
       data_fim: dataFim || null,
       observacoes: observacoes || null,
@@ -217,20 +219,12 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="valor-servico">Valor Mensal do Serviço (R$)</Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    id="valor-servico"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={valorServico}
-                    onChange={(e) => setValorServico(e.target.value)}
-                    className="pl-9"
-                    placeholder="0,00"
-                  />
-                </div>
+                <Label htmlFor="valor-servico">Valor Mensal do Serviço</Label>
+                <CurrencyInput
+                  id="valor-servico"
+                  value={valorServico}
+                  onChange={(e) => setValorServico(e.target.value)}
+                />
               </div>
 
               <div className="space-y-2">
