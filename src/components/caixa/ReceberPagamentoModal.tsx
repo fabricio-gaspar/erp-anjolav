@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { parseCurrencyToNumber } from "@/lib/currencyUtils";
+import { parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, Banknote, Smartphone, Receipt } from "lucide-react";
 import { useState } from "react";
@@ -47,7 +47,7 @@ export function ReceberPagamentoModal({
 }: ReceberPagamentoModalProps) {
   const valorPendente = valorTotal - (valorPago || 0);
   const [formaPagamento, setFormaPagamento] = useState("dinheiro");
-  const [valorRecebido, setValorRecebido] = useState(valorPendente.toFixed(2));
+  const [valorRecebido, setValorRecebido] = useState(formatNumberToCurrency(valorPendente));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: caixaAberto } = useCaixaAberto();
