@@ -480,12 +480,10 @@ export function PagamentoModal({
               </Label>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Input
-                    type="text"
+                  <CurrencyInput
                     value={valorRecebido}
                     onChange={(e) => setValorRecebido(e.target.value)}
-                    placeholder="0,00"
-                    className="text-lg font-bold text-center h-12"
+                    className="text-lg font-bold h-12"
                     autoFocus
                   />
                   <div className="flex gap-1 mt-2">
@@ -497,8 +495,9 @@ export function PagamentoModal({
                         size="sm"
                         className="flex-1 text-xs"
                         onClick={() => {
-                          const current = parseFloat(valorRecebido.replace(",", ".")) || 0;
-                          setValorRecebido((current + v).toFixed(2).replace(".", ","));
+                          const current = parseCurrencyToNumber(valorRecebido);
+                          const next = current + v;
+                          setValorRecebido(next.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
                         }}
                       >
                         +{v}
