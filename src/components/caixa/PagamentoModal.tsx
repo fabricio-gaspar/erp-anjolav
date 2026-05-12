@@ -167,7 +167,9 @@ export function PagamentoModal({
     let valorDesconto = 0;
     
     if (descontoInput) {
-      const input = parseFloat(descontoInput.replace(",", "."));
+      const input = descontoTipo === "percentual"
+        ? parseFloat(descontoInput.replace(",", "."))
+        : parseCurrencyToNumber(descontoInput);
       if (!isNaN(input) && input > 0) {
         if (descontoTipo === "percentual") {
           valorDesconto = (totalOriginal * input) / 100;
