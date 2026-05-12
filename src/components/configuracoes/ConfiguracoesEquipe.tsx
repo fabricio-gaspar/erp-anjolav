@@ -68,8 +68,9 @@ import {
   Wallet
 } from "lucide-react";
 import { FichaFuncionarioModal } from "./FichaFuncionarioModal";
-import { FolhaPagamentoTab } from "./FolhaPagamentoTab";
-import { BeneficiosCatalogoTab } from "./BeneficiosCatalogoTab";
+import { FuncionarioFolhaInline } from "./FuncionarioFolhaInline";
+import { useFolhaPagamento, useGerarFolhaMes, useFecharFolhaMes } from "@/hooks/useFolhaPagamento";
+import { ChevronRight, Lock, Play, Wallet as WalletIcon } from "lucide-react";
 import { 
   useFuncionarios, 
   useCreateFuncionario, 
