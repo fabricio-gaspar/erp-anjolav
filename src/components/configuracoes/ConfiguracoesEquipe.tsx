@@ -316,6 +316,10 @@ export function ConfiguracoesEquipe() {
           <FolhaPagamentoTab />
         </TabsContent>
 
+        <TabsContent value="beneficios">
+          <BeneficiosCatalogoTab />
+        </TabsContent>
+
         <TabsContent value="motoristas">
           <MotoristasTab
             motoristas={motoristas}
