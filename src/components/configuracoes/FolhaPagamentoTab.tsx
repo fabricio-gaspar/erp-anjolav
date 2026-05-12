@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2, Play, Lock, Trash2 } from "lucide-react";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { FolhaBeneficiosPopover } from "./FolhaBeneficiosPopover";
 import { FolhaBeneficiosCompactPopover } from "./FolhaBeneficiosCompactPopover";
 import {
@@ -30,10 +31,39 @@ import {
   useGerarFolhaMes,
   useFecharFolhaMes,
   useDeleteFolha,
+  useUpdateFolha,
 } from "@/hooks/useFolhaPagamento";
 import { useFolhaBeneficiosByFolha } from "@/hooks/useFolhaBeneficios";
-import { formatNumberToCurrency } from "@/lib/currencyUtils";
+import { formatNumberToCurrency, parseCurrencyToNumber, formatCurrencyInput } from "@/lib/currencyUtils";
 import { format } from "date-fns";
+
+function SalarioField({
+  folhaId,
+  field,
+  value,
+  disabled,
+}: {
+  folhaId: string;
+  field: "adiantamento_salarial" | "salario_base";
+  value: number;
+  disabled?: boolean;
+}) {
+  const update = useUpdateFolha();
+  return (
+    <CurrencyInput
+      showPrefix={false}
+      disabled={disabled}
+      className="h-8 w-28 text-xs px-2"
+      defaultValue={formatNumberToCurrency(value)}
+      onBlur={(e) => {
+        const novo = parseCurrencyToNumber(formatCurrencyInput(e.target.value));
+        if (novo !== value) {
+          update.mutate({ id: folhaId, [field]: novo } as any);
+        }
+      }}
+    />
+  );
+}
 
 export function FolhaPagamentoTab() {
   const today = new Date();
@@ -67,7 +97,10 @@ export function FolhaPagamentoTab() {
     return m;
   }, [todosBeneficios]);
 
-  const totalSalarios = folhas.reduce((s, f) => s + Number(f.salario_base || 0), 0);
+  const totalSalarios = folhas.reduce(
+    (s, f) => s + Number(f.salario_base || 0) + Number((f as any).adiantamento_salarial || 0),
+    0,
+  );
   const totalBeneficios = folhas.reduce((s, f) => s + (beneficiosPorFolha.get(f.id) || 0), 0);
   const totalCusto = totalSalarios + totalBeneficios + totalSalarios * 0.36;
 
@@ -142,7 +175,8 @@ export function FolhaPagamentoTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Funcionário</TableHead>
-                  <TableHead className="w-32">Salário</TableHead>
+                  <TableHead className="w-32">Adiantamento</TableHead>
+                  <TableHead className="w-32">Pagamento</TableHead>
                   <TableHead>Benefícios</TableHead>
                   <TableHead className="w-24">Status</TableHead>
                   <TableHead className="w-24"></TableHead>
@@ -162,8 +196,21 @@ export function FolhaPagamentoTab() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="font-semibold tabular-nums">
-                        R$ {formatNumberToCurrency(Number(f.salario_base))}
+                      <TableCell>
+                        <SalarioField
+                          folhaId={f.id}
+                          field="adiantamento_salarial"
+                          value={Number(f.adiantamento_salarial || 0)}
+                          disabled={!isAberto}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <SalarioField
+                          folhaId={f.id}
+                          field="salario_base"
+                          value={Number(f.salario_base || 0)}
+                          disabled={!isAberto}
+                        />
                       </TableCell>
                       <TableCell>
                         <FolhaBeneficiosCompactPopover
