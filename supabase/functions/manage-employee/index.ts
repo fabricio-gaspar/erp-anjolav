@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
 
       if (authError) {
         return new Response(JSON.stringify({ error: authError.message }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
