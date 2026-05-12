@@ -279,18 +279,10 @@ export function ConfiguracoesEquipe() {
 
       {/* Sub-Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
           <TabsTrigger value="funcionarios" className="gap-2">
             <Users className="w-4 h-4" />
             Funcionários
-          </TabsTrigger>
-          <TabsTrigger value="folha" className="gap-2">
-            <Wallet className="w-4 h-4" />
-            Folha
-          </TabsTrigger>
-          <TabsTrigger value="beneficios" className="gap-2">
-            <CreditCard className="w-4 h-4" />
-            Benefícios
           </TabsTrigger>
           <TabsTrigger value="motoristas" className="gap-2">
             <UserCheck className="w-4 h-4" />
@@ -311,14 +303,6 @@ export function ConfiguracoesEquipe() {
             deleteFuncionario={deleteFuncionario}
             toggleStatus={toggleFuncionarioStatus}
           />
-        </TabsContent>
-
-        <TabsContent value="folha">
-          <FolhaPagamentoTab />
-        </TabsContent>
-
-        <TabsContent value="beneficios">
-          <BeneficiosCatalogoTab />
         </TabsContent>
 
         <TabsContent value="motoristas">
