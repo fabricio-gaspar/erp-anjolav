@@ -7,12 +7,70 @@ export interface FolhaBeneficio {
   id: string;
   folha_id: string;
   funcionario_id: string;
+  beneficio_id?: string | null;
   nome: string;
   categoria: string;
   tipo: "beneficio" | "desconto";
   valor: number;
   observacao: string | null;
   created_at?: string;
+}
+
+/**
+ * Upsert valor de um benefício do catálogo para uma folha.
+ * Se valor = 0 e já existir, remove o registro.
+ */
+export function useUpsertValorBeneficio() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (p: {
+      folha_id: string;
+      funcionario_id: string;
+      beneficio_id: string;
+      nome: string;
+      valor: number;
+    }) => {
+      const { data: existing } = await supabase
+        .from("folha_beneficios" as any)
+        .select("id")
+        .eq("folha_id", p.folha_id)
+        .eq("beneficio_id", p.beneficio_id)
+        .maybeSingle();
+
+      if (p.valor === 0) {
+        if (existing) {
+          const { error } = await supabase.from("folha_beneficios" as any).delete().eq("id", (existing as any).id);
+          if (error) throw error;
+        }
+        return;
+      }
+
+      if (existing) {
+        const { error } = await supabase
+          .from("folha_beneficios" as any)
+          .update({ valor: p.valor, nome: p.nome })
+          .eq("id", (existing as any).id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("folha_beneficios" as any).insert({
+          folha_id: p.folha_id,
+          funcionario_id: p.funcionario_id,
+          beneficio_id: p.beneficio_id,
+          nome: p.nome,
+          categoria: "catalogo",
+          tipo: "beneficio",
+          valor: p.valor,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["folha_beneficios"] });
+      qc.invalidateQueries({ queryKey: ["folha_beneficios_periodo"] });
+      qc.invalidateQueries({ queryKey: ["relatorio-mensal"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 }
 
 export function useFolhaBeneficiosByFolha(folhaIds: string[]) {
