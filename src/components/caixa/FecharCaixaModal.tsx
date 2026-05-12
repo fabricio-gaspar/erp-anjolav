@@ -187,8 +187,7 @@ export function FecharCaixaModal({
             <div className="grid grid-cols-3 gap-4 items-end p-3 rounded-lg border">
               <div>
                 <Label>Dinheiro (Contado)</Label>
-                <Input
-                  type="text"
+                <CurrencyInput
                   value={valorDinheiro}
                   onChange={(e) => setValorDinheiro(e.target.value)}
                   className="mt-1"
@@ -212,8 +211,7 @@ export function FecharCaixaModal({
             <div className="grid grid-cols-3 gap-4 items-end p-3 rounded-lg border">
               <div>
                 <Label>PIX (Contado)</Label>
-                <Input
-                  type="text"
+                <CurrencyInput
                   value={valorPix}
                   onChange={(e) => setValorPix(e.target.value)}
                   className="mt-1"
@@ -237,8 +235,7 @@ export function FecharCaixaModal({
             <div className="grid grid-cols-3 gap-4 items-end p-3 rounded-lg border">
               <div>
                 <Label>Cartão Crédito (Contado)</Label>
-                <Input
-                  type="text"
+                <CurrencyInput
                   value={valorCartaoCredito}
                   onChange={(e) => setValorCartaoCredito(e.target.value)}
                   className="mt-1"
@@ -262,8 +259,7 @@ export function FecharCaixaModal({
             <div className="grid grid-cols-3 gap-4 items-end p-3 rounded-lg border">
               <div>
                 <Label>Cartão Débito (Contado)</Label>
-                <Input
-                  type="text"
+                <CurrencyInput
                   value={valorCartaoDebito}
                   onChange={(e) => setValorCartaoDebito(e.target.value)}
                   className="mt-1"
