@@ -8,10 +8,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, AlertTriangle, CheckCircle } from "lucide-react";
 import { useFecharCaixa, Caixa, useCaixaMovimentacoes } from "@/hooks/useCaixa";
+import { formatNumberToCurrency, parseCurrencyToNumber } from "@/lib/currencyUtils";
 import { cn } from "@/lib/utils";
 
 interface FecharCaixaModalProps {
@@ -66,18 +68,15 @@ export function FecharCaixaModal({
 
   useEffect(() => {
     if (open) {
-      setValorDinheiro(valoresEsperados.DINHEIRO.toFixed(2));
-      setValorPix(valoresEsperados.PIX.toFixed(2));
-      setValorCartaoCredito(valoresEsperados.CARTAO_CREDITO.toFixed(2));
-      setValorCartaoDebito(valoresEsperados.CARTAO_DEBITO.toFixed(2));
+      setValorDinheiro(formatNumberToCurrency(valoresEsperados.DINHEIRO));
+      setValorPix(formatNumberToCurrency(valoresEsperados.PIX));
+      setValorCartaoCredito(formatNumberToCurrency(valoresEsperados.CARTAO_CREDITO));
+      setValorCartaoDebito(formatNumberToCurrency(valoresEsperados.CARTAO_DEBITO));
       setObservacoes("");
     }
   }, [open, valoresEsperados]);
 
-  const parseValue = (value: string) => {
-    const parsed = parseFloat(value.replace(",", "."));
-    return isNaN(parsed) ? 0 : parsed;
-  };
+  const parseValue = (value: string) => parseCurrencyToNumber(value);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
