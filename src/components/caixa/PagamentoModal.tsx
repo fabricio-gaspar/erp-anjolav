@@ -192,7 +192,7 @@ export function PagamentoModal({
   // Calcular troco
   const troco = useMemo(() => {
     if (formaPagamento !== "DINHEIRO" || !valorRecebido) return 0;
-    const recebido = parseFloat(valorRecebido.replace(",", ".")) || 0;
+    const recebido = parseCurrencyToNumber(valorRecebido);
     return Math.max(0, recebido - calculos.valorTotal);
   }, [valorRecebido, calculos.valorTotal, formaPagamento]);
 
@@ -212,7 +212,7 @@ export function PagamentoModal({
     if (pagoAgora && !formaPagamento) return false;
     // Para dinheiro, verificar se valor recebido é suficiente
     if (pagoAgora && formaPagamento === "DINHEIRO") {
-      const recebido = parseFloat(valorRecebido.replace(",", ".")) || 0;
+      const recebido = parseCurrencyToNumber(valorRecebido);
       if (recebido < calculos.valorTotal) return false;
     }
     return true;
@@ -221,7 +221,7 @@ export function PagamentoModal({
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
-    const recebido = parseFloat(valorRecebido.replace(",", ".")) || 0;
+    const recebido = parseCurrencyToNumber(valorRecebido);
 
     await onConfirm({
       pagoAgora,
