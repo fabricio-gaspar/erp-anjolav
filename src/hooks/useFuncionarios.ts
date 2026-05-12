@@ -135,17 +135,11 @@ export const useCreateFuncionario = () => {
         });
 
         if (fnError) {
-          throw new Error(fnError.message || "Erro ao criar usuário de autenticação");
+          throw new Error(traduzirErroAuth(fnError.message) || "Erro ao criar usuário de autenticação");
         }
 
         if (result?.error) {
-          if (result.error.includes("already registered") || result.error.includes("already been registered")) {
-            throw new Error(
-              `O email "${data.email}" já está cadastrado no sistema. ` +
-              `Use outro email ou recupere a senha do usuário existente.`
-            );
-          }
-          throw new Error(result.error);
+          throw new Error(traduzirErroAuth(result.error));
         }
 
         userId = result?.userId || null;
