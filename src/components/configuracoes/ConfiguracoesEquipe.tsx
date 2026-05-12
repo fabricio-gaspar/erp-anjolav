@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,8 +68,9 @@ import {
   Wallet
 } from "lucide-react";
 import { FichaFuncionarioModal } from "./FichaFuncionarioModal";
-import { FolhaPagamentoTab } from "./FolhaPagamentoTab";
-import { BeneficiosCatalogoTab } from "./BeneficiosCatalogoTab";
+import { FuncionarioFolhaInline } from "./FuncionarioFolhaInline";
+import { useFolhaPagamento, useGerarFolhaMes, useFecharFolhaMes } from "@/hooks/useFolhaPagamento";
+import { ChevronRight, Lock, Play, Wallet as WalletIcon } from "lucide-react";
 import { 
   useFuncionarios, 
   useCreateFuncionario, 
@@ -278,18 +279,10 @@ export function ConfiguracoesEquipe() {
 
       {/* Sub-Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
           <TabsTrigger value="funcionarios" className="gap-2">
             <Users className="w-4 h-4" />
             Funcionários
-          </TabsTrigger>
-          <TabsTrigger value="folha" className="gap-2">
-            <Wallet className="w-4 h-4" />
-            Folha
-          </TabsTrigger>
-          <TabsTrigger value="beneficios" className="gap-2">
-            <CreditCard className="w-4 h-4" />
-            Benefícios
           </TabsTrigger>
           <TabsTrigger value="motoristas" className="gap-2">
             <UserCheck className="w-4 h-4" />
@@ -310,14 +303,6 @@ export function ConfiguracoesEquipe() {
             deleteFuncionario={deleteFuncionario}
             toggleStatus={toggleFuncionarioStatus}
           />
-        </TabsContent>
-
-        <TabsContent value="folha">
-          <FolhaPagamentoTab />
-        </TabsContent>
-
-        <TabsContent value="beneficios">
-          <BeneficiosCatalogoTab />
         </TabsContent>
 
         <TabsContent value="motoristas">
@@ -372,6 +357,27 @@ function FuncionariosTab({
   const [passwordItem, setPasswordItem] = useState<Funcionario | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const changePassword = useChangePassword();
+
+  // Folha do mês corrente (sempre)
+  const competencia = format(new Date(), "yyyy-MM-01");
+  const competenciaLabel = format(new Date(), "MM/yyyy");
+  const { data: folhasMes = [] } = useFolhaPagamento(competencia);
+  const gerarFolha = useGerarFolhaMes();
+  const fecharFolha = useFecharFolhaMes();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showFechar, setShowFechar] = useState(false);
+  const [dataPagamento, setDataPagamento] = useState(format(new Date(), "yyyy-MM-dd"));
+
+  const folhaPorFunc = useMemo(() => {
+    const m = new Map<string, typeof folhasMes[number]>();
+    folhasMes.forEach((f) => m.set(f.funcionario_id, f));
+    return m;
+  }, [folhasMes]);
+
+  const ativosSemFolha = funcionarios.filter(
+    (f) => f.ativo && !folhaPorFunc.has(f.id),
+  ).length;
+  const abertasCount = folhasMes.filter((f) => f.status === "aberto").length;
   
   const [formData, setFormData] = useState({
     nome: "",
@@ -704,6 +710,41 @@ function FuncionariosTab({
         </Card>
       </Collapsible>
 
+      {/* Folha do Mês — Barra de Ações */}
+      <Card className="p-3 flex flex-wrap items-center gap-3 bg-muted/30">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <WalletIcon className="w-4 h-4 text-primary" />
+          Folha de {competenciaLabel}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {folhasMes.length} folhas · {abertasCount} aberta(s)
+          {ativosSemFolha > 0 && ` · ${ativosSemFolha} sem folha`}
+        </div>
+        <div className="ml-auto flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => gerarFolha.mutate(competencia)}
+            disabled={gerarFolha.isPending}
+          >
+            {gerarFolha.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4 mr-2" />
+            )}
+            Gerar Folha do Mês
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setShowFechar(true)}
+            disabled={abertasCount === 0}
+          >
+            <Lock className="w-4 h-4 mr-2" />
+            Fechar Folha
+          </Button>
+        </div>
+      </Card>
+
       {/* Filters */}
       <Card className="p-4">
         <div className="flex flex-col md:flex-row gap-4">
@@ -744,6 +785,7 @@ function FuncionariosTab({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead className="w-20">Status</TableHead>
                 <TableHead className="w-14">Foto</TableHead>
                 <TableHead>Nome</TableHead>
@@ -754,54 +796,116 @@ function FuncionariosTab({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredData.map((func) => (
-                <TableRow key={func.id} className={!func.ativo ? "opacity-60" : ""}>
-                  <TableCell>
-                    <Badge variant={func.ativo ? "default" : "secondary"} className={func.ativo ? "bg-emerald-500 hover:bg-emerald-600" : ""}>
-                      {func.ativo ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={func.avatar_url || undefined} alt={func.nome} />
-                      <AvatarFallback className="bg-purple-100 text-purple-700 font-semibold">
-                        {getInitials(func.nome)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </TableCell>
-                  <TableCell className="font-medium">{func.nome}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {func.cargo} {func.departamento && `/ ${func.departamento}`}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{func.telefone || "-"}</TableCell>
-                  <TableCell className="text-primary font-medium">{func.login}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFichaItem(func)} title="Ficha Completa">
-                        <FileText className="w-4 h-4 text-blue-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditItem(func)} title="Editar">
-                        <Pencil className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                      {func.user_id && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPasswordItem(func); setNewPassword(""); }} title="Alterar Senha">
-                          <Key className="w-4 h-4 text-primary" />
+              {filteredData.map((func) => {
+                const expanded = expandedId === func.id;
+                const folha = folhaPorFunc.get(func.id) || null;
+                return (
+                  <Fragment key={func.id}>
+                    <TableRow key={func.id} className={!func.ativo ? "opacity-60" : ""}>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setExpandedId(expanded ? null : func.id)}
+                          title="Folha e benefícios"
+                        >
+                          <ChevronRight
+                            className={`w-4 h-4 transition-transform ${expanded ? "rotate-90" : ""}`}
+                          />
                         </Button>
-                      )}
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(func.id, func.ativo)} disabled={toggleStatus.isPending}>
-                        {func.ativo ? <X className="w-4 h-4 text-orange-500" /> : <Check className="w-4 h-4 text-emerald-500" />}
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteId(func.id)}>
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={func.ativo ? "default" : "secondary"} className={func.ativo ? "bg-emerald-500 hover:bg-emerald-600" : ""}>
+                          {func.ativo ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src={func.avatar_url || undefined} alt={func.nome} />
+                          <AvatarFallback className="bg-purple-100 text-purple-700 font-semibold">
+                            {getInitials(func.nome)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </TableCell>
+                      <TableCell className="font-medium">{func.nome}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {func.cargo} {func.departamento && `/ ${func.departamento}`}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{func.telefone || "-"}</TableCell>
+                      <TableCell className="text-primary font-medium">{func.login}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFichaItem(func)} title="Ficha Completa">
+                            <FileText className="w-4 h-4 text-blue-600" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditItem(func)} title="Editar">
+                            <Pencil className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          {func.user_id && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setPasswordItem(func); setNewPassword(""); }} title="Alterar Senha">
+                              <Key className="w-4 h-4 text-primary" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(func.id, func.ativo)} disabled={toggleStatus.isPending}>
+                            {func.ativo ? <X className="w-4 h-4 text-orange-500" /> : <Check className="w-4 h-4 text-emerald-500" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteId(func.id)}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {expanded && (
+                      <TableRow key={func.id + "-exp"} className="bg-muted/10 hover:bg-muted/10">
+                        <TableCell colSpan={8} className="p-3">
+                          <FuncionarioFolhaInline
+                            funcionarioId={func.id}
+                            folha={folha as any}
+                            competenciaLabel={competenciaLabel}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         )}
       </Card>
+
+      {/* Fechar Folha Dialog */}
+      <AlertDialog open={showFechar} onOpenChange={setShowFechar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fechar folha de {competenciaLabel}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Será criada uma conta a pagar (categoria "folha_pagamento") por funcionário em
+              aberto, com vencimento na data informada. O valor lançado é salário + benefícios.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Label>Data de Pagamento</Label>
+            <Input
+              type="date"
+              value={dataPagamento}
+              onChange={(e) => setDataPagamento(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                await fecharFolha.mutateAsync({ competencia, dataPagamento });
+                setShowFechar(false);
+              }}
+            >
+              Confirmar Fechamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Ficha Completa */}
       <FichaFuncionarioModal
