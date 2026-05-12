@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -249,13 +250,11 @@ export function EditarLancamentoModal({
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={item.preco_unitario}
-                            onChange={(e) => handlePrecoChange(item.id, e.target.value)}
+                          <CurrencyInput
+                            value={Number(item.preco_unitario)}
+                            onValueChange={(num) => handlePrecoChange(item.id, String(num))}
                             className="h-8 text-right"
+                            showPrefix={false}
                           />
                         </TableCell>
                         <TableCell className="text-right font-medium">

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -140,14 +141,11 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Preço Padrão (R$)</Label>
-            <Input
+            <Label className="text-xs text-muted-foreground">Preço Padrão</Label>
+            <CurrencyInput
               className="mt-1"
-              type="number"
-              step="0.01"
-              min="0"
               value={formData.preco}
-              onChange={(e) => onChange({ preco: parseFloat(e.target.value) || 0 })}
+              onValueChange={(num) => onChange({ preco: num })}
             />
           </div>
 
