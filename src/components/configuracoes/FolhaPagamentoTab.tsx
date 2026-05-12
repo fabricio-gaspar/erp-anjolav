@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -189,7 +190,8 @@ export function FolhaPagamentoTab() {
                       </TableCell>
                       <TableCell>
                         {isAberto ? (
-                          <Input
+                          <CurrencyInput
+                            showPrefix={false}
                             className="w-24 h-8"
                             defaultValue={formatNumberToCurrency(Number(f.comissoes))}
                             onBlur={(e) => updateField(f.id, "comissoes", e.target.value)}
