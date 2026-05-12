@@ -357,6 +357,27 @@ function FuncionariosTab({
   const [passwordItem, setPasswordItem] = useState<Funcionario | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const changePassword = useChangePassword();
+
+  // Folha do mês corrente (sempre)
+  const competencia = format(new Date(), "yyyy-MM-01");
+  const competenciaLabel = format(new Date(), "MM/yyyy");
+  const { data: folhasMes = [] } = useFolhaPagamento(competencia);
+  const gerarFolha = useGerarFolhaMes();
+  const fecharFolha = useFecharFolhaMes();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showFechar, setShowFechar] = useState(false);
+  const [dataPagamento, setDataPagamento] = useState(format(new Date(), "yyyy-MM-dd"));
+
+  const folhaPorFunc = useMemo(() => {
+    const m = new Map<string, typeof folhasMes[number]>();
+    folhasMes.forEach((f) => m.set(f.funcionario_id, f));
+    return m;
+  }, [folhasMes]);
+
+  const ativosSemFolha = funcionarios.filter(
+    (f) => f.ativo && !folhaPorFunc.has(f.id),
+  ).length;
+  const abertasCount = folhasMes.filter((f) => f.status === "aberto").length;
   
   const [formData, setFormData] = useState({
     nome: "",
