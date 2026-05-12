@@ -204,18 +204,21 @@ export const useFecharFolhaMes = () => {
 
       const competenciaLabel = format(new Date(competencia), "MM/yyyy");
 
-      // Cria conta a pagar por funcionário (salário cheio + benefícios)
+      // Busca somatório de benefícios do catálogo por folha
+      const folhaIds = (folhas as any[]).map((f) => f.id);
+      const { data: bens } = await supabase
+        .from("folha_beneficios" as any)
+        .select("folha_id, valor, beneficio_id")
+        .in("folha_id", folhaIds);
+      const benMap = new Map<string, number>();
+      (bens || []).forEach((b: any) => {
+        if (!b.beneficio_id) return;
+        benMap.set(b.folha_id, (benMap.get(b.folha_id) || 0) + Number(b.valor || 0));
+      });
+
+      // Cria conta a pagar por funcionário (salário cheio + benefícios do catálogo)
       for (const f of folhas as any[]) {
-        const beneficios =
-          Number(f.vale_transporte || 0) +
-          Number(f.vale_alimentacao || 0) +
-          Number(f.vale_refeicao || 0) +
-          Number(f.plano_saude || 0) +
-          Number(f.plano_odontologico || 0) +
-          Number(f.desconto_cesta_basica || 0) +
-          Number(f.gratificacao || 0) +
-          Number(f.outros_beneficios || 0);
-        const valorPagar = Number(f.salario_base || 0) + beneficios;
+        const valorPagar = Number(f.salario_base || 0) + (benMap.get(f.id) || 0);
         const { data: conta, error: e2 } = await supabase
           .from("contas_pagar")
           .insert({

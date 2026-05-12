@@ -1,63 +1,73 @@
 ## Objetivo
 
-Simplificar a aba **Folha de Pagamento** (Configurações → Equipe → Folha) para mostrar apenas:
-- O **salário cheio** pago a cada funcionário.
-- Uma coluna **Benefícios** com os tipos pré-cadastrados (cada um em uma cor), com campo de valor para os que a empresa fornece.
-- **Custo Total Empresa** (salário + benefícios + encargos) preservado nos cards.
+Tornar a coluna **Benefícios** compacta e permitir que o usuário **cadastre seus próprios tipos de benefício** (com cor) e atribua **valores diferentes para cada funcionário**.
 
-Remover da tela: Horas Extras, Comissões, Descontos, Líquido a Pagar.
+## Banco de dados
 
-## Mudanças na tabela da Folha
+**Nova tabela `beneficios_catalogo`** (gerenciada pelo admin)
+- `nome` (texto, único)
+- `cor` (texto — token de cor: blue, green, orange, rose, cyan, amber, purple, slate)
+- `ordem` (int, para ordenação)
+- `ativo` (bool)
+- RLS: select para autenticados; insert/update/delete só admin
 
-**Colunas finais:**
-1. Funcionário (nome, cargo, empregador)
-2. Salário (somente leitura, valor cheio cadastrado na ficha)
-3. Benefícios (8 chips coloridos editáveis)
-4. Total Benefícios
-5. Status
-6. Ações (excluir)
+**Reaproveitar tabela existente `folha_beneficios`** para os valores por funcionário/competência
+- Já tem: `folha_id`, `funcionario_id`, `nome`, `categoria`, `tipo`, `valor`
+- Adicionar coluna `beneficio_id` (FK lógica para `beneficios_catalogo`, nullable para retrocompatibilidade)
+- Único por (`folha_id`, `beneficio_id`) para evitar duplicidade
 
-**Tipos de benefícios pré-cadastrados (cada um com cor própria):**
+Os campos fixos `vale_transporte`, `vale_alimentacao`, etc. em `folha_pagamento` deixam de ser usados pela UI nova (continuam no banco para histórico).
 
-| Tipo | Cor (token semântico) | Campo no banco |
-|---|---|---|
-| Vale Transporte (VT) | azul | `vale_transporte` |
-| Vale Alimentação (VA) | verde | `vale_alimentacao` |
-| Vale Refeição (VR) | laranja | `vale_refeicao` |
-| Plano de Saúde | vermelho/rosa | `plano_saude` |
-| Plano Odontológico | ciano | `plano_odontologico` |
-| Cesta Básica | âmbar | `desconto_cesta_basica` (renomeado visualmente como benefício; valor positivo) |
-| Bonificação | roxo | `gratificacao` |
-| Outros | cinza | `outros_beneficios` |
+## UI — Aba "Folha de Pagamento"
 
-Cada chip mostra: ícone/label + `CurrencyInput` compacto. Se valor 0, fica esmaecido. Edição salva via `useUpdateFolha` (debounce no blur).
+Coluna **Benefícios** vira uma única célula compacta com botão:
+
+```text
+[ + Benefícios (3) · R$ 850,00 ]
+```
+
+- Sem chips na linha — economiza espaço.
+- Badge com contagem de benefícios ativos do funcionário no mês.
+- Total em R$ ao lado.
+
+Ao clicar abre **Popover** (largura ~340px) com:
+- Lista de todos os tipos do catálogo (cada um com bolinha colorida + nome).
+- `CurrencyInput` compacto à direita de cada tipo.
+- Salvamento on-blur via upsert em `folha_beneficios`.
+- Rodapé: "Total: R$ 850,00".
+- Tipos com valor 0 ficam visíveis mas esmaecidos.
+
+## Nova aba "Benefícios" em Configurações → Equipe
+
+Tela simples de CRUD:
+- Lista com bolinha de cor + nome + switch ativo + botões editar/excluir.
+- Botão "+ Novo Benefício" abre dialog com: nome, seletor de cor (8 opções pré-definidas com swatches), ativo.
+- Drag handle opcional para reordenar (ou apenas campo número de ordem).
 
 ## Cards de totais
 
-Mantidos 3 cards:
-- **Total Salários** (soma dos `salario_base`)
-- **Total Benefícios** (soma de todos os 8 campos acima)
-- **Custo Total Empresa** (salários + benefícios + encargos 36% sobre salário)
-
-Removidos: Total Descontos, Líquido a Pagar.
+Mantidos: **Total Salários**, **Total Benefícios** (somatório de `folha_beneficios` da competência), **Custo Total Empresa** (salário + benefícios + 36% encargos).
 
 ## Fechamento da folha
 
-`useFecharFolhaMes` continua criando conta a pagar por funcionário, mas o valor lançado passa a ser **salário + benefícios** (em vez de líquido). Categoria continua `folha_pagamento`.
+`useFecharFolhaMes` recalcula valor da conta a pagar como `salario_base + soma(folha_beneficios da folha)`.
 
-## Benefícios extras (popover existente)
+## Arquivos
 
-`FolhaBeneficiosPopover` permanece disponível para benefícios/descontos avulsos não previstos nos 8 tipos fixos. Sem mudanças.
+**Migração:**
+- Criar `beneficios_catalogo` + RLS + seed com 8 tipos atuais (VT, VA, VR, Saúde, Odonto, Cesta, Bonificação, Outros) com suas cores.
+- Adicionar `beneficio_id` em `folha_beneficios`.
 
-## Arquivos a alterar
+**Novos:**
+- `src/hooks/useBeneficiosCatalogo.ts` — CRUD + lista.
+- `src/components/configuracoes/BeneficiosCatalogoTab.tsx` — aba CRUD.
+- `src/components/configuracoes/FolhaBeneficiosCompactPopover.tsx` — botão + popover compacto.
 
-- `src/components/configuracoes/FolhaPagamentoTab.tsx` — refatorar tabela e cards.
-- `src/components/configuracoes/FolhaBeneficiosChips.tsx` *(novo)* — componente de 8 chips coloridos editáveis.
-- `src/hooks/useFolhaPagamento.ts` — ajustar `calcularTotaisFolha` para zerar descontos não usados na UI e no fechamento usar `salario + beneficios`.
-- `src/index.css` / `tailwind.config.ts` — adicionar tokens de cor para os tipos de benefício se ainda não existirem (HSL semânticos).
+**Editar:**
+- `src/components/configuracoes/FolhaPagamentoTab.tsx` — substituir `FolhaBeneficiosChips` pelo popover compacto; recalcular total a partir de `folha_beneficios`.
+- `src/components/configuracoes/ConfiguracoesEquipe.tsx` — adicionar aba "Benefícios".
+- `src/hooks/useFolhaBeneficios.ts` — adicionar mutation `upsertValorBeneficio` por (folha_id, beneficio_id) e somatório por folha.
+- `src/hooks/useFolhaPagamento.ts` — fechamento usa soma de `folha_beneficios` em vez dos campos fixos.
 
-## Sem mudanças
-
-- Schema do banco (campos já existem em `folha_pagamento`).
-- Ficha do funcionário (continua sendo a fonte do salário cheio).
-- Relatório mensal e popover de extras.
+**Remover do uso (mantém arquivo):**
+- `FolhaBeneficiosChips.tsx` deixa de ser referenciado (pode ser excluído depois).
