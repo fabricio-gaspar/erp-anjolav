@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   formatCurrencyInput,
