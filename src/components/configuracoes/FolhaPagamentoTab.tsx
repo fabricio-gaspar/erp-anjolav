@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader2, Play, Lock, Trash2 } from "lucide-react";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { FolhaBeneficiosPopover } from "./FolhaBeneficiosPopover";
 import { FolhaBeneficiosCompactPopover } from "./FolhaBeneficiosCompactPopover";
 import {
@@ -30,9 +31,10 @@ import {
   useGerarFolhaMes,
   useFecharFolhaMes,
   useDeleteFolha,
+  useUpdateFolha,
 } from "@/hooks/useFolhaPagamento";
 import { useFolhaBeneficiosByFolha } from "@/hooks/useFolhaBeneficios";
-import { formatNumberToCurrency } from "@/lib/currencyUtils";
+import { formatNumberToCurrency, parseCurrencyToNumber, formatCurrencyInput } from "@/lib/currencyUtils";
 import { format } from "date-fns";
 
 export function FolhaPagamentoTab() {
