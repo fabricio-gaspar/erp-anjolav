@@ -277,8 +277,8 @@ export const useChangePassword = () => {
         },
       });
 
-      if (fnError) throw new Error(fnError.message || "Erro ao alterar senha");
-      if (result?.error) throw new Error(result.error);
+      if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao alterar senha");
+      if (result?.error) throw new Error(traduzirErroAuth(result.error));
       return result;
     },
     onSuccess: () => {
