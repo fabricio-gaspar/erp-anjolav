@@ -82,11 +82,13 @@ export function FolhaBeneficiosCompactPopover({ folhaId, funcionarioId, disabled
                     )}
                   >
                     <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", corDot(b.cor))} />
-                    <span className="flex-1 text-xs font-medium truncate">{b.nome}</span>
+                    <span className="min-w-0 flex-1 text-xs font-medium truncate" title={b.nome}>
+                      {b.nome || "(sem nome)"}
+                    </span>
                     <CurrencyInput
                       showPrefix={false}
                       disabled={disabled}
-                      className="h-7 w-24 text-xs px-2"
+                      className="h-7 w-24 text-xs px-2 shrink-0"
                       defaultValue={formatNumberToCurrency(atual)}
                       onBlur={(e) => {
                         const novo = parseCurrencyToNumber(formatCurrencyInput(e.target.value));
