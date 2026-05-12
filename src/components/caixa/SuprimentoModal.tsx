@@ -8,10 +8,12 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, ArrowUpCircle } from "lucide-react";
 import { useAddMovimentacao } from "@/hooks/useCaixa";
+import { parseCurrencyToNumber } from "@/lib/currencyUtils";
 import { toast } from "sonner";
 
 interface SuprimentoModalProps {
@@ -29,7 +31,7 @@ export function SuprimentoModal({ open, onOpenChange, caixaId }: SuprimentoModal
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const valorNumerico = parseFloat(valor.replace(",", "."));
+    const valorNumerico = parseCurrencyToNumber(valor);
     if (isNaN(valorNumerico) || valorNumerico <= 0) {
       toast.error("Informe um valor válido");
       return;
@@ -68,12 +70,10 @@ export function SuprimentoModal({ open, onOpenChange, caixaId }: SuprimentoModal
 
           <div className="space-y-2">
             <Label htmlFor="valor">Valor *</Label>
-            <Input
+            <CurrencyInput
               id="valor"
-              type="text"
               value={valor}
               onChange={(e) => setValor(e.target.value)}
-              placeholder="0,00"
               required
               autoFocus
             />

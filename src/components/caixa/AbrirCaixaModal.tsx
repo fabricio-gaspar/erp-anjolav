@@ -8,9 +8,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useAbrirCaixa } from "@/hooks/useCaixa";
+import { parseCurrencyToNumber } from "@/lib/currencyUtils";
 
 interface AbrirCaixaModalProps {
   open: boolean;
@@ -30,7 +32,7 @@ export function AbrirCaixaModal({ open, onOpenChange }: AbrirCaixaModalProps) {
       return;
     }
 
-    const valor = parseFloat(valorAbertura.replace(",", "."));
+    const valor = parseCurrencyToNumber(valorAbertura);
     
     await abrirCaixa.mutateAsync({
       operador: operador.trim(),
@@ -63,12 +65,10 @@ export function AbrirCaixaModal({ open, onOpenChange }: AbrirCaixaModalProps) {
 
           <div className="space-y-2">
             <Label htmlFor="valorAbertura">Valor de Abertura (Fundo de Troco)</Label>
-            <Input
+            <CurrencyInput
               id="valorAbertura"
-              type="text"
               value={valorAbertura}
               onChange={(e) => setValorAbertura(e.target.value)}
-              placeholder="0,00"
             />
           </div>
 

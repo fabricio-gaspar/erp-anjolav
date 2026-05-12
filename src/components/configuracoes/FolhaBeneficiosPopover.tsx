@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Trash2 } from "lucide-react";
@@ -125,7 +126,7 @@ export function FolhaBeneficiosPopover({ folhaId, funcionarioId, disabled }: Pro
                 </div>
                 <div>
                   <Label className="text-xs">Valor</Label>
-                  <Input value={valor} onChange={(e) => setValor(formatCurrencyInput(e.target.value))} placeholder="0,00" className="h-8" />
+                  <CurrencyInput value={valor} onChange={(e) => setValor(e.target.value)} className="h-8" />
                 </div>
               </div>
               <Button size="sm" onClick={handleAdd} disabled={!nome.trim() || !valor || add.isPending} className="w-full">

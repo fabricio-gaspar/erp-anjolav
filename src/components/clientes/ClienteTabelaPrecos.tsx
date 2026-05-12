@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -122,7 +124,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
     if (!produto) return;
 
     // Usar preço padrão se o campo estiver vazio
-    const precoNum = novoPreco ? parseFloat(novoPreco) : produto.preco;
+    const precoNum = novoPreco ? parseCurrencyToNumber(novoPreco) : produto.preco;
     if (isNaN(precoNum) || precoNum < 0) {
       toast.error("Digite um preço válido.");
       return;
@@ -145,7 +147,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleUpdatePreco = (id: string, produtoId: string, valor: string) => {
-    const precoNum = parseFloat(valor);
+    const precoNum = parseCurrencyToNumber(valor);
     if (isNaN(precoNum)) return;
 
     const produto = produtos.find((p) => p.id === produtoId);
@@ -241,7 +243,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
                         value={produto.nome}
                         onSelect={() => {
                           setProdutoSelecionado(produto.id);
-                          setNovoPreco(produto.preco.toFixed(2));
+                          setNovoPreco(formatNumberToCurrency(produto.preco));
                           setProdutoSearchOpen(false);
                         }}
                       >
@@ -257,14 +259,10 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
               </Command>
             </PopoverContent>
           </Popover>
-          <Input
-            placeholder="Preço"
-            className="w-24"
+          <CurrencyInput
+            className="w-32"
             value={novoPreco}
             onChange={(e) => setNovoPreco(e.target.value)}
-            type="number"
-            step="0.01"
-            min="0"
           />
           <Button 
             size="icon" 
@@ -310,14 +308,10 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <Input
-                        value={item.preco_especial}
-                        onChange={(e) => handleUpdatePreco(item.id, item.produto_id, e.target.value)}
+                      <CurrencyInput
+                        defaultValue={item.preco_especial}
                         onBlur={(e) => handleUpdatePreco(item.id, item.produto_id, e.target.value)}
-                        className="w-24"
-                        type="number"
-                        step="0.01"
-                        min="0"
+                        className="w-32"
                       />
                       <StatusBadge
                         variant={

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -152,15 +153,10 @@ export function EditarContaPagarModal({ open, onOpenChange, conta }: EditarConta
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="valor">Valor *</Label>
-              <Input
+              <CurrencyInput
                 id="valor"
-                skipUppercase
                 value={formData.valor}
-                onChange={(e) => {
-                  const v = formatCurrencyInput(e.target.value);
-                  setFormData({ ...formData, valor: v });
-                }}
-                placeholder="0,00"
+                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
                 required
               />
             </div>

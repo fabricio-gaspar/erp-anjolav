@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrencyToNumber } from "@/lib/currencyUtils";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -165,7 +167,9 @@ export function PagamentoModal({
     let valorDesconto = 0;
     
     if (descontoInput) {
-      const input = parseFloat(descontoInput.replace(",", "."));
+      const input = descontoTipo === "percentual"
+        ? parseFloat(descontoInput.replace(",", "."))
+        : parseCurrencyToNumber(descontoInput);
       if (!isNaN(input) && input > 0) {
         if (descontoTipo === "percentual") {
           valorDesconto = (totalOriginal * input) / 100;
@@ -190,7 +194,7 @@ export function PagamentoModal({
   // Calcular troco
   const troco = useMemo(() => {
     if (formaPagamento !== "DINHEIRO" || !valorRecebido) return 0;
-    const recebido = parseFloat(valorRecebido.replace(",", ".")) || 0;
+    const recebido = parseCurrencyToNumber(valorRecebido);
     return Math.max(0, recebido - calculos.valorTotal);
   }, [valorRecebido, calculos.valorTotal, formaPagamento]);
 
@@ -210,7 +214,7 @@ export function PagamentoModal({
     if (pagoAgora && !formaPagamento) return false;
     // Para dinheiro, verificar se valor recebido é suficiente
     if (pagoAgora && formaPagamento === "DINHEIRO") {
-      const recebido = parseFloat(valorRecebido.replace(",", ".")) || 0;
+      const recebido = parseCurrencyToNumber(valorRecebido);
       if (recebido < calculos.valorTotal) return false;
     }
     return true;
@@ -219,7 +223,7 @@ export function PagamentoModal({
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
-    const recebido = parseFloat(valorRecebido.replace(",", ".")) || 0;
+    const recebido = parseCurrencyToNumber(valorRecebido);
 
     await onConfirm({
       pagoAgora,
@@ -345,13 +349,21 @@ export function PagamentoModal({
                   R$
                 </button>
               </div>
-              <Input
-                type="text"
-                value={descontoInput}
-                onChange={(e) => setDescontoInput(e.target.value)}
-                placeholder={descontoTipo === "percentual" ? "0" : "0,00"}
-                className="flex-1"
-              />
+              {descontoTipo === "valor" ? (
+                <CurrencyInput
+                  value={descontoInput}
+                  onChange={(e) => setDescontoInput(e.target.value)}
+                  className="flex-1"
+                />
+              ) : (
+                <Input
+                  type="text"
+                  value={descontoInput}
+                  onChange={(e) => setDescontoInput(e.target.value)}
+                  placeholder="0"
+                  className="flex-1"
+                />
+              )}
             </div>
           </div>
 
@@ -470,12 +482,10 @@ export function PagamentoModal({
               </Label>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Input
-                    type="text"
+                  <CurrencyInput
                     value={valorRecebido}
                     onChange={(e) => setValorRecebido(e.target.value)}
-                    placeholder="0,00"
-                    className="text-lg font-bold text-center h-12"
+                    className="text-lg font-bold h-12"
                     autoFocus
                   />
                   <div className="flex gap-1 mt-2">
@@ -487,8 +497,9 @@ export function PagamentoModal({
                         size="sm"
                         className="flex-1 text-xs"
                         onClick={() => {
-                          const current = parseFloat(valorRecebido.replace(",", ".")) || 0;
-                          setValorRecebido((current + v).toFixed(2).replace(".", ","));
+                          const current = parseCurrencyToNumber(valorRecebido);
+                          const next = current + v;
+                          setValorRecebido(next.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
                         }}
                       >
                         +{v}

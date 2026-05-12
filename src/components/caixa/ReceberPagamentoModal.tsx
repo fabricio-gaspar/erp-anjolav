@@ -8,6 +8,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, Banknote, Smartphone, Receipt } from "lucide-react";
 import { useState } from "react";
@@ -45,7 +47,7 @@ export function ReceberPagamentoModal({
 }: ReceberPagamentoModalProps) {
   const valorPendente = valorTotal - (valorPago || 0);
   const [formaPagamento, setFormaPagamento] = useState("dinheiro");
-  const [valorRecebido, setValorRecebido] = useState(valorPendente.toFixed(2));
+  const [valorRecebido, setValorRecebido] = useState(formatNumberToCurrency(valorPendente));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: caixaAberto } = useCaixaAberto();
@@ -60,7 +62,7 @@ export function ReceberPagamentoModal({
   };
 
   const handleSubmit = async () => {
-    const valor = parseFloat(valorRecebido.replace(",", "."));
+    const valor = parseCurrencyToNumber(valorRecebido);
     
     if (isNaN(valor) || valor <= 0) {
       toast.error("Informe um valor válido");
@@ -178,18 +180,11 @@ export function ReceberPagamentoModal({
           {/* Valor Recebido */}
           <div className="space-y-2">
             <Label>Valor Recebido</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                R$
-              </span>
-              <Input
-                type="text"
-                value={valorRecebido}
-                onChange={(e) => setValorRecebido(e.target.value)}
-                className="pl-10 text-lg font-semibold"
-                placeholder="0,00"
-              />
-            </div>
+            <CurrencyInput
+              value={valorRecebido}
+              onChange={(e) => setValorRecebido(e.target.value)}
+              className="text-lg font-semibold"
+            />
           </div>
 
           {!caixaAberto && (
