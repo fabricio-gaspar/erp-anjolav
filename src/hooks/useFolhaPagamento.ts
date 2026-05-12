@@ -204,13 +204,23 @@ export const useFecharFolhaMes = () => {
 
       const competenciaLabel = format(new Date(competencia), "MM/yyyy");
 
-      // Cria conta a pagar por funcionário
+      // Cria conta a pagar por funcionário (salário cheio + benefícios)
       for (const f of folhas as any[]) {
+        const beneficios =
+          Number(f.vale_transporte || 0) +
+          Number(f.vale_alimentacao || 0) +
+          Number(f.vale_refeicao || 0) +
+          Number(f.plano_saude || 0) +
+          Number(f.plano_odontologico || 0) +
+          Number(f.desconto_cesta_basica || 0) +
+          Number(f.gratificacao || 0) +
+          Number(f.outros_beneficios || 0);
+        const valorPagar = Number(f.salario_base || 0) + beneficios;
         const { data: conta, error: e2 } = await supabase
           .from("contas_pagar")
           .insert({
             descricao: `Folha ${competenciaLabel} - ${f.funcionario?.nome || "Funcionário"}`,
-            valor: Number(f.liquido || 0),
+            valor: valorPagar,
             vencimento: dataPagamento,
             categoria: "folha_pagamento",
             status: "pendente",

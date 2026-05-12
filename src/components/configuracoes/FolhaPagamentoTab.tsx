@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Play, Lock, Trash2 } from "lucide-react";
 import { FolhaBeneficiosPopover } from "./FolhaBeneficiosPopover";
+import { FolhaBeneficiosChips, BENEFICIO_TIPOS } from "./FolhaBeneficiosChips";
 import {
   useFolhaPagamento,
   useGerarFolhaMes,
@@ -32,12 +32,11 @@ import {
   useUpdateFolha,
   useDeleteFolha,
 } from "@/hooks/useFolhaPagamento";
-import {
-  formatCurrencyInput,
-  parseCurrencyToNumber,
-  formatNumberToCurrency,
-} from "@/lib/currencyUtils";
+import { formatNumberToCurrency } from "@/lib/currencyUtils";
 import { format } from "date-fns";
+
+const somaBeneficios = (f: any) =>
+  BENEFICIO_TIPOS.reduce((s, t) => s + Number(f[t.field] || 0), 0);
 
 export function FolhaPagamentoTab() {
   const today = new Date();
@@ -60,13 +59,11 @@ export function FolhaPagamentoTab() {
     ? folhasAll
     : folhasAll.filter((f) => f.funcionario?.empregador_cnpj === empregadorFiltro);
 
-  const totalProventos = folhas.reduce((s, f) => s + Number(f.total_proventos || 0), 0);
-  const totalDescontos = folhas.reduce((s, f) => s + Number(f.total_descontos || 0), 0);
-  const totalLiquido = folhas.reduce((s, f) => s + Number(f.liquido || 0), 0);
-  const totalCusto = folhas.reduce((s, f) => s + Number(f.custo_total_empresa || 0), 0);
+  const totalSalarios = folhas.reduce((s, f) => s + Number(f.salario_base || 0), 0);
+  const totalBeneficios = folhas.reduce((s, f) => s + somaBeneficios(f), 0);
+  const totalCusto = totalSalarios + totalBeneficios + totalSalarios * 0.36;
 
-  const updateField = (id: string, field: string, raw: string) => {
-    const valor = parseCurrencyToNumber(formatCurrencyInput(raw));
+  const updateField = (id: string, field: string, valor: number) => {
     const f = folhas.find((x) => x.id === id);
     if (!f) return;
     update.mutate({ ...f, [field]: valor, id } as any);
@@ -115,21 +112,17 @@ export function FolhaPagamentoTab() {
       </Card>
 
       {/* Totais */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Total Proventos</div>
-          <div className="text-lg font-bold">R$ {formatNumberToCurrency(totalProventos)}</div>
+          <div className="text-xs text-muted-foreground">Total Salários</div>
+          <div className="text-lg font-bold">R$ {formatNumberToCurrency(totalSalarios)}</div>
         </Card>
         <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Total Descontos</div>
-          <div className="text-lg font-bold text-destructive">R$ {formatNumberToCurrency(totalDescontos)}</div>
-        </Card>
-        <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Líquido a Pagar</div>
-          <div className="text-lg font-bold text-primary">R$ {formatNumberToCurrency(totalLiquido)}</div>
+          <div className="text-xs text-muted-foreground">Total Benefícios</div>
+          <div className="text-lg font-bold text-primary">R$ {formatNumberToCurrency(totalBeneficios)}</div>
         </Card>
         <Card className="p-3 bg-orange-50 dark:bg-orange-950/20">
-          <div className="text-xs text-muted-foreground">Custo Total Empresa</div>
+          <div className="text-xs text-muted-foreground">Custo Total Empresa (c/ encargos 36%)</div>
           <div className="text-lg font-bold">R$ {formatNumberToCurrency(totalCusto)}</div>
         </Card>
       </div>
@@ -148,24 +141,16 @@ export function FolhaPagamentoTab() {
                 <TableRow>
                   <TableHead>Funcionário</TableHead>
                   <TableHead>Salário</TableHead>
-                  <TableHead>H. Extras</TableHead>
-                  <TableHead>Comissões</TableHead>
                   <TableHead>Benefícios</TableHead>
-                  <TableHead>Descontos</TableHead>
-                  <TableHead>Líquido</TableHead>
+                  <TableHead className="text-right">Total Benef.</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {folhas.map((f) => {
-                  const beneficios =
-                    Number(f.vale_transporte || 0) +
-                    Number(f.vale_alimentacao || 0) +
-                    Number(f.vale_refeicao || 0) +
-                    Number(f.plano_saude || 0) +
-                    Number(f.plano_odontologico || 0);
                   const isAberto = f.status === "aberto";
+                  const totalBen = somaBeneficios(f);
                   return (
                     <TableRow key={f.id}>
                       <TableCell>
@@ -177,32 +162,19 @@ export function FolhaPagamentoTab() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>R$ {formatNumberToCurrency(Number(f.salario_base))}</TableCell>
-                      <TableCell>
-                        <div className="text-xs space-y-0.5">
-                          {Number(f.horas_extras_50 || 0) > 0 && <div>50%: R$ {formatNumberToCurrency(Number(f.horas_extras_50))}</div>}
-                          {Number(f.horas_extras_70 || 0) > 0 && <div>70%: R$ {formatNumberToCurrency(Number(f.horas_extras_70))}</div>}
-                          {Number(f.horas_extras_100 || 0) > 0 && <div>100%: R$ {formatNumberToCurrency(Number(f.horas_extras_100))}</div>}
-                          {Number(f.reflexo_dsr || 0) > 0 && <div className="text-muted-foreground">DSR: R$ {formatNumberToCurrency(Number(f.reflexo_dsr))}</div>}
-                          {Number(f.horas_extras || 0) > 0 && <div>Outras: R$ {formatNumberToCurrency(Number(f.horas_extras))}</div>}
-                          {!Number(f.horas_extras_50) && !Number(f.horas_extras_70) && !Number(f.horas_extras_100) && !Number(f.horas_extras) && <span className="text-muted-foreground">—</span>}
-                        </div>
+                      <TableCell className="font-semibold tabular-nums">
+                        R$ {formatNumberToCurrency(Number(f.salario_base))}
                       </TableCell>
                       <TableCell>
-                        {isAberto ? (
-                          <CurrencyInput
-                            showPrefix={false}
-                            className="w-24 h-8"
-                            defaultValue={formatNumberToCurrency(Number(f.comissoes))}
-                            onBlur={(e) => updateField(f.id, "comissoes", e.target.value)}
-                          />
-                        ) : (
-                          `R$ ${formatNumberToCurrency(Number(f.comissoes))}`
-                        )}
+                        <FolhaBeneficiosChips
+                          folha={f}
+                          disabled={!isAberto}
+                          onUpdate={(field, valor) => updateField(f.id, field, valor)}
+                        />
                       </TableCell>
-                      <TableCell>R$ {formatNumberToCurrency(beneficios)}</TableCell>
-                      <TableCell className="text-destructive">R$ {formatNumberToCurrency(Number(f.total_descontos))}</TableCell>
-                      <TableCell className="font-semibold">R$ {formatNumberToCurrency(Number(f.liquido))}</TableCell>
+                      <TableCell className="text-right font-medium tabular-nums">
+                        R$ {formatNumberToCurrency(totalBen)}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={isAberto ? "outline" : "secondary"}>{f.status}</Badge>
                       </TableCell>
@@ -234,7 +206,7 @@ export function FolhaPagamentoTab() {
           <AlertDialogHeader>
             <AlertDialogTitle>Fechar folha de {mes}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Será criada uma conta a pagar (categoria "folha_pagamento") por funcionário em aberto, com vencimento na data informada.
+              Será criada uma conta a pagar (categoria "folha_pagamento") por funcionário em aberto, com vencimento na data informada. O valor lançado é o salário cheio + benefícios.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2">
