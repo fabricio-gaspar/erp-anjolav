@@ -2,6 +2,24 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Traduz erros comuns de auth (HIBP, senha curta, etc.) para mensagens amigáveis
+const traduzirErroAuth = (raw: string | undefined | null): string => {
+  const msg = (raw || "").toString();
+  if (/known to be weak|pwned|leaked|HIBP/i.test(msg)) {
+    return "Esta senha é muito fraca ou já apareceu em vazamentos públicos. Escolha uma senha mais forte (combine letras maiúsculas, minúsculas, números e símbolos).";
+  }
+  if (/Password should be at least|password.*short|min(imum)? length/i.test(msg)) {
+    return "A senha é muito curta. Use no mínimo 6 caracteres (recomendado 8+).";
+  }
+  if (/already registered|already been registered/i.test(msg)) {
+    return "Este email já está cadastrado no sistema.";
+  }
+  // Caso típico: 'Edge function returned 400: Error, {"error":"..."}'
+  const match = msg.match(/\{"error":"([^"]+)"\}/);
+  if (match) return traduzirErroAuth(match[1]);
+  return msg;
+};
+
 export interface Funcionario {
   id: string;
   user_id: string | null;
@@ -117,17 +135,11 @@ export const useCreateFuncionario = () => {
         });
 
         if (fnError) {
-          throw new Error(fnError.message || "Erro ao criar usuário de autenticação");
+          throw new Error(traduzirErroAuth(fnError.message) || "Erro ao criar usuário de autenticação");
         }
 
         if (result?.error) {
-          if (result.error.includes("already registered") || result.error.includes("already been registered")) {
-            throw new Error(
-              `O email "${data.email}" já está cadastrado no sistema. ` +
-              `Use outro email ou recupere a senha do usuário existente.`
-            );
-          }
-          throw new Error(result.error);
+          throw new Error(traduzirErroAuth(result.error));
         }
 
         userId = result?.userId || null;
@@ -265,8 +277,8 @@ export const useChangePassword = () => {
         },
       });
 
-      if (fnError) throw new Error(fnError.message || "Erro ao alterar senha");
-      if (result?.error) throw new Error(result.error);
+      if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao alterar senha");
+      if (result?.error) throw new Error(traduzirErroAuth(result.error));
       return result;
     },
     onSuccess: () => {
@@ -290,8 +302,8 @@ export const useUpdateAuthEmail = () => {
         },
       });
 
-      if (fnError) throw new Error(fnError.message || "Erro ao atualizar email");
-      if (result?.error) throw new Error(result.error);
+      if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao atualizar email");
+      if (result?.error) throw new Error(traduzirErroAuth(result.error));
       return result;
     },
     onSuccess: () => {
