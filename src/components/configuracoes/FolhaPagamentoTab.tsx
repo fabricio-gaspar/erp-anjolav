@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Play, Lock, Trash2 } from "lucide-react";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { FolhaBeneficiosPopover } from "./FolhaBeneficiosPopover";
 import { FolhaBeneficiosCompactPopover } from "./FolhaBeneficiosCompactPopover";
 import {
   useFolhaPagamento,
@@ -223,18 +222,11 @@ export function FolhaPagamentoTab() {
                         <Badge variant={isAberto ? "outline" : "secondary"}>{f.status}</Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <FolhaBeneficiosPopover
-                            folhaId={f.id}
-                            funcionarioId={f.funcionario_id}
-                            disabled={!isAberto}
-                          />
-                          {isAberto && (
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => del.mutate(f.id)}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          )}
-                        </div>
+                        {isAberto && (
+                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => del.mutate(f.id)}>
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
