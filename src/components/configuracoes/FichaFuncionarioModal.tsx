@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -239,19 +240,19 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
             {/* REMUNERAÇÃO */}
             <TabsContent value="remuneracao" className="space-y-3 pt-3">
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>Salário Base (R$)</Label><Input value={moneyVal(form.salario_base)} onChange={(e) => setMoney("salario_base", e.target.value)} /></div>
-                <div><Label>Valor Hora (R$)</Label><Input value={moneyVal(form.valor_hora)} onChange={(e) => setMoney("valor_hora", e.target.value)} /></div>
-                <div><Label>Vale Transporte (R$)</Label><Input value={moneyVal(form.vale_transporte)} onChange={(e) => setMoney("vale_transporte", e.target.value)} /></div>
-                <div><Label>Vale Alimentação (R$)</Label><Input value={moneyVal(form.vale_alimentacao)} onChange={(e) => setMoney("vale_alimentacao", e.target.value)} /></div>
-                <div><Label>Vale Refeição (R$)</Label><Input value={moneyVal(form.vale_refeicao)} onChange={(e) => setMoney("vale_refeicao", e.target.value)} /></div>
-                <div><Label>Plano de Saúde (R$)</Label><Input value={moneyVal(form.plano_saude)} onChange={(e) => setMoney("plano_saude", e.target.value)} /></div>
-                <div><Label>Plano Odontológico (R$)</Label><Input value={moneyVal(form.plano_odontologico)} onChange={(e) => setMoney("plano_odontologico", e.target.value)} /></div>
-                <div><Label>Outros Benefícios (R$)</Label><Input value={moneyVal(form.outros_beneficios)} onChange={(e) => setMoney("outros_beneficios", e.target.value)} /></div>
-                <div><Label>Gratificação (R$)</Label><Input value={moneyVal(form.gratificacao)} onChange={(e) => setMoney("gratificacao", e.target.value)} /></div>
+                <div><Label>Salário Base</Label><CurrencyInput value={moneyVal(form.salario_base)} onChange={(e) => setMoney("salario_base", e.target.value)} /></div>
+                <div><Label>Valor Hora</Label><CurrencyInput value={moneyVal(form.valor_hora)} onChange={(e) => setMoney("valor_hora", e.target.value)} /></div>
+                <div><Label>Vale Transporte</Label><CurrencyInput value={moneyVal(form.vale_transporte)} onChange={(e) => setMoney("vale_transporte", e.target.value)} /></div>
+                <div><Label>Vale Alimentação</Label><CurrencyInput value={moneyVal(form.vale_alimentacao)} onChange={(e) => setMoney("vale_alimentacao", e.target.value)} /></div>
+                <div><Label>Vale Refeição</Label><CurrencyInput value={moneyVal(form.vale_refeicao)} onChange={(e) => setMoney("vale_refeicao", e.target.value)} /></div>
+                <div><Label>Plano de Saúde</Label><CurrencyInput value={moneyVal(form.plano_saude)} onChange={(e) => setMoney("plano_saude", e.target.value)} /></div>
+                <div><Label>Plano Odontológico</Label><CurrencyInput value={moneyVal(form.plano_odontologico)} onChange={(e) => setMoney("plano_odontologico", e.target.value)} /></div>
+                <div><Label>Outros Benefícios</Label><CurrencyInput value={moneyVal(form.outros_beneficios)} onChange={(e) => setMoney("outros_beneficios", e.target.value)} /></div>
+                <div><Label>Gratificação</Label><CurrencyInput value={moneyVal(form.gratificacao)} onChange={(e) => setMoney("gratificacao", e.target.value)} /></div>
                 <div><Label>Comissão (%)</Label><Input type="number" step="0.01" value={form.comissao_percentual || ""} onChange={(e) => set("comissao_percentual", Number(e.target.value))} /></div>
                 <div><Label>Insalubridade (%)</Label><Input type="number" step="0.01" value={form.insalubridade_percentual || ""} onChange={(e) => set("insalubridade_percentual", Number(e.target.value))} /></div>
                 <div><Label>Desconto VT (%)</Label><Input type="number" step="0.01" value={form.desconto_vt_percentual ?? 6} onChange={(e) => set("desconto_vt_percentual", Number(e.target.value))} /></div>
-                <div><Label>Outros Descontos (R$)</Label><Input value={moneyVal(form.outros_descontos)} onChange={(e) => setMoney("outros_descontos", e.target.value)} /></div>
+                <div><Label>Outros Descontos</Label><CurrencyInput value={moneyVal(form.outros_descontos)} onChange={(e) => setMoney("outros_descontos", e.target.value)} /></div>
                 <div className="flex items-center gap-2 pt-6">
                   <Switch checked={!!form.periculosidade} onCheckedChange={(v) => set("periculosidade", v)} />
                   <Label>Periculosidade (+30%)</Label>
