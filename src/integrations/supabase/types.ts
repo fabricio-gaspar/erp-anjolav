@@ -79,6 +79,9 @@ export type Database = {
           asaas_id: string | null
           bank_slip_url: string | null
           billing_type: string
+          categoria_id: string | null
+          centro_custo_id: string | null
+          cliente_id: string | null
           created_at: string
           customer_cpf_cnpj: string | null
           customer_email: string | null
@@ -98,6 +101,9 @@ export type Database = {
           asaas_id?: string | null
           bank_slip_url?: string | null
           billing_type: string
+          categoria_id?: string | null
+          centro_custo_id?: string | null
+          cliente_id?: string | null
           created_at?: string
           customer_cpf_cnpj?: string | null
           customer_email?: string | null
@@ -117,6 +123,9 @@ export type Database = {
           asaas_id?: string | null
           bank_slip_url?: string | null
           billing_type?: string
+          categoria_id?: string | null
+          centro_custo_id?: string | null
+          cliente_id?: string | null
           created_at?: string
           customer_cpf_cnpj?: string | null
           customer_email?: string | null
@@ -132,7 +141,29 @@ export type Database = {
           updated_at?: string
           value?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "asaas_charges_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_financeiras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asaas_charges_centro_custo_id_fkey"
+            columns: ["centro_custo_id"]
+            isOneToOne: false
+            referencedRelation: "centros_custo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asaas_charges_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       asaas_webhook_events: {
         Row: {
@@ -235,6 +266,8 @@ export type Database = {
       caixa_movimentacoes: {
         Row: {
           caixa_id: string
+          categoria_id: string | null
+          centro_custo_id: string | null
           cliente_id: string | null
           created_at: string
           descricao: string | null
@@ -246,6 +279,8 @@ export type Database = {
         }
         Insert: {
           caixa_id: string
+          categoria_id?: string | null
+          centro_custo_id?: string | null
           cliente_id?: string | null
           created_at?: string
           descricao?: string | null
@@ -257,6 +292,8 @@ export type Database = {
         }
         Update: {
           caixa_id?: string
+          categoria_id?: string | null
+          centro_custo_id?: string | null
           cliente_id?: string | null
           created_at?: string
           descricao?: string | null
@@ -272,6 +309,20 @@ export type Database = {
             columns: ["caixa_id"]
             isOneToOne: false
             referencedRelation: "caixas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_movimentacoes_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_financeiras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_movimentacoes_centro_custo_id_fkey"
+            columns: ["centro_custo_id"]
+            isOneToOne: false
+            referencedRelation: "centros_custo"
             referencedColumns: ["id"]
           },
           {
@@ -354,6 +405,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      categorias_financeiras: {
+        Row: {
+          ativo: boolean
+          cor: string | null
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      centros_custo: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       clientes: {
         Row: {
@@ -703,6 +814,8 @@ export type Database = {
       contas_pagar: {
         Row: {
           categoria: string | null
+          categoria_id: string | null
+          centro_custo_id: string | null
           created_at: string
           data_pagamento: string | null
           descricao: string
@@ -713,10 +826,13 @@ export type Database = {
           status: string
           updated_at: string
           valor: number
+          valor_pago: number
           vencimento: string
         }
         Insert: {
           categoria?: string | null
+          categoria_id?: string | null
+          centro_custo_id?: string | null
           created_at?: string
           data_pagamento?: string | null
           descricao: string
@@ -727,10 +843,13 @@ export type Database = {
           status?: string
           updated_at?: string
           valor: number
+          valor_pago?: number
           vencimento: string
         }
         Update: {
           categoria?: string | null
+          categoria_id?: string | null
+          centro_custo_id?: string | null
           created_at?: string
           data_pagamento?: string | null
           descricao?: string
@@ -741,9 +860,24 @@ export type Database = {
           status?: string
           updated_at?: string
           valor?: number
+          valor_pago?: number
           vencimento?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "contas_pagar_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_financeiras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_centro_custo_id_fkey"
+            columns: ["centro_custo_id"]
+            isOneToOne: false
+            referencedRelation: "centros_custo"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contas_pagar_fornecedor_id_fkey"
             columns: ["fornecedor_id"]
@@ -1017,6 +1151,8 @@ export type Database = {
           boleto_linha_digitavel: string | null
           boleto_url: string | null
           canais_envio: string[] | null
+          categoria_id: string | null
+          centro_custo_id: string | null
           chave_acesso: string | null
           cliente_id: string
           created_at: string
@@ -1058,6 +1194,8 @@ export type Database = {
           boleto_linha_digitavel?: string | null
           boleto_url?: string | null
           canais_envio?: string[] | null
+          categoria_id?: string | null
+          centro_custo_id?: string | null
           chave_acesso?: string | null
           cliente_id: string
           created_at?: string
@@ -1099,6 +1237,8 @@ export type Database = {
           boleto_linha_digitavel?: string | null
           boleto_url?: string | null
           canais_envio?: string[] | null
+          categoria_id?: string | null
+          centro_custo_id?: string | null
           chave_acesso?: string | null
           cliente_id?: string
           created_at?: string
@@ -1141,6 +1281,20 @@ export type Database = {
             columns: ["asaas_charge_id"]
             isOneToOne: false
             referencedRelation: "asaas_charges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faturas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_financeiras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faturas_centro_custo_id_fkey"
+            columns: ["centro_custo_id"]
+            isOneToOne: false
+            referencedRelation: "centros_custo"
             referencedColumns: ["id"]
           },
           {
@@ -3011,7 +3165,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_contas_receber: {
+        Row: {
+          categoria_id: string | null
+          centro_custo_id: string | null
+          cliente_id: string | null
+          cliente_nome: string | null
+          created_at: string | null
+          data_recebimento: string | null
+          data_vencimento: string | null
+          descricao: string | null
+          id: string | null
+          origem: string | null
+          status: string | null
+          valor: number | null
+          valor_recebido: number | null
+        }
+        Relationships: []
+      }
+      v_fluxo_caixa: {
+        Row: {
+          categoria_id: string | null
+          centro_custo_id: string | null
+          cliente_id: string | null
+          data: string | null
+          descricao: string | null
+          fornecedor_id: string | null
+          id: string | null
+          origem: string | null
+          tipo: string | null
+          valor: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_employee_email_by_login: {
