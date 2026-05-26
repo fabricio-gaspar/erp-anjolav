@@ -2,16 +2,9 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Users, 
-  Shield, 
-  FileText, 
-  Tag, 
-  Receipt, 
-  Database, 
-  Wrench, 
-  Settings as SettingsIcon,
-  MessageSquare 
+import {
+  Users, Shield, FileText, Tag, Receipt, Database, Wrench,
+  Settings as SettingsIcon, MessageSquare, Building2, FolderTree,
 } from "lucide-react";
 import { ConfiguracoesEquipe } from "@/components/configuracoes/ConfiguracoesEquipe";
 import { ConfiguracoesPermissoes } from "@/components/configuracoes/ConfiguracoesPermissoes";
@@ -22,6 +15,8 @@ import { ConfiguracoesDados } from "@/components/configuracoes/ConfiguracoesDado
 import { ConfiguracoesSistema } from "@/components/configuracoes/ConfiguracoesSistema";
 import { ConfiguracoesGeral } from "@/components/configuracoes/ConfiguracoesGeral";
 import { ConfiguracoesWhatsApp } from "@/components/configuracoes/ConfiguracoesWhatsApp";
+import { ConfiguracoesCategorias } from "@/components/configuracoes/ConfiguracoesCategorias";
+import { ConfiguracoesCentrosCusto } from "@/components/configuracoes/ConfiguracoesCentrosCusto";
 
 const Configuracoes = () => {
   const [searchParams] = useSearchParams();
