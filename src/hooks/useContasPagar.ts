@@ -22,7 +22,7 @@ export interface ContaPagar {
   updated_at: string;
 }
 
-export type ContaPagarInsert = Omit<ContaPagar, "id" | "created_at" | "updated_at" | "valor_pago"> & { valor_pago?: number };
+export type ContaPagarInsert = Omit<ContaPagar, "id" | "created_at" | "updated_at" | "valor_pago" | "categoria_id" | "centro_custo_id"> & { valor_pago?: number; categoria_id?: string | null; centro_custo_id?: string | null };
 
 export type ContaPagarUpdate = Partial<ContaPagarInsert>;
 
