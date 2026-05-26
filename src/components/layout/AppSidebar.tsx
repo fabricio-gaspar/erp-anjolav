@@ -376,18 +376,19 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
             <NavItem to="/financeiro" icon={DollarSign} label="Visão Geral" compact={compact} />
             <NavItem to="/lancamentos" icon={Receipt} label="PDV Industrial" compact={compact} />
             <NavItem to="/caixa" icon={CreditCard} label="PDV Loja" compact={compact} />
-            <NavItem to="/relatorios/caixa" icon={BarChart3} label="Histórico Caixas" compact={compact} />
             <NavItem to="/contas" icon={Wallet} label="Contas" compact={compact} />
             <NavItem to="/estoque" icon={Package} label="Estoque" compact={compact} />
           </NavGroup>
 
           <NavGroup title="Relatórios" icon={PieChart} compact={compact}>
             <NavItem to="/relatorios/mensal" icon={BarChart3} label="Relatório Mensal" compact={compact} />
+            <NavItem to="/relatorios/caixa" icon={BarChart3} label="Relatórios de Caixa" compact={compact} />
             <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Clientes" compact={compact} />
             <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" compact={compact} />
             <NavItem to="/relatorios/quilometragem" icon={BarChart3} label="Quilometragem" compact={compact} />
             <NavItem to="/agenda-eventos" icon={Calendar} label="Agenda Pessoal" compact={compact} />
           </NavGroup>
+
 
           {/* Bottom items */}
           <div className={cn("border-t border-slate-200", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
