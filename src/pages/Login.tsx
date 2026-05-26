@@ -226,11 +226,8 @@ const Login = () => {
                 )}
               </Button>
 
-              <p className="text-center text-sm text-muted-foreground">
-                Não tem uma conta?{" "}
-                <Link to="/signup" className="text-primary hover:underline font-medium">
-                  Criar conta
-                </Link>
+              <p className="text-center text-xs text-muted-foreground">
+                Acesso restrito. Novos usuários são criados pelo administrador.
               </p>
             </CardFooter>
           </form>

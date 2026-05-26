@@ -36,19 +36,22 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Verify Asaas webhook authentication token
+    // Verify Asaas webhook authentication token (hard fail if not configured)
     const expectedToken = Deno.env.get("ASAAS_WEBHOOK_TOKEN");
-    if (expectedToken) {
-      const providedToken = req.headers.get("asaas-access-token");
-      if (!providedToken || providedToken !== expectedToken) {
-        console.warn("Rejected webhook: invalid asaas-access-token");
-        return new Response(
-          JSON.stringify({ error: "Unauthorized" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    } else {
-      console.warn("ASAAS_WEBHOOK_TOKEN is not set; webhook signature is not being validated");
+    if (!expectedToken) {
+      console.error("ASAAS_WEBHOOK_TOKEN is not configured; rejecting webhook");
+      return new Response(
+        JSON.stringify({ error: "Webhook not configured" }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const providedToken = req.headers.get("asaas-access-token");
+    if (!providedToken || providedToken !== expectedToken) {
+      console.warn("Rejected webhook: invalid asaas-access-token");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const payload: AsaasWebhookPayload = await req.json();
