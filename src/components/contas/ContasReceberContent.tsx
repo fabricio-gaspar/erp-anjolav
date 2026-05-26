@@ -61,8 +61,8 @@ const ContasReceberContent = () => {
 
   const fmtDate = (d: string | null) => d ? format(parseISO(d), "dd/MM/yyyy") : "—";
 
-  const statusVariant = (s: string) =>
-    s === "recebido" ? "success" : s === "atrasado" ? "danger" : s === "cancelado" ? "secondary" : "warning";
+  const statusVariant = (s: string): "success" | "danger" | "warning" | "default" =>
+    s === "recebido" ? "success" : s === "atrasado" ? "danger" : s === "cancelado" ? "default" : "warning";
 
   const statusLabel = (s: string) =>
     s === "recebido" ? "Recebido" : s === "atrasado" ? "Atrasado" : s === "cancelado" ? "Cancelado" : s === "parcial" ? "Parcial" : "Pendente";
