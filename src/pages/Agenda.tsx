@@ -6,6 +6,8 @@ import { ChevronLeft, ChevronRight, Package, Truck, Plus, Loader2, Eye, EyeOff }
 import { format, addDays, startOfWeek, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAgendamentos, Agendamento, AgendamentoInsert, AgendamentoUpdate } from "@/hooks/useAgendamentos";
+import { useFilteredAgendamentos } from "@/hooks/useFilteredAgendamentos";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { AgendaEventCard } from "@/components/agenda/AgendaEventCard";
 import { NovoAgendamentoModal } from "@/components/agenda/NovoAgendamentoModal";
 import { CancelarAgendamentoModal } from "@/components/agenda/CancelarAgendamentoModal";
@@ -20,6 +22,7 @@ type ViewType = "semanal" | "quinzenal" | "mensal";
 const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export default function Agenda() {
+  const { activeArea } = useWorkspace();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>("semanal");
   const [filterRetirada, setFilterRetirada] = useState(true);
@@ -61,12 +64,12 @@ export default function Agenda() {
   }), [startDate, endDate]);
 
   const {
-    agendamentos,
-    isLoading,
     createAgendamento,
     updateAgendamento,
     deleteAgendamento,
   } = useAgendamentos(filtroData);
+
+  const { data: agendamentos = [], isLoading } = useFilteredAgendamentos(filtroData);
 
   const formatDateRange = () => {
     const start = format(startDate, "dd MMM", { locale: ptBR });
@@ -185,7 +188,7 @@ export default function Agenda() {
   };
 
   return (
-    <AppLayout title="Agenda" subtitle="Programação de retiradas e entregas">
+    <AppLayout title="Agenda" subtitle={`Programação de retiradas e entregas - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
       <div className="space-y-3">
         {/* Header with filters and navigation */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
