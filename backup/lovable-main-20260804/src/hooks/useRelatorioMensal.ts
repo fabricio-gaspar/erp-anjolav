@@ -1,0 +1,272 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { format, startOfMonth, endOfMonth } from "date-fns";
+
+export type SetorRelatorio = "todos" | "industrial" | "loja";
+
+export interface RelatorioMensalData {
+  // Receitas
+  receitasFaturas: number;
+  receitasFaturasCount: number;
+  receitasLoja: number;
+  receitasLojaCount: number;
+  receitasTotais: number;
+
+  // Despesas
+  despesasFolha: number;
+  despesasProdutos: number;
+  despesasContasMensais: number;
+  despesasImpostos: number;
+  despesasOutras: number;
+  despesasBeneficiosExtras: number;
+  despesasTotais: number;
+
+  // Resultado
+  lucro: number;
+  margem: number;
+
+  // Detalhes
+  folhaItens: Array<{
+    funcionario: string;
+    cargo: string;
+    empregadorCnpj: string;
+    empregadorNome: string;
+    salario: number;
+    beneficios: number;
+    descontos: number;
+    liquido: number;
+    custoTotal: number;
+  }>;
+  folhaPorEmpregador: Array<{ cnpj: string; nome: string; total: number; count: number }>;
+  beneficiosExtrasItens: Array<{
+    id: string;
+    funcionario: string;
+    empregador: string;
+    nome: string;
+    categoria: string;
+    tipo: "beneficio" | "desconto";
+    valor: number;
+  }>;
+  beneficiosExtrasPorCategoria: Array<{ categoria: string; total: number; count: number }>;
+  contasItens: Array<{
+    id: string;
+    descricao: string;
+    fornecedor: string;
+    categoria: string;
+    valor: number;
+    vencimento: string;
+    status: string;
+  }>;
+}
+
+const CAT_PRODUTOS = ["produtos_insumos", "Insumos", "produtos"];
+const CAT_CONTAS_MENSAIS = ["contas_mensais", "Utilidades", "Aluguel", "Manutenção", "Transporte"];
+const CAT_IMPOSTOS = ["impostos", "Impostos"];
+const CAT_FOLHA = ["folha_pagamento", "Salários"];
+
+export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos") {
+  const inicio = startOfMonth(mesRef);
+  const fim = endOfMonth(mesRef);
+  const inicioStr = format(inicio, "yyyy-MM-dd");
+  const fimStr = format(fim, "yyyy-MM-dd");
+  const competencia = format(inicio, "yyyy-MM-dd");
+
+  return useQuery<RelatorioMensalData>({
+    queryKey: ["relatorio-mensal", inicioStr, fimStr, setor],
+    queryFn: async () => {
+      // 1. Faturas pagas no período
+      const incluiIndustrial = setor === "todos" || setor === "industrial";
+      const incluiLoja = setor === "todos" || setor === "loja";
+
+      const faturasQuery = supabase
+        .from("faturas")
+        .select("id, valor_total, status, created_at, cliente:clientes(razao_social, classificacao)")
+        .eq("status", "pago")
+        .gte("created_at", inicioStr + "T00:00:00")
+        .lte("created_at", fimStr + "T23:59:59");
+
+      // 2. Vendas caixa (loja)
+      const vendasQuery = supabase
+        .from("caixa_movimentacoes")
+        .select("id, valor, created_at")
+        .eq("tipo", "VENDA")
+        .gte("created_at", inicioStr + "T00:00:00")
+        .lte("created_at", fimStr + "T23:59:59");
+
+      // 3. Folha do mês
+      const folhaQuery = supabase
+        .from("folha_pagamento" as any)
+        .select("*, funcionario:funcionarios(nome, cargo, empregador_cnpj, empregador_nome)")
+        .eq("competencia", competencia);
+
+      // 4. Contas a pagar do mês (por vencimento)
+      const contasQuery = supabase
+        .from("contas_pagar")
+        .select("*")
+        .gte("vencimento", inicioStr)
+        .lte("vencimento", fimStr);
+
+      const [fr, vr, flr, cr] = await Promise.all([
+        faturasQuery,
+        vendasQuery,
+        folhaQuery,
+        contasQuery,
+      ]);
+
+      if (fr.error) throw fr.error;
+      if (vr.error) throw vr.error;
+      if (flr.error) throw flr.error;
+      if (cr.error) throw cr.error;
+
+      // 5. Benefícios extras vinculados às folhas do mês
+      const folhaIds = (flr.data || []).map((f: any) => f.id);
+      let beneficiosExtras: any[] = [];
+      if (folhaIds.length) {
+        const { data: bx, error: ebx } = await supabase
+          .from("folha_beneficios" as any)
+          .select("*")
+          .in("folha_id", folhaIds);
+        if (ebx) throw ebx;
+        beneficiosExtras = bx || [];
+      }
+
+      const faturasFiltered = (fr.data || []).filter((f: any) => {
+        if (!incluiIndustrial) return false;
+        if (setor === "industrial") return f.cliente?.classificacao === "industrial";
+        return true;
+      });
+      const receitasFaturas = faturasFiltered.reduce((s: number, f: any) => s + Number(f.valor_total), 0);
+
+      const receitasLoja = incluiLoja
+        ? (vr.data || []).reduce((s: number, v: any) => s + Number(v.valor), 0)
+        : 0;
+      const receitasLojaCount = incluiLoja ? (vr.data || []).length : 0;
+
+      const receitasTotais = receitasFaturas + receitasLoja;
+
+      // Folha
+      const folhaItens = (flr.data || []).map((f: any) => ({
+        funcionario: f.funcionario?.nome || "—",
+        cargo: f.funcionario?.cargo || "—",
+        empregadorCnpj: f.funcionario?.empregador_cnpj || "",
+        empregadorNome: f.funcionario?.empregador_nome || "—",
+        salario: Number(f.salario_base || 0) + Number(f.horas_extras || 0) + Number(f.horas_extras_50 || 0) + Number(f.horas_extras_70 || 0) + Number(f.horas_extras_100 || 0) + Number(f.reflexo_dsr || 0) + Number(f.comissoes || 0) + Number(f.gratificacao || 0),
+        beneficios:
+          Number(f.vale_transporte || 0) +
+          Number(f.vale_alimentacao || 0) +
+          Number(f.vale_refeicao || 0) +
+          Number(f.plano_saude || 0) +
+          Number(f.plano_odontologico || 0) +
+          Number(f.outros_beneficios || 0),
+        descontos: Number(f.total_descontos || 0),
+        liquido: Number(f.liquido || 0),
+        custoTotal: Number(f.custo_total_empresa || 0),
+      }));
+      const despesasFolha = folhaItens.reduce((s, x) => s + x.custoTotal, 0);
+
+      const folhaPorEmpregadorMap = new Map<string, { cnpj: string; nome: string; total: number; count: number }>();
+      folhaItens.forEach((it) => {
+        const key = it.empregadorCnpj || "sem_cnpj";
+        const cur = folhaPorEmpregadorMap.get(key) || { cnpj: it.empregadorCnpj, nome: it.empregadorNome, total: 0, count: 0 };
+        cur.total += it.custoTotal;
+        cur.count += 1;
+        folhaPorEmpregadorMap.set(key, cur);
+      });
+      const folhaPorEmpregador = Array.from(folhaPorEmpregadorMap.values());
+
+      // Contas
+      const contas = cr.data || [];
+      const isCat = (c: string | null, list: string[]) =>
+        c ? list.some((x) => x.toLowerCase() === c.toLowerCase()) : false;
+
+      const despesasProdutos = contas
+        .filter((c: any) => isCat(c.categoria, CAT_PRODUTOS))
+        .reduce((s: number, c: any) => s + Number(c.valor), 0);
+
+      const despesasContasMensais = contas
+        .filter((c: any) => isCat(c.categoria, CAT_CONTAS_MENSAIS))
+        .reduce((s: number, c: any) => s + Number(c.valor), 0);
+
+      const despesasImpostos = contas
+        .filter((c: any) => isCat(c.categoria, CAT_IMPOSTOS))
+        .reduce((s: number, c: any) => s + Number(c.valor), 0);
+
+      // Outros = não folha (folha já está em folha_pagamento) e não nas demais
+      const despesasOutras = contas
+        .filter(
+          (c: any) =>
+            !isCat(c.categoria, CAT_FOLHA) &&
+            !isCat(c.categoria, CAT_PRODUTOS) &&
+            !isCat(c.categoria, CAT_CONTAS_MENSAIS) &&
+            !isCat(c.categoria, CAT_IMPOSTOS),
+        )
+        .reduce((s: number, c: any) => s + Number(c.valor), 0);
+
+      // Benefícios extras
+      const folhaMap = new Map((flr.data || []).map((x: any) => [x.id, x]));
+      const beneficiosExtrasItens = beneficiosExtras.map((b: any) => {
+        const fol = folhaMap.get(b.folha_id);
+        return {
+          id: b.id,
+          funcionario: fol?.funcionario?.nome || "—",
+          empregador: fol?.funcionario?.empregador_nome || "—",
+          nome: b.nome,
+          categoria: b.categoria || "Outros",
+          tipo: (b.tipo || "beneficio") as "beneficio" | "desconto",
+          valor: Number(b.valor || 0),
+        };
+      });
+      const despesasBeneficiosExtras = beneficiosExtrasItens.reduce(
+        (s, b) => s + (b.tipo === "beneficio" ? b.valor : 0),
+        0,
+      );
+      const catMap = new Map<string, { categoria: string; total: number; count: number }>();
+      beneficiosExtrasItens.forEach((b) => {
+        const sign = b.tipo === "beneficio" ? 1 : -1;
+        const cur = catMap.get(b.categoria) || { categoria: b.categoria, total: 0, count: 0 };
+        cur.total += sign * b.valor;
+        cur.count += 1;
+        catMap.set(b.categoria, cur);
+      });
+      const beneficiosExtrasPorCategoria = Array.from(catMap.values());
+
+      const despesasTotais =
+        despesasFolha + despesasProdutos + despesasContasMensais + despesasImpostos + despesasOutras + despesasBeneficiosExtras;
+
+      const lucro = receitasTotais - despesasTotais;
+      const margem = receitasTotais > 0 ? (lucro / receitasTotais) * 100 : 0;
+
+      return {
+        receitasFaturas,
+        receitasFaturasCount: faturasFiltered.length,
+        receitasLoja,
+        receitasLojaCount,
+        receitasTotais,
+        despesasFolha,
+        despesasProdutos,
+        despesasContasMensais,
+        despesasImpostos,
+        despesasOutras,
+        despesasBeneficiosExtras,
+        despesasTotais,
+        lucro,
+        margem,
+        folhaItens,
+        folhaPorEmpregador,
+        beneficiosExtrasItens,
+        beneficiosExtrasPorCategoria,
+        contasItens: contas
+          .filter((c: any) => !isCat(c.categoria, CAT_FOLHA))
+          .map((c: any) => ({
+            id: c.id,
+            descricao: c.descricao,
+            fornecedor: c.fornecedor || "—",
+            categoria: c.categoria || "Sem categoria",
+            valor: Number(c.valor),
+            vencimento: c.vencimento,
+            status: c.status,
+          })),
+      };
+    },
+  });
+}
