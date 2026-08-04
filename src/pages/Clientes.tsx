@@ -50,7 +50,8 @@ const Clientes = () => {
   const [cnpjData, setCnpjData] = useState<BrasilApiCnpjResponse | null>(null);
 
   const { activeArea } = useWorkspace();
-  const { data: clientes = [], isLoading, deleteCliente, updateCliente } = useFilteredClientes();
+  const { deleteCliente, updateCliente } = useClientes();
+  const { data: clientes = [], isLoading } = useFilteredClientes();
   const { data: selectedCliente } = useClienteById(selectedClienteId);
 
   const filteredClientes = clientes.filter((cliente) => {

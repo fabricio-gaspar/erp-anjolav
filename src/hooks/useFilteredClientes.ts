@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { Cliente } from "./useClientes";
 
 export const useFilteredClientes = () => {
   const { activeArea } = useWorkspace();
@@ -23,7 +24,7 @@ export const useFilteredClientes = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return data as Cliente[];
     },
   });
 };
