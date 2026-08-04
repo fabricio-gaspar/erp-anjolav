@@ -1,12 +1,14 @@
-import { Bell, ChevronRight, Menu } from "lucide-react";
+import { Bell, ChevronRight, Menu, LayoutGrid } from "lucide-react";
+import { useWorkspace, WorkspaceArea } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
 
 interface AppHeaderProps {
@@ -17,25 +19,34 @@ interface AppHeaderProps {
 }
 
 const routeNames: Record<string, string> = {
-  "/": "Dashboard",
-  "/clientes": "Clientes",
-  "/produtos": "Produtos & Serviços",
-  "/ordens": "Ordens de Serviço",
-  "/producao": "Fluxo de Produção",
-  "/agenda": "Agenda",
-  "/financeiro": "Dashboard Financeiro",
-  "/lancamentos": "Lançamentos",
-  "/faturamento": "Faturamento",
-  "/caixa": "Caixa PDV",
-  "/receber": "Contas a Receber",
-  "/pagar": "Contas a Pagar",
-  "/asaas": "Asaas",
-  "/relatorios/clientes": "Relatórios de Cliente",
-  "/relatorios/proximidade": "Proximidade",
-  "/relatorios/caixa": "Relatório de Caixa",
-  "/relatorios/quilometragem": "Quilometragem",
-  "/relatorios/financeiro": "Relatório Financeiro",
-  "/configuracoes": "Configurações",
+  "/central": "Painel Central",
+  "/central/financeiro": "Financeiro Global",
+  "/central/contas": "Contas",
+  "/central/agenda-eventos": "Agenda de Eventos",
+  "/central/relatorios/quilometragem": "Relatórios de Quilometragem",
+  "/central/relatorios/mensal": "Relatório Mensal",
+  "/central/configuracoes": "Configurações",
+  "/industrial": "Painel Industrial",
+  "/industrial/clientes": "Clientes",
+  "/industrial/produtos": "Produtos & Serviços",
+  "/industrial/fornecedores": "Fornecedores",
+  "/industrial/agenda": "Agenda Industrial",
+  "/industrial/ordens": "Relatório do Fluxo",
+  "/industrial/producao": "Produção Industrial",
+  "/industrial/lancamentos": "PDV Industrial",
+  "/industrial/financeiro": "Financeiro Industrial",
+  "/industrial/estoque": "Estoque",
+  "/industrial/relatorios/clientes": "Relatórios de Cliente",
+  "/industrial/relatorios/proximidade": "Proximidade",
+  "/residencial": "Painel Residencial",
+  "/residencial/caixa": "PDV Loja",
+  "/residencial/clientes": "Clientes",
+  "/residencial/agenda": "Agenda Residencial",
+  "/residencial/ordens": "Ordens de Serviço",
+  "/residencial/producao": "Produção Residencial",
+  "/residencial/financeiro": "Financeiro Residencial",
+  "/residencial/produtos": "Serviços",
+  "/residencial/relatorios/caixa": "Relatório de Caixa",
 };
 
 function Breadcrumb() {
@@ -53,7 +64,7 @@ function Breadcrumb() {
   if (breadcrumbs.length === 0) {
     return (
       <div className="flex items-center text-sm">
-        <span className="font-medium text-white">Dashboard</span>
+        <span className="font-medium text-white">Início</span>
       </div>
     );
   }
@@ -61,7 +72,7 @@ function Breadcrumb() {
   return (
     <div className="flex items-center gap-1.5 text-sm">
       <Link to="/" className="text-white/70 hover:text-white transition-colors">
-        Dashboard
+        Início
       </Link>
       {breadcrumbs.map((crumb) => (
         <div key={crumb.path} className="flex items-center gap-1.5">
