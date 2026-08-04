@@ -360,36 +360,80 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
         {/* Navigation */}
         <nav className={cn("flex-1 overflow-y-auto space-y-0.5", compact ? "pb-2 pt-1" : "pb-4 pt-2 space-y-1")} onClick={onItemClick}>
-          <NavItem to="/" icon={LayoutDashboard} label="Dashboard" end compact={compact} />
+          {activeArea === "central" && (
+            <>
+              <NavItem to="/central" icon={LayoutDashboard} label="Dashboard" end compact={compact} />
+              
+              <NavGroup title="Ambientes" icon={Building2} defaultOpen compact={compact}>
+                <NavItem to="/industrial" icon={Factory} label="Painel Industrial" compact={compact} />
+                <NavItem to="/residencial" icon={Building2} label="Painel Residencial" compact={compact} />
+              </NavGroup>
 
-          <NavGroup title="Comercial" icon={Users} defaultOpen compact={compact}>
-            <NavItem to="/clientes" icon={Users} label="Clientes" compact={compact} />
-            <NavItem to="/produtos" icon={Package} label="Produtos" compact={compact} />
-            <NavItem to="/fornecedores" icon={Building2} label="Fornecedores" compact={compact} />
-          </NavGroup>
+              <NavGroup title="Gestão Consolidada" icon={PieChart} defaultOpen compact={compact}>
+                <NavItem to="/central/financeiro" icon={DollarSign} label="Financeiro Global" compact={compact} />
+                <NavItem to="/central/contas" icon={Wallet} label="Contas" compact={compact} />
+                <NavItem to="/central/agenda-eventos" icon={Calendar} label="Agenda de Eventos" compact={compact} />
+              </NavGroup>
 
-          <NavGroup title="Operacional" icon={Factory} compact={compact}>
-            <NavItem to="/producao" icon={Factory} label="Produção" compact={compact} />
-            <NavItem to="/ordens" icon={ClipboardList} label="Relatório do Fluxo" compact={compact} />
-            <NavItem to="/agenda" icon={Calendar} label="Agenda" compact={compact} />
-          </NavGroup>
+              <NavGroup title="Administração" icon={Settings} compact={compact}>
+                <NavItem to="/central/relatorios/quilometragem" icon={BarChart3} label="Quilometragem" compact={compact} />
+                <NavItem to="/central/relatorios/mensal" icon={BarChart3} label="Relatório Mensal" compact={compact} />
+                <NavItem to="/central/configuracoes" icon={Settings} label="Configurações" compact={compact} />
+              </NavGroup>
+            </>
+          )}
 
-          <NavGroup title="Financeiro" icon={Wallet} compact={compact}>
-            <NavItem to="/financeiro" icon={DollarSign} label="Visão Geral" compact={compact} />
-            <NavItem to="/lancamentos" icon={Receipt} label="PDV Industrial" compact={compact} />
-            <NavItem to="/caixa" icon={CreditCard} label="PDV Loja" compact={compact} />
-            <NavItem to="/contas" icon={Wallet} label="Contas" compact={compact} />
-            <NavItem to="/estoque" icon={Package} label="Estoque" compact={compact} />
-          </NavGroup>
+          {activeArea === "industrial" && (
+            <>
+              <NavItem to="/industrial" icon={LayoutDashboard} label="Dashboard" end compact={compact} />
+              
+              <NavGroup title="Clientes e Contratos" icon={Users} defaultOpen compact={compact}>
+                <NavItem to="/industrial/clientes" icon={Users} label="Clientes" compact={compact} />
+                <NavItem to="/industrial/produtos" icon={Package} label="Produtos/Serviços" compact={compact} />
+                <NavItem to="/industrial/fornecedores" icon={Building2} label="Fornecedores" compact={compact} />
+              </NavGroup>
 
-          <NavGroup title="Relatórios" icon={PieChart} compact={compact}>
-            <NavItem to="/relatorios/mensal" icon={BarChart3} label="Relatório Mensal" compact={compact} />
-            <NavItem to="/relatorios/caixa" icon={BarChart3} label="Relatórios de Caixa" compact={compact} />
-            <NavItem to="/relatorios/clientes" icon={FileSpreadsheet} label="Clientes" compact={compact} />
-            <NavItem to="/relatorios/proximidade" icon={Route} label="Proximidade" compact={compact} />
-            <NavItem to="/relatorios/quilometragem" icon={BarChart3} label="Quilometragem" compact={compact} />
-            <NavItem to="/agenda-eventos" icon={Calendar} label="Agenda Pessoal" compact={compact} />
-          </NavGroup>
+              <NavGroup title="Operação" icon={Factory} defaultOpen compact={compact}>
+                <NavItem to="/industrial/agenda" icon={Calendar} label="Agenda" compact={compact} />
+                <NavItem to="/industrial/ordens" icon={ClipboardList} label="Relatório do Fluxo" compact={compact} />
+                <NavItem to="/industrial/producao" icon={Factory} label="Produção" compact={compact} />
+              </NavGroup>
+
+              <NavGroup title="Faturamento e Gestão" icon={Wallet} compact={compact}>
+                <NavItem to="/industrial/lancamentos" icon={Receipt} label="PDV Industrial" compact={compact} />
+                <NavItem to="/industrial/financeiro" icon={DollarSign} label="Financeiro" compact={compact} />
+                <NavItem to="/industrial/estoque" icon={Package} label="Estoque" compact={compact} />
+              </NavGroup>
+
+              <NavGroup title="Análises" icon={PieChart} compact={compact}>
+                <NavItem to="/industrial/relatorios/clientes" icon={FileSpreadsheet} label="Relatório Clientes" compact={compact} />
+                <NavItem to="/industrial/relatorios/proximidade" icon={Route} label="Proximidade" compact={compact} />
+              </NavGroup>
+            </>
+          )}
+
+          {activeArea === "residencial" && (
+            <>
+              <NavItem to="/residencial" icon={LayoutDashboard} label="Dashboard" end compact={compact} />
+              
+              <NavGroup title="Atendimento" icon={Users} defaultOpen compact={compact}>
+                <NavItem to="/residencial/caixa" icon={CreditCard} label="PDV Loja" compact={compact} />
+                <NavItem to="/residencial/clientes" icon={Users} label="Clientes" compact={compact} />
+              </NavGroup>
+
+              <NavGroup title="Pedidos e Produção" icon={Factory} defaultOpen compact={compact}>
+                <NavItem to="/residencial/agenda" icon={Calendar} label="Agenda" compact={compact} />
+                <NavItem to="/residencial/ordens" icon={ClipboardList} label="Ordens de Serviço" compact={compact} />
+                <NavItem to="/residencial/producao" icon={Factory} label="Produção" compact={compact} />
+              </NavGroup>
+
+              <NavGroup title="Caixa e Financeiro" icon={Wallet} compact={compact}>
+                <NavItem to="/residencial/financeiro" icon={DollarSign} label="Financeiro" compact={compact} />
+                <NavItem to="/residencial/produtos" icon={Package} label="Produtos/Serviços" compact={compact} />
+                <NavItem to="/residencial/relatorios/caixa" icon={BarChart3} label="Relatórios de Caixa" compact={compact} />
+              </NavGroup>
+            </>
+          )}
 
 
           {/* Bottom items */}
