@@ -5,10 +5,11 @@ import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
+  requiredArea?: "central" | "industrial" | "residencial";
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { session, loading } = useAuth();
+export function ProtectedRoute({ children, requiredArea }: ProtectedRouteProps) {
+  const { session, loading, funcionario } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -25,6 +26,17 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (!session) {
     // Redirect to login, preserving the intended destination
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Area-based authorization (Simplified for Phase 1 - base on employee role/unit)
+  if (requiredArea && funcionario) {
+    const isCentral = funcionario.cargo === "ADMINISTRADOR";
+    
+    if (requiredArea === "central" && !isCentral) {
+      return <Navigate to="/" replace />;
+    }
+    
+    // In Phase 3 we will implement granular unit access check
   }
 
   return <>{children}</>;
