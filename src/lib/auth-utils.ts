@@ -33,16 +33,15 @@ export const hasRole = async (userId: string, role: "admin" | "operador" | "prod
 };
 
 export const hasAreaAccess = async (userId: string, area: string): Promise<boolean> => {
-  // Simplified area access check until the RPC is available in the schema
-  // Admins have access to everything. 
-  const { data: roles } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
+  const { data, error } = await supabase.rpc("has_area_access", {
+    _user_id: userId,
+    _area: area
+  });
   
-  const isAdmin = roles?.some(r => r.role === "admin");
-  if (isAdmin) return true;
-
-  // Placeholder logic for Phase 1
-  return true;
+  if (error) {
+    console.error("Error checking area access:", error);
+    return false;
+  }
+  
+  return !!data;
 };
