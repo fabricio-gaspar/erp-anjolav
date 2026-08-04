@@ -3,8 +3,10 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListaOS } from "@/components/ordens/ListaOS";
 import { NovaOS } from "@/components/ordens/NovaOS";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export default function OrdensServico() {
+  const { activeArea } = useWorkspace();
   const [activeTab, setActiveTab] = useState("lista");
 
   const handleNovaOS = () => {
@@ -16,7 +18,10 @@ export default function OrdensServico() {
   };
 
   return (
-    <AppLayout title="Ordens de Serviço" subtitle="Criação e gerenciamento de pedidos">
+    <AppLayout 
+      title="Ordens de Serviço" 
+      subtitle={`Criação e gerenciamento de pedidos - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}
+    >
       <div className="content-panel">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-auto p-0 mb-3">
