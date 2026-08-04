@@ -170,7 +170,12 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative text-white/70 hover:text-white hover:bg-white/10">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-destructive rounded-full ring-2 ring-[#1a2332]" />
+              <span className={cn(
+                "absolute top-1 right-1 w-2.5 h-2.5 bg-destructive rounded-full ring-2",
+                activeArea === "central" ? "ring-[#1a2332]" : 
+                activeArea === "industrial" ? "ring-[#1e3a8a]" : 
+                "ring-[#581c87]"
+              )} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
