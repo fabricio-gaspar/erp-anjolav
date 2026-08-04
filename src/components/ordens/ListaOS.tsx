@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useOrdensServico } from "@/hooks/useOrdensServico";
+import { useFilteredOrdensServico } from "@/hooks/useFilteredOrdensServico";
 import { DetalhesOS } from "./DetalhesOS";
 
 interface ListaOSProps {
@@ -44,7 +45,8 @@ export function ListaOS({ onNovaOS }: ListaOSProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOSId, setSelectedOSId] = useState<string | null>(null);
 
-  const { ordensServico, isLoading } = useOrdensServico();
+  const { isLoading } = useOrdensServico();
+  const { data: ordensServico = [] } = useFilteredOrdensServico();
 
   const filteredOrdens = ordensServico.filter((os) => {
     const matchesSearch =

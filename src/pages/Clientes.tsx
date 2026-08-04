@@ -26,6 +26,8 @@ import { ClienteConfiguracao } from "@/components/clientes/ClienteConfiguracao";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
 import { ClienteTabelaPrecos } from "@/components/clientes/ClienteTabelaPrecos";
 import { useClientes, useClienteById, type Cliente } from "@/hooks/useClientes";
+import { useFilteredClientes } from "@/hooks/useFilteredClientes";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { BrasilApiCnpjResponse } from "@/services/apiServices";
 import {
   AlertDialog,
@@ -47,15 +49,16 @@ const Clientes = () => {
   const [clienteToDelete, setClienteToDelete] = useState<string | null>(null);
   const [cnpjData, setCnpjData] = useState<BrasilApiCnpjResponse | null>(null);
 
-  const { clientes, isLoading, deleteCliente, updateCliente } = useClientes();
+  const { activeArea } = useWorkspace();
+  const { deleteCliente, updateCliente } = useClientes();
+  const { data: clientes = [], isLoading } = useFilteredClientes();
   const { data: selectedCliente } = useClienteById(selectedClienteId);
 
   const filteredClientes = clientes.filter((cliente) => {
     const matchesSearch =
       cliente.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (cliente.cpf_cnpj && cliente.cpf_cnpj.includes(searchTerm));
-    const matchesFilter = filter === "todos" || cliente.classificacao === filter;
-    return matchesSearch && matchesFilter;
+    return matchesSearch;
   });
 
   const handleNovoCliente = () => {
@@ -172,34 +175,6 @@ const Clientes = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="flex gap-1 overflow-x-auto">
-                  <Button
-                    variant={filter === "todos" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilter("todos")}
-                  >
-                    Todos
-                  </Button>
-                  <Button
-                    variant={filter === "industrial" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilter("industrial")}
-                    className="gap-1"
-                  >
-                    <Building2 className="w-3 h-3" />
-                    <span className="hidden sm:inline">Industrial</span>
-                  </Button>
-                  <Button
-                    variant={filter === "residencial" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setFilter("residencial")}
-                    className="gap-1"
-                  >
-                    <Home className="w-3 h-3" />
-                    <span className="hidden sm:inline">Residencial</span>
-                  </Button>
-                </div>
-
                 <Button className="gap-2 shrink-0" onClick={handleNovoCliente}>
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">Novo Cliente</span>
