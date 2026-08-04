@@ -74,6 +74,27 @@ export type Database = {
           },
         ]
       }
+      area_permissoes: {
+        Row: {
+          area: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          area: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          area?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       asaas_charges: {
         Row: {
           asaas_id: string | null
@@ -3208,6 +3229,10 @@ export type Database = {
         }[]
       }
       get_funcionario_for_user: { Args: { _user_id: string }; Returns: string }
+      has_area_access: {
+        Args: { _area: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

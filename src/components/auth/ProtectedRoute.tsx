@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAreaAccess } from "@/hooks/useAreaAccess";
 import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
@@ -9,10 +10,11 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredArea }: ProtectedRouteProps) {
-  const { session, loading, funcionario } = useAuth();
+  const { session, loading } = useAuth();
   const location = useLocation();
+  const { data: hasAccess, isLoading: checkingAccess } = useAreaAccess(requiredArea);
 
-  if (loading) {
+  if (loading || checkingAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -28,15 +30,9 @@ export function ProtectedRoute({ children, requiredArea }: ProtectedRouteProps) 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Area-based authorization (Simplified for Phase 1 - base on employee role/unit)
-  if (requiredArea && funcionario) {
-    const isCentral = funcionario.cargo === "ADMINISTRADOR";
-    
-    if (requiredArea === "central" && !isCentral) {
-      return <Navigate to="/" replace />;
-    }
-    
-    // In Phase 3 we will implement granular unit access check
+  if (requiredArea && !hasAccess) {
+    // If user doesn't have access to this area, redirect to the first available area or login
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
