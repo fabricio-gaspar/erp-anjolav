@@ -57,6 +57,7 @@ const etapaLabels: Record<string, string> = {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { activeArea } = useWorkspace();
+  const { data: metricasFin } = useMetricasFinanceirasResumo();
   const { metricas, isLoading: isLoadingMetricas } = useMetricasProducao();
   const { retiradas, entregas, isLoading: isLoadingAgenda } = useAgendaDia();
   const { osEmProcessamento, isLoading: isLoadingResumo } = useResumoProcessamento();
