@@ -67,8 +67,8 @@ const NavItem = ({ to, icon: Icon, label, end = false, compact = false }: NavIte
         "group flex items-center gap-3 rounded-lg font-medium transition-all duration-200 relative mx-2",
         compact ? "px-2 py-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 text-sm",
         isActive
-          ? "bg-primary/20 text-white font-semibold"
-          : "text-slate-400 hover:bg-slate-800/50 hover:text-white",
+          ? "bg-sky-500/15 text-sky-400 font-semibold shadow-sm shadow-sky-500/10"
+          : "text-slate-400 hover:bg-slate-800/40 hover:text-white",
         isCollapsed && "justify-center mx-1 px-2"
       )}
     >
@@ -322,7 +322,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   return (
     <TooltipProvider>
       <aside className={cn(
-        "h-screen bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300",
+        "h-screen bg-[#0b1f33] border-r border-slate-800/30 flex flex-col transition-all duration-300",
         isMobile ? "w-full" : "fixed left-0 top-0 z-40",
         !isMobile && (effectiveCollapsed ? "w-16" : "w-56")
       )}>
