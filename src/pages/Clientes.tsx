@@ -26,6 +26,8 @@ import { ClienteConfiguracao } from "@/components/clientes/ClienteConfiguracao";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
 import { ClienteTabelaPrecos } from "@/components/clientes/ClienteTabelaPrecos";
 import { useClientes, useClienteById, type Cliente } from "@/hooks/useClientes";
+import { useFilteredClientes } from "@/hooks/useFilteredClientes";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { BrasilApiCnpjResponse } from "@/services/apiServices";
 import {
   AlertDialog,
