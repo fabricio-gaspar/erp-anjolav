@@ -20,10 +20,12 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useClientes } from "@/hooks/useClientes";
+import { useFilteredClientes } from "@/hooks/useFilteredClientes";
 import { useMotoristas } from "@/hooks/useMotoristas";
 import { useVeiculos } from "@/hooks/useVeiculos";
 import { useOrdensServico } from "@/hooks/useOrdensServico";
 import { useHistoricoProducao } from "@/hooks/useHistoricoProducao";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 
 interface NovaOSProps {
@@ -31,6 +33,7 @@ interface NovaOSProps {
 }
 
 export function NovaOS({ onSuccess }: NovaOSProps) {
+  const { activeArea } = useWorkspace();
   const [clienteId, setClienteId] = useState("");
   const [motoristaId, setMotoristaId] = useState("");
   const [veiculoId, setVeiculoId] = useState("");
@@ -39,7 +42,8 @@ export function NovaOS({ onSuccess }: NovaOSProps) {
   const [observacoes, setObservacoes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { clientes, isLoading: isLoadingClientes } = useClientes();
+  const { isLoading: isLoadingClientesOriginal } = useClientes();
+  const { data: clientes = [], isLoading: isLoadingClientesFiltered } = useFilteredClientes();
   const { motoristasAtivos, isLoading: isLoadingMotoristas } = useMotoristas();
   const { veiculosAtivos, isLoading: isLoadingVeiculos } = useVeiculos();
   const { createOrdemServico } = useOrdensServico();
@@ -74,7 +78,7 @@ export function NovaOS({ onSuccess }: NovaOSProps) {
         valor_pago: 0,
         urgente: prioridade === "urgente",
         percentual_urgencia: 0,
-        origem: "industrial",
+        origem: activeArea,
       });
 
       // Registrar no histórico de produção
@@ -106,7 +110,7 @@ export function NovaOS({ onSuccess }: NovaOSProps) {
   };
 
   const isFormValid = clienteId !== "";
-  const isLoading = isLoadingClientes || isLoadingMotoristas || isLoadingVeiculos;
+  const isLoading = isLoadingClientesOriginal || isLoadingClientesFiltered || isLoadingMotoristas || isLoadingVeiculos;
 
   return (
     <div className="space-y-6">
