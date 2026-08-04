@@ -15,8 +15,9 @@ import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
 import { RolsLojaCard } from "@/components/dashboard/RolsLojaCard";
 import { EventosDoDiaCard } from "@/components/dashboard/EventosDoDiaCard";
 import { FeriasProximasCard } from "@/components/dashboard/FeriasProximasCard";
+import { OperationalCosts } from "@/components/dashboard/OperationalCosts";
 import {
-  FileText, 
+  FileText,
   AlertCircle, 
   Users, 
   Shirt, 
@@ -31,7 +32,9 @@ import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hoo
 import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { useCaixaAberto } from "@/hooks/useCaixa";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { useMetricasFinanceirasResumo } from "@/hooks/useMetricasFinanceiras";
 import { useFaturas } from "@/hooks/useFaturas";
 import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -53,6 +56,7 @@ const etapaLabels: Record<string, string> = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { activeArea } = useWorkspace();
   const { metricas, isLoading: isLoadingMetricas } = useMetricasProducao();
   const { retiradas, entregas, isLoading: isLoadingAgenda } = useAgendaDia();
   const { osEmProcessamento, isLoading: isLoadingResumo } = useResumoProcessamento();
@@ -287,8 +291,25 @@ const Dashboard = () => {
   }
 
   return (
-    <AppLayout title="Dashboard" subtitle="Métricas e visão operacional">
+    <AppLayout title="Dashboard" subtitle={`Métricas e visão operacional - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
       <div className="space-y-5">
+        {activeArea === "central" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+             {/* Central specific summary would go here */}
+          </div>
+        )}
+        {activeArea === "central" && metricasFin && (
+          <div className="mb-3">
+             <OperationalCosts 
+               month={metricasFin.mes}
+               revenue={metricasFin.receitas}
+               expenses={metricasFin.despesas}
+               profit={metricasFin.lucro}
+               margin={metricasFin.margem}
+             />
+          </div>
+        )}
+
         {/* KPIs */}
         {kpis.length > 0 && (
           <section>
@@ -308,7 +329,7 @@ const Dashboard = () => {
         )}
 
         {/* Financeiro & Alertas */}
-        {(temFinanceiro || temContasPagar || temProdutos || temClientes) && (
+        {(activeArea === "central" || activeArea === "industrial") && (temFinanceiro || temContasPagar || temProdutos || temClientes) && (
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Financeiro & Alertas</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -340,7 +361,7 @@ const Dashboard = () => {
         )}
 
         {/* Caixa PDV */}
-        {temCaixa && (
+        {activeArea === "residencial" && temCaixa && (
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Caixa PDV</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -360,7 +381,7 @@ const Dashboard = () => {
         </section>
 
         {/* Agenda do Dia */}
-        {temAgenda && (
+        {(activeArea === "industrial" || activeArea === "residencial") && temAgenda && (
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Agenda do Dia</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -371,7 +392,7 @@ const Dashboard = () => {
         )}
 
         {/* Gargalos + OS em Processamento */}
-        {temProducao && (
+        {activeArea === "industrial" && temProducao && (
           <section>
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Produção</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
