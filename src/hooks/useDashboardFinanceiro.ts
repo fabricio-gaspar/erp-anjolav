@@ -4,6 +4,7 @@ import { useFaturas } from "./useFaturas";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfDay, endOfDay, addDays, isBefore, isEqual, isAfter, parseISO } from "date-fns";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export type SetorFinanceiro = "todos" | "industrial" | "loja";
 
@@ -43,6 +44,7 @@ interface DashboardFinanceiroData {
 }
 
 export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): DashboardFinanceiroData {
+  const { activeArea } = useWorkspace();
   const { contas, isLoading: isLoadingContas } = useContasPagar();
   const { faturas, isLoading: isLoadingFaturas } = useFaturas();
 
@@ -81,10 +83,12 @@ export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): Dashbo
     });
     const aPagarProximos7Dias = despesasProximos.reduce((sum, c) => sum + Number(c.valor), 0);
 
-    // === Filter faturas by sector ===
-    const faturasDoSetor = setor === "loja"
+    // === Filter faturas by sector and workspace ===
+    const effectiveSetor = activeArea === "residencial" ? "loja" : activeArea === "industrial" ? "industrial" : setor;
+
+    const faturasDoSetor = effectiveSetor === "loja"
       ? [] // Loja doesn't use faturas
-      : setor === "industrial"
+      : effectiveSetor === "industrial"
         ? faturas.filter(f => f.cliente?.classificacao === "industrial")
         : faturas; // todos
 
@@ -93,7 +97,7 @@ export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): Dashbo
     const receitasFaturas = faturasPagas.reduce((sum, f) => sum + Number(f.valor_total), 0);
 
     // === Loja revenue (caixa sales) ===
-    const incluirLoja = setor === "todos" || setor === "loja";
+    const incluirLoja = effectiveSetor === "todos" || effectiveSetor === "loja";
     const receitasLoja = incluirLoja
       ? vendasCaixa.reduce((sum, v) => sum + Number(v.valor), 0)
       : 0;

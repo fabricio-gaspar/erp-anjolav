@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 
 export interface AgendamentoPendente {
@@ -19,21 +20,30 @@ export interface AgendamentoPendente {
  * Esses entram como cards na primeira coluna do Kanban.
  */
 export function useAgendamentosRetiradaPendentes() {
+  const { activeArea } = useWorkspace();
   return useQuery({
-    queryKey: ["agendamentos_retirada_pendentes"],
+    queryKey: ["agendamentos_retirada_pendentes", activeArea],
     refetchOnMount: "always",
     queryFn: async () => {
       const hoje = new Date().toISOString().split("T")[0];
-      const { data, error } = await supabase
+      let query = supabase
         .from("agendamentos")
         .select(`
           id, cliente_id, data, horario, motorista_id, observacoes, status,
-          cliente:clientes(razao_social),
+          cliente:clientes(razao_social, classificacao),
           motorista:motoristas(nome)
         `)
         .eq("tipo", "retirada")
         .lte("data", hoje)
-        .in("status", ["agendado", "confirmado"])
+        .in("status", ["agendado", "confirmado"]);
+
+      if (activeArea === "industrial") {
+        query = query.filter("cliente.classificacao", "eq", "industrial");
+      } else if (activeArea === "residencial") {
+        query = query.filter("cliente.classificacao", "eq", "residencial");
+      }
+
+      const { data, error } = await query
         .order("data")
         .order("horario");
       if (error) throw error;
@@ -47,6 +57,7 @@ export function useAgendamentosRetiradaPendentes() {
  * realizado e registra histórico inicial.
  */
 export function useConfirmarRetiradaAgendamento() {
+  const { activeArea } = useWorkspace();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (agendamento: AgendamentoPendente) => {
@@ -61,7 +72,7 @@ export function useConfirmarRetiradaAgendamento() {
           data_retirada: hoje,
           status: "separacao",
           prioridade: "normal",
-          origem: "industrial",
+          origem: activeArea,
           agendamento_id: agendamento.id,
           observacoes: agendamento.observacoes,
         } as never)
