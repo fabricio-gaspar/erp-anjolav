@@ -1,4 +1,5 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTemPermissao } from "@/hooks/usePermissoesUsuario";
 import {
@@ -66,8 +67,8 @@ const NavItem = ({ to, icon: Icon, label, end = false, compact = false }: NavIte
         "group flex items-center gap-3 rounded-lg font-medium transition-all duration-200 relative mx-2",
         compact ? "px-2 py-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 text-sm",
         isActive
-          ? "bg-primary/10 text-primary font-semibold"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+          ? "bg-primary/20 text-white font-semibold"
+          : "text-slate-400 hover:bg-slate-800/50 hover:text-white",
         isCollapsed && "justify-center mx-1 px-2"
       )}
     >
@@ -145,8 +146,8 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compac
           "flex items-center gap-3 w-full rounded-lg font-medium transition-all duration-200",
           compact ? "px-2 py-1.5 mx-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 mx-2 text-sm",
           (isOpen || hasActiveChild)
-            ? "bg-slate-100 text-slate-800"
-            : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            ? "bg-slate-800/50 text-white"
+            : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
         )}
         style={{ width: 'calc(100% - 16px)' }}
       >
@@ -205,7 +206,7 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
 
   const userButton = (
     <button className={cn(
-      "flex items-center w-full rounded-lg hover:bg-slate-100 transition-colors",
+      "flex items-center w-full rounded-lg hover:bg-slate-800/50 transition-colors text-white",
       compact ? "gap-2 p-1.5" : "gap-3 p-2",
       isCollapsed && "justify-center p-2"
     )}>
@@ -227,8 +228,8 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
       </div>
       {!isCollapsed && (
         <div className="flex-1 min-w-0 text-left">
-          <p className={cn("font-medium text-slate-700 truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
-          <p className={cn("text-slate-400 truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
+          <p className={cn("font-medium text-slate-200 truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
+          <p className={cn("text-slate-500 truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
         </div>
       )}
       {!isCollapsed && (
@@ -308,6 +309,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   const { isCollapsed } = useSidebarContext();
+  const { activeArea } = useWorkspace();
   const { configuracao } = useConfiguracoesGerais();
   
   const effectiveCollapsed = isMobile ? false : isCollapsed;
@@ -320,7 +322,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   return (
     <TooltipProvider>
       <aside className={cn(
-        "h-screen bg-white border-r border-slate-200 flex flex-col transition-all duration-300",
+        "h-screen bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300",
         isMobile ? "w-full" : "fixed left-0 top-0 z-40",
         !isMobile && (effectiveCollapsed ? "w-16" : "w-56")
       )}>
@@ -350,7 +352,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
                 <span className={cn("text-white font-bold", compact ? "text-sm" : "text-lg")}>{primeiraLetra}</span>
               </div>
               {!effectiveCollapsed && (
-                <span className={cn("font-bold text-slate-800", compact ? "text-sm" : "text-base")}>{nomeEmpresa}</span>
+                <span className={cn("font-bold text-white", compact ? "text-sm" : "text-base")}>{nomeEmpresa}</span>
               )}
             </div>
           )}
@@ -391,13 +393,13 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
 
           {/* Bottom items */}
-          <div className={cn("border-t border-slate-200", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
-            <NavItem to="/configuracoes" icon={Settings} label="Configurações" compact={compact} />
+          <div className={cn("border-t border-slate-800", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
+            <NavItem to="/central/configuracoes" icon={Settings} label="Configurações" compact={compact} />
           </div>
         </nav>
 
         {/* User Section */}
-        <div className={cn("border-t border-slate-200", compact ? "p-2" : "p-3")}>
+        <div className={cn("border-t border-slate-800", compact ? "p-2" : "p-3")}>
           <UserSection compact={compact} />
         </div>
       </aside>
