@@ -91,14 +91,32 @@ function Breadcrumb() {
 }
 
 export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppHeaderProps) {
+  const { activeArea } = useWorkspace();
+  const navigate = useNavigate();
+  
   const notifications = [
     { id: 1, title: "Nova OS criada", description: "OS #1234 foi registrada", time: "2 min atrás" },
     { id: 2, title: "Fatura vencida", description: "Cliente ABC - R$ 1.500,00", time: "1 hora atrás" },
     { id: 3, title: "Produção concluída", description: "Lote #567 finalizado", time: "3 horas atrás" },
   ];
 
+  const handleAreaChange = (area: WorkspaceArea) => {
+    navigate(`/${area}`);
+  };
+
+  const areaLabels: Record<WorkspaceArea, string> = {
+    central: "Painel Central",
+    industrial: "Industrial",
+    residencial: "Residencial",
+  };
+
   return (
-    <header className="h-14 sm:h-16 bg-[#1a2332] shadow-sm flex items-center justify-between pl-4 pr-3 sm:pr-4 sticky top-0 z-30">
+    <header className={cn(
+      "h-14 sm:h-16 shadow-sm flex items-center justify-between pl-4 pr-3 sm:pr-4 sticky top-0 z-30 transition-colors",
+      activeArea === "central" ? "bg-[#1a2332]" : 
+      activeArea === "industrial" ? "bg-[#1e3a8a]" : 
+      "bg-[#581c87]"
+    )}>
       <div className="flex items-center gap-3">
         {showMenuButton && (
           <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0 text-white/70 hover:text-white hover:bg-white/10">
@@ -106,17 +124,42 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
           </Button>
         )}
         
-        <div className="flex flex-col justify-center min-w-0">
-          {title ? (
-            <>
-              <h1 className="text-base sm:text-lg font-bold text-white leading-tight truncate">{title}</h1>
-              {subtitle && (
-                <p className="text-xs text-white/60 leading-tight truncate hidden sm:block">{subtitle}</p>
-              )}
-            </>
-          ) : (
-            <Breadcrumb />
-          )}
+        <div className="flex items-center gap-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/10 px-2 h-9">
+                <LayoutGrid className="w-4 h-4 text-white/70" />
+                <span className="font-bold text-sm hidden sm:inline">{areaLabels[activeArea]}</span>
+                <ChevronRight className="w-3.5 h-3.5 text-white/40 rotate-90" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem onClick={() => handleAreaChange("central")} className={cn(activeArea === "central" && "bg-accent font-semibold")}>
+                Painel Central
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAreaChange("industrial")} className={cn(activeArea === "industrial" && "bg-accent font-semibold")}>
+                Operação Industrial
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAreaChange("residencial")} className={cn(activeArea === "residencial" && "bg-accent font-semibold")}>
+                Operação Residencial
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="w-[1px] h-6 bg-white/10 hidden sm:block" />
+
+          <div className="flex flex-col justify-center min-w-0">
+            {title ? (
+              <>
+                <h1 className="text-base sm:text-lg font-bold text-white leading-tight truncate">{title}</h1>
+                {subtitle && (
+                  <p className="text-xs text-white/60 leading-tight truncate hidden sm:block">{subtitle}</p>
+                )}
+              </>
+            ) : (
+              <Breadcrumb />
+            )}
+          </div>
         </div>
       </div>
 
