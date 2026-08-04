@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOrdensServico } from "@/hooks/useOrdensServico";
+import { useFilteredOrdensServico } from "@/hooks/useFilteredOrdensServico";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useHistoricoMultiplasOS } from "@/hooks/useHistoricoProducaoResumo";
 import { useAgendamentosRetiradaPendentes } from "@/hooks/useFluxoProducao";
 import { format, formatDistanceToNow, isSameDay } from "date-fns";
@@ -62,12 +64,14 @@ const columns: KanbanColumn[] = [
 ];
 
 const FluxoProducao = () => {
+  const { activeArea } = useWorkspace();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOS, setSelectedOS] = useState<{ id: string; status: string; next: string } | null>(null);
   const [filtroPrevisao, setFiltroPrevisao] = useState<Date | null>(null);
   const [filtroPrioridade, setFiltroPrioridade] = useState<string | null>(null);
 
-  const { ordensServico, isLoading, error } = useOrdensServico();
+  const { isLoading, error } = useOrdensServico();
+  const { data: ordensServico = [] } = useFilteredOrdensServico();
   const { data: agendamentosPendentes = [] } = useAgendamentosRetiradaPendentes();
 
   const osIds = useMemo(() => ordensServico.map((os) => os.id), [ordensServico]);
@@ -82,7 +86,7 @@ const FluxoProducao = () => {
     ordensServico
       .filter((os) => {
         if (os.status === "cancelada" || os.status === "entregue") return false;
-        if ((os as { origem?: string }).origem === "loja") return false;
+        // Workspace filtering is now handled by the hook
         return true;
       })
       .filter(
@@ -131,7 +135,7 @@ const FluxoProducao = () => {
   const subtitle = `${totalAguardando} aguardando · ${totalEmProducao} em produção · ${totalProntas} prontas`;
 
   return (
-    <AppLayout title="Fluxo de Produção" subtitle={subtitle}>
+    <AppLayout title="Fluxo de Produção" subtitle={`${subtitle} - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
       <div className="content-panel">
         <Tabs defaultValue="kanban" className="space-y-3">
           <TabsList>

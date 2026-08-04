@@ -5,9 +5,12 @@ import { CheckCircle, Calendar, Truck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useOrdensServico } from "@/hooks/useOrdensServico";
+import { useFilteredOrdensServico } from "@/hooks/useFilteredOrdensServico";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export function FinalizadasLista() {
-  const { ordensServico } = useOrdensServico();
+  const { activeArea } = useWorkspace();
+  const { data: ordensServico = [] } = useFilteredOrdensServico();
   const [data, setData] = useState(() => new Date().toISOString().split("T")[0]);
 
   const aguardandoEntrega = useMemo(
