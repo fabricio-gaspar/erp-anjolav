@@ -437,16 +437,16 @@ const Dashboard = () => {
                 <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Em andamento</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">EM ANDAMENTO</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Coletas hoje</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">COLETAS HOJE</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Faturamento mês</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">R$ 0,00</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">FATURAMENTO MÊS</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">R$ 0,00</p>
               </div>
             </div>
 
@@ -464,11 +464,11 @@ const Dashboard = () => {
           </div>
 
           {/* Residencial Quick View */}
-          <div className="card-base p-6 shadow-md border-slate-200/60 transition-all hover:shadow-lg">
+          <div className="bg-white p-7 border border-slate-200/60 rounded-[24px] shadow-sm transition-all hover:shadow-md">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Residencial</h3>
-                <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação residencial</p>
+                <h3 className="text-2xl font-black text-[#0f172a] tracking-tight uppercase">Residencial</h3>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visão da operação residencial</p>
               </div>
               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-2 font-bold py-1.5 px-4 rounded-lg shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
@@ -478,20 +478,20 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-4 gap-6 mb-10">
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Pedidos hoje</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">PEDIDOS HOJE</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Em andamento</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">1</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">EM ANDAMENTO</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">1</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Coletas hoje</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">{retiradas.filter((r:any) => r.origem === 'residencial').length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">COLETAS HOJE</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">{retiradas.filter((r:any) => r.origem === 'residencial').length}</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Faturamento mês</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">R$ 0,00</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">FATURAMENTO MÊS</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">R$ 0,00</p>
               </div>
             </div>
 
