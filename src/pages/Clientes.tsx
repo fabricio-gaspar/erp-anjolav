@@ -119,6 +119,10 @@ const Clientes = () => {
             Cadastros exclusivos da operação industrial
           </p>
         </div>
+      </div>
+    </AppLayout>
+  );
+};
         {activeTab !== "lista" && (
           <div className="space-y-3">
             <div className="flex justify-end">
