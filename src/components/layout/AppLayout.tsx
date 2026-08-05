@@ -38,7 +38,7 @@ export function AppLayout({
       
       <div className={cn(
         "flex-1 min-w-0 transition-all duration-300",
-        !isMobile && (isCollapsed ? "ml-16" : "ml-56")
+        !isMobile && (isCollapsed ? "ml-16" : "ml-60")
       )}>
         <AppHeader 
           title={title} 
