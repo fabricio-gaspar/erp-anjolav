@@ -584,7 +584,7 @@ const Dashboard = () => {
                     <Badge className="bg-sky-100 text-sky-700 border-none font-bold text-[10px] px-2 py-0.5">Recebido</Badge>
                   </td>
                   <td className="py-4 text-sm font-medium text-slate-600">20/07/2026</td>
-                  <td className="py-4 text-sm font-bold text-slate-900">R$ 24,00</td>
+                  <td className="py-4 text-sm font-black text-slate-900">R$ 24,00</td>
                 </tr>
               </tbody>
             </table>
