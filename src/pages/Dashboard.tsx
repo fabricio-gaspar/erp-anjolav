@@ -366,7 +366,7 @@ const Dashboard = () => {
               value={formatCurrency(metricasFin?.receitas || 0)}
               icon={DollarSign}
               iconColor="success"
-              subtitle="Faturas do período, sem canceladas"
+              subtitle="FATURAS DO PERÍODO, SEM CANCELADAS"
             />
           )}
           {temOrdens && (
@@ -375,7 +375,7 @@ const Dashboard = () => {
               value={metricas?.osEmAberto || 0}
               icon={Shirt}
               iconColor="info"
-              subtitle={`${metricas?.osEmAberto || 0} industrial · 1 residencial`}
+              subtitle="0 INDUSTRIAL · 1 RESIDENCIAL"
             />
           )}
           {temAgenda && (
@@ -384,7 +384,7 @@ const Dashboard = () => {
               value={retiradas.length}
               icon={Truck}
               iconColor="primary"
-              subtitle="Agendamentos de retirada de hoje"
+              subtitle="AGENDAMENTOS DE RETIRADA DE HOJE"
             />
           )}
           {temAgenda && (
@@ -393,7 +393,7 @@ const Dashboard = () => {
               value={entregas.length}
               icon={Package}
               iconColor="warning"
-              subtitle="Expedição ou prazo vencido"
+              subtitle="EXPEDIÇÃO OU PRAZO VENCIDO"
             />
           )}
           {temClientes && (
@@ -402,7 +402,7 @@ const Dashboard = () => {
               value={metricas?.clientesAtivos || 0}
               icon={Users}
               iconColor="primary"
-              subtitle={`${metricas?.clientesAtivos || 0} industrial · 1 residencial`}
+              subtitle="0 INDUSTRIAL · 1 RESIDENCIAL"
             />
           )}
           {temProducao && (
@@ -411,7 +411,7 @@ const Dashboard = () => {
               value="—"
               icon={TrendingUp}
               iconColor="success"
-              subtitle="Sem entregas concluídas no mês"
+              subtitle="SEM ENTREGAS CONCLUÍDAS NO MÊS"
             />
           )}
         </div>
