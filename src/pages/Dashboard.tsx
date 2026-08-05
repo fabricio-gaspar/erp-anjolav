@@ -542,6 +542,55 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Novas operações por dia (Gráfico) */}
+        <div className="card-base p-6 shadow-md border-slate-200/60">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Novas operações por dia</h3>
+          </div>
+          <div className="h-64 flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+            <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-sm">
+              <TrendingUp className="w-8 h-8 text-slate-300" />
+            </div>
+            <p className="text-sm font-bold text-slate-700">Sem novas operações nos últimos 7 dias</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm text-center px-6">
+              O gráfico será preenchido automaticamente quando novas OS e pedidos forem registrados.
+            </p>
+          </div>
+        </div>
+
+        {/* Resumo consolidado de operações recentes */}
+        <div className="card-base p-6 shadow-md border-slate-200/60">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Resumo consolidado de operações recentes</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Código</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Cliente</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Unidade</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Status</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Previsão</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-slate-50/50 hover:bg-slate-50/50 transition-colors">
+                  <td className="py-4 text-sm font-bold text-slate-700">2026-000001</td>
+                  <td className="py-4 text-sm font-medium text-slate-600">SILVANA MORAES - AIRBNB</td>
+                  <td className="py-4 text-sm font-medium text-slate-600">Residencial</td>
+                  <td className="py-4">
+                    <Badge className="bg-sky-100 text-sky-700 border-none font-bold text-[10px] px-2 py-0.5">Recebido</Badge>
+                  </td>
+                  <td className="py-4 text-sm font-medium text-slate-600">20/07/2026</td>
+                  <td className="py-4 text-sm font-bold text-slate-900">R$ 24,00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         {/* Bottom Section: Alerts, Agenda, Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="card-base p-6 shadow-md border-slate-200/60">
