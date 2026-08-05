@@ -224,7 +224,7 @@
   }
 
   .kpi-card-value {
-    @apply text-2xl font-bold text-slate-900 tracking-tight truncate;
+    @apply text-2xl font-bold text-slate-900 tracking-tighter truncate;
   }
 
   .kpi-card-icon {
