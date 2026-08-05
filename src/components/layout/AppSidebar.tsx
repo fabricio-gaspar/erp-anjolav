@@ -330,32 +330,23 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
         {/* Logo */}
         <div className={cn(
-          "flex items-center justify-center transition-all",
-          compact ? "h-12 px-2" : "h-14",
-          effectiveCollapsed ? "px-2" : "px-3"
+          "flex items-center justify-center transition-all border-b border-slate-800/30",
+          effectiveCollapsed ? "h-16 px-2" : "h-20 px-4"
         )}>
-          {logoUrl ? (
-            <img 
-              src={logoUrl} 
-              alt={nomeEmpresa}
-              className={cn(
-                "object-contain",
-                effectiveCollapsed ? "h-8 max-w-[40px]" : compact ? "h-7 max-w-[150px]" : "h-9 max-w-[180px]"
-              )}
-            />
-          ) : (
-            <div className={cn("flex items-center", compact ? "gap-2" : "gap-3")}>
-              <div className={cn(
-                "rounded-xl bg-primary flex items-center justify-center",
-                compact ? "w-7 h-7" : "w-9 h-9"
-              )}>
-                <span className={cn("text-white font-bold", compact ? "text-sm" : "text-lg")}>{primeiraLetra}</span>
+          <div className="flex items-center gap-3">
+            <span className={cn(
+              "flex items-center justify-center rounded-lg bg-sky-500 shadow-lg shadow-sky-500/20 shrink-0",
+              effectiveCollapsed ? "h-9 w-9" : "h-10 w-10"
+            )}>
+              <Droplets className={cn("text-white", effectiveCollapsed ? "h-5 w-5" : "h-6 w-6")} />
+            </span>
+            {!effectiveCollapsed && (
+              <div className="min-w-0">
+                <p className="text-sm font-bold tracking-tight text-white truncate">AnjoLav ERP</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-300/80 truncate">Gestão Integrada</p>
               </div>
-              {!effectiveCollapsed && (
-                <span className={cn("font-bold text-white", compact ? "text-sm" : "text-base")}>{nomeEmpresa}</span>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Navigation */}
