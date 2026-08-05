@@ -366,7 +366,7 @@ const Dashboard = () => {
               value={metricas?.osEmAberto || 0}
               icon={Shirt}
               iconColor="info"
-              subtitle={`${metricas?.osEmAberto || 0} industrial · 0 residencial`}
+              subtitle={`${metricas?.osEmAberto || 0} industrial · 1 residencial`}
             />
           )}
           {temAgenda && (
