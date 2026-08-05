@@ -216,11 +216,11 @@
   /* KPI CARDS                                    */
   /* ============================================ */
   .kpi-card {
-    @apply card-base p-5 relative overflow-hidden min-w-0 border-slate-200/60 shadow-sm;
+    @apply bg-white p-6 relative overflow-hidden min-w-0 border border-slate-200/60 rounded-2xl shadow-sm;
   }
-
+  
   .kpi-card-title {
-    @apply text-[10.5px] font-extrabold text-slate-400 mb-1.5 truncate uppercase tracking-[0.08em];
+    @apply text-[10px] font-black text-slate-400 mb-2 truncate uppercase tracking-[0.15em];
   }
 
   .kpi-card-value {
