@@ -542,52 +542,60 @@ const Dashboard = () => {
         </div>
 
         {/* Bottom Section: Alerts, Agenda, Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card-base p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Alertas e pendências</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="card-base p-6 shadow-md border-slate-200/60">
+            <h3 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Alertas e pendências</h3>
             <div className="space-y-4">
-              <div className="flex items-start gap-3 p-3 bg-destructive/5 rounded-xl border border-destructive/10">
-                <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="flex items-start gap-4 p-4 bg-rose-50 rounded-2xl border border-rose-100 shadow-sm">
+                <div className="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/20">
+                  <AlertCircle className="w-5 h-5 text-white" />
+                </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Pedidos residenciais com prazo vencido</p>
-                  <p className="text-xs text-slate-500 mt-1">1 operação exige acompanhamento</p>
+                  <p className="text-sm font-bold text-slate-900">Prazo vencido</p>
+                  <p className="text-xs font-medium text-rose-600 mt-0.5">1 pedido residencial atrasado</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 bg-warning/5 rounded-xl border border-warning/10">
-                <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+              <div className="flex items-start gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
+                <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
+                  <AlertCircle className="w-5 h-5 text-white" />
+                </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Contas a pagar vencidas</p>
-                  <p className="text-xs text-slate-500 mt-1">{contasPendentes.filter(c => c.vencimento && isBefore(new Date(c.vencimento), new Date())).length} faturas pendentes</p>
+                  <p className="text-sm font-bold text-slate-900">Financeiro</p>
+                  <p className="text-xs font-medium text-amber-600 mt-0.5">{contasPendentes.filter(c => c.vencimento && isBefore(new Date(c.vencimento), new Date())).length} faturas vencidas</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="card-base p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-slate-900">Agenda do dia</h3>
+          <div className="card-base p-6 shadow-md border-slate-200/60">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Agenda do dia</h3>
               <Button variant="link" className="p-0 h-auto text-primary font-bold text-sm" onClick={() => navigate('/central/agenda-eventos')}>
-                Agenda administrativa →
+                Agenda →
               </Button>
             </div>
             <div className="h-40 flex flex-col items-center justify-center">
-               <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                 <Calendar className="w-6 h-6 text-slate-300" />
+               <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
+                 <Calendar className="w-8 h-8 text-slate-300" />
                </div>
-               <p className="text-xs text-slate-400">Sem eventos administrativos agendados para hoje</p>
+               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sem eventos hoje</p>
             </div>
           </div>
 
-          <div className="card-base p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Ações rápidas</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-20 flex-col gap-2 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-md transition-all group rounded-xl">
-                <FileText className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-bold text-slate-700">OS Industrial</span>
+          <div className="card-base p-6 shadow-md border-slate-200/60">
+            <h3 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Ações rápidas</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl">
+                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary transition-colors">
+                  <FileText className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
+                </div>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">OS Industrial</span>
               </Button>
-              <Button variant="outline" className="h-20 flex-col gap-2 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-md transition-all group rounded-xl">
-                <ShoppingCart className="w-6 h-6 text-purple-500 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-bold text-slate-700">Pedido Residencial</span>
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl">
+                <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500 transition-colors">
+                  <ShoppingCart className="w-5 h-5 text-purple-500 group-hover:text-white transition-colors" />
+                </div>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Residencial</span>
               </Button>
             </div>
           </div>
