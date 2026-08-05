@@ -602,7 +602,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <p className="text-sm font-extrabold text-slate-900">Pedidos residenciais com prazo vencido</p>
-                  <p className="text-xs font-medium text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
+                  <p className="text-[11px] font-bold text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
