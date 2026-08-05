@@ -601,7 +601,7 @@ const Dashboard = () => {
                   <AlertCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Pedidos residenciais com prazo vencido</p>
+                  <p className="text-sm font-extrabold text-slate-900">Pedidos residenciais com prazo vencido</p>
                   <p className="text-xs font-medium text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
                 </div>
               </div>
