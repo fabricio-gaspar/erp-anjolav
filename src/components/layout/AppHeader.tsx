@@ -64,23 +64,23 @@ function Breadcrumb() {
   if (breadcrumbs.length === 0) {
     return (
       <div className="flex items-center text-sm">
-        <span className="font-medium text-white">Início</span>
+        <span className={cn("font-medium", activeArea === "central" ? "text-white" : "text-slate-900")}>Início</span>
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-1.5 text-sm">
-      <Link to="/" className="text-white/70 hover:text-white transition-colors">
+      <Link to="/" className={cn("transition-colors", activeArea === "central" ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-900")}>
         Início
       </Link>
       {breadcrumbs.map((crumb) => (
         <div key={crumb.path} className="flex items-center gap-1.5">
-          <ChevronRight className="w-3.5 h-3.5 text-white/40" />
+          <ChevronRight className={cn("w-3.5 h-3.5", activeArea === "central" ? "text-white/40" : "text-slate-300")} />
           {crumb.isLast ? (
-            <span className="font-medium text-white">{crumb.name}</span>
+            <span className={cn("font-medium", activeArea === "central" ? "text-white" : "text-slate-900")}>{crumb.name}</span>
           ) : (
-            <Link to={crumb.path} className="text-white/70 hover:text-white transition-colors">
+            <Link to={crumb.path} className={cn("transition-colors", activeArea === "central" ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-900")}>
               {crumb.name}
             </Link>
           )}
