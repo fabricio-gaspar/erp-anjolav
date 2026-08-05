@@ -628,7 +628,7 @@ const Dashboard = () => {
                <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
                  <Calendar className="w-8 h-8 text-slate-300" />
                </div>
-               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sem eventos hoje</p>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sem eventos hoje</p>
             </div>
           </div>
 
