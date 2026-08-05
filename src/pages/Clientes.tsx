@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Plus, Eye, Pencil, Ban, Trash2, Building2, Home, Loader2, User, MoreHorizontal } from "lucide-react";
+import { Search, Plus, Eye, Pencil, Ban, Trash2, Building2, Loader2, User, MoreHorizontal, Settings } from "lucide-react";
 import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
 import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
 import { ClientePagamento } from "@/components/clientes/ClientePagamento";
@@ -39,10 +39,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 const Clientes = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<"todos" | "industrial" | "residencial">("todos");
   const [activeTab, setActiveTab] = useState("lista");
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -107,6 +107,7 @@ const Clientes = () => {
   return (
     <AppLayout title={pageTitle} subtitle={pageSubtitle}>
       <div className="w-full space-y-6">
+        {/* Page Header Header */}
         <div className="flex flex-col gap-1 px-1">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.6)]" />
@@ -121,7 +122,7 @@ const Clientes = () => {
         </div>
 
         {activeTab !== "lista" && (
-          <div className="space-y-3">
+          <div className="space-y-3 px-1">
             <div className="flex justify-end">
               <Button variant="outline" onClick={handleBackToList}>
                 Voltar para Lista
@@ -177,20 +178,24 @@ const Clientes = () => {
             </TabsList>
           </div>
 
-          <TabsContent value="lista" className="mt-4">
+          <TabsContent value="lista" className="mt-6">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
                   placeholder="Pesquisar..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 bg-white border-[#bccadc] text-slate-900"
+                  className="pl-9 bg-white border-[#bccadc] text-slate-900 h-10"
                 />
               </div>
 
               <div className="flex items-center gap-2">
-                <Button className="gap-2 shrink-0" onClick={handleNovoCliente}>
+                <Button variant="outline" className="gap-2 shrink-0 border-slate-200 text-slate-700 bg-slate-50/50 hover:bg-slate-100">
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Somente Industrial</span>
+                </Button>
+                <Button className="gap-2 shrink-0 bg-[#009ee3] hover:bg-[#008dcb] text-white border-none font-bold shadow-sm" onClick={handleNovoCliente}>
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">Novo Cliente</span>
                 </Button>
@@ -214,50 +219,51 @@ const Clientes = () => {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-slate-50 border-none">
-                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3">ID</TableHead>
-                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3">NOME / RAZÃO SOCIAL</TableHead>
-                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3 hidden sm:table-cell">CPF/CNPJ</TableHead>
-                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3 hidden md:table-cell">TELEFONE</TableHead>
-                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3">STATUS</TableHead>
-                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3 text-right">AÇÕES</TableHead>
+                    <TableRow className="bg-slate-50 border-y border-slate-200/60">
+                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider">ID</TableHead>
+                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider">NOME / RAZÃO SOCIAL</TableHead>
+                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider hidden sm:table-cell">CPF/CNPJ</TableHead>
+                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider hidden md:table-cell">TELEFONE</TableHead>
+                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider text-center">STATUS</TableHead>
+                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider text-right">AÇÕES</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredClientes.map((cliente) => (
-                      <TableRow key={cliente.id} className="hover:bg-muted/30 border-none">
-                        <TableCell className="py-2.5 px-3">
-                          <StatusBadge
-                            variant={cliente.classificacao === "industrial" ? "warning" : "info"}
-                          >
+                      <TableRow key={cliente.id} className="hover:bg-slate-50/50 border-b border-slate-100 transition-colors">
+                        <TableCell className="py-3 px-3">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100/50">
                             {getUnidadeNegocioBadge(cliente.classificacao)}
-                          </StatusBadge>
+                          </span>
                         </TableCell>
-                        <TableCell className="py-2.5 px-3 text-slate-900">
-                          <div>
-                            <span className="font-medium">{cliente.razao_social}</span>
+                        <TableCell className="py-3 px-3">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 text-[13px] uppercase">{cliente.razao_social}</span>
                             {cliente.nome_fantasia && (
-                              <span className="block text-sm text-muted-foreground">
+                              <span className="text-[11px] text-slate-500 font-medium uppercase mt-0.5">
                                 {cliente.nome_fantasia}
                               </span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-slate-900 hidden sm:table-cell py-2.5 px-3">{cliente.cpf_cnpj || "-"}</TableCell>
-                        <TableCell className="text-slate-900 hidden md:table-cell py-2.5 px-3">{cliente.telefone || "-"}</TableCell>
-                        <TableCell className="py-2.5 px-3">
-                          <StatusBadge variant={cliente.ativo ? "success" : "warning"}>
+                        <TableCell className="text-slate-600 font-medium hidden sm:table-cell py-3 px-3 text-[13px]">{cliente.cpf_cnpj || "-"}</TableCell>
+                        <TableCell className="text-slate-600 font-medium hidden md:table-cell py-3 px-3 text-[13px]">{cliente.telefone || "-"}</TableCell>
+                        <TableCell className="py-3 px-3 text-center">
+                          <span className={cn(
+                            "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                            cliente.ativo ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-slate-100 text-slate-500 border border-slate-200"
+                          )}>
                             {cliente.ativo ? "Ativo" : "Inativo"}
-                          </StatusBadge>
+                          </span>
                         </TableCell>
-                        <TableCell className="py-2.5 px-3">
+                        <TableCell className="py-3 px-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100">
+                                <MoreHorizontal className="w-4 h-4 text-slate-400" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="w-48">
                               <DropdownMenuItem onClick={() => handleEditCliente(cliente.id)}>
                                 <Eye className="w-4 h-4 mr-2" /> Visualizar
                               </DropdownMenuItem>
@@ -287,7 +293,7 @@ const Clientes = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="dados">
+          <TabsContent value="dados" className="mt-6 px-1">
             <ClienteDadosBasicos 
               clienteId={selectedClienteId}
               onNext={() => setActiveTab("endereco")} 
@@ -296,7 +302,7 @@ const Clientes = () => {
             />
           </TabsContent>
 
-          <TabsContent value="endereco">
+          <TabsContent value="endereco" className="mt-6 px-1">
             <ClienteEndereco 
               clienteId={selectedClienteId}
               onNext={() => setActiveTab("pagamento")} 
@@ -305,7 +311,7 @@ const Clientes = () => {
             />
           </TabsContent>
 
-          <TabsContent value="pagamento">
+          <TabsContent value="pagamento" className="mt-6 px-1">
             <ClientePagamento 
               clienteId={selectedClienteId}
               onBack={() => setActiveTab("endereco")} 
@@ -313,22 +319,21 @@ const Clientes = () => {
             />
           </TabsContent>
 
-          <TabsContent value="configuracao">
+          <TabsContent value="configuracao" className="mt-6 px-1">
             <ClienteConfiguracao 
               clienteId={selectedClienteId}
               onSave={() => setActiveTab("contrato")} 
             />
           </TabsContent>
 
-          <TabsContent value="contrato">
+          <TabsContent value="contrato" className="mt-6 px-1">
             <ClienteContrato clienteId={selectedClienteId} />
           </TabsContent>
 
-          <TabsContent value="precos">
+          <TabsContent value="precos" className="mt-6 px-1">
             <ClienteTabelaPrecos clienteId={selectedClienteId} />
           </TabsContent>
         </Tabs>
-        </div>
       </div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
