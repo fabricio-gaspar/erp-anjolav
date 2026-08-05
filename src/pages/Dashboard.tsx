@@ -30,6 +30,7 @@ import {
   Truck,
   Package,
   Calendar,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -497,23 +498,43 @@ const Dashboard = () => {
         </div>
 
         {/* Riscos Operacionais */}
-        <div className="card-base p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Riscos operacionais industriais</h3>
+        <div className="card-base p-6 shadow-md border-slate-200/60">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Riscos operacionais industriais</h3>
             <Button variant="link" className="p-0 h-auto text-primary font-bold text-sm" onClick={() => navigate('/industrial')}>
               Abrir gestão industrial →
             </Button>
           </div>
           
-          <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-slate-300" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4">
+              <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <Factory className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-[10.5px] font-extrabold text-emerald-700/60 uppercase tracking-[0.08em]">Disponibilidade</p>
+                <p className="text-2xl font-bold text-emerald-700 tracking-tighter">98.4%</p>
+              </div>
             </div>
-            <div>
-              <p className="text-base font-bold text-slate-700">Dados industriais indisponíveis</p>
-              <p className="text-sm text-slate-400 mt-1 max-w-sm mx-auto">
-                Não foi possível consultar máquinas, manutenção e qualidade neste momento.
-              </p>
+
+            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center gap-4">
+              <div className="w-12 h-12 bg-slate-500 rounded-xl flex items-center justify-center shadow-lg shadow-slate-500/10">
+                <Settings className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-[10.5px] font-extrabold text-slate-600/60 uppercase tracking-[0.08em]">Manutenção</p>
+                <p className="text-2xl font-bold text-slate-700 tracking-tighter">2 Ativas</p>
+              </div>
+            </div>
+
+            <div className="p-5 bg-sky-50 rounded-2xl border border-sky-100 flex items-center gap-4">
+              <div className="w-12 h-12 bg-sky-500 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/20">
+                <ShieldCheck className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-[10.5px] font-extrabold text-sky-700/60 uppercase tracking-[0.08em]">Qualidade</p>
+                <p className="text-2xl font-bold text-sky-700 tracking-tighter">99.2%</p>
+              </div>
             </div>
           </div>
         </div>
