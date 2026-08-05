@@ -419,11 +419,11 @@ const Dashboard = () => {
         {/* Workspace Operations Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Industrial Quick View */}
-          <div className="card-base p-6 shadow-md border-slate-200/60 transition-all hover:shadow-lg">
+          <div className="bg-white p-7 border border-slate-200/60 rounded-[24px] shadow-sm transition-all hover:shadow-md">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Industrial</h3>
-                <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação industrial</p>
+                <h3 className="text-2xl font-black text-[#0f172a] tracking-tight uppercase">Industrial</h3>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visão da operação industrial</p>
               </div>
               <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-2 font-bold py-1.5 px-4 rounded-lg shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -433,8 +433,8 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-4 gap-6 mb-10">
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">OS hoje</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">OS HOJE</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
               </div>
               <div className="space-y-1.5">
                 <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Em andamento</p>
