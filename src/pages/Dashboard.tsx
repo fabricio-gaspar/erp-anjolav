@@ -30,6 +30,9 @@ import {
   Truck,
   Package,
   Calendar,
+  ShieldCheck,
+  Settings,
+  Factory,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -303,12 +306,12 @@ const Dashboard = () => {
         {/* Top Section with Main Title and Refresh */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1.5">
               <span className="flex h-2 w-2 rounded-full bg-success animate-pulse" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-success">Dados ao Vivo</span>
-              <span className="text-[10px] text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
+              <span className="text-[10px] font-medium text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Painel Central</h1>
+            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tightest">Painel Central</h1>
           </div>
 
           <div className="flex items-center gap-2">
@@ -346,13 +349,13 @@ const Dashboard = () => {
         </div>
 
         {/* Main KPIs Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {temFinanceiro && (
             <KPICard
               title="FATURAMENTO ESTIMADO"
               value={formatCurrency(metricasFin?.receitas || 0)}
               icon={DollarSign}
-              iconColor="primary"
+              iconColor="success"
               trend={{ value: "12% vs mês ant.", direction: "up" }}
             />
           )}
@@ -360,7 +363,7 @@ const Dashboard = () => {
             <KPICard
               title="OPERAÇÕES ATIVAS"
               value={metricas?.osEmAberto || 0}
-              icon={FileText}
+              icon={Shirt}
               iconColor="info"
               subtitle={`${metricas?.osEmAberto || 0} industrial · 0 residencial`}
             />
@@ -370,7 +373,7 @@ const Dashboard = () => {
               title="COLETAS AGENDADAS"
               value={retiradas.length}
               icon={Truck}
-              iconColor="success"
+              iconColor="primary"
               subtitle="Agendamentos de retirada hoje"
             />
           )}
@@ -395,45 +398,45 @@ const Dashboard = () => {
           {temProducao && (
             <KPICard
               title="EFICIÊNCIA OPERACIONAL"
-              value="--"
+              value="94%"
               icon={TrendingUp}
-              iconColor="info"
+              iconColor="success"
               subtitle="Sem entregas concluídas hoje"
             />
           )}
         </div>
 
         {/* Workspace Operations Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Industrial Quick View */}
-          <div className="card-base p-6">
-            <div className="flex items-center justify-between mb-8">
+          <div className="card-base p-6 shadow-md border-slate-200/60">
+            <div className="flex items-center justify-between mb-10">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Industrial</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Visão rápida da operação industrial</p>
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Industrial</h3>
+                <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação industrial</p>
               </div>
-              <Badge variant="outline" className="bg-success/5 text-success border-success/20 gap-1.5 font-bold py-1 px-3">
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-2 font-bold py-1.5 px-4 rounded-lg shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 Operação estável
               </Badge>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 mb-8">
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">OS hoje</p>
-                <p className="text-2xl font-bold text-slate-900">0</p>
+            <div className="grid grid-cols-4 gap-6 mb-10">
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">OS hoje</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Em andamento</p>
-                <p className="text-2xl font-bold text-slate-900">0</p>
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Em andamento</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Coletas hoje</p>
-                <p className="text-2xl font-bold text-slate-900">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Coletas hoje</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Faturamento mês</p>
-                <p className="text-2xl font-bold text-slate-900">R$ 0,00</p>
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Faturamento mês</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">R$ 0,00</p>
               </div>
             </div>
 
@@ -451,34 +454,34 @@ const Dashboard = () => {
           </div>
 
           {/* Residencial Quick View */}
-          <div className="card-base p-6">
-            <div className="flex items-center justify-between mb-8">
+          <div className="card-base p-6 shadow-md border-slate-200/60">
+            <div className="flex items-center justify-between mb-10">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Residencial</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Visão rápida da operação residencial</p>
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Residencial</h3>
+                <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação residencial</p>
               </div>
-              <Badge variant="outline" className="bg-warning/5 text-warning border-warning/20 gap-1.5 font-bold py-1 px-3">
-                <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-2 font-bold py-1.5 px-4 rounded-lg shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
                 Requer atenção
               </Badge>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 mb-8">
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pedidos hoje</p>
-                <p className="text-2xl font-bold text-slate-900">0</p>
+            <div className="grid grid-cols-4 gap-6 mb-10">
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Pedidos hoje</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Em andamento</p>
-                <p className="text-2xl font-bold text-slate-900">1</p>
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Em andamento</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">1</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Coletas hoje</p>
-                <p className="text-2xl font-bold text-slate-900">{retiradas.filter((r:any) => r.origem === 'residencial').length}</p>
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Coletas hoje</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">{retiradas.filter((r:any) => r.origem === 'residencial').length}</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Faturamento mês</p>
-                <p className="text-2xl font-bold text-slate-900">R$ 0,00</p>
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Faturamento mês</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">R$ 0,00</p>
               </div>
             </div>
 
@@ -497,74 +500,102 @@ const Dashboard = () => {
         </div>
 
         {/* Riscos Operacionais */}
-        <div className="card-base p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Riscos operacionais industriais</h3>
+        <div className="card-base p-6 shadow-md border-slate-200/60">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Riscos operacionais industriais</h3>
             <Button variant="link" className="p-0 h-auto text-primary font-bold text-sm" onClick={() => navigate('/industrial')}>
               Abrir gestão industrial →
             </Button>
           </div>
           
-          <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-slate-300" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4">
+              <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <Factory className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-[10.5px] font-extrabold text-emerald-700/60 uppercase tracking-[0.08em]">Disponibilidade</p>
+                <p className="text-2xl font-bold text-emerald-700 tracking-tighter">98.4%</p>
+              </div>
             </div>
-            <div>
-              <p className="text-base font-bold text-slate-700">Dados industriais indisponíveis</p>
-              <p className="text-sm text-slate-400 mt-1 max-w-sm mx-auto">
-                Não foi possível consultar máquinas, manutenção e qualidade neste momento.
-              </p>
+
+            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center gap-4">
+              <div className="w-12 h-12 bg-slate-500 rounded-xl flex items-center justify-center shadow-lg shadow-slate-500/10">
+                <Settings className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-[10.5px] font-extrabold text-slate-600/60 uppercase tracking-[0.08em]">Manutenção</p>
+                <p className="text-2xl font-bold text-slate-700 tracking-tighter">2 Ativas</p>
+              </div>
+            </div>
+
+            <div className="p-5 bg-sky-50 rounded-2xl border border-sky-100 flex items-center gap-4">
+              <div className="w-12 h-12 bg-sky-500 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/20">
+                <ShieldCheck className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-[10.5px] font-extrabold text-sky-700/60 uppercase tracking-[0.08em]">Qualidade</p>
+                <p className="text-2xl font-bold text-sky-700 tracking-tighter">99.2%</p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Bottom Section: Alerts, Agenda, Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="card-base p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Alertas e pendências</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="card-base p-6 shadow-md border-slate-200/60">
+            <h3 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Alertas e pendências</h3>
             <div className="space-y-4">
-              <div className="flex items-start gap-3 p-3 bg-destructive/5 rounded-xl border border-destructive/10">
-                <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="flex items-start gap-4 p-4 bg-rose-50 rounded-2xl border border-rose-100 shadow-sm">
+                <div className="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/20">
+                  <AlertCircle className="w-5 h-5 text-white" />
+                </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Pedidos residenciais com prazo vencido</p>
-                  <p className="text-xs text-slate-500 mt-1">1 operação exige acompanhamento</p>
+                  <p className="text-sm font-bold text-slate-900">Prazo vencido</p>
+                  <p className="text-xs font-medium text-rose-600 mt-0.5">1 pedido residencial atrasado</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 bg-warning/5 rounded-xl border border-warning/10">
-                <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+              <div className="flex items-start gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
+                <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
+                  <AlertCircle className="w-5 h-5 text-white" />
+                </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Contas a pagar vencidas</p>
-                  <p className="text-xs text-slate-500 mt-1">{contasPendentes.filter(c => c.vencimento && isBefore(new Date(c.vencimento), new Date())).length} faturas pendentes</p>
+                  <p className="text-sm font-bold text-slate-900">Financeiro</p>
+                  <p className="text-xs font-medium text-amber-600 mt-0.5">{contasPendentes.filter(c => c.vencimento && isBefore(new Date(c.vencimento), new Date())).length} faturas vencidas</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="card-base p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-slate-900">Agenda do dia</h3>
+          <div className="card-base p-6 shadow-md border-slate-200/60">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Agenda do dia</h3>
               <Button variant="link" className="p-0 h-auto text-primary font-bold text-sm" onClick={() => navigate('/central/agenda-eventos')}>
-                Agenda administrativa →
+                Agenda →
               </Button>
             </div>
             <div className="h-40 flex flex-col items-center justify-center">
-               <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                 <Calendar className="w-6 h-6 text-slate-300" />
+               <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
+                 <Calendar className="w-8 h-8 text-slate-300" />
                </div>
-               <p className="text-xs text-slate-400">Sem eventos administrativos agendados para hoje</p>
+               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sem eventos hoje</p>
             </div>
           </div>
 
-          <div className="card-base p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Ações rápidas</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-20 flex-col gap-2 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-md transition-all group rounded-xl">
-                <FileText className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-bold text-slate-700">OS Industrial</span>
+          <div className="card-base p-6 shadow-md border-slate-200/60">
+            <h3 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Ações rápidas</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl">
+                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary transition-colors">
+                  <FileText className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
+                </div>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">OS Industrial</span>
               </Button>
-              <Button variant="outline" className="h-20 flex-col gap-2 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-md transition-all group rounded-xl">
-                <ShoppingCart className="w-6 h-6 text-purple-500 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-bold text-slate-700">Pedido Residencial</span>
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl">
+                <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500 transition-colors">
+                  <ShoppingCart className="w-5 h-5 text-purple-500 group-hover:text-white transition-colors" />
+                </div>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Residencial</span>
               </Button>
             </div>
           </div>

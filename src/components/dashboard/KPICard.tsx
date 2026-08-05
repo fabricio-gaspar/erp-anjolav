@@ -61,7 +61,7 @@ export function KPICard({ title, value, icon: Icon, iconColor = "primary", subti
           
           {/* Subtitle */}
           {subtitle && (
-            <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{subtitle}</p>
+            <p className="text-[11px] font-medium text-slate-400 mt-1 line-clamp-1">{subtitle}</p>
           )}
 
           {/* Trend */}

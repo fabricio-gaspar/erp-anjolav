@@ -180,8 +180,8 @@
   /* CARD SYSTEM                                  */
   /* ============================================ */
   .card-base {
-    @apply bg-white border border-slate-200/80 rounded-xl transition-all duration-200;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    @apply bg-white border border-slate-200/60 rounded-2xl transition-all duration-300;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01);
   }
 
   .card-base:hover {
@@ -216,15 +216,15 @@
   /* KPI CARDS                                    */
   /* ============================================ */
   .kpi-card {
-    @apply card-base p-4 relative overflow-hidden min-w-0;
+    @apply card-base p-5 relative overflow-hidden min-w-0 border-slate-200/60 shadow-sm;
   }
 
   .kpi-card-title {
-    @apply text-[10px] font-bold text-slate-400 mb-1 truncate uppercase tracking-wider;
+    @apply text-[10.5px] font-extrabold text-slate-400 mb-1.5 truncate uppercase tracking-[0.08em];
   }
 
   .kpi-card-value {
-    @apply text-2xl font-bold text-slate-900 tracking-tighter truncate leading-none;
+    @apply text-3xl font-bold text-slate-900 tracking-tighter truncate leading-none;
   }
 
   .kpi-card-icon {
