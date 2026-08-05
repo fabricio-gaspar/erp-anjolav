@@ -357,19 +357,20 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
               <NavItem to="/central" icon={LayoutDashboard} label="Dashboard" end compact={compact} />
               
               <NavGroup title="Ambientes" icon={Building2} defaultOpen compact={compact}>
-                <NavItem to="/industrial" icon={Factory} label="Painel Industrial" compact={compact} />
-                <NavItem to="/residencial" icon={Building2} label="Painel Residencial" compact={compact} />
+                <NavItem to="/industrial" icon={Factory} label="Acessar Industrial" compact={compact} />
+                <NavItem to="/residencial" icon={Building2} label="Acessar Residencial" compact={compact} />
               </NavGroup>
 
               <NavGroup title="Gestão Consolidada" icon={PieChart} defaultOpen compact={compact}>
-                <NavItem to="/central/financeiro" icon={DollarSign} label="Financeiro Global" compact={compact} />
+                <NavItem to="/central/financeiro" icon={DollarSign} label="Financeiro" compact={compact} />
                 <NavItem to="/central/contas" icon={Wallet} label="Contas" compact={compact} />
-                <NavItem to="/central/agenda-eventos" icon={Calendar} label="Agenda de Eventos" compact={compact} />
+                <NavItem to="/central/relatorios/quilometragem" icon={Route} label="Quilometragem" compact={compact} />
+                <NavItem to="/central/relatorios/mensal" icon={BarChart3} label="Relatório Mensal" compact={compact} />
+                <NavItem to="/central/auditoria" icon={ShieldCheck} label="Auditoria" compact={compact} />
               </NavGroup>
 
               <NavGroup title="Administração" icon={Settings} compact={compact}>
-                <NavItem to="/central/relatorios/quilometragem" icon={BarChart3} label="Quilometragem" compact={compact} />
-                <NavItem to="/central/relatorios/mensal" icon={BarChart3} label="Relatório Mensal" compact={compact} />
+                <NavItem to="/central/agenda-eventos" icon={Calendar} label="Agenda Administrativa" compact={compact} />
                 <NavItem to="/central/configuracoes" icon={Settings} label="Configurações" compact={compact} />
               </NavGroup>
             </>

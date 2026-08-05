@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Settings,
   Factory,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -352,16 +353,16 @@ const Dashboard = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {temFinanceiro && (
             <KPICard
-              title="FATURAMENTO ESTIMADO"
+              title="FATURAMENTO DO MÊS"
               value={formatCurrency(metricasFin?.receitas || 0)}
               icon={DollarSign}
               iconColor="success"
-              trend={{ value: "12% vs mês ant.", direction: "up" }}
+              subtitle="Faturas do período, sem canceladas"
             />
           )}
           {temOrdens && (
             <KPICard
-              title="OPERAÇÕES ATIVAS"
+              title="OPERAÇÕES EM ANDAMENTO"
               value={metricas?.osEmAberto || 0}
               icon={Shirt}
               iconColor="info"
@@ -370,11 +371,11 @@ const Dashboard = () => {
           )}
           {temAgenda && (
             <KPICard
-              title="COLETAS AGENDADAS"
+              title="COLETAS DO DIA"
               value={retiradas.length}
               icon={Truck}
               iconColor="primary"
-              subtitle="Agendamentos de retirada hoje"
+              subtitle="Agendamentos de retirada de hoje"
             />
           )}
           {temAgenda && (
@@ -383,7 +384,7 @@ const Dashboard = () => {
               value={entregas.length}
               icon={Package}
               iconColor="warning"
-              subtitle="Expedição ou prazo vencendo"
+              subtitle="Expedição ou prazo vencido"
             />
           )}
           {temClientes && (
@@ -398,10 +399,10 @@ const Dashboard = () => {
           {temProducao && (
             <KPICard
               title="EFICIÊNCIA OPERACIONAL"
-              value="94%"
+              value="—"
               icon={TrendingUp}
               iconColor="success"
-              subtitle="Sem entregas concluídas hoje"
+              subtitle="Sem entregas concluídas no mês"
             />
           )}
         </div>
@@ -551,8 +552,8 @@ const Dashboard = () => {
                   <AlertCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Prazo vencido</p>
-                  <p className="text-xs font-medium text-rose-600 mt-0.5">1 pedido residencial atrasado</p>
+                  <p className="text-sm font-bold text-slate-900">Pedidos residenciais com prazo vencido</p>
+                  <p className="text-xs font-medium text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
@@ -560,8 +561,8 @@ const Dashboard = () => {
                   <AlertCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Financeiro</p>
-                  <p className="text-xs font-medium text-amber-600 mt-0.5">{contasPendentes.filter(c => c.vencimento && isBefore(new Date(c.vencimento), new Date())).length} faturas vencidas</p>
+                  <p className="text-sm font-bold text-slate-900">Contas a pagar vencidas</p>
+                  <p className="text-xs font-medium text-amber-600 mt-0.5">{contasPendentes.length > 0 ? `${contasPendentes.length} títulos financeiros estão vencidos` : 'Nenhum título vencido'}</p>
                 </div>
               </div>
             </div>
@@ -585,17 +586,29 @@ const Dashboard = () => {
           <div className="card-base p-6 shadow-md border-slate-200/60">
             <h3 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Ações rápidas</h3>
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl">
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/industrial/ordens')}>
                 <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary transition-colors">
                   <FileText className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
                 </div>
                 <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">OS Industrial</span>
               </Button>
-              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl">
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/residencial/ordens')}>
                 <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500 transition-colors">
                   <ShoppingCart className="w-5 h-5 text-purple-500 group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Residencial</span>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Pedido Residencial</span>
+              </Button>
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/industrial/agenda')}>
+                <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
+                  <Truck className="w-5 h-5 text-emerald-500 group-hover:text-white transition-colors" />
+                </div>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Coleta Industrial</span>
+              </Button>
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/residencial/caixa')}>
+                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center group-hover:bg-amber-500 transition-colors">
+                  <CreditCard className="w-5 h-5 text-amber-500 group-hover:text-white transition-colors" />
+                </div>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Abrir caixa</span>
               </Button>
             </div>
           </div>
