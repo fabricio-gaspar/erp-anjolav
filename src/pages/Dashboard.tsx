@@ -27,7 +27,13 @@ import {
   ShoppingCart,
   ArrowDownCircle,
   DollarSign,
+  Truck,
+  Package,
+  Calendar,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
 import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
 import { useContasPagar } from "@/hooks/useContasPagar";
