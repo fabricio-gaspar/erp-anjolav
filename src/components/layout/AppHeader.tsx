@@ -50,6 +50,7 @@ const routeNames: Record<string, string> = {
 };
 
 function Breadcrumb() {
+  const { activeArea } = useWorkspace();
   const location = useLocation();
   const pathSegments = location.pathname.split("/").filter(Boolean);
   
@@ -64,23 +65,23 @@ function Breadcrumb() {
   if (breadcrumbs.length === 0) {
     return (
       <div className="flex items-center text-sm">
-        <span className="font-medium text-white">Início</span>
+        <span className={cn("font-medium", activeArea === "central" ? "text-white" : "text-slate-900")}>Início</span>
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-1.5 text-sm">
-      <Link to="/" className="text-white/70 hover:text-white transition-colors">
+      <Link to="/" className={cn("transition-colors", activeArea === "central" ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-900")}>
         Início
       </Link>
       {breadcrumbs.map((crumb) => (
         <div key={crumb.path} className="flex items-center gap-1.5">
-          <ChevronRight className="w-3.5 h-3.5 text-white/40" />
+          <ChevronRight className={cn("w-3.5 h-3.5", activeArea === "central" ? "text-white/40" : "text-slate-300")} />
           {crumb.isLast ? (
-            <span className="font-medium text-white">{crumb.name}</span>
+            <span className={cn("font-medium", activeArea === "central" ? "text-white" : "text-slate-900")}>{crumb.name}</span>
           ) : (
-            <Link to={crumb.path} className="text-white/70 hover:text-white transition-colors">
+            <Link to={crumb.path} className={cn("transition-colors", activeArea === "central" ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-900")}>
               {crumb.name}
             </Link>
           )}
@@ -112,10 +113,9 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
 
   return (
     <header className={cn(
-      "h-14 sm:h-16 shadow-none flex items-center justify-between pl-4 pr-3 sm:pr-4 sticky top-0 z-30 transition-colors border-b border-white/5",
+      "h-[72px] shadow-none flex items-center justify-between px-6 sticky top-0 z-30 transition-colors border-b border-slate-200",
       activeArea === "central" ? "bg-[#0b1f33]" : 
-      activeArea === "industrial" ? "bg-[#1e3a8a]" : 
-      "bg-[#581c87]"
+      "bg-white/95 backdrop-blur"
     )}>
       <div className="flex items-center gap-3">
         {showMenuButton && (
@@ -127,10 +127,13 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
         <div className="flex items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/10 px-3 h-9 rounded-lg">
-                <LayoutGrid className="w-4 h-4 text-sky-400" />
+              <Button variant="ghost" size="sm" className={cn(
+                "gap-2 px-3 h-9 rounded-lg transition-colors",
+                activeArea === "central" ? "text-white hover:bg-white/10" : "text-slate-900 hover:bg-slate-100"
+              )}>
+                <LayoutGrid className={cn("w-4 h-4", activeArea === "central" ? "text-sky-400" : "text-blue-600")} />
                 <span className="font-bold text-sm hidden sm:inline">{areaLabels[activeArea]}</span>
-                <ChevronRight className="w-3.5 h-3.5 text-white/40 rotate-90" />
+                <ChevronRight className={cn("w-3.5 h-3.5 rotate-90", activeArea === "central" ? "text-white/40" : "text-slate-400")} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
@@ -146,14 +149,14 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="w-[1px] h-6 bg-white/10 hidden sm:block" />
+          <div className={cn("w-[1px] h-6 hidden sm:block", activeArea === "central" ? "bg-white/10" : "bg-slate-200")} />
 
           <div className="flex flex-col justify-center min-w-0">
             {title ? (
               <>
-                <h1 className="text-base sm:text-lg font-bold text-white leading-tight truncate">{title}</h1>
+                <h1 className={cn("text-base sm:text-lg font-bold leading-tight truncate", activeArea === "central" ? "text-white" : "text-slate-900")}>{title}</h1>
                 {subtitle && (
-                  <p className="text-xs text-white/60 leading-tight truncate hidden sm:block">{subtitle}</p>
+                  <p className={cn("text-xs leading-tight truncate hidden sm:block", activeArea === "central" ? "text-white/60" : "text-slate-500")}>{subtitle}</p>
                 )}
               </>
             ) : (
@@ -168,7 +171,10 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative text-white/70 hover:text-white hover:bg-white/10">
+            <Button variant="ghost" size="icon" className={cn(
+              "relative hover:bg-opacity-10",
+              activeArea === "central" ? "text-white/70 hover:text-white hover:bg-white" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+            )}>
               <Bell className="w-5 h-5" />
               <span className={cn(
                 "absolute top-1 right-1 w-2.5 h-2.5 bg-destructive rounded-full ring-2",

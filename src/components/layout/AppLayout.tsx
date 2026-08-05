@@ -47,8 +47,7 @@ export function AppLayout({
           showMenuButton={isMobile}
         />
         <main className={cn(
-          "py-5 pr-5",
-          isMobile ? "pl-5" : "pl-3.5"
+          "py-6 px-6",
         )}>
           <div className="w-full">
             {children || <Outlet />}
