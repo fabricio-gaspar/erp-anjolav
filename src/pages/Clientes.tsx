@@ -106,7 +106,7 @@ const Clientes = () => {
 
   return (
     <AppLayout title={pageTitle} subtitle={pageSubtitle}>
-      <div className="content-panel">
+      <div className="w-full">
         <div className="space-y-4">
         {activeTab !== "lista" && (
           <div className="space-y-3">
