@@ -344,7 +344,7 @@ const Dashboard = () => {
             </div>
             <Button variant="outline" size="sm" className="h-10 px-4 gap-2 bg-white" onClick={() => window.location.reload()}>
               <Loader2 className={cn("w-4 h-4", isLoading && "animate-spin")} />
-              <span className="font-semibold text-slate-700">Atualizar dados</span>
+              <span className="font-bold text-slate-700">Atualizar dados</span>
             </Button>
           </div>
         </div>
