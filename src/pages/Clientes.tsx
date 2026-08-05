@@ -106,8 +106,19 @@ const Clientes = () => {
 
   return (
     <AppLayout title={pageTitle} subtitle={pageSubtitle}>
-      <div className="w-full">
-        <div className="space-y-4">
+      <div className="w-full space-y-6">
+        <div className="flex flex-col gap-1 px-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.6)]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500/80">OPERAÇÃO INDUSTRIAL</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 leading-[1.1]">
+            {pageTitle}
+          </h1>
+          <p className="text-[13px] text-slate-500 font-medium">
+            Cadastros exclusivos da operação industrial
+          </p>
+        </div>
         {activeTab !== "lista" && (
           <div className="space-y-3">
             <div className="flex justify-end">
