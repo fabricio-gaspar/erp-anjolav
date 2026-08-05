@@ -610,7 +610,7 @@ const Dashboard = () => {
                   <AlertCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Contas a pagar vencidas</p>
+                  <p className="text-sm font-extrabold text-slate-900">Contas a pagar vencidas</p>
                   <p className="text-xs font-medium text-amber-600 mt-0.5">{contasPendentes.length > 0 ? `${contasPendentes.length} títulos financeiros estão vencidos` : 'Nenhum título vencido'}</p>
                 </div>
               </div>
