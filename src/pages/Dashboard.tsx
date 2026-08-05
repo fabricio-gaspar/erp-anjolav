@@ -651,7 +651,7 @@ const Dashboard = () => {
                 <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
                   <Truck className="w-5 h-5 text-emerald-500 group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Coleta Industrial</span>
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Coleta Industrial</span>
               </Button>
               <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/residencial/caixa')}>
                 <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center group-hover:bg-amber-500 transition-colors">
