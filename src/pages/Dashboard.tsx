@@ -534,7 +534,7 @@ const Dashboard = () => {
                 <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-bold text-slate-900">Contas a pagar vencidas</p>
-                  <p className="text-xs text-slate-500 mt-1">{contasPendentes.filter(c => isBefore(new Date(c.data_vencimento), new Date())).length} faturas pendentes</p>
+                  <p className="text-xs text-slate-500 mt-1">{contasPendentes.filter(c => c.vencimento && isBefore(new Date(c.vencimento), new Date())).length} faturas pendentes</p>
                 </div>
               </div>
             </div>
