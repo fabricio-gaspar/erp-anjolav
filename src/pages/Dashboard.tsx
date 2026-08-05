@@ -310,7 +310,7 @@ const Dashboard = () => {
             <div className="flex items-center gap-2 mb-1.5">
               <span className="flex h-2 w-2 rounded-full bg-success animate-pulse" />
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-success">Dados ao Vivo</span>
-              <span className="text-[10px] font-medium text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
+              <span className="text-[10px] font-semibold text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
             </div>
             <h1 className="text-4xl font-extrabold text-slate-900 tracking-tightest">Painel Central</h1>
           </div>
