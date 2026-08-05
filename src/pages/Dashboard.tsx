@@ -393,7 +393,7 @@ const Dashboard = () => {
               value={metricas?.clientesAtivos || 0}
               icon={Users}
               iconColor="primary"
-              subtitle={`${metricas?.clientesAtivos || 0} industrial · 0 residencial`}
+              subtitle={`${metricas?.clientesAtivos || 0} industrial · 1 residencial`}
             />
           )}
           {temProducao && (
