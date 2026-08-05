@@ -315,36 +315,45 @@ const Dashboard = () => {
             <h1 className="text-[44px] font-black text-[#0f172a] tracking-[-0.05em] leading-[0.9] uppercase">Painel Central</h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex p-1 bg-slate-100 rounded-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex p-1 bg-slate-100/80 rounded-xl border border-slate-200/50">
               <Button 
-                variant={activeArea === 'central' ? 'secondary' : 'ghost'} 
+                variant="ghost" 
                 size="sm" 
-                className={cn("h-8 text-xs px-4 rounded-md", activeArea === 'central' && "bg-white shadow-sm")}
+                className={cn(
+                  "h-8 text-[11px] font-black uppercase tracking-wider px-5 rounded-lg transition-all",
+                  activeArea === 'central' ? "bg-white text-[#0f172a] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
                 onClick={() => navigate('/central')}
               >
                 Central
               </Button>
               <Button 
-                variant={activeArea === 'industrial' ? 'secondary' : 'ghost'} 
+                variant="ghost" 
                 size="sm" 
-                className={cn("h-8 text-xs px-4 rounded-md", activeArea === 'industrial' && "bg-white shadow-sm")}
+                className={cn(
+                  "h-8 text-[11px] font-black uppercase tracking-wider px-5 rounded-lg transition-all",
+                  activeArea === 'industrial' ? "bg-white text-[#0f172a] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
                 onClick={() => navigate('/industrial')}
               >
                 Industrial
               </Button>
               <Button 
-                variant={activeArea === 'residencial' ? 'secondary' : 'ghost'} 
+                variant="ghost" 
                 size="sm" 
-                className={cn("h-8 text-xs px-4 rounded-md", activeArea === 'residencial' && "bg-white shadow-sm")}
+                className={cn(
+                  "h-8 text-[11px] font-black uppercase tracking-wider px-5 rounded-lg transition-all",
+                  activeArea === 'residencial' ? "bg-white text-[#0f172a] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
                 onClick={() => navigate('/residencial')}
               >
                 Residencial
               </Button>
             </div>
-            <Button variant="outline" size="sm" className="h-10 px-4 gap-2 bg-white" onClick={() => window.location.reload()}>
-              <Loader2 className={cn("w-4 h-4", isLoading && "animate-spin")} />
-              <span className="font-bold text-slate-700">Atualizar dados</span>
+            <Button variant="outline" size="sm" className="h-10 px-5 gap-2 bg-white border-slate-200 shadow-sm hover:bg-slate-50 transition-colors" onClick={() => window.location.reload()}>
+              <Loader2 className={cn("w-4 h-4 text-slate-400", isLoading && "animate-spin")} />
+              <span className="font-black text-[11px] uppercase tracking-wider text-slate-700">Sincronizar</span>
             </Button>
           </div>
         </div>
