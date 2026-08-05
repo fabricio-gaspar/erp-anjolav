@@ -180,7 +180,7 @@
   /* CARD SYSTEM                                  */
   /* ============================================ */
   .card-base {
-    @apply bg-white border border-slate-200/80 rounded-lg transition-all duration-200;
+    @apply bg-white border border-slate-200/80 rounded-xl transition-all duration-200;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
 
@@ -243,7 +243,7 @@
   }
 
   .data-table thead {
-    @apply bg-slate-100/80 border-b-2 border-slate-200;
+    @apply bg-slate-50/50 border-b border-slate-200;
   }
 
   .data-table th {
