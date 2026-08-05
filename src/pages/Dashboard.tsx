@@ -657,7 +657,7 @@ const Dashboard = () => {
                 <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center group-hover:bg-amber-500 transition-colors">
                   <CreditCard className="w-5 h-5 text-amber-500 group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Abrir caixa</span>
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Abrir caixa</span>
               </Button>
             </div>
           </div>
