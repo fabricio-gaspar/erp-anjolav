@@ -26,6 +26,7 @@ import {
   Building2,
   BarChart3,
   Droplets,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
