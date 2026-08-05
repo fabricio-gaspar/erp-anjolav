@@ -455,8 +455,8 @@ const Dashboard = () => {
           </div>
 
           {/* Residencial Quick View */}
-          <div className="card-base p-6 shadow-md border-slate-200/60">
-            <div className="flex items-center justify-between mb-10">
+          <div className="card-base p-6 shadow-md border-slate-200/60 transition-all hover:shadow-lg">
+            <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Residencial</h3>
                 <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação residencial</p>
