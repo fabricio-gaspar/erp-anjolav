@@ -44,7 +44,7 @@ const sparklines = [
   "M0,18 L5,15 L10,20 L15,12 L20,16 L25,10 L30,14 L35,7 L40,11 L45,5 L50,9",
 ];
 
-export function KPICard({ title, value, icon: Icon, iconColor = "primary", trend }: KPICardProps) {
+export function KPICard({ title, value, icon: Icon, iconColor = "primary", subtitle, trend }: KPICardProps) {
   const styles = colorStyles[iconColor];
   const sparkline = sparklines[Math.abs(title.length) % sparklines.length];
   const isDown = trend?.direction === "down";
