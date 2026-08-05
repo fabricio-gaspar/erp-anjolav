@@ -303,48 +303,57 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Visão consolidada e auditável das operações industrial e residencial.">
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* Top Section with Main Title and Refresh */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="flex h-2 w-2 rounded-full bg-success animate-pulse" />
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-success">Dados ao Vivo</span>
-              <span className="text-[10px] font-semibold text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="flex h-2 w-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#10b981]">DADOS AO VIVO</span>
+              <span className="text-[10px] font-bold text-slate-400/80 tracking-wide ml-1">ATUALIZADO ÀS {format(new Date(), "HH:mm")}</span>
             </div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tightest">Painel Central</h1>
+            <h1 className="text-[44px] font-black text-[#0f172a] tracking-[-0.05em] leading-[0.9] uppercase">Painel Central</h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex p-1 bg-slate-100 rounded-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex p-1 bg-slate-100/80 rounded-xl border border-slate-200/50">
               <Button 
-                variant={activeArea === 'central' ? 'secondary' : 'ghost'} 
+                variant="ghost" 
                 size="sm" 
-                className={cn("h-8 text-xs px-4 rounded-md", activeArea === 'central' && "bg-white shadow-sm")}
+                className={cn(
+                  "h-8 text-[11px] font-black uppercase tracking-wider px-5 rounded-lg transition-all",
+                  activeArea === 'central' ? "bg-white text-[#0f172a] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
                 onClick={() => navigate('/central')}
               >
                 Central
               </Button>
               <Button 
-                variant={activeArea === 'industrial' ? 'secondary' : 'ghost'} 
+                variant="ghost" 
                 size="sm" 
-                className={cn("h-8 text-xs px-4 rounded-md", activeArea === 'industrial' && "bg-white shadow-sm")}
+                className={cn(
+                  "h-8 text-[11px] font-black uppercase tracking-wider px-5 rounded-lg transition-all",
+                  activeArea === 'industrial' ? "bg-white text-[#0f172a] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
                 onClick={() => navigate('/industrial')}
               >
                 Industrial
               </Button>
               <Button 
-                variant={activeArea === 'residencial' ? 'secondary' : 'ghost'} 
+                variant="ghost" 
                 size="sm" 
-                className={cn("h-8 text-xs px-4 rounded-md", activeArea === 'residencial' && "bg-white shadow-sm")}
+                className={cn(
+                  "h-8 text-[11px] font-black uppercase tracking-wider px-5 rounded-lg transition-all",
+                  activeArea === 'residencial' ? "bg-white text-[#0f172a] shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
                 onClick={() => navigate('/residencial')}
               >
                 Residencial
               </Button>
             </div>
-            <Button variant="outline" size="sm" className="h-10 px-4 gap-2 bg-white" onClick={() => window.location.reload()}>
-              <Loader2 className={cn("w-4 h-4", isLoading && "animate-spin")} />
-              <span className="font-bold text-slate-700">Atualizar dados</span>
+            <Button variant="outline" size="sm" className="h-10 px-5 gap-2 bg-white border-slate-200 shadow-sm hover:bg-slate-50 transition-colors" onClick={() => window.location.reload()}>
+              <Loader2 className={cn("w-4 h-4 text-slate-400", isLoading && "animate-spin")} />
+              <span className="font-black text-[11px] uppercase tracking-wider text-slate-700">Sincronizar</span>
             </Button>
           </div>
         </div>
@@ -357,7 +366,7 @@ const Dashboard = () => {
               value={formatCurrency(metricasFin?.receitas || 0)}
               icon={DollarSign}
               iconColor="success"
-              subtitle="Faturas do período, sem canceladas"
+              subtitle="FATURAS DO PERÍODO, SEM CANCELADAS"
             />
           )}
           {temOrdens && (
@@ -366,7 +375,7 @@ const Dashboard = () => {
               value={metricas?.osEmAberto || 0}
               icon={Shirt}
               iconColor="info"
-              subtitle={`${metricas?.osEmAberto || 0} industrial · 1 residencial`}
+              subtitle="0 INDUSTRIAL · 1 RESIDENCIAL"
             />
           )}
           {temAgenda && (
@@ -375,7 +384,7 @@ const Dashboard = () => {
               value={retiradas.length}
               icon={Truck}
               iconColor="primary"
-              subtitle="Agendamentos de retirada de hoje"
+              subtitle="AGENDAMENTOS DE RETIRADA DE HOJE"
             />
           )}
           {temAgenda && (
@@ -384,7 +393,7 @@ const Dashboard = () => {
               value={entregas.length}
               icon={Package}
               iconColor="warning"
-              subtitle="Expedição ou prazo vencido"
+              subtitle="EXPEDIÇÃO OU PRAZO VENCIDO"
             />
           )}
           {temClientes && (
@@ -393,7 +402,7 @@ const Dashboard = () => {
               value={metricas?.clientesAtivos || 0}
               icon={Users}
               iconColor="primary"
-              subtitle={`${metricas?.clientesAtivos || 0} industrial · 1 residencial`}
+              subtitle="0 INDUSTRIAL · 1 RESIDENCIAL"
             />
           )}
           {temProducao && (
@@ -402,7 +411,7 @@ const Dashboard = () => {
               value="—"
               icon={TrendingUp}
               iconColor="success"
-              subtitle="Sem entregas concluídas no mês"
+              subtitle="SEM ENTREGAS CONCLUÍDAS NO MÊS"
             />
           )}
         </div>
@@ -410,11 +419,11 @@ const Dashboard = () => {
         {/* Workspace Operations Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Industrial Quick View */}
-          <div className="card-base p-6 shadow-md border-slate-200/60 transition-all hover:shadow-lg">
+          <div className="bg-white p-7 border border-slate-200/60 rounded-[24px] shadow-sm transition-all hover:shadow-md">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Industrial</h3>
-                <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação industrial</p>
+                <h3 className="text-2xl font-black text-[#0f172a] tracking-tight uppercase">Industrial</h3>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visão da operação industrial</p>
               </div>
               <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-2 font-bold py-1.5 px-4 rounded-lg shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -424,20 +433,20 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-4 gap-6 mb-10">
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">OS hoje</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">OS HOJE</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Em andamento</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">EM ANDAMENTO</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Coletas hoje</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">COLETAS HOJE</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Faturamento mês</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">R$ 0,00</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">FATURAMENTO MÊS</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">R$ 0,00</p>
               </div>
             </div>
 
@@ -455,11 +464,11 @@ const Dashboard = () => {
           </div>
 
           {/* Residencial Quick View */}
-          <div className="card-base p-6 shadow-md border-slate-200/60 transition-all hover:shadow-lg">
+          <div className="bg-white p-7 border border-slate-200/60 rounded-[24px] shadow-sm transition-all hover:shadow-md">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Residencial</h3>
-                <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação residencial</p>
+                <h3 className="text-2xl font-black text-[#0f172a] tracking-tight uppercase">Residencial</h3>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visão da operação residencial</p>
               </div>
               <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-2 font-bold py-1.5 px-4 rounded-lg shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
@@ -469,20 +478,20 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-4 gap-6 mb-10">
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Pedidos hoje</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">PEDIDOS HOJE</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Em andamento</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">1</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">EM ANDAMENTO</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">1</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Coletas hoje</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">{retiradas.filter((r:any) => r.origem === 'residencial').length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">COLETAS HOJE</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">{retiradas.filter((r:any) => r.origem === 'residencial').length}</p>
               </div>
               <div className="space-y-1.5">
-                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Faturamento mês</p>
-                <p className="text-3xl font-bold text-slate-900 tracking-tighter">R$ 0,00</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">FATURAMENTO MÊS</p>
+                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">R$ 0,00</p>
               </div>
             </div>
 

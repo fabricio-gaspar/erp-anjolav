@@ -57,11 +57,11 @@ export function KPICard({ title, value, icon: Icon, iconColor = "primary", subti
           <p className="kpi-card-title group-hover:text-slate-500 transition-colors uppercase">{title}</p>
 
           {/* Value */}
-          <span className="kpi-card-value block tracking-tighter">{value}</span>
+          <span className="kpi-card-value block">{value}</span>
           
           {/* Subtitle */}
           {subtitle && (
-            <p className="text-[11px] font-medium text-slate-400 mt-1 line-clamp-1">{subtitle}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1.5 line-clamp-1">{subtitle}</p>
           )}
 
           {/* Trend */}
