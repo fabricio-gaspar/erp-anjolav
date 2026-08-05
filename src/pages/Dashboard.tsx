@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   Settings,
   Factory,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -352,16 +353,16 @@ const Dashboard = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {temFinanceiro && (
             <KPICard
-              title="FATURAMENTO ESTIMADO"
+              title="FATURAMENTO DO MÊS"
               value={formatCurrency(metricasFin?.receitas || 0)}
               icon={DollarSign}
               iconColor="success"
-              trend={{ value: "12% vs mês ant.", direction: "up" }}
+              subtitle="Faturas do período, sem canceladas"
             />
           )}
           {temOrdens && (
             <KPICard
-              title="OPERAÇÕES ATIVAS"
+              title="OPERAÇÕES EM ANDAMENTO"
               value={metricas?.osEmAberto || 0}
               icon={Shirt}
               iconColor="info"
@@ -370,11 +371,11 @@ const Dashboard = () => {
           )}
           {temAgenda && (
             <KPICard
-              title="COLETAS AGENDADAS"
+              title="COLETAS DO DIA"
               value={retiradas.length}
               icon={Truck}
               iconColor="primary"
-              subtitle="Agendamentos de retirada hoje"
+              subtitle="Agendamentos de retirada de hoje"
             />
           )}
           {temAgenda && (
@@ -383,7 +384,7 @@ const Dashboard = () => {
               value={entregas.length}
               icon={Package}
               iconColor="warning"
-              subtitle="Expedição ou prazo vencendo"
+              subtitle="Expedição ou prazo vencido"
             />
           )}
           {temClientes && (
@@ -398,10 +399,10 @@ const Dashboard = () => {
           {temProducao && (
             <KPICard
               title="EFICIÊNCIA OPERACIONAL"
-              value="94%"
+              value="—"
               icon={TrendingUp}
               iconColor="success"
-              subtitle="Sem entregas concluídas hoje"
+              subtitle="Sem entregas concluídas no mês"
             />
           )}
         </div>
@@ -541,6 +542,55 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Novas operações por dia (Gráfico) */}
+        <div className="card-base p-6 shadow-md border-slate-200/60">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Novas operações por dia</h3>
+          </div>
+          <div className="h-64 flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+            <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-sm">
+              <TrendingUp className="w-8 h-8 text-slate-300" />
+            </div>
+            <p className="text-sm font-bold text-slate-700">Sem novas operações nos últimos 7 dias</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm text-center px-6">
+              O gráfico será preenchido automaticamente quando novas OS e pedidos forem registrados.
+            </p>
+          </div>
+        </div>
+
+        {/* Resumo consolidado de operações recentes */}
+        <div className="card-base p-6 shadow-md border-slate-200/60">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Resumo consolidado de operações recentes</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Código</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Cliente</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Unidade</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Status</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Previsão</th>
+                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-slate-50/50 hover:bg-slate-50/50 transition-colors">
+                  <td className="py-4 text-sm font-bold text-slate-700">2026-000001</td>
+                  <td className="py-4 text-sm font-medium text-slate-600">SILVANA MORAES - AIRBNB</td>
+                  <td className="py-4 text-sm font-medium text-slate-600">Residencial</td>
+                  <td className="py-4">
+                    <Badge className="bg-sky-100 text-sky-700 border-none font-bold text-[10px] px-2 py-0.5">Recebido</Badge>
+                  </td>
+                  <td className="py-4 text-sm font-medium text-slate-600">20/07/2026</td>
+                  <td className="py-4 text-sm font-bold text-slate-900">R$ 24,00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         {/* Bottom Section: Alerts, Agenda, Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="card-base p-6 shadow-md border-slate-200/60">
@@ -551,8 +601,8 @@ const Dashboard = () => {
                   <AlertCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Prazo vencido</p>
-                  <p className="text-xs font-medium text-rose-600 mt-0.5">1 pedido residencial atrasado</p>
+                  <p className="text-sm font-bold text-slate-900">Pedidos residenciais com prazo vencido</p>
+                  <p className="text-xs font-medium text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
@@ -560,8 +610,8 @@ const Dashboard = () => {
                   <AlertCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Financeiro</p>
-                  <p className="text-xs font-medium text-amber-600 mt-0.5">{contasPendentes.filter(c => c.vencimento && isBefore(new Date(c.vencimento), new Date())).length} faturas vencidas</p>
+                  <p className="text-sm font-bold text-slate-900">Contas a pagar vencidas</p>
+                  <p className="text-xs font-medium text-amber-600 mt-0.5">{contasPendentes.length > 0 ? `${contasPendentes.length} títulos financeiros estão vencidos` : 'Nenhum título vencido'}</p>
                 </div>
               </div>
             </div>
@@ -585,17 +635,29 @@ const Dashboard = () => {
           <div className="card-base p-6 shadow-md border-slate-200/60">
             <h3 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Ações rápidas</h3>
             <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl">
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/industrial/ordens')}>
                 <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary transition-colors">
                   <FileText className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
                 </div>
                 <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">OS Industrial</span>
               </Button>
-              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl">
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/residencial/ordens')}>
                 <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500 transition-colors">
                   <ShoppingCart className="w-5 h-5 text-purple-500 group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Residencial</span>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Pedido Residencial</span>
+              </Button>
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/industrial/agenda')}>
+                <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
+                  <Truck className="w-5 h-5 text-emerald-500 group-hover:text-white transition-colors" />
+                </div>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Coleta Industrial</span>
+              </Button>
+              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/residencial/caixa')}>
+                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center group-hover:bg-amber-500 transition-colors">
+                  <CreditCard className="w-5 h-5 text-amber-500 group-hover:text-white transition-colors" />
+                </div>
+                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Abrir caixa</span>
               </Button>
             </div>
           </div>
