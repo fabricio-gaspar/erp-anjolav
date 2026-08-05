@@ -293,9 +293,9 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle={`Métricas e visão operacional - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
-      <div className="space-y-5">
+      <div className="space-y-6">
         {activeArea === "central" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
              {/* Central specific summary would go here */}
           </div>
         )}

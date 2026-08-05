@@ -49,14 +49,14 @@ export function KPICard({ title, value, icon: Icon, iconColor = "primary", trend
   const isDown = trend?.direction === "down";
 
   return (
-    <div className="kpi-card">
+    <div className="kpi-card group hover:border-primary/50 transition-colors duration-300">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           {/* Title */}
-          <p className="kpi-card-title">{title}</p>
+          <p className="kpi-card-title group-hover:text-slate-500 transition-colors">{title}</p>
 
           {/* Value */}
-          <span className="kpi-card-value block">{value}</span>
+          <span className="kpi-card-value block tracking-tighter">{value}</span>
 
           {/* Trend */}
           {trend && (

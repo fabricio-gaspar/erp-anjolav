@@ -24,7 +24,7 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
   const isReceivable = variant === "receivable";
 
   return (
-    <div className="card-base p-4">
+    <div className="card-base p-5">
       {/* Header */}
       <div className="flex items-start justify-between pb-3 border-b border-slate-100">
         <div className="min-w-0">

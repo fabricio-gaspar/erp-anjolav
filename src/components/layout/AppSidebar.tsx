@@ -25,6 +25,7 @@ import {
   User,
   Building2,
   BarChart3,
+  Droplets,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -64,11 +65,11 @@ const NavItem = ({ to, icon: Icon, label, end = false, compact = false }: NavIte
     <NavLink
       to={to}
       className={cn(
-        "group flex items-center gap-3 rounded-lg font-medium transition-all duration-200 relative mx-2",
+        "group flex items-center gap-3 rounded-lg font-medium transition-all duration-200 relative mx-3",
         compact ? "px-2 py-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 text-sm",
         isActive
-          ? "bg-sky-500/15 text-sky-400 font-semibold shadow-sm shadow-sky-500/10"
-          : "text-slate-400 hover:bg-slate-800/40 hover:text-white",
+          ? "bg-sky-500/10 text-sky-400 font-semibold shadow-sm"
+          : "text-slate-400 hover:bg-white/5 hover:text-white",
         isCollapsed && "justify-center mx-1 px-2"
       )}
     >
@@ -289,8 +290,8 @@ const CollapseButton = () => {
     <button
       onClick={toggleSidebar}
       className={cn(
-        "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-white text-slate-600 shadow-lg hover:scale-110 transition-all duration-200 z-50",
-        "border border-slate-200"
+        "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-[#0b1f33] text-white shadow-xl hover:scale-110 transition-all duration-200 z-50",
+        "border border-white/10"
       )}
     >
       {isCollapsed ? (
@@ -322,40 +323,31 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   return (
     <TooltipProvider>
       <aside className={cn(
-        "h-screen bg-[#0b1f33] border-r border-slate-800/30 flex flex-col transition-all duration-300",
+        "h-screen bg-[#0b1f33] border-r border-white/5 flex flex-col transition-all duration-300",
         isMobile ? "w-full" : "fixed left-0 top-0 z-40",
-        !isMobile && (effectiveCollapsed ? "w-16" : "w-56")
+        !isMobile && (effectiveCollapsed ? "w-16" : "w-60")
       )}>
         {!isMobile && <CollapseButton />}
 
         {/* Logo */}
         <div className={cn(
-          "flex items-center justify-center transition-all",
-          compact ? "h-12 px-2" : "h-14",
-          effectiveCollapsed ? "px-2" : "px-3"
+          "flex items-center justify-center transition-all border-b border-slate-800/30",
+          effectiveCollapsed ? "h-16 px-2" : "h-20 px-4"
         )}>
-          {logoUrl ? (
-            <img 
-              src={logoUrl} 
-              alt={nomeEmpresa}
-              className={cn(
-                "object-contain",
-                effectiveCollapsed ? "h-8 max-w-[40px]" : compact ? "h-7 max-w-[150px]" : "h-9 max-w-[180px]"
-              )}
-            />
-          ) : (
-            <div className={cn("flex items-center", compact ? "gap-2" : "gap-3")}>
-              <div className={cn(
-                "rounded-xl bg-primary flex items-center justify-center",
-                compact ? "w-7 h-7" : "w-9 h-9"
-              )}>
-                <span className={cn("text-white font-bold", compact ? "text-sm" : "text-lg")}>{primeiraLetra}</span>
+          <div className="flex items-center gap-3">
+            <span className={cn(
+              "flex items-center justify-center rounded-lg bg-sky-500 shadow-lg shadow-sky-500/20 shrink-0",
+              effectiveCollapsed ? "h-9 w-9" : "h-10 w-10"
+            )}>
+              <Droplets className={cn("text-white", effectiveCollapsed ? "h-5 w-5" : "h-6 w-6")} />
+            </span>
+            {!effectiveCollapsed && (
+              <div className="min-w-0">
+                <p className="text-sm font-bold tracking-tight text-white truncate">AnjoLav ERP</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-300/80 truncate">Gestão Integrada</p>
               </div>
-              {!effectiveCollapsed && (
-                <span className={cn("font-bold text-white", compact ? "text-sm" : "text-base")}>{nomeEmpresa}</span>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Navigation */}
@@ -437,13 +429,13 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
 
           {/* Bottom items */}
-          <div className={cn("border-t border-slate-800", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
+          <div className={cn("border-t border-white/5", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
             <NavItem to="/central/configuracoes" icon={Settings} label="Configurações" compact={compact} />
           </div>
         </nav>
 
         {/* User Section */}
-        <div className={cn("border-t border-slate-800", compact ? "p-2" : "p-3")}>
+        <div className={cn("border-t border-white/5", compact ? "p-2" : "p-3")}>
           <UserSection compact={compact} />
         </div>
       </aside>

@@ -113,7 +113,7 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
   return (
     <header className={cn(
       "h-14 sm:h-16 shadow-sm flex items-center justify-between pl-4 pr-3 sm:pr-4 sticky top-0 z-30 transition-colors",
-      activeArea === "central" ? "bg-[#1a2332]" : 
+      activeArea === "central" ? "bg-[#0b1f33]" : 
       activeArea === "industrial" ? "bg-[#1e3a8a]" : 
       "bg-[#581c87]"
     )}>
@@ -124,11 +124,11 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
           </Button>
         )}
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/10 px-2 h-9">
-                <LayoutGrid className="w-4 h-4 text-white/70" />
+              <Button variant="ghost" size="sm" className="gap-2 text-white hover:bg-white/10 px-3 h-9 rounded-lg">
+                <LayoutGrid className="w-4 h-4 text-sky-400" />
                 <span className="font-bold text-sm hidden sm:inline">{areaLabels[activeArea]}</span>
                 <ChevronRight className="w-3.5 h-3.5 text-white/40 rotate-90" />
               </Button>
