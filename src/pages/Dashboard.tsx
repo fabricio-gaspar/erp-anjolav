@@ -309,10 +309,10 @@ const Dashboard = () => {
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="flex h-2 w-2 rounded-full bg-success animate-pulse" />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-success">Dados ao Vivo</span>
-              <span className="text-[10px] font-medium text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-success">Dados ao Vivo</span>
+              <span className="text-[10px] font-semibold text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
             </div>
-            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tightest">Painel Central</h1>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tightest">Painel Central</h1>
           </div>
 
           <div className="flex items-center gap-2">
@@ -344,7 +344,7 @@ const Dashboard = () => {
             </div>
             <Button variant="outline" size="sm" className="h-10 px-4 gap-2 bg-white" onClick={() => window.location.reload()}>
               <Loader2 className={cn("w-4 h-4", isLoading && "animate-spin")} />
-              <span className="font-semibold text-slate-700">Atualizar dados</span>
+              <span className="font-bold text-slate-700">Atualizar dados</span>
             </Button>
           </div>
         </div>
@@ -366,7 +366,7 @@ const Dashboard = () => {
               value={metricas?.osEmAberto || 0}
               icon={Shirt}
               iconColor="info"
-              subtitle={`${metricas?.osEmAberto || 0} industrial · 0 residencial`}
+              subtitle={`${metricas?.osEmAberto || 0} industrial · 1 residencial`}
             />
           )}
           {temAgenda && (
@@ -393,7 +393,7 @@ const Dashboard = () => {
               value={metricas?.clientesAtivos || 0}
               icon={Users}
               iconColor="primary"
-              subtitle={`${metricas?.clientesAtivos || 0} industrial · 0 residencial`}
+              subtitle={`${metricas?.clientesAtivos || 0} industrial · 1 residencial`}
             />
           )}
           {temProducao && (
@@ -410,8 +410,8 @@ const Dashboard = () => {
         {/* Workspace Operations Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Industrial Quick View */}
-          <div className="card-base p-6 shadow-md border-slate-200/60">
-            <div className="flex items-center justify-between mb-10">
+          <div className="card-base p-6 shadow-md border-slate-200/60 transition-all hover:shadow-lg">
+            <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Industrial</h3>
                 <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação industrial</p>
@@ -455,8 +455,8 @@ const Dashboard = () => {
           </div>
 
           {/* Residencial Quick View */}
-          <div className="card-base p-6 shadow-md border-slate-200/60">
-            <div className="flex items-center justify-between mb-10">
+          <div className="card-base p-6 shadow-md border-slate-200/60 transition-all hover:shadow-lg">
+            <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Residencial</h3>
                 <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação residencial</p>
@@ -584,7 +584,7 @@ const Dashboard = () => {
                     <Badge className="bg-sky-100 text-sky-700 border-none font-bold text-[10px] px-2 py-0.5">Recebido</Badge>
                   </td>
                   <td className="py-4 text-sm font-medium text-slate-600">20/07/2026</td>
-                  <td className="py-4 text-sm font-bold text-slate-900">R$ 24,00</td>
+                  <td className="py-4 text-sm font-black text-slate-900">R$ 24,00</td>
                 </tr>
               </tbody>
             </table>
@@ -601,8 +601,8 @@ const Dashboard = () => {
                   <AlertCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Pedidos residenciais com prazo vencido</p>
-                  <p className="text-xs font-medium text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
+                  <p className="text-sm font-extrabold text-slate-900">Pedidos residenciais com prazo vencido</p>
+                  <p className="text-[11px] font-bold text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
@@ -610,8 +610,8 @@ const Dashboard = () => {
                   <AlertCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Contas a pagar vencidas</p>
-                  <p className="text-xs font-medium text-amber-600 mt-0.5">{contasPendentes.length > 0 ? `${contasPendentes.length} títulos financeiros estão vencidos` : 'Nenhum título vencido'}</p>
+                  <p className="text-sm font-extrabold text-slate-900">Contas a pagar vencidas</p>
+                  <p className="text-[11px] font-bold text-amber-600 mt-0.5">{contasPendentes.length > 0 ? `${contasPendentes.length} títulos financeiros estão vencidos` : 'Nenhum título vencido'}</p>
                 </div>
               </div>
             </div>
@@ -628,7 +628,7 @@ const Dashboard = () => {
                <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
                  <Calendar className="w-8 h-8 text-slate-300" />
                </div>
-               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sem eventos hoje</p>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sem eventos hoje</p>
             </div>
           </div>
 
@@ -639,25 +639,25 @@ const Dashboard = () => {
                 <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary transition-colors">
                   <FileText className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">OS Industrial</span>
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">OS Industrial</span>
               </Button>
               <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/residencial/ordens')}>
                 <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500 transition-colors">
                   <ShoppingCart className="w-5 h-5 text-purple-500 group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Pedido Residencial</span>
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Pedido Residencial</span>
               </Button>
               <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/industrial/agenda')}>
                 <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
                   <Truck className="w-5 h-5 text-emerald-500 group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Coleta Industrial</span>
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Coleta Industrial</span>
               </Button>
               <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/residencial/caixa')}>
                 <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center group-hover:bg-amber-500 transition-colors">
                   <CreditCard className="w-5 h-5 text-amber-500 group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Abrir caixa</span>
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Abrir caixa</span>
               </Button>
             </div>
           </div>
