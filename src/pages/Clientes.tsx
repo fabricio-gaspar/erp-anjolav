@@ -101,8 +101,11 @@ const Clientes = () => {
     return classificacao === "industrial" ? "ID1" : "ID2";
   };
 
+  const pageTitle = activeArea === "industrial" ? "Clientes Industrial" : "Clientes";
+  const pageSubtitle = activeArea === "industrial" ? "AnjoLav" : "Gerenciamento de clientes";
+
   return (
-    <AppLayout title="Clientes" subtitle="Gerenciamento de clientes">
+    <AppLayout title={pageTitle} subtitle={pageSubtitle}>
       <div className="content-panel">
         <div className="space-y-4">
         {activeTab !== "lista" && (
@@ -151,14 +154,14 @@ const Clientes = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
-            <TabsList className="bg-muted/50 p-1 rounded-lg inline-flex min-w-max">
-              <TabsTrigger value="lista">Lista</TabsTrigger>
-              <TabsTrigger value="dados">Dados</TabsTrigger>
-              <TabsTrigger value="endereco" disabled={!selectedClienteId}>Endereço</TabsTrigger>
-              <TabsTrigger value="pagamento" disabled={!selectedClienteId}>Pagamento</TabsTrigger>
-              <TabsTrigger value="configuracao" disabled={!selectedClienteId}>Config.</TabsTrigger>
-              <TabsTrigger value="contrato" disabled={!selectedClienteId}>Contrato</TabsTrigger>
-              <TabsTrigger value="precos" disabled={!selectedClienteId}>Preços</TabsTrigger>
+            <TabsList className="bg-slate-200/50 p-1 rounded-lg inline-flex min-w-max border-none">
+              <TabsTrigger value="lista" className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Lista</TabsTrigger>
+              <TabsTrigger value="dados" className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Dados</TabsTrigger>
+              <TabsTrigger value="endereco" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Endereço</TabsTrigger>
+              <TabsTrigger value="pagamento" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Pagamento</TabsTrigger>
+              <TabsTrigger value="configuracao" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Config.</TabsTrigger>
+              <TabsTrigger value="contrato" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Contrato</TabsTrigger>
+              <TabsTrigger value="precos" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Preços</TabsTrigger>
             </TabsList>
           </div>
 
@@ -170,7 +173,7 @@ const Clientes = () => {
                   placeholder="Pesquisar..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 bg-white border-[#bccadc] text-slate-900"
                 />
               </div>
 
@@ -182,7 +185,7 @@ const Clientes = () => {
               </div>
             </div>
 
-            <div className="bg-card border rounded-lg overflow-x-auto">
+            <div className="bg-transparent overflow-x-auto">
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -199,26 +202,26 @@ const Clientes = () => {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="font-semibold">ID</TableHead>
-                      <TableHead className="font-semibold">NOME / RAZÃO SOCIAL</TableHead>
-                      <TableHead className="font-semibold hidden sm:table-cell">CPF/CNPJ</TableHead>
-                      <TableHead className="font-semibold hidden md:table-cell">TELEFONE</TableHead>
-                      <TableHead className="font-semibold">STATUS</TableHead>
-                      <TableHead className="font-semibold text-right">AÇÕES</TableHead>
+                    <TableRow className="bg-slate-50 border-none">
+                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3">ID</TableHead>
+                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3">NOME / RAZÃO SOCIAL</TableHead>
+                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3 hidden sm:table-cell">CPF/CNPJ</TableHead>
+                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3 hidden md:table-cell">TELEFONE</TableHead>
+                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3">STATUS</TableHead>
+                      <TableHead className="font-semibold text-[12px] text-slate-500 py-0.5 px-3 text-right">AÇÕES</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredClientes.map((cliente) => (
-                      <TableRow key={cliente.id} className="hover:bg-muted/30">
-                        <TableCell>
+                      <TableRow key={cliente.id} className="hover:bg-muted/30 border-none">
+                        <TableCell className="py-2.5 px-3">
                           <StatusBadge
                             variant={cliente.classificacao === "industrial" ? "warning" : "info"}
                           >
                             {getUnidadeNegocioBadge(cliente.classificacao)}
                           </StatusBadge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-2.5 px-3 text-slate-900">
                           <div>
                             <span className="font-medium">{cliente.razao_social}</span>
                             {cliente.nome_fantasia && (
@@ -228,14 +231,14 @@ const Clientes = () => {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground hidden sm:table-cell">{cliente.cpf_cnpj || "-"}</TableCell>
-                        <TableCell className="text-muted-foreground hidden md:table-cell">{cliente.telefone || "-"}</TableCell>
-                        <TableCell>
+                        <TableCell className="text-slate-900 hidden sm:table-cell py-2.5 px-3">{cliente.cpf_cnpj || "-"}</TableCell>
+                        <TableCell className="text-slate-900 hidden md:table-cell py-2.5 px-3">{cliente.telefone || "-"}</TableCell>
+                        <TableCell className="py-2.5 px-3">
                           <StatusBadge variant={cliente.ativo ? "success" : "warning"}>
                             {cliente.ativo ? "Ativo" : "Inativo"}
                           </StatusBadge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-2.5 px-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8">
