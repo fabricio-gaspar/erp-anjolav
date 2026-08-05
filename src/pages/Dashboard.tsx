@@ -404,34 +404,34 @@ const Dashboard = () => {
         </div>
 
         {/* Workspace Operations Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Industrial Quick View */}
-          <div className="card-base p-6">
-            <div className="flex items-center justify-between mb-8">
+          <div className="card-base p-6 shadow-md border-slate-200/60">
+            <div className="flex items-center justify-between mb-10">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Industrial</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Visão rápida da operação industrial</p>
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Industrial</h3>
+                <p className="text-sm font-medium text-slate-400 mt-1">Visão rápida da operação industrial</p>
               </div>
-              <Badge variant="outline" className="bg-success/5 text-success border-success/20 gap-1.5 font-bold py-1 px-3">
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-2 font-bold py-1.5 px-4 rounded-lg shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 Operação estável
               </Badge>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 mb-8">
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">OS hoje</p>
-                <p className="text-2xl font-bold text-slate-900">0</p>
+            <div className="grid grid-cols-4 gap-6 mb-10">
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">OS hoje</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Em andamento</p>
-                <p className="text-2xl font-bold text-slate-900">0</p>
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Em andamento</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">0</p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Coletas hoje</p>
-                <p className="text-2xl font-bold text-slate-900">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
+              <div className="space-y-1.5">
+                <p className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Coletas hoje</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Faturamento mês</p>
                 <p className="text-2xl font-bold text-slate-900">R$ 0,00</p>
               </div>
