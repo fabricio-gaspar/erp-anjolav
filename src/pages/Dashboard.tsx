@@ -303,16 +303,16 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Visão consolidada e auditável das operações industrial e residencial.">
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* Top Section with Main Title and Refresh */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="flex h-2 w-2 rounded-full bg-success animate-pulse" />
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-success">Dados ao Vivo</span>
-              <span className="text-[10px] font-semibold text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="flex h-2 w-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#10b981]">DADOS AO VIVO</span>
+              <span className="text-[10px] font-bold text-slate-400/80 tracking-wide ml-1">ATUALIZADO ÀS {format(new Date(), "HH:mm")}</span>
             </div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tightest">Painel Central</h1>
+            <h1 className="text-[44px] font-black text-[#0f172a] tracking-[-0.05em] leading-[0.9] uppercase">Painel Central</h1>
           </div>
 
           <div className="flex items-center gap-2">
