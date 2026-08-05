@@ -645,7 +645,7 @@ const Dashboard = () => {
                 <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500 transition-colors">
                   <ShoppingCart className="w-5 h-5 text-purple-500 group-hover:text-white transition-colors" />
                 </div>
-                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Pedido Residencial</span>
+                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Pedido Residencial</span>
               </Button>
               <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/industrial/agenda')}>
                 <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
