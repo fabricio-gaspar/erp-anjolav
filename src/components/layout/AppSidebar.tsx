@@ -290,8 +290,8 @@ const CollapseButton = () => {
     <button
       onClick={toggleSidebar}
       className={cn(
-        "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-white text-slate-600 shadow-lg hover:scale-110 transition-all duration-200 z-50",
-        "border border-slate-200"
+        "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-[#0b1f33] text-white shadow-xl hover:scale-110 transition-all duration-200 z-50",
+        "border border-white/10"
       )}
     >
       {isCollapsed ? (
@@ -429,13 +429,13 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
 
           {/* Bottom items */}
-          <div className={cn("border-t border-slate-800", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
+          <div className={cn("border-t border-white/5", compact ? "pt-2 mt-2" : "pt-4 mt-4")}>
             <NavItem to="/central/configuracoes" icon={Settings} label="Configurações" compact={compact} />
           </div>
         </nav>
 
         {/* User Section */}
-        <div className={cn("border-t border-slate-800", compact ? "p-2" : "p-3")}>
+        <div className={cn("border-t border-white/5", compact ? "p-2" : "p-3")}>
           <UserSection compact={compact} />
         </div>
       </aside>
