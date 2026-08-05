@@ -54,10 +54,15 @@ export function KPICard({ title, value, icon: Icon, iconColor = "primary", trend
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           {/* Title */}
-          <p className="kpi-card-title group-hover:text-slate-500 transition-colors">{title}</p>
+          <p className="kpi-card-title group-hover:text-slate-500 transition-colors uppercase">{title}</p>
 
           {/* Value */}
           <span className="kpi-card-value block tracking-tighter">{value}</span>
+          
+          {/* Subtitle */}
+          {subtitle && (
+            <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{subtitle}</p>
+          )}
 
           {/* Trend */}
           {trend && (
