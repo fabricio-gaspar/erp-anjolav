@@ -50,6 +50,7 @@ const routeNames: Record<string, string> = {
 };
 
 function Breadcrumb() {
+  const { activeArea } = useWorkspace();
   const location = useLocation();
   const pathSegments = location.pathname.split("/").filter(Boolean);
   
