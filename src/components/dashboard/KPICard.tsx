@@ -6,6 +6,7 @@ interface KPICardProps {
   value: string | number;
   icon: LucideIcon;
   iconColor?: "primary" | "success" | "warning" | "destructive" | "info";
+  subtitle?: string;
   trend?: {
     value: string;
     direction: "up" | "down" | "neutral";
