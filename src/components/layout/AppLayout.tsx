@@ -23,7 +23,7 @@ export function AppLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 flex w-full overflow-x-hidden">
+    <div className="min-h-screen bg-[#f5f7fa] flex w-full overflow-x-hidden">
       {/* Desktop Sidebar */}
       {!isMobile && <AppSidebar />}
       
