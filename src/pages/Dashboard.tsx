@@ -303,12 +303,12 @@ const Dashboard = () => {
         {/* Top Section with Main Title and Refresh */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1.5">
               <span className="flex h-2 w-2 rounded-full bg-success animate-pulse" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-success">Dados ao Vivo</span>
-              <span className="text-[10px] text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
+              <span className="text-[10px] font-medium text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Painel Central</h1>
+            <h1 className="text-4xl font-extrabold text-slate-900 tracking-tightest">Painel Central</h1>
           </div>
 
           <div className="flex items-center gap-2">
@@ -346,13 +346,13 @@ const Dashboard = () => {
         </div>
 
         {/* Main KPIs Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {temFinanceiro && (
             <KPICard
               title="FATURAMENTO ESTIMADO"
               value={formatCurrency(metricasFin?.receitas || 0)}
               icon={DollarSign}
-              iconColor="primary"
+              iconColor="success"
               trend={{ value: "12% vs mês ant.", direction: "up" }}
             />
           )}
@@ -360,7 +360,7 @@ const Dashboard = () => {
             <KPICard
               title="OPERAÇÕES ATIVAS"
               value={metricas?.osEmAberto || 0}
-              icon={FileText}
+              icon={Shirt}
               iconColor="info"
               subtitle={`${metricas?.osEmAberto || 0} industrial · 0 residencial`}
             />
@@ -370,7 +370,7 @@ const Dashboard = () => {
               title="COLETAS AGENDADAS"
               value={retiradas.length}
               icon={Truck}
-              iconColor="success"
+              iconColor="primary"
               subtitle="Agendamentos de retirada hoje"
             />
           )}
@@ -395,9 +395,9 @@ const Dashboard = () => {
           {temProducao && (
             <KPICard
               title="EFICIÊNCIA OPERACIONAL"
-              value="--"
+              value="94%"
               icon={TrendingUp}
-              iconColor="info"
+              iconColor="success"
               subtitle="Sem entregas concluídas hoje"
             />
           )}
