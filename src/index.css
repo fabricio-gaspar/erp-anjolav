@@ -220,11 +220,11 @@
   }
 
   .kpi-card-title {
-    @apply text-xs font-medium text-slate-400 mb-1 truncate;
+    @apply text-[10px] font-bold text-slate-400 mb-1 truncate uppercase tracking-wider;
   }
 
   .kpi-card-value {
-    @apply text-2xl font-bold text-slate-900 tracking-tighter truncate;
+    @apply text-2xl font-bold text-slate-900 tracking-tighter truncate leading-none;
   }
 
   .kpi-card-icon {

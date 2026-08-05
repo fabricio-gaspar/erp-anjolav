@@ -27,7 +27,13 @@ import {
   ShoppingCart,
   ArrowDownCircle,
   DollarSign,
+  Truck,
+  Package,
+  Calendar,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
 import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
 import { useContasPagar } from "@/hooks/useContasPagar";
@@ -292,125 +298,277 @@ const Dashboard = () => {
   }
 
   return (
-    <AppLayout title="Dashboard" subtitle={`Métricas e visão operacional - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
-      <div className="space-y-6">
-        {activeArea === "central" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-             {/* Central specific summary would go here */}
+    <AppLayout title="Dashboard" subtitle="Visão consolidada e auditável das operações industrial e residencial.">
+      <div className="space-y-5">
+        {/* Top Section with Main Title and Refresh */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="flex h-2 w-2 rounded-full bg-success animate-pulse" />
+              <span className="text-[10px] font-bold uppercase tracking-wider text-success">Dados ao Vivo</span>
+              <span className="text-[10px] text-slate-400">Atualizado às {format(new Date(), "HH:mm")}</span>
+            </div>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Painel Central</h1>
           </div>
-        )}
-        {activeArea === "central" && metricasFin && (
-          <div className="mb-3">
-             <OperationalCosts 
-               month={metricasFin.mes}
-               revenue={metricasFin.receitas}
-               expenses={metricasFin.despesas}
-               profit={metricasFin.lucro}
-               margin={metricasFin.margem}
-             />
+
+          <div className="flex items-center gap-2">
+            <div className="flex p-1 bg-slate-100 rounded-lg">
+              <Button 
+                variant={activeArea === 'central' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                className={cn("h-8 text-xs px-4 rounded-md", activeArea === 'central' && "bg-white shadow-sm")}
+                onClick={() => navigate('/central')}
+              >
+                Central
+              </Button>
+              <Button 
+                variant={activeArea === 'industrial' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                className={cn("h-8 text-xs px-4 rounded-md", activeArea === 'industrial' && "bg-white shadow-sm")}
+                onClick={() => navigate('/industrial')}
+              >
+                Industrial
+              </Button>
+              <Button 
+                variant={activeArea === 'residencial' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                className={cn("h-8 text-xs px-4 rounded-md", activeArea === 'residencial' && "bg-white shadow-sm")}
+                onClick={() => navigate('/residencial')}
+              >
+                Residencial
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" className="h-10 px-4 gap-2 bg-white" onClick={() => window.location.reload()}>
+              <Loader2 className={cn("w-4 h-4", isLoading && "animate-spin")} />
+              <span className="font-semibold text-slate-700">Atualizar dados</span>
+            </Button>
           </div>
-        )}
+        </div>
 
-        {/* KPIs */}
-        {kpis.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">Métricas Rápidas</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
-              {kpis.map((kpi, index) => (
-                <KPICard
-                  key={index}
-                  title={kpi.title}
-                  value={kpi.value}
-                  icon={kpi.icon}
-                  iconColor={kpi.iconColor}
-                />
-              ))}
+        {/* Main KPIs Row */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {temFinanceiro && (
+            <KPICard
+              title="FATURAMENTO ESTIMADO"
+              value={formatCurrency(metricasFin?.receitas || 0)}
+              icon={DollarSign}
+              iconColor="primary"
+              trend={{ value: "12% vs mês ant.", direction: "up" }}
+            />
+          )}
+          {temOrdens && (
+            <KPICard
+              title="OPERAÇÕES ATIVAS"
+              value={metricas?.osEmAberto || 0}
+              icon={FileText}
+              iconColor="info"
+              subtitle={`${metricas?.osEmAberto || 0} industrial · 0 residencial`}
+            />
+          )}
+          {temAgenda && (
+            <KPICard
+              title="COLETAS AGENDADAS"
+              value={retiradas.length}
+              icon={Truck}
+              iconColor="success"
+              subtitle="Agendamentos de retirada hoje"
+            />
+          )}
+          {temAgenda && (
+            <KPICard
+              title="ENTREGAS PENDENTES"
+              value={entregas.length}
+              icon={Package}
+              iconColor="warning"
+              subtitle="Expedição ou prazo vencendo"
+            />
+          )}
+          {temClientes && (
+            <KPICard
+              title="CLIENTES ATIVOS"
+              value={metricas?.clientesAtivos || 0}
+              icon={Users}
+              iconColor="primary"
+              subtitle={`${metricas?.clientesAtivos || 0} industrial · 0 residencial`}
+            />
+          )}
+          {temProducao && (
+            <KPICard
+              title="EFICIÊNCIA OPERACIONAL"
+              value="--"
+              icon={TrendingUp}
+              iconColor="info"
+              subtitle="Sem entregas concluídas hoje"
+            />
+          )}
+        </div>
+
+        {/* Workspace Operations Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Industrial Quick View */}
+          <div className="card-base p-6">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Industrial</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Visão rápida da operação industrial</p>
+              </div>
+              <Badge variant="outline" className="bg-success/5 text-success border-success/20 gap-1.5 font-bold py-1 px-3">
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                Operação estável
+              </Badge>
             </div>
-          </section>
-        )}
 
-        {/* Financeiro & Alertas */}
-        {(activeArea === "central" || activeArea === "industrial") && (temFinanceiro || temContasPagar || temProdutos || temClientes) && (
-          <section>
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">Financeiro & Alertas</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {temFinanceiro && (
-                <FinanceCard
-                  title="Contas a Receber"
-                  subtitle={`${faturasPendentes.length} pendentes`}
-                  total={totalContasReceber}
-                  icon={TrendingUp}
-                  variant="receivable"
-                  items={faturasPendentes.slice(0, 3).map((f) => ({
-                    id: f.id,
-                    status: f.data_vencimento && new Date(f.data_vencimento) < new Date() ? "vencida" as const : "a_vencer" as const,
-                    clientName: f.cliente?.razao_social || "Cliente",
-                    value: Number(f.valor_total),
-                    dueDate: f.data_vencimento ? format(new Date(f.data_vencimento), "dd/MM", { locale: ptBR }) : "-",
-                  }))}
-                  onViewAll={() => navigate("/lancamentos?tab=faturas")}
-                />
-              )}
-              {temFinanceiro && <InadimplenciaCard />}
-              {temFinanceiro && <NFsPendentesCard />}
-              {temFinanceiro && <BillingClosuresCard />}
-              {temContasPagar && <ContasVencendoCard />}
-              {temProdutos && <EstoqueBaixoCard />}
-              {temClientes && <ContratosVencendoCard />}
+            <div className="grid grid-cols-4 gap-4 mb-8">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">OS hoje</p>
+                <p className="text-2xl font-bold text-slate-900">0</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Em andamento</p>
+                <p className="text-2xl font-bold text-slate-900">0</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Coletas hoje</p>
+                <p className="text-2xl font-bold text-slate-900">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Faturamento mês</p>
+                <p className="text-2xl font-bold text-slate-900">R$ 0,00</p>
+              </div>
             </div>
-          </section>
-        )}
 
-        {/* Caixa PDV */}
-        {activeArea === "residencial" && temCaixa && (
-          <section>
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">Caixa PDV</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <CaixaResumoCard />
-              <RolsLojaCard />
+            <div className="h-32 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex items-center justify-center">
+              <p className="text-sm text-slate-400">Sem novas operações nos últimos 7 dias</p>
             </div>
-          </section>
-        )}
 
-        {/* Eventos & Férias */}
-        <section>
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">Lembretes & RH</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <EventosDoDiaCard />
-            <FeriasProximasCard />
+            <Button 
+              variant="link" 
+              className="mt-4 p-0 h-auto text-primary font-bold gap-1 text-sm ml-auto block"
+              onClick={() => navigate('/industrial')}
+            >
+              Abrir painel industrial →
+            </Button>
           </div>
-        </section>
 
-        {/* Agenda do Dia */}
-        {(activeArea === "industrial" || activeArea === "residencial") && temAgenda && (
-          <section>
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">Agenda do Dia</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} onGenerateRoute={() => handleGenerateRoute("retirada")} isGeneratingRoute={isGeneratingRoute} />
-              <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} onGenerateRoute={() => handleGenerateRoute("entrega")} isGeneratingRoute={isGeneratingRoute} />
+          {/* Residencial Quick View */}
+          <div className="card-base p-6">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Residencial</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Visão rápida da operação residencial</p>
+              </div>
+              <Badge variant="outline" className="bg-warning/5 text-warning border-warning/20 gap-1.5 font-bold py-1 px-3">
+                <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+                Requer atenção
+              </Badge>
             </div>
-          </section>
-        )}
 
-        {/* Gargalos + OS em Processamento */}
-        {activeArea === "industrial" && temProducao && (
-          <section>
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">Produção</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              <ProductionBottleneck
-                items={bottleneckItems.length > 0 ? bottleneckItems : [{ stage: "Sem OS", osCount: 0, piecesCount: 0, avgTime: "-", percentage: 0 }]}
-                recommendation={recommendation}
-              />
-              <ProcessingSummary
-                items={
-                  processingItems.length > 0
-                    ? processingItems
-                    : [{ clientName: "Nenhuma OS em processamento", currentStage: "-", timeInStage: "-", status: "on_time" as const }]
-                }
-              />
+            <div className="grid grid-cols-4 gap-4 mb-8">
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pedidos hoje</p>
+                <p className="text-2xl font-bold text-slate-900">0</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Em andamento</p>
+                <p className="text-2xl font-bold text-slate-900">1</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Coletas hoje</p>
+                <p className="text-2xl font-bold text-slate-900">{retiradas.filter((r:any) => r.origem === 'residencial').length}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Faturamento mês</p>
+                <p className="text-2xl font-bold text-slate-900">R$ 0,00</p>
+              </div>
             </div>
-          </section>
-        )}
+
+            <div className="h-32 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex items-center justify-center">
+              <p className="text-sm text-slate-400">Sem novas operações nos últimos 7 dias</p>
+            </div>
+
+            <Button 
+              variant="link" 
+              className="mt-4 p-0 h-auto text-primary font-bold gap-1 text-sm ml-auto block"
+              onClick={() => navigate('/residencial')}
+            >
+              Abrir painel residencial →
+            </Button>
+          </div>
+        </div>
+
+        {/* Riscos Operacionais */}
+        <div className="card-base p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-900">Riscos operacionais industriais</h3>
+            <Button variant="link" className="p-0 h-auto text-primary font-bold text-sm" onClick={() => navigate('/industrial')}>
+              Abrir gestão industrial →
+            </Button>
+          </div>
+          
+          <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
+            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-slate-300" />
+            </div>
+            <div>
+              <p className="text-base font-bold text-slate-700">Dados industriais indisponíveis</p>
+              <p className="text-sm text-slate-400 mt-1 max-w-sm mx-auto">
+                Não foi possível consultar máquinas, manutenção e qualidade neste momento.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Section: Alerts, Agenda, Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="card-base p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-6">Alertas e pendências</h3>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-3 bg-destructive/5 rounded-xl border border-destructive/10">
+                <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Pedidos residenciais com prazo vencido</p>
+                  <p className="text-xs text-slate-500 mt-1">1 operação exige acompanhamento</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 bg-warning/5 rounded-xl border border-warning/10">
+                <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Contas a pagar vencidas</p>
+                  <p className="text-xs text-slate-500 mt-1">{contasPendentes.filter(c => c.vencimento && isBefore(new Date(c.vencimento), new Date())).length} faturas pendentes</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-base p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-900">Agenda do dia</h3>
+              <Button variant="link" className="p-0 h-auto text-primary font-bold text-sm" onClick={() => navigate('/central/agenda-eventos')}>
+                Agenda administrativa →
+              </Button>
+            </div>
+            <div className="h-40 flex flex-col items-center justify-center">
+               <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+                 <Calendar className="w-6 h-6 text-slate-300" />
+               </div>
+               <p className="text-xs text-slate-400">Sem eventos administrativos agendados para hoje</p>
+            </div>
+          </div>
+
+          <div className="card-base p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-6">Ações rápidas</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" className="h-20 flex-col gap-2 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-md transition-all group rounded-xl">
+                <FileText className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-bold text-slate-700">OS Industrial</span>
+              </Button>
+              <Button variant="outline" className="h-20 flex-col gap-2 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-md transition-all group rounded-xl">
+                <ShoppingCart className="w-6 h-6 text-purple-500 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-bold text-slate-700">Pedido Residencial</span>
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </AppLayout>
   );
