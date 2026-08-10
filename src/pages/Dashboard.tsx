@@ -307,12 +307,12 @@ const Dashboard = () => {
         {/* Top Section with Main Title and Refresh */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 px-1">
               <span className="flex h-2.5 w-2.5 rounded-full bg-[#10b981] shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" />
               <span className="text-[11px] font-black uppercase tracking-[0.25em] text-[#10b981]">DADOS AO VIVO</span>
               <span className="text-[10px] font-black text-slate-400/70 tracking-widest ml-1">ATUALIZADO ÀS {format(new Date(), "HH:mm")}</span>
             </div>
-            <h1 className="text-[54px] font-black text-[#0f172a] tracking-tightest leading-[0.85] uppercase">Painel Central</h1>
+            <h1 className="text-[54px] font-black text-[#0f172a] tracking-tightest leading-[0.85] uppercase px-1">Painel Central</h1>
           </div>
 
           <div className="flex items-center gap-2 mb-1">

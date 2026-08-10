@@ -136,7 +136,22 @@ const FluxoProducao = () => {
 
   return (
     <AppLayout title="Fluxo de Produção" subtitle={`${subtitle} - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
-      <div className="content-panel">
+      <div className="w-full space-y-8">
+        {/* Visual Content Header mirroring high-fidelity layout */}
+        <div className="flex flex-col gap-2 px-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
+            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">PRODUÇÃO INDUSTRIAL</span>
+          </div>
+          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+            Fluxo de Produção
+          </h1>
+          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
+            Monitoramento em tempo real das etapas operacionais
+          </p>
+        </div>
+
+        <div className="content-panel">
         <Tabs defaultValue="kanban" className="space-y-3">
           <TabsList>
             <TabsTrigger value="kanban">Kanban</TabsTrigger>
