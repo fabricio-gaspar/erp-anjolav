@@ -216,7 +216,7 @@ const ContasReceber = () => {
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <Card className="p-3 sm:p-4 flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                 A RECEBER
               </p>
               <p className="text-lg sm:text-2xl font-black text-amber-600 mt-1 truncate">
@@ -230,7 +230,7 @@ const ContasReceber = () => {
 
           <Card className="p-3 sm:p-4 flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                 RECEBIDO
               </p>
               <p className="text-lg sm:text-2xl font-black text-success mt-1 truncate">
