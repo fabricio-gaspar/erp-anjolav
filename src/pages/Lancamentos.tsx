@@ -88,7 +88,7 @@ const Lancamentos = () => {
           </Tabs>
         </div>
       </div>
-    </AppLayout>
+    </div>
   );
 };
 

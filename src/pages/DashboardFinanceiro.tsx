@@ -244,6 +244,7 @@ const DashboardFinanceiro = () => {
             </div>
           </div>
         )}
+        </div>
       </div>
     </AppLayout>
   );

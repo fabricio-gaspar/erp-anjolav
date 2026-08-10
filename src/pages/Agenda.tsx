@@ -442,6 +442,7 @@ export default function Agenda() {
         agendamento={selectedAgendamento}
         onSave={handleReschedule}
       />
+      </div>
     </AppLayout>
   );
 }
