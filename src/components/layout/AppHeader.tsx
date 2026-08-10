@@ -113,7 +113,7 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
 
   return (
     <header className={cn(
-      "h-[72px] shadow-none flex items-center justify-between px-6 sticky top-0 z-30 transition-colors border-b border-slate-200",
+      "h-[72px] shadow-none flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 transition-colors border-b border-slate-200 shrink-0",
       activeArea === "central" ? "bg-[#0b1f33]" : 
       "bg-white/95"
     )}>

@@ -166,8 +166,8 @@ const Clientes = () => {
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
-            <TabsList className="bg-slate-200/50 p-1 rounded-lg inline-flex min-w-max border-none">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+            <TabsList className="bg-slate-200/50 p-1 rounded-lg flex min-w-max border-none">
               <TabsTrigger value="lista" className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Lista</TabsTrigger>
               <TabsTrigger value="dados" className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Dados</TabsTrigger>
               <TabsTrigger value="endereco" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Endereço</TabsTrigger>

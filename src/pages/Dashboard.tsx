@@ -303,7 +303,7 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Visão consolidada e auditável das operações industrial e residencial.">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Top Section with Main Title and Refresh */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
           <div>
@@ -359,7 +359,7 @@ const Dashboard = () => {
         </div>
 
         {/* Main KPIs Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4">
           {temFinanceiro && (
             <KPICard
               title="FATURAMENTO DO MÊS"
@@ -417,7 +417,7 @@ const Dashboard = () => {
         </div>
 
         {/* Workspace Operations Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
           {/* Industrial Quick View */}
           <div className="bg-white p-7 border border-slate-200/60 rounded-[24px] shadow-sm transition-all hover:shadow-md">
             <div className="flex items-center justify-between mb-8">
