@@ -209,7 +209,22 @@ const Produtos = () => {
 
   return (
     <AppLayout title="Produtos & Serviços" subtitle="Cadastro de produtos e serviços de lavanderia">
-      <div className="space-y-3">
+      <div className="w-full space-y-8">
+        {/* Visual Content Header mirroring high-fidelity layout */}
+        <div className="flex flex-col gap-2 px-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
+            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">CATÁLOGO TÉCNICO</span>
+          </div>
+          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+            Produtos & Serviços
+          </h1>
+          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
+            Definições técnicas e precificação da lavanderia
+          </p>
+        </div>
+
+        <div className="space-y-3">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 -mt-1">
           <Button variant="outline" size="sm" onClick={handleExportCSV} className="w-full sm:w-auto">
@@ -294,6 +309,7 @@ const Produtos = () => {
         )}
         </div>
       </div>
+    </div>
     </AppLayout>
   );
 };
