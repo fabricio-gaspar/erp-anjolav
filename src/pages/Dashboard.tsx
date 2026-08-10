@@ -292,7 +292,7 @@ const Dashboard = () => {
 
   if (isLoading) {
     return (
-      <AppLayout title="Dashboard">
+      <AppLayout title="Dashboard" subtitle="Visão consolidada">
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <span className="ml-2 text-muted-foreground">Carregando dashboard...</span>
@@ -303,16 +303,16 @@ const Dashboard = () => {
 
   return (
     <AppLayout title="Dashboard" subtitle="Visão consolidada e auditável das operações industrial e residencial.">
-      <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-4 sm:space-y-8">
         {/* Top Section with Main Title and Refresh */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="flex h-2 w-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#10b981]">DADOS AO VIVO</span>
-              <span className="text-[10px] font-black text-slate-400/80 tracking-wide ml-1">ATUALIZADO ÀS {format(new Date(), "HH:mm")}</span>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-[#10b981] shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" />
+              <span className="text-[11px] font-black uppercase tracking-[0.25em] text-[#10b981]">DADOS AO VIVO</span>
+              <span className="text-[10px] font-black text-slate-400/70 tracking-widest ml-1">ATUALIZADO ÀS {format(new Date(), "HH:mm")}</span>
             </div>
-            <h1 className="text-[44px] font-black text-[#0f172a] tracking-[-0.05em] leading-[0.9] uppercase">Painel Central</h1>
+            <h1 className="text-[54px] font-black text-[#0f172a] tracking-tightest leading-[0.85] uppercase">Painel Central</h1>
           </div>
 
           <div className="flex items-center gap-2 mb-1">
