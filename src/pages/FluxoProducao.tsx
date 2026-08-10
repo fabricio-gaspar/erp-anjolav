@@ -212,8 +212,8 @@ const FluxoProducao = () => {
             ) : error ? (
               <div className="text-center py-12 text-destructive">Erro ao carregar ordens de serviço</div>
             ) : (
-              <div className="overflow-x-auto pb-4 -mx-3 px-3 sm:mx-0 sm:px-0">
-                <div className="flex gap-3 min-w-max lg:grid lg:grid-cols-6 lg:min-w-0">
+              <div className="overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div className="flex gap-3 min-w-[1200px] xl:grid xl:grid-cols-6 xl:min-w-0">
                   {columns.map((column) => {
                     const columnItems = osByStatus[column.id] || [];
                     const agendamentosNaColuna = column.id === "retirada" ? agendamentosPendentes : [];

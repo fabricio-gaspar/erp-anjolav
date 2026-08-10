@@ -37,7 +37,7 @@ export function AppLayout({
       )}
       
       <div className={cn(
-        "flex-1 min-w-0 transition-all duration-300",
+        "flex-1 min-w-0 transition-all duration-300 flex flex-col h-screen overflow-hidden",
         !isMobile && (isCollapsed ? "ml-16" : "ml-60")
       )}>
         <AppHeader 
@@ -46,10 +46,8 @@ export function AppLayout({
           onMenuClick={() => setMobileMenuOpen(true)}
           showMenuButton={isMobile}
         />
-        <main className={cn(
-          "py-6 px-6",
-        )}>
-          <div className="w-full">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-[1920px] mx-auto">
+          <div className="w-full h-full">
             {children || <Outlet />}
           </div>
         </main>

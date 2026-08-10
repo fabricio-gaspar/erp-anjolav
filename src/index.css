@@ -125,6 +125,9 @@
 @layer base {
   html, body, #root {
     width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
     overflow-x: hidden;
   }
   
@@ -398,7 +401,7 @@
   /* CONTENT PANEL                                */
   /* ============================================ */
   .content-panel {
-    @apply bg-white border border-slate-200/60 rounded-lg p-4 overflow-hidden;
+    @apply bg-white border border-slate-200/60 rounded-lg p-3 sm:p-4 overflow-hidden w-full;
     box-shadow: 0 1px 2px rgba(0,0,0,0.03);
   }
 }
@@ -518,6 +521,51 @@
   }
 
   .grid-responsive-4 {
-    @apply grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3;
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+}
+
+/* Base typography refinements for high density */
+h1, h2, h3, h4, h5, h6 {
+  @apply tracking-tighter;
+}
+
+/* Improved spacing for mobile inputs */
+@media (max-width: 640px) {
+  .input-mobile-optimized {
+    @apply text-base; /* Prevent auto-zoom on iOS */
+    min-height: 44px;
+  }
+  
+  .dialog-mobile-optimized {
+    @apply p-4 w-[95vw] rounded-2xl mx-auto;
+  }
+  
+  /* Density adjustments for mobile */
+  .p-mobile-dense {
+    @apply p-3;
+  }
+}
+
+/* Grid adjustments for extreme aspect ratios */
+@media (min-width: 1920px) {
+  .container-xl {
+    max-width: 1800px;
+    margin-left: auto;
+    margin-right: auto;
   }
 }
