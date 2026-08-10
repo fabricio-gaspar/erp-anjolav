@@ -63,6 +63,7 @@ export default function OrdensServico() {
             </TabsContent>
           </Tabs>
       </div>
+    </div>
     </AppLayout>
   );
 }

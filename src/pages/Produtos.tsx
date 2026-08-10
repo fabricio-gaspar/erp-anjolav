@@ -309,6 +309,7 @@ const Produtos = () => {
         )}
         </div>
       </div>
+    </div>
     </AppLayout>
   );
 };

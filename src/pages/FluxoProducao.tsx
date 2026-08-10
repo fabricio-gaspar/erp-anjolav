@@ -329,6 +329,7 @@ const FluxoProducao = () => {
           </TabsContent>
         </Tabs>
       </div>
+    </div>
 
       {selectedOS && (
         <FormularioEtapa
