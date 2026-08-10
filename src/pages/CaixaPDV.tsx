@@ -580,7 +580,7 @@ const CaixaPDV = () => {
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                  <span className="text-primary-foreground font-bold text-sm">A</span>
+                  <span className="text-primary-foreground font-black text-sm">A</span>
                 </div>
                 <div>
                   <h2 className="font-semibold text-primary">Caixa PDV</h2>
@@ -603,7 +603,7 @@ const CaixaPDV = () => {
                     <span className="text-sm text-muted-foreground hidden sm:inline">| {caixaAberto.operador}</span>
                     <div className="bg-success text-success-foreground px-3 py-1 rounded-lg">
                       <span className="text-xs">Vendas Hoje</span>
-                      <p className="font-bold">{formatCurrency(caixaAberto.valor_vendas)}</p>
+                      <p className="font-black">{formatCurrency(caixaAberto.valor_vendas)}</p>
                     </div>
                   </>
                 ) : (
@@ -761,7 +761,7 @@ const CaixaPDV = () => {
                       </h3>
                       <div>
                         <span className={cn(
-                          "text-sm font-bold",
+                          "text-sm font-black",
                           hasSpecialPrice ? "text-success" : "text-primary"
                         )}>
                           R$ {preco.toFixed(2).replace(".", ",")}
@@ -963,7 +963,7 @@ const CaixaPDV = () => {
             </div>
             <div className="flex justify-between items-baseline mb-4">
               <span className="text-lg font-semibold">TOTAL:</span>
-              <span className="text-2xl font-bold text-success">
+              <span className="text-2xl font-black text-success">
                 R$ {totalValue.toFixed(2).replace(".", ",")}
               </span>
             </div>

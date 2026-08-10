@@ -202,7 +202,7 @@ export default function Fornecedores() {
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Fornecedores</h1>
+            <h1 className="text-2xl font-black text-foreground">Fornecedores</h1>
             <p className="text-muted-foreground">Cadastro de fornecedores e parceiros comerciais</p>
           </div>
           <Button onClick={abrirNovo} className="w-full sm:w-auto"><Plus className="w-4 h-4 mr-2" />Novo Fornecedor</Button>

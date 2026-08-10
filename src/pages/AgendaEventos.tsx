@@ -144,7 +144,7 @@ const AgendaEventos = () => {
                   className={cn(
                     "relative h-10 rounded-lg text-sm transition-colors",
                     selected
-                      ? "bg-primary text-primary-foreground font-bold"
+                      ? "bg-primary text-primary-foreground font-black"
                       : today
                       ? "bg-primary/10 font-semibold"
                       : "hover:bg-muted",

@@ -340,7 +340,7 @@ export default function Agenda() {
                       <span
                         className={`text-sm font-medium mb-2 ${
                           isToday
-                            ? "text-primary font-bold"
+                            ? "text-primary font-black"
                             : isWeekend
                             ? "text-destructive"
                             : "text-foreground"

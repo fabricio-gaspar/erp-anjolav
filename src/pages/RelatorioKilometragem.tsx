@@ -177,7 +177,7 @@ export default function RelatorioKilometragem() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{totalKm.toFixed(1)} km</p>
+              <p className="text-2xl font-black">{totalKm.toFixed(1)} km</p>
             </CardContent>
           </Card>
           <Card>
@@ -187,7 +187,7 @@ export default function RelatorioKilometragem() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{totalRotas}</p>
+              <p className="text-2xl font-black">{totalRotas}</p>
             </CardContent>
           </Card>
           <Card>
@@ -197,7 +197,7 @@ export default function RelatorioKilometragem() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{(totalKm / diasNoPeriodo).toFixed(1)} km</p>
+              <p className="text-2xl font-black">{(totalKm / diasNoPeriodo).toFixed(1)} km</p>
             </CardContent>
           </Card>
         </div>

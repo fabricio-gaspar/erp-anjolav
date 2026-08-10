@@ -366,7 +366,7 @@ const RelatorioFinanceiro = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-medium text-muted-foreground uppercase">Receitas</p>
-                    <p className="text-sm font-bold text-emerald-600">
+                    <p className="text-sm font-black text-emerald-600">
                       {formatCurrency(totals.totalReceitas)}
                     </p>
                   </div>
@@ -381,7 +381,7 @@ const RelatorioFinanceiro = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-medium text-muted-foreground uppercase">Despesas</p>
-                    <p className="text-sm font-bold text-red-600">
+                    <p className="text-sm font-black text-red-600">
                       {formatCurrency(totals.totalDespesas)}
                     </p>
                   </div>
@@ -403,7 +403,7 @@ const RelatorioFinanceiro = () => {
                   <div>
                     <p className="text-[10px] font-medium text-muted-foreground uppercase">Resultado</p>
                     <p className={cn(
-                      "text-sm font-bold",
+                      "text-sm font-black",
                       totals.resultado >= 0 ? "text-emerald-600" : "text-red-600"
                     )}>
                       {formatCurrency(totals.resultado)}
@@ -420,7 +420,7 @@ const RelatorioFinanceiro = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-medium text-muted-foreground uppercase">Margem</p>
-                    <p className="text-sm font-bold text-blue-600">
+                    <p className="text-sm font-black text-blue-600">
                       {totals.margemLiquida.toFixed(1)}%
                     </p>
                   </div>
@@ -435,7 +435,7 @@ const RelatorioFinanceiro = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-medium text-muted-foreground uppercase">Peças</p>
-                    <p className="text-sm font-bold text-purple-600">
+                    <p className="text-sm font-black text-purple-600">
                       {totals.totalPecas.toLocaleString("pt-BR")}
                     </p>
                   </div>
@@ -450,7 +450,7 @@ const RelatorioFinanceiro = () => {
                   </div>
                   <div>
                     <p className="text-[10px] font-medium text-muted-foreground uppercase">Lançamentos</p>
-                    <p className="text-sm font-bold text-amber-600">
+                    <p className="text-sm font-black text-amber-600">
                       {totals.totalLancamentos}
                     </p>
                   </div>

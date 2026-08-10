@@ -34,9 +34,9 @@ const ForgotPassword = () => {
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-black flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">A</span>
+              <span className="text-white font-black text-2xl">A</span>
             </div>
-            <span className="font-bold text-2xl text-white">AnjoLav</span>
+            <span className="font-black text-2xl text-white">AnjoLav</span>
           </div>
         </div>
 
@@ -49,7 +49,7 @@ const ForgotPassword = () => {
                     <CheckCircle className="w-8 h-8 text-green-600" />
                   </div>
                 </div>
-                <CardTitle className="text-2xl font-bold">Email Enviado!</CardTitle>
+                <CardTitle className="text-2xl font-black">Email Enviado!</CardTitle>
                 <CardDescription>
                   Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
                 </CardDescription>
@@ -74,7 +74,7 @@ const ForgotPassword = () => {
           ) : (
             <>
               <CardHeader className="space-y-1 text-center">
-                <CardTitle className="text-2xl font-bold">Esqueceu a Senha?</CardTitle>
+                <CardTitle className="text-2xl font-black">Esqueceu a Senha?</CardTitle>
                 <CardDescription>
                   Digite seu email e enviaremos instruções para redefinir sua senha
                 </CardDescription>

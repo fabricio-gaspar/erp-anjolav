@@ -149,12 +149,12 @@ const PortalCliente = () => {
             <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
               <AlertCircle className="w-8 h-8 text-destructive" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Acesso Negado</h1>
+            <h1 className="text-2xl font-black text-foreground">Acesso Negado</h1>
             <p className="text-muted-foreground">
               O código de acesso informado é inválido ou expirou.
             </p>
             <p className="text-sm text-muted-foreground">
-              Código: <span className="font-mono font-bold">{codigo}</span>
+              Código: <span className="font-mono font-black">{codigo}</span>
             </p>
             <p className="text-sm text-muted-foreground mt-4">
               Entre em contato com a lavanderia para obter um novo código de acesso.
@@ -218,7 +218,7 @@ const PortalCliente = () => {
                 />
               )}
               <div>
-                <h1 className="text-lg font-bold text-foreground">{nomeEmpresa}</h1>
+                <h1 className="text-lg font-black text-foreground">{nomeEmpresa}</h1>
                 <p className="text-xs text-muted-foreground">Portal do Cliente</p>
               </div>
             </div>
@@ -241,7 +241,7 @@ const PortalCliente = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Bem-vindo(a),</p>
-                  <h2 className="text-xl font-bold text-foreground">
+                  <h2 className="text-xl font-black text-foreground">
                     {nomeExibicao}
                   </h2>
                 </div>

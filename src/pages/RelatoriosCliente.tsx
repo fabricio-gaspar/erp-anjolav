@@ -120,7 +120,7 @@ const RelatoriosCliente = () => {
     <AppLayout title="Dashboard">
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-2xl font-black text-foreground">
             Relatórios para Cliente
           </h1>
           <p className="text-sm text-muted-foreground">

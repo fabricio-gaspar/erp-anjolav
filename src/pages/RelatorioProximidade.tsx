@@ -204,7 +204,7 @@ const RelatorioProximidade = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
               <Route className="w-6 h-6 text-primary" />
               Relatório de Proximidade
             </h1>
@@ -244,13 +244,13 @@ const RelatorioProximidade = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <Card>
             <CardContent className="py-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{estatisticas.total}</p>
+              <p className="text-2xl font-black text-foreground">{estatisticas.total}</p>
               <p className="text-xs text-muted-foreground">Total Clientes</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="py-4 text-center">
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-2xl font-black text-foreground">
                 {estatisticas.media.toFixed(1)} km
               </p>
               <p className="text-xs text-muted-foreground">Distância Média</p>
@@ -258,7 +258,7 @@ const RelatorioProximidade = () => {
           </Card>
           <Card>
             <CardContent className="py-4 text-center">
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-black text-green-600">
                 {estatisticas.menor.toFixed(1)} km
               </p>
               <p className="text-xs text-muted-foreground">Mais Próximo</p>
@@ -266,7 +266,7 @@ const RelatorioProximidade = () => {
           </Card>
           <Card>
             <CardContent className="py-4 text-center">
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-2xl font-black text-red-600">
                 {estatisticas.maior.toFixed(1)} km
               </p>
               <p className="text-xs text-muted-foreground">Mais Distante</p>
@@ -274,13 +274,13 @@ const RelatorioProximidade = () => {
           </Card>
           <Card className="bg-green-50 dark:bg-green-950/20">
             <CardContent className="py-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{estatisticas.ate5km}</p>
+              <p className="text-2xl font-black text-green-600">{estatisticas.ate5km}</p>
               <p className="text-xs text-muted-foreground">Até 5 km</p>
             </CardContent>
           </Card>
           <Card className="bg-red-50 dark:bg-red-950/20">
             <CardContent className="py-4 text-center">
-              <p className="text-2xl font-bold text-red-600">{estatisticas.acima10km}</p>
+              <p className="text-2xl font-black text-red-600">{estatisticas.acima10km}</p>
               <p className="text-xs text-muted-foreground">Acima 10 km</p>
             </CardContent>
           </Card>
