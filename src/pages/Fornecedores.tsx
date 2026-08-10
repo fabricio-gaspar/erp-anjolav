@@ -198,14 +198,24 @@ export default function Fornecedores() {
   };
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-black text-foreground">Fornecedores</h1>
-            <p className="text-muted-foreground">Cadastro de fornecedores e parceiros comerciais</p>
+    <AppLayout title="Fornecedores" subtitle="Cadastro de fornecedores e parceiros comerciais">
+      <div className="w-full space-y-8">
+        {/* Visual Content Header mirroring high-fidelity layout */}
+        <div className="flex flex-col gap-2 px-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
+            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">SUPRIMENTOS E PARCERIAS</span>
           </div>
-          <Button onClick={abrirNovo} className="w-full sm:w-auto"><Plus className="w-4 h-4 mr-2" />Novo Fornecedor</Button>
+          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+            Fornecedores
+          </h1>
+          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
+            Gestão estratégica de parceiros e custos fixos
+          </p>
+        </div>
+
+        <div className="flex items-center justify-end">
+          <Button onClick={abrirNovo} className="w-full sm:w-auto bg-[#009ee3] hover:bg-[#008dcb] text-white border-none font-black text-[11px] uppercase tracking-[0.1em] shadow-sm"><Plus className="w-4 h-4 mr-2" />Novo Fornecedor</Button>
         </div>
 
         <Card>

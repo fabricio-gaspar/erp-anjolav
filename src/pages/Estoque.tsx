@@ -72,18 +72,26 @@ export default function Estoque() {
   };
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-black text-foreground">Estoque</h1>
-            <p className="text-muted-foreground">Controle de insumos e materiais</p>
+    <AppLayout title="Estoque" subtitle="Controle de insumos e materiais">
+      <div className="w-full space-y-8">
+        {/* Visual Content Header mirroring high-fidelity layout */}
+        <div className="flex flex-col gap-2 px-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
+            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">GESTÃO DE INSUMOS</span>
           </div>
-          <div className="flex gap-2 flex-wrap w-full sm:w-auto">
-            <Button variant="outline" onClick={() => setModalEntrada(true)} className="flex-1 sm:flex-none"><ArrowDownToLine className="w-4 h-4 mr-2" />Entrada</Button>
-            <Button variant="outline" onClick={() => setModalSaida(true)} className="flex-1 sm:flex-none"><ArrowUpFromLine className="w-4 h-4 mr-2" />Saída</Button>
-            <Button onClick={abrirNovo} className="flex-1 sm:flex-none"><Plus className="w-4 h-4 mr-2" />Novo Insumo</Button>
-          </div>
+          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+            Controle de Estoque
+          </h1>
+          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
+            Monitoramento de níveis, validades e reposição técnica
+          </p>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 flex-wrap w-full sm:w-auto">
+          <Button variant="outline" onClick={() => setModalEntrada(true)} className="flex-1 sm:flex-none border-slate-200 text-slate-700 bg-slate-50/50 hover:bg-slate-100 h-10"><ArrowDownToLine className="w-4 h-4 mr-2" />Entrada</Button>
+          <Button variant="outline" onClick={() => setModalSaida(true)} className="flex-1 sm:flex-none border-slate-200 text-slate-700 bg-slate-50/50 hover:bg-slate-100 h-10"><ArrowUpFromLine className="w-4 h-4 mr-2" />Saída</Button>
+          <Button onClick={abrirNovo} className="flex-1 sm:flex-none bg-[#009ee3] hover:bg-[#008dcb] text-white border-none font-black text-[11px] uppercase tracking-[0.1em] shadow-sm h-10 px-6"><Plus className="w-4 h-4 mr-2" />Novo Insumo</Button>
         </div>
 
         <EstoqueDashboard totalItens={totalItens} itensBaixos={itensBaixos.length} valorTotal={valorTotal} />
