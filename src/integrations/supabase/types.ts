@@ -1526,6 +1526,59 @@ export type Database = {
           },
         ]
       }
+      folha_pagamento_historico: {
+        Row: {
+          created_at: string
+          data_fechamento: string
+          detalhes_beneficios: Json | null
+          fechado_por: string | null
+          funcionario_id: string
+          id: string
+          mes_referencia: string
+          salario_base: number
+          status_pagamento: string | null
+          total_beneficios: number
+          total_descontos: number
+          valor_liquido: number
+        }
+        Insert: {
+          created_at?: string
+          data_fechamento?: string
+          detalhes_beneficios?: Json | null
+          fechado_por?: string | null
+          funcionario_id: string
+          id?: string
+          mes_referencia: string
+          salario_base?: number
+          status_pagamento?: string | null
+          total_beneficios?: number
+          total_descontos?: number
+          valor_liquido?: number
+        }
+        Update: {
+          created_at?: string
+          data_fechamento?: string
+          detalhes_beneficios?: Json | null
+          fechado_por?: string | null
+          funcionario_id?: string
+          id?: string
+          mes_referencia?: string
+          salario_base?: number
+          status_pagamento?: string | null
+          total_beneficios?: number
+          total_descontos?: number
+          valor_liquido?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folha_pagamento_historico_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           ativo: boolean
