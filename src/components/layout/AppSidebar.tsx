@@ -66,10 +66,10 @@ const NavItem = ({ to, icon: Icon, label, end = false, compact = false }: NavIte
     <NavLink
       to={to}
       className={cn(
-        "group flex items-center gap-3 rounded-lg font-medium transition-all duration-200 relative mx-3",
-        compact ? "px-2 py-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 text-sm",
+        "group flex items-center gap-3 rounded-lg font-black transition-all duration-200 relative mx-3",
+        compact ? "px-2 py-1.5 text-[10px] gap-1.5" : "px-3 py-2.5 text-[13px]",
         isActive
-          ? "bg-sky-500/10 text-sky-400 font-semibold shadow-sm"
+          ? "bg-sky-500/10 text-sky-400 font-black shadow-sm"
           : "text-slate-400 hover:bg-white/5 hover:text-white",
         isCollapsed && "justify-center mx-1 px-2"
       )}
@@ -145,11 +145,11 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compac
       <button
         onClick={toggle}
         className={cn(
-          "flex items-center gap-3 w-full rounded-lg font-medium transition-all duration-200",
-          compact ? "px-2 py-1.5 mx-1.5 text-[11px] gap-1.5" : "px-3 py-2.5 mx-2 text-sm",
+          "flex items-center gap-3 w-full rounded-lg font-black transition-all duration-200",
+          compact ? "px-2 py-1.5 mx-1.5 text-[10px] gap-1.5" : "px-3 py-2.5 mx-2 text-[12px]",
           (isOpen || hasActiveChild)
             ? "bg-slate-800/50 text-white"
-            : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
+            : "text-slate-500 hover:bg-slate-800/50 hover:text-white"
         )}
         style={{ width: 'calc(100% - 16px)' }}
       >

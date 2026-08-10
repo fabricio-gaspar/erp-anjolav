@@ -690,7 +690,7 @@ const Faturamento = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
                 <div className="bg-card border rounded-lg p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <p className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
                       Total Previsto
                     </p>
                     <p className="text-xl sm:text-2xl font-black text-foreground mt-1 truncate">
@@ -707,7 +707,7 @@ const Faturamento = () => {
 
                 <div className="bg-card border rounded-lg p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <p className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
                       Pendente
                     </p>
                     <p className="text-xl sm:text-2xl font-black text-warning mt-1 truncate">
@@ -722,7 +722,7 @@ const Faturamento = () => {
 
                 <div className="bg-card border rounded-lg p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <p className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">
                       Recebido
                     </p>
                     <p className="text-xl sm:text-2xl font-black text-success mt-1 truncate">

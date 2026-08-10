@@ -114,7 +114,7 @@ const ContasPagarPage = () => {
           {/* A Pagar */}
           <Card className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                 A PAGAR
               </p>
               <p className="text-2xl font-black text-destructive mt-1">
@@ -129,7 +129,7 @@ const ContasPagarPage = () => {
           {/* Pago */}
           <Card className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                 PAGO
               </p>
               <p className="text-2xl font-black text-success mt-1">
