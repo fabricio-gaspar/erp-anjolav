@@ -199,20 +199,24 @@ const RelatorioProximidade = () => {
   };
 
   return (
-    <AppLayout title="Relatório de Proximidade">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
-              <Route className="w-6 h-6 text-primary" />
-              Relatório de Proximidade
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Clientes ordenados por distância da empresa para otimizar rotas
-            </p>
+    <AppLayout title="Relatório de Proximidade" subtitle="Logística otimizada por geolocalização">
+      <div className="w-full space-y-8">
+        {/* Visual Content Header mirroring high-fidelity layout */}
+        <div className="flex flex-col gap-2 px-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
+            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">OTIMIZAÇÃO DE ROTAS</span>
           </div>
-          <Button onClick={exportarCSV} variant="outline" className="gap-2">
+          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+            Proximidade
+          </h1>
+          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
+            Análise de densidade geográfica para eficiência logística
+          </p>
+        </div>
+
+        <div className="flex justify-end">
+          <Button onClick={exportarCSV} variant="outline" className="gap-2 border-slate-200 text-slate-700 bg-slate-50/50 hover:bg-slate-100 h-10">
             <Download className="w-4 h-4" />
             Exportar CSV
           </Button>
