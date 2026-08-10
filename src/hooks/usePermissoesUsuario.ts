@@ -52,13 +52,13 @@ export const useTemPermissao = (route: string): boolean => {
   const { funcionario } = useAuth();
 
   if (funcionario?.cargo === "ADMINISTRADOR") return true;
-  if (isLoading || !permissoes) return true;
-  if (Object.keys(permissoes).length === 0) return true;
+  if (isLoading) return true; // Keep true during load to avoid flickers, or false for maximum security
+  if (!permissoes || Object.keys(permissoes).length === 0) return false;
 
   const moduleKey = ROUTE_PERMISSION_MAP[route];
   if (!moduleKey) return true;
 
-  return permissoes[moduleKey] !== false;
+  return permissoes[moduleKey] === true;
 };
 
 // Check permission by module key directly (for dashboard sections)
@@ -67,8 +67,8 @@ export const useTemPermissaoModulo = (moduleKey: string): boolean => {
   const { funcionario } = useAuth();
 
   if (funcionario?.cargo === "ADMINISTRADOR") return true;
-  if (isLoading || !permissoes) return true;
-  if (Object.keys(permissoes).length === 0) return true;
+  if (isLoading) return true;
+  if (!permissoes || Object.keys(permissoes).length === 0) return false;
 
-  return permissoes[moduleKey] !== false;
+  return permissoes[moduleKey] === true;
 };

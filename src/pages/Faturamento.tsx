@@ -499,7 +499,7 @@ const Faturamento = () => {
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Total</p>
-                        <p className="font-bold text-primary">{formatCurrency(totalSelecionado)}</p>
+                        <p className="font-black text-primary">{formatCurrency(totalSelecionado)}</p>
                       </div>
                       {clienteSelecionado && (
                         <div>
@@ -693,7 +693,7 @@ const Faturamento = () => {
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Total Previsto
                     </p>
-                    <p className="text-xl sm:text-2xl font-bold text-foreground mt-1 truncate">
+                    <p className="text-xl sm:text-2xl font-black text-foreground mt-1 truncate">
                       {formatCurrency(summary.totalPrevisto)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -710,7 +710,7 @@ const Faturamento = () => {
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Pendente
                     </p>
-                    <p className="text-xl sm:text-2xl font-bold text-warning mt-1 truncate">
+                    <p className="text-xl sm:text-2xl font-black text-warning mt-1 truncate">
                       {formatCurrency(summary.pendente)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Aguardando pagamento</p>
@@ -725,7 +725,7 @@ const Faturamento = () => {
                     <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Recebido
                     </p>
-                    <p className="text-xl sm:text-2xl font-bold text-success mt-1 truncate">
+                    <p className="text-xl sm:text-2xl font-black text-success mt-1 truncate">
                       {formatCurrency(summary.pago)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Faturas pagas</p>

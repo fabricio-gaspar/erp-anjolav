@@ -219,7 +219,7 @@ const ContasReceber = () => {
               <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 A RECEBER
               </p>
-              <p className="text-lg sm:text-2xl font-bold text-amber-600 mt-1 truncate">
+              <p className="text-lg sm:text-2xl font-black text-amber-600 mt-1 truncate">
                 {formatCurrency(totalAReceber)}
               </p>
             </div>
@@ -233,7 +233,7 @@ const ContasReceber = () => {
               <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 RECEBIDO
               </p>
-              <p className="text-lg sm:text-2xl font-bold text-success mt-1 truncate">
+              <p className="text-lg sm:text-2xl font-black text-success mt-1 truncate">
                 {formatCurrency(totalRecebido)}
               </p>
             </div>
@@ -466,7 +466,7 @@ const ContasReceber = () => {
 
               {/* Charge Info */}
               <div className="text-center space-y-1">
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl font-black text-green-600">
                   {formatCurrency(Number(pixModalCharge.value))}
                 </p>
                 <p className="text-sm text-muted-foreground">

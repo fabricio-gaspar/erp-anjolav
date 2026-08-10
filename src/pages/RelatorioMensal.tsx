@@ -120,25 +120,25 @@ const RelatorioMensal = () => {
                   <TrendingUp className="w-4 h-4" />
                   <span className="text-xs font-medium">FATURAMENTO</span>
                 </div>
-                <div className="text-2xl font-bold mt-1">R$ {formatNumberToCurrency(data.receitasTotais)}</div>
+                <div className="text-2xl font-black mt-1">R$ {formatNumberToCurrency(data.receitasTotais)}</div>
               </Card>
               <Card className="p-4 bg-red-50 dark:bg-red-950/20">
                 <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
                   <TrendingDown className="w-4 h-4" />
                   <span className="text-xs font-medium">DESPESAS</span>
                 </div>
-                <div className="text-2xl font-bold mt-1">R$ {formatNumberToCurrency(data.despesasTotais)}</div>
+                <div className="text-2xl font-black mt-1">R$ {formatNumberToCurrency(data.despesasTotais)}</div>
               </Card>
               <Card className={`p-4 ${data.lucro >= 0 ? "bg-blue-50 dark:bg-blue-950/20" : "bg-red-50 dark:bg-red-950/20"}`}>
                 <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
                   <Wallet className="w-4 h-4" />
                   <span className="text-xs font-medium">{data.lucro >= 0 ? "LUCRO" : "PREJUÍZO"}</span>
                 </div>
-                <div className="text-2xl font-bold mt-1">R$ {formatNumberToCurrency(Math.abs(data.lucro))}</div>
+                <div className="text-2xl font-black mt-1">R$ {formatNumberToCurrency(Math.abs(data.lucro))}</div>
               </Card>
               <Card className="p-4">
                 <div className="text-xs font-medium text-muted-foreground">MARGEM</div>
-                <div className="text-2xl font-bold mt-1">{data.margem.toFixed(2)}%</div>
+                <div className="text-2xl font-black mt-1">{data.margem.toFixed(2)}%</div>
               </Card>
             </div>
 
@@ -164,7 +164,7 @@ const RelatorioMensal = () => {
                     <TableCell className="text-center">{data.receitasLojaCount}</TableCell>
                     <TableCell className="text-right">R$ {formatNumberToCurrency(data.receitasLoja)}</TableCell>
                   </TableRow>
-                  <TableRow className="font-bold border-t-2">
+                  <TableRow className="font-black border-t-2">
                     <TableCell>Total</TableCell>
                     <TableCell></TableCell>
                     <TableCell className="text-right">R$ {formatNumberToCurrency(data.receitasTotais)}</TableCell>
@@ -181,7 +181,7 @@ const RelatorioMensal = () => {
                   {data.folhaPorEmpregador.map((e) => (
                     <Card key={e.cnpj || e.nome} className="p-2 bg-muted/30">
                       <div className="text-xs text-muted-foreground">{e.nome} {e.cnpj && `— ${e.cnpj}`}</div>
-                      <div className="text-sm font-bold">R$ {formatNumberToCurrency(e.total)} <span className="text-xs font-normal text-muted-foreground">({e.count} func.)</span></div>
+                      <div className="text-sm font-black">R$ {formatNumberToCurrency(e.total)} <span className="text-xs font-normal text-muted-foreground">({e.count} func.)</span></div>
                     </Card>
                   ))}
                 </div>
@@ -210,7 +210,7 @@ const RelatorioMensal = () => {
                         <TableCell className="text-right">R$ {formatNumberToCurrency(f.beneficios)}</TableCell>
                         <TableCell className="text-right text-destructive">R$ {formatNumberToCurrency(f.descontos)}</TableCell>
                         <TableCell className="text-right font-semibold">R$ {formatNumberToCurrency(f.liquido)}</TableCell>
-                        <TableCell className="text-right font-bold">R$ {formatNumberToCurrency(f.custoTotal)}</TableCell>
+                        <TableCell className="text-right font-black">R$ {formatNumberToCurrency(f.custoTotal)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -222,10 +222,10 @@ const RelatorioMensal = () => {
             <Card className="p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2"><TrendingDown className="w-4 h-4 text-red-600" />Despesas Operacionais</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                <Card className="p-3"><div className="text-xs text-muted-foreground">Produtos / Insumos</div><div className="text-lg font-bold">R$ {formatNumberToCurrency(data.despesasProdutos)}</div></Card>
-                <Card className="p-3"><div className="text-xs text-muted-foreground">Contas Mensais</div><div className="text-lg font-bold">R$ {formatNumberToCurrency(data.despesasContasMensais)}</div></Card>
-                <Card className="p-3"><div className="text-xs text-muted-foreground">Impostos</div><div className="text-lg font-bold">R$ {formatNumberToCurrency(data.despesasImpostos)}</div></Card>
-                <Card className="p-3"><div className="text-xs text-muted-foreground">Outras</div><div className="text-lg font-bold">R$ {formatNumberToCurrency(data.despesasOutras)}</div></Card>
+                <Card className="p-3"><div className="text-xs text-muted-foreground">Produtos / Insumos</div><div className="text-lg font-black">R$ {formatNumberToCurrency(data.despesasProdutos)}</div></Card>
+                <Card className="p-3"><div className="text-xs text-muted-foreground">Contas Mensais</div><div className="text-lg font-black">R$ {formatNumberToCurrency(data.despesasContasMensais)}</div></Card>
+                <Card className="p-3"><div className="text-xs text-muted-foreground">Impostos</div><div className="text-lg font-black">R$ {formatNumberToCurrency(data.despesasImpostos)}</div></Card>
+                <Card className="p-3"><div className="text-xs text-muted-foreground">Outras</div><div className="text-lg font-black">R$ {formatNumberToCurrency(data.despesasOutras)}</div></Card>
               </div>
               {data.contasItens.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhuma conta a pagar registrada para este mês.</p>
@@ -270,7 +270,7 @@ const RelatorioMensal = () => {
                     {data.beneficiosExtrasPorCategoria.map((cat) => (
                       <Card key={cat.categoria} className="p-3">
                         <div className="text-xs text-muted-foreground">{cat.categoria} ({cat.count})</div>
-                        <div className={`text-lg font-bold ${cat.total < 0 ? "text-destructive" : ""}`}>
+                        <div className={`text-lg font-black ${cat.total < 0 ? "text-destructive" : ""}`}>
                           R$ {formatNumberToCurrency(cat.total)}
                         </div>
                       </Card>
@@ -320,7 +320,7 @@ const RelatorioMensal = () => {
                 <div className="flex justify-between text-destructive"><span>(-) Impostos</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasImpostos)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Outras Despesas</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasOutras)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Benefícios Extras Folha</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasBeneficiosExtras)}</span></div>
-                <div className="border-t-2 border-primary pt-2 mt-2 flex justify-between text-lg font-bold">
+                <div className="border-t-2 border-primary pt-2 mt-2 flex justify-between text-lg font-black">
                   <span>= Lucro Líquido</span>
                   <span className={`font-mono ${data.lucro >= 0 ? "text-emerald-600" : "text-destructive"}`}>R$ {formatNumberToCurrency(data.lucro)}</span>
                 </div>

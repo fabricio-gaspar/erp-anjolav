@@ -64,13 +64,13 @@ const DashboardFinanceiro = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           <Card className="p-3 sm:p-4 border-l-4 border-l-primary min-w-0">
             <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-primary truncate">SALDO ATUAL</p>
-            <p className="text-lg sm:text-2xl font-bold text-primary mt-1 truncate">{formatCurrency(saldoAtual)}</p>
+            <p className="text-lg sm:text-2xl font-black text-primary mt-1 truncate">{formatCurrency(saldoAtual)}</p>
             <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Receitas - Despesas</p>
           </Card>
 
           <Card className="p-3 sm:p-4 border-l-4 border-l-success min-w-0">
             <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-success truncate">RECEITAS</p>
-            <p className="text-lg sm:text-2xl font-bold text-success mt-1 truncate">{formatCurrency(receitasTotais)}</p>
+            <p className="text-lg sm:text-2xl font-black text-success mt-1 truncate">{formatCurrency(receitasTotais)}</p>
             <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">
               {setor === "todos" ? `Faturas + Caixa (${receitasCount})` :
                setor === "industrial" ? `Faturas pagas (${receitasCount})` :
@@ -80,13 +80,13 @@ const DashboardFinanceiro = () => {
 
           <Card className="p-3 sm:p-4 border-l-4 border-l-destructive min-w-0">
             <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-destructive truncate">DESPESAS</p>
-            <p className="text-lg sm:text-2xl font-bold text-destructive mt-1 truncate">{formatCurrency(despesasTotais)}</p>
+            <p className="text-lg sm:text-2xl font-black text-destructive mt-1 truncate">{formatCurrency(despesasTotais)}</p>
             <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Apenas Pagas ({despesasCount})</p>
           </Card>
 
           <Card className="p-3 sm:p-4 border-l-4 border-l-violet-500 min-w-0">
             <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-violet-600 truncate">MARGEM LUCRO</p>
-            <p className="text-lg sm:text-2xl font-bold text-violet-600 mt-1">{margemLucro}%</p>
+            <p className="text-lg sm:text-2xl font-black text-violet-600 mt-1">{margemLucro}%</p>
             <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Rentabilidade</p>
           </Card>
         </div>
@@ -99,7 +99,7 @@ const DashboardFinanceiro = () => {
                 <Factory className="w-4 h-4 text-blue-500" />
                 <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">RECEITA INDUSTRIAL</p>
               </div>
-              <p className="text-xl font-bold text-foreground">{formatCurrency(receitasTotais - receitasLoja)}</p>
+              <p className="text-xl font-black text-foreground">{formatCurrency(receitasTotais - receitasLoja)}</p>
               <p className="text-xs text-muted-foreground">Faturas pagas ({receitasCount - receitasLojaCount})</p>
             </Card>
             <Card className="p-4 border-l-4 border-l-orange-500">
@@ -107,7 +107,7 @@ const DashboardFinanceiro = () => {
                 <Store className="w-4 h-4 text-orange-500" />
                 <p className="text-xs font-semibold uppercase tracking-wider text-orange-500">RECEITA LOJA</p>
               </div>
-              <p className="text-xl font-bold text-foreground">{formatCurrency(receitasLoja)}</p>
+              <p className="text-xl font-black text-foreground">{formatCurrency(receitasLoja)}</p>
               <p className="text-xs text-muted-foreground">Vendas PDV ({receitasLojaCount})</p>
             </Card>
           </div>
@@ -123,7 +123,7 @@ const DashboardFinanceiro = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Vencidos / Hoje</p>
-                  <p className="text-xl sm:text-3xl font-bold text-foreground mt-1 truncate">{formatCurrency(aReceberVencido + aReceberHoje)}</p>
+                  <p className="text-xl sm:text-3xl font-black text-foreground mt-1 truncate">{formatCurrency(aReceberVencido + aReceberHoje)}</p>
                 </div>
                 <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
                   <TrendingUp className="w-5 h-5 text-success" />
@@ -144,7 +144,7 @@ const DashboardFinanceiro = () => {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Vencidos / Hoje</p>
-                  <p className="text-xl sm:text-3xl font-bold text-foreground mt-1 truncate">{formatCurrency(aPagarVencido + aPagarHoje)}</p>
+                  <p className="text-xl sm:text-3xl font-black text-foreground mt-1 truncate">{formatCurrency(aPagarVencido + aPagarHoje)}</p>
                 </div>
                 <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
                   <TrendingDown className="w-5 h-5 text-destructive" />
@@ -182,7 +182,7 @@ const DashboardFinanceiro = () => {
               <AlertCircle className="w-4 h-4 text-destructive" />
               <span className="text-sm font-medium text-muted-foreground">Vencidas</span>
             </div>
-            <p className="text-2xl font-bold text-destructive">{formatCurrency(vencidasTotal)}</p>
+            <p className="text-2xl font-black text-destructive">{formatCurrency(vencidasTotal)}</p>
             <p className="text-xs text-muted-foreground mt-1">{vencidasCount} lançamentos</p>
           </Card>
 
@@ -191,7 +191,7 @@ const DashboardFinanceiro = () => {
               <Clock className="w-4 h-4 text-amber-500" />
               <span className="text-sm font-medium text-muted-foreground">Vencem Hoje</span>
             </div>
-            <p className="text-2xl font-bold text-amber-500">{formatCurrency(vencemHoje)}</p>
+            <p className="text-2xl font-black text-amber-500">{formatCurrency(vencemHoje)}</p>
             <p className="text-xs text-muted-foreground mt-1">{vencemHojeCount} lançamentos</p>
           </Card>
 
@@ -200,7 +200,7 @@ const DashboardFinanceiro = () => {
               <Calendar className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-muted-foreground">Próximos 7 Dias</span>
             </div>
-            <p className="text-2xl font-bold text-primary">{formatCurrency(proximos7Dias)}</p>
+            <p className="text-2xl font-black text-primary">{formatCurrency(proximos7Dias)}</p>
             <p className="text-xs text-muted-foreground mt-1">{proximos7DiasCount} lançamentos</p>
           </Card>
         </div>
@@ -233,7 +233,7 @@ const DashboardFinanceiro = () => {
                         </p>
                       </div>
                     </div>
-                    <span className={`text-lg font-bold ${
+                    <span className={`text-lg font-black ${
                       mov.tipo === "fatura" ? "text-success" : "text-destructive"
                     }`}>
                       {formatCurrency(mov.valor)}

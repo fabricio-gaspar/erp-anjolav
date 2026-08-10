@@ -117,7 +117,7 @@ const ContasPagarPage = () => {
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 A PAGAR
               </p>
-              <p className="text-2xl font-bold text-destructive mt-1">
+              <p className="text-2xl font-black text-destructive mt-1">
                 {formatCurrency(totalAPagar)}
               </p>
             </div>
@@ -132,7 +132,7 @@ const ContasPagarPage = () => {
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 PAGO
               </p>
-              <p className="text-2xl font-bold text-success mt-1">
+              <p className="text-2xl font-black text-success mt-1">
                 {formatCurrency(totalPago)}
               </p>
             </div>

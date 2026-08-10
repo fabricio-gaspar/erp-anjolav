@@ -76,7 +76,7 @@ export default function Estoque() {
       <div className="space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Estoque</h1>
+            <h1 className="text-2xl font-black text-foreground">Estoque</h1>
             <p className="text-muted-foreground">Controle de insumos e materiais</p>
           </div>
           <div className="flex gap-2 flex-wrap w-full sm:w-auto">

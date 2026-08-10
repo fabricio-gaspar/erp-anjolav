@@ -195,7 +195,7 @@ const Clientes = () => {
                   <Settings className="w-4 h-4" />
                   <span className="hidden sm:inline">Somente Industrial</span>
                 </Button>
-                <Button className="gap-2 shrink-0 bg-[#009ee3] hover:bg-[#008dcb] text-white border-none font-bold shadow-sm" onClick={handleNovoCliente}>
+                <Button className="gap-2 shrink-0 bg-[#009ee3] hover:bg-[#008dcb] text-white border-none font-black text-[11px] uppercase tracking-wider shadow-sm" onClick={handleNovoCliente}>
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">Novo Cliente</span>
                 </Button>
@@ -220,27 +220,27 @@ const Clientes = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50 border-y border-slate-200/60">
-                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider">ID</TableHead>
-                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider">NOME / RAZÃO SOCIAL</TableHead>
-                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider hidden sm:table-cell">CPF/CNPJ</TableHead>
-                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider hidden md:table-cell">TELEFONE</TableHead>
-                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider text-center">STATUS</TableHead>
-                      <TableHead className="font-semibold text-[11px] text-slate-500 py-1.5 px-3 uppercase tracking-wider text-right">AÇÕES</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em]">ID</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em]">NOME / RAZÃO SOCIAL</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] hidden sm:table-cell">CPF/CNPJ</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] hidden md:table-cell">TELEFONE</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] text-center">STATUS</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] text-right">AÇÕES</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredClientes.map((cliente) => (
                       <TableRow key={cliente.id} className="hover:bg-slate-50/50 border-b border-slate-100 transition-colors">
                         <TableCell className="py-3 px-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100/50">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-100/50 uppercase tracking-tight">
                             {getUnidadeNegocioBadge(cliente.classificacao)}
                           </span>
                         </TableCell>
                         <TableCell className="py-3 px-3">
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 text-[13px] uppercase">{cliente.razao_social}</span>
+                            <span className="font-black text-slate-900 text-[13px] uppercase tracking-tight">{cliente.razao_social}</span>
                             {cliente.nome_fantasia && (
-                              <span className="text-[11px] text-slate-500 font-medium uppercase mt-0.5">
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
                                 {cliente.nome_fantasia}
                               </span>
                             )}
@@ -250,7 +250,7 @@ const Clientes = () => {
                         <TableCell className="text-slate-600 font-medium hidden md:table-cell py-3 px-3 text-[13px]">{cliente.telefone || "-"}</TableCell>
                         <TableCell className="py-3 px-3 text-center">
                           <span className={cn(
-                            "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                            "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm",
                             cliente.ativo ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-slate-100 text-slate-500 border border-slate-200"
                           )}>
                             {cliente.ativo ? "Ativo" : "Inativo"}

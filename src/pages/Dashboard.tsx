@@ -310,7 +310,7 @@ const Dashboard = () => {
             <div className="flex items-center gap-2 mb-2">
               <span className="flex h-2 w-2 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" />
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#10b981]">DADOS AO VIVO</span>
-              <span className="text-[10px] font-bold text-slate-400/80 tracking-wide ml-1">ATUALIZADO ÀS {format(new Date(), "HH:mm")}</span>
+              <span className="text-[10px] font-black text-slate-400/80 tracking-wide ml-1">ATUALIZADO ÀS {format(new Date(), "HH:mm")}</span>
             </div>
             <h1 className="text-[44px] font-black text-[#0f172a] tracking-[-0.05em] leading-[0.9] uppercase">Painel Central</h1>
           </div>
@@ -423,9 +423,9 @@ const Dashboard = () => {
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="text-2xl font-black text-[#0f172a] tracking-tight uppercase">Industrial</h3>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visão da operação industrial</p>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-1">Visão da operação industrial</p>
               </div>
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-2 font-bold py-1.5 px-4 rounded-lg shadow-sm">
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-2 font-black py-1.5 px-4 rounded-lg shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 Operação estável
               </Badge>
@@ -456,7 +456,7 @@ const Dashboard = () => {
 
             <Button 
               variant="link" 
-              className="mt-4 p-0 h-auto text-primary font-bold gap-1 text-sm ml-auto block"
+              className="mt-4 p-0 h-auto text-primary font-black gap-1 text-sm ml-auto block"
               onClick={() => navigate('/industrial')}
             >
               Abrir painel industrial →
@@ -468,9 +468,9 @@ const Dashboard = () => {
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h3 className="text-2xl font-black text-[#0f172a] tracking-tight uppercase">Residencial</h3>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visão da operação residencial</p>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-1">Visão da operação residencial</p>
               </div>
-              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-2 font-bold py-1.5 px-4 rounded-lg shadow-sm">
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-2 font-black py-1.5 px-4 rounded-lg shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
                 Requer atenção
               </Badge>
@@ -501,7 +501,7 @@ const Dashboard = () => {
 
             <Button 
               variant="link" 
-              className="mt-4 p-0 h-auto text-primary font-bold gap-1 text-sm ml-auto block"
+              className="mt-4 p-0 h-auto text-primary font-black gap-1 text-sm ml-auto block"
               onClick={() => navigate('/residencial')}
             >
               Abrir painel residencial →
@@ -513,7 +513,7 @@ const Dashboard = () => {
         <div className="card-base p-6 shadow-md border-slate-200/60">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Riscos operacionais industriais</h3>
-            <Button variant="link" className="p-0 h-auto text-primary font-bold text-sm" onClick={() => navigate('/industrial')}>
+            <Button variant="link" className="p-0 h-auto text-primary font-black text-sm" onClick={() => navigate('/industrial')}>
               Abrir gestão industrial →
             </Button>
           </div>
@@ -525,7 +525,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-[10.5px] font-extrabold text-emerald-700/60 uppercase tracking-[0.08em]">Disponibilidade</p>
-                <p className="text-2xl font-bold text-emerald-700 tracking-tighter">98.4%</p>
+                <p className="text-2xl font-black text-emerald-700 tracking-tighter">98.4%</p>
               </div>
             </div>
 
@@ -535,7 +535,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-[10.5px] font-extrabold text-slate-600/60 uppercase tracking-[0.08em]">Manutenção</p>
-                <p className="text-2xl font-bold text-slate-700 tracking-tighter">2 Ativas</p>
+                <p className="text-2xl font-black text-slate-700 tracking-tighter">2 Ativas</p>
               </div>
             </div>
 
@@ -545,7 +545,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-[10.5px] font-extrabold text-sky-700/60 uppercase tracking-[0.08em]">Qualidade</p>
-                <p className="text-2xl font-bold text-sky-700 tracking-tighter">99.2%</p>
+                <p className="text-2xl font-black text-sky-700 tracking-tighter">99.2%</p>
               </div>
             </div>
           </div>
@@ -560,7 +560,7 @@ const Dashboard = () => {
             <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-sm">
               <TrendingUp className="w-8 h-8 text-slate-300" />
             </div>
-            <p className="text-sm font-bold text-slate-700">Sem novas operações nos últimos 7 dias</p>
+            <p className="text-sm font-black text-slate-700">Sem novas operações nos últimos 7 dias</p>
             <p className="text-xs text-slate-400 mt-1 max-w-sm text-center px-6">
               O gráfico será preenchido automaticamente quando novas OS e pedidos forem registrados.
             </p>
@@ -586,11 +586,11 @@ const Dashboard = () => {
               </thead>
               <tbody>
                 <tr className="border-b border-slate-50/50 hover:bg-slate-50/50 transition-colors">
-                  <td className="py-4 text-sm font-bold text-slate-700">2026-000001</td>
+                  <td className="py-4 text-sm font-black text-slate-700">2026-000001</td>
                   <td className="py-4 text-sm font-medium text-slate-600">SILVANA MORAES - AIRBNB</td>
                   <td className="py-4 text-sm font-medium text-slate-600">Residencial</td>
                   <td className="py-4">
-                    <Badge className="bg-sky-100 text-sky-700 border-none font-bold text-[10px] px-2 py-0.5">Recebido</Badge>
+                    <Badge className="bg-sky-100 text-sky-700 border-none font-black text-[10px] px-2 py-0.5">Recebido</Badge>
                   </td>
                   <td className="py-4 text-sm font-medium text-slate-600">20/07/2026</td>
                   <td className="py-4 text-sm font-black text-slate-900">R$ 24,00</td>
@@ -611,7 +611,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <p className="text-sm font-extrabold text-slate-900">Pedidos residenciais com prazo vencido</p>
-                  <p className="text-[11px] font-bold text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
+                  <p className="text-[11px] font-black text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
@@ -620,7 +620,7 @@ const Dashboard = () => {
                 </div>
                 <div>
                   <p className="text-sm font-extrabold text-slate-900">Contas a pagar vencidas</p>
-                  <p className="text-[11px] font-bold text-amber-600 mt-0.5">{contasPendentes.length > 0 ? `${contasPendentes.length} títulos financeiros estão vencidos` : 'Nenhum título vencido'}</p>
+                  <p className="text-[11px] font-black text-amber-600 mt-0.5">{contasPendentes.length > 0 ? `${contasPendentes.length} títulos financeiros estão vencidos` : 'Nenhum título vencido'}</p>
                 </div>
               </div>
             </div>
@@ -629,7 +629,7 @@ const Dashboard = () => {
           <div className="card-base p-6 shadow-md border-slate-200/60">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Agenda do dia</h3>
-              <Button variant="link" className="p-0 h-auto text-primary font-bold text-sm" onClick={() => navigate('/central/agenda-eventos')}>
+              <Button variant="link" className="p-0 h-auto text-primary font-black text-sm" onClick={() => navigate('/central/agenda-eventos')}>
                 Agenda →
               </Button>
             </div>

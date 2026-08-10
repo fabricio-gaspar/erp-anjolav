@@ -86,7 +86,7 @@ const HistoricoCaixas = () => {
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-2xl font-black text-foreground">
               Relatórios de Caixa
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -206,7 +206,7 @@ const HistoricoCaixas = () => {
                       <p className="text-xs font-medium text-primary uppercase tracking-wide">
                         TOTAL VENDAS
                       </p>
-                      <p className="text-2xl font-bold text-foreground mt-1">
+                      <p className="text-2xl font-black text-foreground mt-1">
                         {formatCurrency(totals.totalVendas)}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -223,7 +223,7 @@ const HistoricoCaixas = () => {
                       <p className="text-xs font-medium text-violet-600 uppercase tracking-wide">
                         MÉDIA POR DIA
                       </p>
-                      <p className="text-2xl font-bold text-foreground mt-1">
+                      <p className="text-2xl font-black text-foreground mt-1">
                         {formatCurrency(totals.mediaPorDia)}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -241,7 +241,7 @@ const HistoricoCaixas = () => {
                         DIFERENÇAS ACUMULADAS
                       </p>
                       <p className={cn(
-                        "text-2xl font-bold mt-1",
+                        "text-2xl font-black mt-1",
                         totals.diferencasAcumuladas >= 0 ? "text-emerald-600" : "text-red-600"
                       )}>
                         {totals.diferencasAcumuladas >= 0 ? "+ " : ""}
@@ -306,7 +306,7 @@ const HistoricoCaixas = () => {
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="text-right">
-                              <p className="font-bold text-foreground">
+                              <p className="font-black text-foreground">
                                 {formatCurrency(Number(caixa.valor_vendas) || 0)}
                               </p>
                               <p className={cn(

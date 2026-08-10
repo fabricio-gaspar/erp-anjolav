@@ -147,7 +147,7 @@ const DashboardCobrancas = () => {
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Total Geral
                 </p>
-                <p className="text-2xl font-bold text-foreground mt-1">
+                <p className="text-2xl font-black text-foreground mt-1">
                   {formatCurrency(stats.total)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -166,7 +166,7 @@ const DashboardCobrancas = () => {
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Recebido
                 </p>
-                <p className="text-2xl font-bold text-success mt-1">
+                <p className="text-2xl font-black text-success mt-1">
                   {formatCurrency(stats.totalReceived)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -185,7 +185,7 @@ const DashboardCobrancas = () => {
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Pendente
                 </p>
-                <p className="text-2xl font-bold text-amber-600 mt-1">
+                <p className="text-2xl font-black text-amber-600 mt-1">
                   {formatCurrency(stats.totalPending)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -204,7 +204,7 @@ const DashboardCobrancas = () => {
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Vencido
                 </p>
-                <p className="text-2xl font-bold text-destructive mt-1">
+                <p className="text-2xl font-black text-destructive mt-1">
                   {formatCurrency(stats.totalOverdue)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">

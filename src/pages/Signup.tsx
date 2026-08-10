@@ -48,15 +48,15 @@ const Signup = () => {
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-black flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">A</span>
+              <span className="text-white font-black text-2xl">A</span>
             </div>
-            <span className="font-bold text-2xl text-white">AnjoLav</span>
+            <span className="font-black text-2xl text-white">AnjoLav</span>
           </div>
         </div>
 
         <Card className="border-0 shadow-2xl">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">Criar Conta</CardTitle>
+            <CardTitle className="text-2xl font-black">Criar Conta</CardTitle>
             <CardDescription>
               Preencha os dados para criar sua conta
             </CardDescription>
