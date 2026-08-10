@@ -378,6 +378,7 @@ const RelatoriosCliente = () => {
 
         </DialogContent>
       </Dialog>
+      </div>
     </AppLayout>
   );
 };
