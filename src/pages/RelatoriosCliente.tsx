@@ -117,16 +117,23 @@ const RelatoriosCliente = () => {
   };
 
   return (
-    <AppLayout title="Dashboard">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-black text-foreground">
-            Relatórios para Cliente
+    <AppLayout title="Relatórios de Cliente" subtitle="Análise detalhada de movimentação por cliente">
+      <div className="w-full space-y-8">
+        {/* Visual Content Header mirroring high-fidelity layout */}
+        <div className="flex flex-col gap-2 px-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
+            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">INTELIGÊNCIA DE DADOS</span>
+          </div>
+          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+            Relatórios de Cliente
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Gere mapas de peças e relatórios mensais para enviar aos clientes
+          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
+            Consolidado histórico de faturamento e volumes por unidade
           </p>
         </div>
+
+        <div className="content-panel p-6">
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Panel - Client & Report Type */}
