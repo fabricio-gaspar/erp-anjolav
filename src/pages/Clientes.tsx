@@ -250,7 +250,7 @@ const Clientes = () => {
                         <TableCell className="text-slate-600 font-medium hidden md:table-cell py-3 px-3 text-[13px]">{cliente.telefone || "-"}</TableCell>
                         <TableCell className="py-3 px-3 text-center">
                           <span className={cn(
-                            "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                            "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider",
                             cliente.ativo ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-slate-100 text-slate-500 border border-slate-200"
                           )}>
                             {cliente.ativo ? "Ativo" : "Inativo"}
