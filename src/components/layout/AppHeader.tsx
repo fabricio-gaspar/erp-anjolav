@@ -1,7 +1,7 @@
-import { Bell, ChevronRight, Menu, LayoutGrid } from "lucide-react";
+import { ChevronRight, Menu, LayoutGrid } from "lucide-react";
 import { useWorkspace, WorkspaceArea } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
-import { useLocation, Link, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,57 +49,10 @@ const routeNames: Record<string, string> = {
   "/residencial/relatorios/caixa": "Relatório de Caixa",
 };
 
-function Breadcrumb() {
-  const { activeArea } = useWorkspace();
-  const location = useLocation();
-  const pathSegments = location.pathname.split("/").filter(Boolean);
-  
-  const breadcrumbs = pathSegments.map((segment, index) => {
-    const path = "/" + pathSegments.slice(0, index + 1).join("/");
-    const name = routeNames[path] || segment.charAt(0).toUpperCase() + segment.slice(1);
-    const isLast = index === pathSegments.length - 1;
-    
-    return { path, name, isLast };
-  });
-
-  if (breadcrumbs.length === 0) {
-    return (
-      <div className="flex items-center text-sm">
-        <span className={cn("font-medium", activeArea === "central" ? "text-white" : "text-slate-900")}>Início</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1.5 text-sm">
-      <Link to="/" className={cn("transition-colors", activeArea === "central" ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-900")}>
-        Início
-      </Link>
-      {breadcrumbs.map((crumb) => (
-        <div key={crumb.path} className="flex items-center gap-1.5">
-          <ChevronRight className={cn("w-3.5 h-3.5", activeArea === "central" ? "text-white/40" : "text-slate-300")} />
-          {crumb.isLast ? (
-            <span className={cn("font-medium", activeArea === "central" ? "text-white" : "text-slate-900")}>{crumb.name}</span>
-          ) : (
-            <Link to={crumb.path} className={cn("transition-colors", activeArea === "central" ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-900")}>
-              {crumb.name}
-            </Link>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppHeaderProps) {
   const { activeArea } = useWorkspace();
+  const location = useLocation();
   const navigate = useNavigate();
-  
-  const notifications = [
-    { id: 1, title: "Nova OS criada", description: "OS #1234 foi registrada", time: "2 min atrás" },
-    { id: 2, title: "Fatura vencida", description: "Cliente ABC - R$ 1.500,00", time: "1 hora atrás" },
-    { id: 3, title: "Produção concluída", description: "Lote #567 finalizado", time: "3 horas atrás" },
-  ];
 
   const handleAreaChange = (area: WorkspaceArea) => {
     navigate(`/${area}`);
@@ -165,41 +118,6 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
 
       <div className="flex items-center gap-2 sm:gap-3">
         <GlobalSearch />
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className={cn(
-              "relative hover:bg-opacity-10",
-              activeArea === "central" ? "text-white/70 hover:text-white hover:bg-white" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
-            )}>
-              <Bell className="w-5 h-5" />
-              <span className={cn(
-                "absolute top-1 right-1 w-2.5 h-2.5 bg-destructive rounded-full ring-2",
-                activeArea === "central" ? "ring-[#1a2332]" : 
-                activeArea === "industrial" ? "ring-[#1e3a8a]" : 
-                "ring-[#581c87]"
-              )} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <div className="px-3 py-2 border-b border-border">
-              <p className="font-semibold text-sm">Notificações</p>
-              <p className="text-xs text-muted-foreground">Você tem {notifications.length} novas notificações</p>
-            </div>
-            {notifications.map((notification) => (
-              <DropdownMenuItem key={notification.id} className="flex flex-col items-start gap-0.5 py-3 cursor-pointer">
-                <p className="text-sm font-medium">{notification.title}</p>
-                <p className="text-xs text-muted-foreground">{notification.description}</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-1">{notification.time}</p>
-              </DropdownMenuItem>
-            ))}
-            <div className="p-2 border-t border-border">
-              <Button variant="ghost" size="sm" className="w-full text-xs">
-                Ver todas as notificações
-              </Button>
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   );

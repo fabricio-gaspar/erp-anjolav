@@ -1,16 +1,28 @@
 project_id = "lbrsblimephbjyjlrefv"
 
 [functions.create-asaas-charge]
-verify_jwt = false
+verify_jwt = true
+
+[functions.pdv-payment]
+verify_jwt = true
 
 [functions.asaas-webhook]
 verify_jwt = false
 
 [functions.manage-employee]
-verify_jwt = false
+verify_jwt = true
 
 [functions.whatsapp-evolution]
-verify_jwt = false
+verify_jwt = true
 
 [functions.webhook-dispatcher]
+verify_jwt = true
+
+[functions.portal-customer]
+verify_jwt = false
+
+[functions.data-administration]
+verify_jwt = true
+
+[functions.sign-in]
 verify_jwt = false

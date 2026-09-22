@@ -1,0 +1,19 @@
+{
+  "environment": "production",
+  "projectRef": "lbrsblimephbjyjlrefv",
+  "releaseCommit": "PREENCHA_COM_O_SHA_COMPLETO_DO_COMMIT_DE_RELEASE",
+  "approvedBy": "PREENCHA_COM_O_RESPONSAVEL",
+  "approvedAt": "PREENCHA_EM_ISO_8601",
+  "gates": {
+    "tenantRls": { "passed": false, "evidence": "Teste de isolamento entre perfis, unidades e clientes." },
+    "databaseRecovery": { "passed": false, "evidence": "Backup, PITR e restauração ensaiada em ambiente isolado." },
+    "criticalFlows": { "passed": false, "evidence": "UAT dos fluxos de OS, produção, caixa, faturamento e portal." },
+    "asaasWebhookQueue": { "passed": false, "evidence": "Fila persistente, idempotência, webhook e retry comprovados." },
+    "fiscalProvider": { "passed": false, "evidence": "NFS-e homologada com município, certificado e cancelamento." },
+    "whatsappAndN8n": { "passed": false, "evidence": "Evolution, n8n, header de autenticação, callback e retry comprovados." },
+    "transactionalEmail": { "passed": false, "evidence": "Provedor de e-mail transacional, entrega, bounce e retry comprovados." },
+    "observability": { "passed": false, "evidence": "Alertas, logs, retenção, indicadores e resposta a incidentes aprovados." },
+    "securityReview": { "passed": false, "evidence": "RLS, grants, MFA, WAF/rate limit, secrets e varreduras revisados." },
+    "legalCommercial": { "passed": false, "evidence": "LGPD, contratos, política de privacidade, suporte, SLA e treinamento aprovados." }
+  }
+}

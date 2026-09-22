@@ -161,25 +161,6 @@ export function gerarSnapshotEmitente(config: {
   };
 }
 
-// Gera chave de acesso simulada (44 dígitos)
-export function gerarChaveAcesso(): string {
-  const uf = "35"; // SP
-  const anoMes = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
-  const cnpj = "00000000000000";
-  const mod = "55"; // NF-e
-  const serie = "001";
-  const numero = Math.floor(Math.random() * 1000000000).toString().padStart(9, "0");
-  const tipoEmissao = "1";
-  const codigoNumerico = Math.floor(Math.random() * 100000000).toString().padStart(8, "0");
-  
-  const semDV = uf + anoMes + cnpj + mod + serie + numero + tipoEmissao + codigoNumerico;
-  
-  // DV simplificado (em produção seria calculado corretamente)
-  const dv = "0";
-  
-  return semDV + dv;
-}
-
 // Valida dados fiscais do cliente
 export function validarDadosFiscaisCliente(cliente: {
   cpf_cnpj: string | null;

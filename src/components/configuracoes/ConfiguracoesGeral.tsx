@@ -379,7 +379,6 @@ export function ConfiguracoesGeral() {
         uf: addressData.uf,
       });
 
-      console.log("Tentando geocodificar:", enderecoCompleto);
       let result = await geocodeEndereco(enderecoCompleto);
       
       // Se não encontrar, tenta com endereço simplificado (só cidade/estado)
@@ -388,7 +387,6 @@ export function ConfiguracoesGeral() {
           cidade: addressData.cidade,
           uf: addressData.uf,
         });
-        console.log("Tentando endereço simplificado:", enderecoSimples);
         result = await geocodeEndereco(enderecoSimples);
       }
 

@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Send,
   FileText,
@@ -32,6 +31,8 @@ import {
   TEMPLATE_EMAIL_DEFAULT,
   type TemplateVariables,
 } from "@/lib/faturamentoUtils";
+import { escapeHtml, openExternalHttpsUrl, openPrintDocument } from "@/lib/safePrint";
+import { supabase } from "@/integrations/supabase/client";
 import type { DadosFaturamento } from "./FaturamentoModal";
 
 interface EtapaEnvioProps {
@@ -54,7 +55,6 @@ export function EtapaEnvio({
   const [sendEmail, setSendEmail] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [selectedDocs, setSelectedDocs] = useState<string[]>(["ROL"]);
 
   const { updateFatura } = useFaturas();
   const { createEnvio } = useHistoricoEnvios(faturaId);
@@ -89,7 +89,7 @@ export function EtapaEnvio({
       <!DOCTYPE html>
       <html>
       <head>
-        <title>ROL - ${dados.clienteNome}</title>
+        <title>ROL - ${escapeHtml(dados.clienteNome)}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; }
           .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
@@ -108,14 +108,14 @@ export function EtapaEnvio({
       </head>
       <body>
         <div class="header">
-          <h1>${nomeEmpresa}</h1>
+          <h1>${escapeHtml(nomeEmpresa)}</h1>
           <p>Romaneio de Lavanderia - <span class="tipo-badge">${tipoRelatorio === "mapa" ? "Mapa de Peças" : "Relatório Detalhado"}</span></p>
         </div>
         <div class="info">
           <div class="info-item">
-            <strong>${dados.clienteNome}</strong>
-            ${dados.clienteDocumento ? `<span>${dados.clienteDocumento}</span>` : ""}
-            ${dados.clienteEndereco?.cidade ? `<br/><span>${dados.clienteEndereco.cidade}/${dados.clienteEndereco.uf}</span>` : ""}
+            <strong>${escapeHtml(dados.clienteNome)}</strong>
+            ${dados.clienteDocumento ? `<span>${escapeHtml(dados.clienteDocumento)}</span>` : ""}
+            ${dados.clienteEndereco?.cidade ? `<br/><span>${escapeHtml(dados.clienteEndereco.cidade)}/${escapeHtml(dados.clienteEndereco.uf)}</span>` : ""}
           </div>
           <div class="info-item" style="text-align: right;">
             <strong>Período</strong>
@@ -137,9 +137,9 @@ export function EtapaEnvio({
               .map(
                 (item) =>
                   `<tr>
-                    <td>${item.produto}</td>
-                    <td style="text-align:center">${item.quantidade}</td>
-                    <td>${item.unidade}</td>
+                    <td>${escapeHtml(item.produto)}</td>
+                    <td style="text-align:center">${escapeHtml(item.quantidade)}</td>
+                    <td>${escapeHtml(item.unidade)}</td>
                     <td style="text-align:right">${formatCurrency(item.valorUnitario)}</td>
                     <td style="text-align:right">${formatCurrency(item.valorTotal)}</td>
                   </tr>`
@@ -155,10 +155,8 @@ export function EtapaEnvio({
       </html>
     `;
 
-    const printWindow = window.open("", "_blank");
+    const printWindow = openPrintDocument(reportHTML);
     if (printWindow) {
-      printWindow.document.write(reportHTML);
-      printWindow.document.close();
       printWindow.print();
     }
   };
@@ -172,46 +170,59 @@ export function EtapaEnvio({
     if (!paymentData) return;
 
     if (paymentData.type === "boleto" && paymentData.data.url) {
-      window.open(paymentData.data.url as string, "_blank");
+      if (!openExternalHttpsUrl(paymentData.data.url)) {
+        toast.error("Link de pagamento inválido ou inseguro");
+      }
     } else if (paymentData.data.copyPaste) {
       navigator.clipboard.writeText(paymentData.data.copyPaste as string);
       toast.success("Código PIX copiado!");
     } else {
-      toast.info("Dados do pagamento exibidos no console");
-      console.log("Payment data:", paymentData);
+      toast.info("Dados de pagamento indisponíveis");
     }
   };
 
   const handleSendWhatsApp = async () => {
-    if (!dados.clienteTelefone) {
-      toast.error("Cliente não possui telefone cadastrado");
+    if (!faturaId) {
+      toast.error("Salve a fatura antes de enviar pelo WhatsApp");
       return false;
     }
 
     const mensagem = substituirVariaveis(templateWhatsApp, templateVars);
-
-    const phone = dados.clienteTelefone.replace(/\D/g, "");
-    const encodedMessage = encodeURIComponent(mensagem);
-
-    window.open(`https://wa.me/55${phone}?text=${encodedMessage}`, "_blank");
-
-    if (faturaId) {
-      await createEnvio.mutateAsync({
+    const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+      body: {
+        action: "send",
         fatura_id: faturaId,
-        canal: "whatsapp",
-        destinatario: dados.clienteTelefone,
-        mensagem: mensagem,
-        documentos_enviados: selectedDocs,
-        status: "enviado",
-      });
+        cliente_id: dados.clienteId,
+        mensagem,
+        evento: "fatura_envio",
+      },
+    });
+    if (error || data?.success !== true) {
+      toast.error(data?.error || "O WhatsApp não confirmou o envio");
+      return false;
     }
+
+    await createEnvio.mutateAsync({
+      fatura_id: faturaId,
+      canal: "whatsapp",
+      destinatario: dados.clienteTelefone || "telefone cadastrado",
+      mensagem,
+      documentos_enviados: [],
+      status: "enviado",
+    });
 
     return true;
   };
 
-  const handleSendEmail = async () => {
+  const handleSendEmail = () => {
     if (!dados.clienteEmail) {
       toast.error("Cliente não possui e-mail cadastrado");
+      return false;
+    }
+
+    const recipient = dados.clienteEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+      toast.error("E-mail do cliente inválido");
       return false;
     }
 
@@ -222,19 +233,10 @@ export function EtapaEnvio({
     );
     const body = encodeURIComponent(mensagem);
 
-    window.open(`mailto:${dados.clienteEmail}?subject=${subject}&body=${body}`);
-
-    if (faturaId) {
-      await createEnvio.mutateAsync({
-        fatura_id: faturaId,
-        canal: "email",
-        destinatario: dados.clienteEmail,
-        mensagem: mensagem,
-        documentos_enviados: selectedDocs,
-        status: "enviado",
-      });
-    }
-
+    const mailLink = document.createElement("a");
+    mailLink.href = `mailto:${encodeURIComponent(recipient)}?subject=${subject}&body=${body}`;
+    mailLink.rel = "noopener noreferrer";
+    mailLink.click();
     return true;
   };
 
@@ -244,20 +246,19 @@ export function EtapaEnvio({
     try {
       const canaisEnviados: string[] = [];
       let destinatarioFinal = "";
+      let emailPreparado = false;
+
+      // Solicita a abertura do cliente de e-mail ainda dentro do gesto do usuário.
+      // Isso nunca é contabilizado como entrega confirmada.
+      if (sendEmail) {
+        emailPreparado = handleSendEmail();
+      }
 
       if (sendWhatsApp) {
         const success = await handleSendWhatsApp();
         if (success) {
           canaisEnviados.push("whatsapp");
           destinatarioFinal = dados.clienteTelefone || "";
-        }
-      }
-
-      if (sendEmail) {
-        const success = await handleSendEmail();
-        if (success) {
-          canaisEnviados.push("email");
-          destinatarioFinal = dados.clienteEmail || destinatarioFinal;
         }
       }
 
@@ -271,8 +272,16 @@ export function EtapaEnvio({
         });
       }
 
-      toast.success("Faturamento finalizado com sucesso!");
-      setTimeout(onClose, 1500);
+      if (canaisEnviados.length > 0) {
+        toast.success(
+          emailPreparado
+            ? "WhatsApp enviado. O e-mail foi aberto, mas ainda precisa ser enviado no aplicativo."
+            : "WhatsApp enviado e faturamento finalizado!",
+        );
+        setTimeout(onClose, 1500);
+      } else if (emailPreparado) {
+        toast.info("E-mail aberto para revisão. A fatura não foi marcada como enviada.");
+      }
     } catch (error) {
       console.error("Erro ao enviar:", error);
       toast.error("Erro ao enviar");
@@ -300,24 +309,17 @@ export function EtapaEnvio({
         <h3 className="font-semibold">Envio ao Cliente</h3>
       </div>
 
-      {/* Downloads */}
+      {/* Documentos disponíveis */}
       <Card className="p-4">
-        <h4 className="font-medium text-sm mb-4">Arquivos Gerados — Selecione para enviar</h4>
+        <h4 className="font-medium text-sm mb-1">Documentos para abrir ou imprimir</h4>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Anexos por e-mail ainda dependem da configuração de um provedor transacional.
+        </p>
         <div className="grid sm:grid-cols-3 gap-3">
           <div className="relative">
-            <div className="absolute top-2 left-2 z-10">
-              <Checkbox
-                checked={selectedDocs.includes("ROL")}
-                onCheckedChange={(checked) => {
-                  setSelectedDocs(prev =>
-                    checked ? [...prev, "ROL"] : prev.filter(d => d !== "ROL")
-                  );
-                }}
-              />
-            </div>
             <Button
               variant="outline"
-              className={`h-auto py-4 flex flex-col gap-2 w-full ${selectedDocs.includes("ROL") ? "border-primary bg-primary/5" : ""}`}
+              className="h-auto w-full flex-col gap-2 py-4"
               onClick={handleDownloadROL}
             >
               <FileText className="w-6 h-6 text-primary" />
@@ -327,20 +329,9 @@ export function EtapaEnvio({
           </div>
 
           <div className="relative">
-            <div className="absolute top-2 left-2 z-10">
-              <Checkbox
-                checked={selectedDocs.includes("NF")}
-                onCheckedChange={(checked) => {
-                  setSelectedDocs(prev =>
-                    checked ? [...prev, "NF"] : prev.filter(d => d !== "NF")
-                  );
-                }}
-                disabled={!numeroNF}
-              />
-            </div>
             <Button
               variant="outline"
-              className={`h-auto py-4 flex flex-col gap-2 w-full ${selectedDocs.includes("NF") ? "border-primary bg-primary/5" : ""}`}
+              className="h-auto w-full flex-col gap-2 py-4"
               onClick={handleDownloadNF}
               disabled={!numeroNF}
             >
@@ -359,20 +350,9 @@ export function EtapaEnvio({
           </div>
 
           <div className="relative">
-            <div className="absolute top-2 left-2 z-10">
-              <Checkbox
-                checked={selectedDocs.includes("Pagamento")}
-                onCheckedChange={(checked) => {
-                  setSelectedDocs(prev =>
-                    checked ? [...prev, "Pagamento"] : prev.filter(d => d !== "Pagamento")
-                  );
-                }}
-                disabled={!paymentData}
-              />
-            </div>
             <Button
               variant="outline"
-              className={`h-auto py-4 flex flex-col gap-2 w-full ${selectedDocs.includes("Pagamento") ? "border-primary bg-primary/5" : ""}`}
+              className="h-auto w-full flex-col gap-2 py-4"
               onClick={handleDownloadPayment}
               disabled={!paymentData}
             >
@@ -404,7 +384,7 @@ export function EtapaEnvio({
             <div className="flex items-center gap-3">
               <Mail className="w-4 h-4 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">E-mail</p>
+                <p className="text-sm font-medium">E-mail manual</p>
                 <p className="text-xs text-muted-foreground">
                   {dados.clienteEmail || "Não cadastrado"}
                 </p>
@@ -453,8 +433,8 @@ export function EtapaEnvio({
 
       <Separator />
 
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-4">
           {onBack && (
             <Button variant="outline" onClick={onBack} className="gap-2">
               <ChevronLeft className="w-4 h-4" />
@@ -463,16 +443,16 @@ export function EtapaEnvio({
           )}
           <div className="text-sm text-muted-foreground">
             {sendEmail && sendWhatsApp
-              ? "Será enviado por e-mail e WhatsApp"
+              ? "WhatsApp será enviado; o e-mail será aberto para revisão"
               : sendEmail
-              ? "Será enviado por e-mail"
+              ? "O e-mail será aberto para revisão manual"
               : sendWhatsApp
               ? "Será enviado por WhatsApp"
               : "Nenhum método de envio selecionado"}
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
@@ -494,7 +474,11 @@ export function EtapaEnvio({
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                Finalizar e Enviar
+                {sendWhatsApp
+                  ? sendEmail
+                    ? "Enviar WhatsApp e abrir e-mail"
+                    : "Enviar WhatsApp"
+                  : "Abrir e-mail"}
               </>
             )}
           </Button>

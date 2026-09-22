@@ -1,6 +1,4 @@
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +10,6 @@ import {
   Calendar, 
   FileText, 
   Phone, 
-  Mail, 
   Clock, 
   CheckCircle2, 
   AlertCircle, 
@@ -22,13 +19,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
 import { LancarProdutosModal } from "@/components/portal/LancarProdutosModal";
-import { useLancamentosCliente } from "@/hooks/useLancamentoCliente";
-import { 
-  usePortalOrdens, 
-  usePortalFaturas, 
-  usePortalEstatisticas,
-  usePortalAlertas 
-} from "@/hooks/usePortalData";
+import { usePortalAlertas, usePortalBootstrap } from "@/hooks/usePortalData";
 import { AlertasPortal } from "@/components/portal/AlertasPortal";
 import { EstatisticasCliente } from "@/components/portal/EstatisticasCliente";
 import { AcompanhamentoProducao } from "@/components/portal/AcompanhamentoProducao";
@@ -37,98 +28,13 @@ import { CentralDocumentos } from "@/components/portal/CentralDocumentos";
 const PortalCliente = () => {
   const { codigo } = useParams<{ codigo: string }>();
   const [showLancarModal, setShowLancarModal] = useState(false);
-
-  // Buscar configuração do cliente pelo código de acesso
-  const { data: config, isLoading: isLoadingConfig, error } = useQuery({
-    queryKey: ["portal-cliente", codigo],
-    queryFn: async () => {
-      if (!codigo) throw new Error("Código não informado");
-
-      const { data, error } = await supabase
-        .from("configuracoes_cliente")
-        .select("*, cliente:clientes(*)")
-        .eq("codigo_acesso", codigo.toUpperCase())
-        .single();
-
-      if (error || !data) throw new Error("Código de acesso inválido");
-      return data;
-    },
-    enabled: !!codigo,
-    retry: false,
-  });
-
-  // Buscar configurações gerais da empresa
-  const { data: configGeral } = useQuery({
-    queryKey: ["configuracoes-gerais-portal"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("configuracoes_gerais")
-        .select("*")
-        .limit(1)
-        .single();
-      return data;
-    },
-  });
-
-  // Hooks do portal (novos)
-  const clienteId = config?.cliente_id || null;
-  const { data: ordens = [], isLoading: isLoadingOrdens } = usePortalOrdens(clienteId);
-  const { data: faturas = [], isLoading: isLoadingFaturas } = usePortalFaturas(clienteId);
-  const { data: estatisticas, isLoading: isLoadingEstatisticas } = usePortalEstatisticas(clienteId);
-  const alertas = usePortalAlertas(clienteId, ordens, faturas);
-
-  // Buscar próximos agendamentos
-  const { data: agendamentos = [] } = useQuery({
-    queryKey: ["portal-agendamentos", clienteId],
-    queryFn: async () => {
-      const hoje = new Date().toISOString().split("T")[0];
-      const { data } = await supabase
-        .from("agendamentos")
-        .select("*")
-        .eq("cliente_id", clienteId)
-        .gte("data", hoje)
-        .order("data", { ascending: true })
-        .limit(4);
-      return data || [];
-    },
-    enabled: !!clienteId,
-  });
-
-  // Buscar lançamentos feitos pelo cliente no portal
-  const { data: lancamentosCliente = [] } = useLancamentosCliente(clienteId);
-
-  // Buscar produtos disponíveis para o cliente
-  const { data: produtos = [] } = useQuery({
-    queryKey: ["portal-produtos", clienteId],
-    queryFn: async () => {
-      if (!clienteId) return [];
-
-      // Primeiro buscar preços especiais do cliente
-      const { data: precosEspeciais } = await supabase
-        .from("precos_especiais")
-        .select("produto_id")
-        .eq("cliente_id", clienteId);
-
-      const produtoIds = precosEspeciais?.map((p) => p.produto_id) || [];
-
-      // Se tiver preços especiais, buscar esses produtos
-      // Senão, buscar todos os produtos ativos
-      let query = supabase
-        .from("produtos")
-        .select("id, nome, unidade")
-        .eq("status", "ativo")
-        .order("nome");
-
-      if (produtoIds.length > 0) {
-        query = query.in("id", produtoIds);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!clienteId,
-  });
+  const { data: portalData, isLoading: isLoadingConfig, error } = usePortalBootstrap(codigo);
+  const ordens = portalData?.ordens ?? [];
+  const faturas = portalData?.faturas ?? [];
+  const agendamentos = portalData?.agendamentos ?? [];
+  const lancamentosCliente = portalData?.lancamentos ?? [];
+  const produtos = portalData?.produtos ?? [];
+  const alertas = usePortalAlertas(ordens, faturas);
 
   if (isLoadingConfig) {
     return (
@@ -141,7 +47,7 @@ const PortalCliente = () => {
     );
   }
 
-  if (error || !config) {
+  if (error || !portalData) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -153,11 +59,8 @@ const PortalCliente = () => {
             <p className="text-muted-foreground">
               O código de acesso informado é inválido ou expirou.
             </p>
-            <p className="text-sm text-muted-foreground">
-              Código: <span className="font-mono font-black">{codigo}</span>
-            </p>
             <p className="text-sm text-muted-foreground mt-4">
-              Entre em contato com a lavanderia para obter um novo código de acesso.
+              Entre em contato com a lavanderia para gerar um novo link seguro.
             </p>
           </CardContent>
         </Card>
@@ -165,7 +68,9 @@ const PortalCliente = () => {
     );
   }
 
-  const cliente = config.cliente as any;
+  const cliente = portalData.cliente;
+  const configGeral = portalData.empresa;
+  const estatisticas = portalData.estatisticas;
   const nomeEmpresa = configGeral?.nome_empresa || "Lavanderia";
   const nomeExibicao = cliente?.nome_fantasia || cliente?.razao_social;
 
@@ -263,7 +168,7 @@ const PortalCliente = () => {
             {/* Estatísticas */}
             <EstatisticasCliente 
               estatisticas={estatisticas} 
-              isLoading={isLoadingEstatisticas} 
+              isLoading={false}
             />
 
             <Separator />
@@ -271,7 +176,7 @@ const PortalCliente = () => {
             {/* Acompanhamento de Produção */}
             <AcompanhamentoProducao 
               ordens={ordens} 
-              isLoading={isLoadingOrdens} 
+              isLoading={false}
             />
 
             <Separator />
@@ -279,7 +184,8 @@ const PortalCliente = () => {
             {/* Central de Documentos */}
             <CentralDocumentos 
               faturas={faturas} 
-              isLoading={isLoadingFaturas}
+              isLoading={false}
+              accessCode={codigo ?? ""}
               clienteNome={cliente?.razao_social || cliente?.nome_fantasia || ""}
               empresaNome={configGeral?.nome_empresa || undefined}
               logoUrl={configGeral?.logo_url || undefined}
@@ -354,7 +260,7 @@ const PortalCliente = () => {
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {agendamentos.map((agendamento: any) => (
+                      {agendamentos.map((agendamento) => (
                         <div
                           key={agendamento.id}
                           className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
@@ -398,15 +304,6 @@ const PortalCliente = () => {
                   {configGeral.whatsapp_numero}
                 </a>
               )}
-              {cliente?.email && (
-                <a
-                  href={`mailto:${cliente.email}`}
-                  className="flex items-center gap-2 hover:text-primary transition-colors"
-                >
-                  <Mail className="w-4 h-4" />
-                  {cliente.email}
-                </a>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -424,8 +321,7 @@ const PortalCliente = () => {
         <LancarProdutosModal
           open={showLancarModal}
           onClose={() => setShowLancarModal(false)}
-          clienteId={cliente.id}
-          clienteNome={nomeExibicao}
+          accessCode={codigo ?? ""}
           produtos={produtos}
         />
       )}

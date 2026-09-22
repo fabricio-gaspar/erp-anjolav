@@ -6,13 +6,17 @@ export interface WhatsAppInstancia {
   id: string;
   nome_instancia: string;
   api_url: string | null;
-  api_key_encrypted: string | null;
   webhook_n8n_url: string | null;
   status: string;
   qr_code: string | null;
   created_at: string;
   updated_at: string;
 }
+
+type WhatsAppConfigUpdate = Pick<
+  WhatsAppInstancia,
+  "nome_instancia" | "api_url" | "webhook_n8n_url"
+>;
 
 export function useWhatsAppConfig() {
   const queryClient = useQueryClient();
@@ -22,7 +26,7 @@ export function useWhatsAppConfig() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instancias")
-        .select("*")
+        .select("id, nome_instancia, api_url, webhook_n8n_url, status, qr_code, created_at, updated_at")
         .limit(1)
         .maybeSingle();
       if (error) throw error;
@@ -31,7 +35,7 @@ export function useWhatsAppConfig() {
   });
 
   const salvarConfig = useMutation({
-    mutationFn: async (config: Partial<WhatsAppInstancia>) => {
+    mutationFn: async (config: WhatsAppConfigUpdate) => {
       if (instancia?.id) {
         const { error } = await supabase
           .from("whatsapp_instancias")

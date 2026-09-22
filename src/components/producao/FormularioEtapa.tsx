@@ -140,7 +140,7 @@ export function FormularioEtapa({
       return;
     }
 
-    const precoItem = precosEspeciais.find((p: any) => p.produto_id === produtoSelecionado);
+    const precoItem = precosEspeciais.find((p) => p.produto_id === produtoSelecionado);
     if (!precoItem) return;
 
     const quantidade = Number(quantidadeItem);
@@ -289,9 +289,13 @@ export function FormularioEtapa({
               cliente: cliente.nome_fantasia || cliente.razao_social,
               telefone: cliente.telefone,
               numero: osAtual.numero,
+              ordem_servico_id: ordemServicoId,
+              cliente_id: osAtual.cliente_id,
             });
             if (enviado) {
-              toast.success("WhatsApp aberto para notificar o cliente!");
+              toast.success("WhatsApp confirmado pela Evolution API!");
+            } else {
+              toast.error("Etapa salva, mas o WhatsApp não foi confirmado");
             }
           }
         } catch (notifError) {
@@ -335,7 +339,7 @@ export function FormularioEtapa({
                   <SelectValue placeholder={isLoadingPrecos ? "Carregando..." : "Selecione um produto"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {precosEspeciais.map((preco: any) => (
+                  {precosEspeciais.map((preco) => (
                     <SelectItem key={preco.produto_id} value={preco.produto_id}>
                       {preco.produto?.nome} - R$ {preco.preco_especial.toFixed(2)}
                     </SelectItem>

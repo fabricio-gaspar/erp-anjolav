@@ -115,8 +115,8 @@ export const buscarCepComFallback = async (cep: string): Promise<ViaCepResponse 
   try {
     const resultado = await buscarCep(cep);
     if (resultado) return resultado;
-  } catch (error) {
-    console.log("ViaCEP falhou, tentando BrasilAPI...", error);
+  } catch {
+    // Continua silenciosamente com o provedor alternativo.
   }
 
   // Fallback para BrasilAPI
@@ -201,10 +201,7 @@ const tentarGeocode = async (endereco: string): Promise<GeocodingResult | null> 
 
     const data: NominatimResponse[] = await response.json();
 
-    if (data.length === 0) {
-      console.log("Nominatim não encontrou resultados para:", endereco);
-      return null;
-    }
+    if (data.length === 0) return null;
 
     return {
       latitude: parseFloat(data[0].lat),

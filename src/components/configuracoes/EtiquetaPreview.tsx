@@ -1,4 +1,5 @@
-import { generateBarcodePattern } from "@/services/printService";
+import { generateCode128BPattern } from "@/lib/code128";
+import { escapeHtml, openPrintDocument } from "@/lib/safePrint";
 
 export interface EtiquetaPreviewConfig {
   tamanhoEtiqueta: string;
@@ -31,13 +32,28 @@ const getEtiquetaDimensions = (tamanho: string) => {
   }
 };
 
+const boundedNumber = (value: unknown, fallback: number, min: number, max: number) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue)
+    ? Math.min(max, Math.max(min, numericValue))
+    : fallback;
+};
+
 // Real barcode component using Code128 pattern
 function BarcodeDisplay({ text, height }: { text: string; height: number }) {
-  const pattern = generateBarcodePattern(text);
+  let pattern: number[];
+  try {
+    pattern = generateCode128BPattern(text);
+  } catch {
+    return <p className="text-xs font-semibold text-destructive">Código incompatível com Code 128-B</p>;
+  }
   const barWidth = 1.5;
   
   return (
-    <div className="flex items-end justify-center" style={{ height: `${height}px` }}>
+    <div
+      className="flex items-end justify-center"
+      style={{ height: `${height}px`, paddingInline: `${barWidth * 10}px` }}
+    >
       {pattern.map((bit, idx) => (
         <div
           key={idx}
@@ -54,10 +70,14 @@ function BarcodeDisplay({ text, height }: { text: string; height: number }) {
 
 export function EtiquetaPreview({ config, data }: EtiquetaPreviewProps) {
   const dimensions = getEtiquetaDimensions(config.tamanhoEtiqueta);
+  const isSample = !data;
+  const margemSuperior = boundedNumber(config.margemSuperior, 5, 0, 100);
+  const margemLateral = boundedNumber(config.margemLateral, 5, 0, 100);
+  const tamanhoFonte = boundedNumber(config.tamanhoFonte, 12, 6, 72);
+  const alturaCodigoBarras = boundedNumber(config.alturaCodigoBarras, 50, 10, 300);
   
-  // Use provided data or sample data
-  const osNumero = data?.osNumero || "00001";
-  const clienteNome = data?.clienteNome || "Maria Silva";
+  const osNumero = data?.osNumero || "AMOSTRA-00001";
+  const clienteNome = data?.clienteNome || "CLIENTE DE EXEMPLO";
   const bloco = data?.bloco || "A";
   const posicao = data?.posicao || "15";
   const dataFormatada = data?.data 
@@ -70,15 +90,20 @@ export function EtiquetaPreview({ config, data }: EtiquetaPreviewProps) {
       style={{ 
         width: `${dimensions.width}px`,
         height: `${dimensions.height}px`,
-        padding: `${config.margemSuperior}px ${config.margemLateral}px`,
+        padding: `${margemSuperior}px ${margemLateral}px`,
         fontFamily: 'Arial, sans-serif',
       }}
     >
+      {isSample && (
+        <p className="mb-1 text-center text-[8px] font-bold text-red-600">
+          AMOSTRA — NÃO USAR EM PRODUÇÃO
+        </p>
+      )}
       {/* Header */}
       <div className="text-center mb-2">
         <p 
           className="font-bold text-gray-800 uppercase"
-          style={{ fontSize: `${config.tamanhoFonte}px` }}
+          style={{ fontSize: `${tamanhoFonte}px` }}
         >
           {config.nomeEmpresa || "ANJOLAV LAVANDERIA"}
         </p>
@@ -88,26 +113,26 @@ export function EtiquetaPreview({ config, data }: EtiquetaPreviewProps) {
       <div className="flex-1 flex flex-col justify-center items-center">
         <p 
           className="font-bold text-gray-700 mb-1"
-          style={{ fontSize: `${config.tamanhoFonte + 2}px` }}
+          style={{ fontSize: `${tamanhoFonte + 2}px` }}
         >
           OS: {osNumero}
         </p>
         
         <p 
           className="text-gray-600 text-center mb-2"
-          style={{ fontSize: `${config.tamanhoFonte - 2}px` }}
+          style={{ fontSize: `${Math.max(6, tamanhoFonte - 2)}px` }}
         >
           {clienteNome}
         </p>
 
         {/* Real Barcode */}
         <div className="mb-1">
-          <BarcodeDisplay text={osNumero} height={config.alturaCodigoBarras} />
+          <BarcodeDisplay text={osNumero} height={alturaCodigoBarras} />
         </div>
 
         <p 
           className="text-gray-500 font-mono"
-          style={{ fontSize: `${config.tamanhoFonte - 4}px` }}
+          style={{ fontSize: `${Math.max(6, tamanhoFonte - 4)}px` }}
         >
           {osNumero}
         </p>
@@ -117,13 +142,13 @@ export function EtiquetaPreview({ config, data }: EtiquetaPreviewProps) {
       <div className="text-center mt-2">
         <p 
           className="text-gray-500"
-          style={{ fontSize: `${config.tamanhoFonte - 4}px` }}
+          style={{ fontSize: `${Math.max(6, tamanhoFonte - 4)}px` }}
         >
           Bloco: {bloco} | Pos: {posicao}
         </p>
         <p 
           className="text-gray-400"
-          style={{ fontSize: `${config.tamanhoFonte - 4}px` }}
+          style={{ fontSize: `${Math.max(6, tamanhoFonte - 4)}px` }}
         >
           {dataFormatada}
         </p>
@@ -133,8 +158,12 @@ export function EtiquetaPreview({ config, data }: EtiquetaPreviewProps) {
 }
 
 export const generateEtiquetaHTML = (config: EtiquetaPreviewConfig) => {
-  const barcodeLines = Array.from({ length: 40 }, () => Math.random() > 0.5 ? 2 : 4);
-  
+  const osNumero = "AMOSTRA-00001";
+  const barcodePattern = generateCode128BPattern(osNumero);
+  const margemSuperior = boundedNumber(config.margemSuperior, 5, 0, 100);
+  const margemLateral = boundedNumber(config.margemLateral, 5, 0, 100);
+  const tamanhoFonte = boundedNumber(config.tamanhoFonte, 12, 6, 72);
+  const alturaCodigoBarras = boundedNumber(config.alturaCodigoBarras, 50, 10, 300);
   const tamanhoMap: Record<string, { w: string; h: string }> = {
     '10x15': { w: '100mm', h: '150mm' },
     '10x10': { w: '100mm', h: '100mm' },
@@ -165,7 +194,7 @@ export const generateEtiquetaHTML = (config: EtiquetaPreviewConfig) => {
           font-family: Arial, sans-serif;
           width: ${size.w};
           height: ${size.h};
-          padding: ${config.margemSuperior}mm ${config.margemLateral}mm;
+          padding: ${margemSuperior}mm ${margemLateral}mm;
           display: flex;
           flex-direction: column;
         }
@@ -174,7 +203,7 @@ export const generateEtiquetaHTML = (config: EtiquetaPreviewConfig) => {
           margin-bottom: 3mm;
         }
         .company {
-          font-size: ${config.tamanhoFonte}px;
+          font-size: ${tamanhoFonte}px;
           font-weight: bold;
           text-transform: uppercase;
         }
@@ -186,12 +215,12 @@ export const generateEtiquetaHTML = (config: EtiquetaPreviewConfig) => {
           align-items: center;
         }
         .os-number {
-          font-size: ${config.tamanhoFonte + 2}px;
+          font-size: ${tamanhoFonte + 2}px;
           font-weight: bold;
           margin-bottom: 2mm;
         }
         .client {
-          font-size: ${config.tamanhoFonte - 2}px;
+          font-size: ${Math.max(6, tamanhoFonte - 2)}px;
           color: #444;
           margin-bottom: 3mm;
         }
@@ -199,15 +228,18 @@ export const generateEtiquetaHTML = (config: EtiquetaPreviewConfig) => {
           display: flex;
           align-items: flex-end;
           justify-content: center;
-          gap: 1px;
-          height: ${config.alturaCodigoBarras}px;
+          gap: 0;
+          height: ${alturaCodigoBarras}px;
+          padding: 0 10px;
           margin-bottom: 1mm;
         }
         .barcode-line {
-          background: black;
+          display: block;
+          width: 1px;
+          height: ${alturaCodigoBarras}px;
         }
         .barcode-number {
-          font-size: ${config.tamanhoFonte - 4}px;
+          font-size: ${Math.max(6, tamanhoFonte - 4)}px;
           font-family: monospace;
           color: #666;
         }
@@ -216,28 +248,36 @@ export const generateEtiquetaHTML = (config: EtiquetaPreviewConfig) => {
           margin-top: 2mm;
         }
         .location {
-          font-size: ${config.tamanhoFonte - 4}px;
+          font-size: ${Math.max(6, tamanhoFonte - 4)}px;
           color: #666;
         }
         .date {
-          font-size: ${config.tamanhoFonte - 4}px;
+          font-size: ${Math.max(6, tamanhoFonte - 4)}px;
           color: #888;
+        }
+        .sample-warning {
+          color: #b91c1c;
+          font-size: 8px;
+          font-weight: bold;
+          text-align: center;
+          margin-bottom: 1mm;
         }
       </style>
     </head>
     <body>
+      <div class="sample-warning">AMOSTRA — NÃO USAR EM PRODUÇÃO</div>
       <div class="header">
-        <div class="company">ANJOLAV LAVANDERIA</div>
+        <div class="company">${escapeHtml(config.nomeEmpresa || "ANJOLAV LAVANDERIA")}</div>
       </div>
       
       <div class="content">
-        <div class="os-number">OS: 00001</div>
-        <div class="client">Maria Silva</div>
+        <div class="os-number">OS: ${osNumero}</div>
+        <div class="client">CLIENTE DE EXEMPLO</div>
         
         <div class="barcode">
-          ${barcodeLines.map((w, i) => `<div class="barcode-line" style="width:${w}px;height:${Math.random() * 20 + 80}%"></div>`).join('')}
+          ${barcodePattern.map((bit) => `<span class="barcode-line" style="background:${bit === 1 ? "#000" : "transparent"}"></span>`).join("")}
         </div>
-        <div class="barcode-number">7891234567890</div>
+        <div class="barcode-number">${osNumero}</div>
       </div>
       
       <div class="footer">
@@ -251,12 +291,9 @@ export const generateEtiquetaHTML = (config: EtiquetaPreviewConfig) => {
 
 export const printEtiqueta = (config: EtiquetaPreviewConfig) => {
   const html = generateEtiquetaHTML(config);
-  const printWindow = window.open('', '_blank', 'width=400,height=600');
+  const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
   
   if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-    
     printWindow.onload = () => {
       setTimeout(() => {
         printWindow.print();

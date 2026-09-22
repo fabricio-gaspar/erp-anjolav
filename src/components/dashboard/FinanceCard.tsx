@@ -28,7 +28,10 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
       {/* Header */}
       <div className="flex items-start justify-between pb-3 border-b border-slate-100">
         <div className="min-w-0">
-          <h3 className="font-semibold text-sm text-slate-700">{title}</h3>
+          <h3 className="flex items-center gap-2 font-semibold text-sm text-slate-700">
+            <Icon className="h-4 w-4 text-slate-400" />
+            {title}
+          </h3>
           <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>
         </div>
         <div className="text-right flex-shrink-0">
@@ -43,7 +46,7 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
       </div>
 
       {/* Items */}
-      {items.length > 0 && (
+      {items.length > 0 ? (
         <div className="mt-3 space-y-0 divide-y divide-slate-50">
           {items.slice(0, 3).map((item) => (
             <div key={item.id} className="flex items-center justify-between py-2.5 first:pt-0">
@@ -68,10 +71,12 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
             </div>
           ))}
         </div>
+      ) : (
+        <p className="py-6 text-center text-xs text-slate-400">Nenhum título pendente</p>
       )}
 
       {/* Footer */}
-      <div className="mt-3 pt-3 border-t border-slate-100">
+      {onViewAll && <div className="mt-3 pt-3 border-t border-slate-100">
         <Button 
           variant="ghost" 
           size="sm"
@@ -82,7 +87,7 @@ export function FinanceCard({ title, subtitle, total, icon: Icon, variant, items
           Ver Todas
           <ChevronRight className="w-3 h-3 ml-auto" />
         </Button>
-      </div>
+      </div>}
     </div>
   );
 }

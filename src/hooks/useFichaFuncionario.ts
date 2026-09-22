@@ -89,23 +89,94 @@ export interface FichaFuncionarioData {
   ativo?: boolean;
 }
 
+type FichaField = Exclude<keyof FichaFuncionarioData, "id" | "ativo">;
+
+const FICHA_FIELDS = [
+  "nome",
+  "cpf",
+  "data_nascimento",
+  "genero",
+  "estado_civil",
+  "nacionalidade",
+  "naturalidade",
+  "nome_mae",
+  "nome_pai",
+  "escolaridade",
+  "telefone",
+  "email",
+  "rg",
+  "rg_orgao_emissor",
+  "pis",
+  "ctps_numero",
+  "ctps_serie",
+  "ctps_uf",
+  "titulo_eleitor",
+  "cnh_numero",
+  "cnh_categoria",
+  "cnh_validade",
+  "endereco",
+  "contato_emergencia_nome",
+  "contato_emergencia_telefone",
+  "contato_emergencia_parentesco",
+  "cargo",
+  "departamento",
+  "data_admissao",
+  "data_demissao",
+  "tipo_contrato",
+  "regime_jornada",
+  "carga_horaria",
+  "dias_trabalhados",
+  "salario_base",
+  "valor_hora",
+  "vale_transporte",
+  "vale_alimentacao",
+  "vale_refeicao",
+  "plano_saude",
+  "plano_odontologico",
+  "comissao_percentual",
+  "gratificacao",
+  "periculosidade",
+  "insalubridade_percentual",
+  "desconto_inss_percentual",
+  "desconto_vt_percentual",
+  "outros_descontos",
+  "outros_beneficios",
+  "banco_nome",
+  "banco_agencia",
+  "banco_conta",
+  "banco_tipo_conta",
+  "pix_chave",
+  "pix_tipo_chave",
+  "empregador_cnpj",
+  "empregador_nome",
+  "codigo_externo",
+  "cbo",
+  "matricula_inss",
+  "centro_custo",
+  "filial",
+  "observacoes",
+] as const satisfies readonly FichaField[];
+
 export const useUpdateFichaFuncionario = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: FichaFuncionarioData) => {
-      const { id, ...rest } = data;
-      const { data: f, error } = await supabase
-        .from("funcionarios")
-        .update(rest as any)
-        .eq("id", id)
-        .select()
-        .maybeSingle();
-      if (error) throw error;
-      if (!f) throw new Error("Sem permissão para editar a ficha (necessário perfil ADMINISTRADOR).");
-      return f;
+      const profile = Object.fromEntries(
+        FICHA_FIELDS
+          .filter((field) => Object.prototype.hasOwnProperty.call(data, field))
+          .map((field) => [field, data[field]]),
+      );
+      const { data: result, error } = await supabase.functions.invoke("manage-employee", {
+        body: { action: "update", employeeId: data.id, ...profile },
+      });
+      if (error) throw new Error(error.message || "Erro ao atualizar a ficha");
+      if (result?.error) throw new Error(String(result.error));
+      if (!result?.employee) throw new Error("A atualização da ficha não foi confirmada");
+      return result.employee;
     },
-    onSuccess: () => {
+    onSuccess: (employee) => {
       queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
+      queryClient.invalidateQueries({ queryKey: ["funcionario", employee.id] });
       toast.success("Ficha atualizada com sucesso!");
     },
     onError: (err: Error) => toast.error(err.message || "Erro ao salvar ficha"),

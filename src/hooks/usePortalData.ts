@@ -1,6 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { format, subDays } from "date-fns";
+import { toast } from "sonner";
+
 import { supabase } from "@/integrations/supabase/client";
-import { startOfMonth, endOfMonth, subDays, format } from "date-fns";
+import {
+  isStrongPortalAccessCode,
+  normalizePortalAccessCode,
+} from "@/lib/portalCode";
 
 export interface OrdemServicoPortal {
   id: string;
@@ -21,9 +27,6 @@ export interface HistoricoProducaoPortal {
   etapa_anterior: string | null;
   etapa_nova: string;
   created_at: string;
-  funcionario?: {
-    nome: string;
-  } | null;
 }
 
 export interface ItemOSPortal {
@@ -31,9 +34,7 @@ export interface ItemOSPortal {
   quantidade: number;
   preco_unitario: number;
   subtotal: number;
-  produto?: {
-    nome: string;
-  } | null;
+  produto?: { nome: string } | null;
 }
 
 export interface FaturaPortal {
@@ -62,198 +63,179 @@ export interface AlertaPortal {
   referencia?: string;
 }
 
-export function usePortalOrdens(clienteId: string | null) {
-  return useQuery({
-    queryKey: ["portal-ordens", clienteId],
-    queryFn: async () => {
-      if (!clienteId) return [];
-      
-      const { data, error } = await supabase
-        .from("ordens_servico")
-        .select(`
-          id,
-          numero,
-          status,
-          prioridade,
-          data_retirada,
-          data_previsao_entrega,
-          data_entrega,
-          created_at,
-          updated_at,
-          historico:historico_producao(
-            id,
-            etapa_anterior,
-            etapa_nova,
-            created_at,
-            funcionario:funcionarios(nome)
-          ),
-          itens:itens_ordem_servico(
-            id,
-            quantidade,
-            preco_unitario,
-            subtotal,
-            produto:produtos(nome)
-          )
-        `)
-        .eq("cliente_id", clienteId)
-        .not("status", "in", '("cancelada")')
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      return (data || []) as OrdemServicoPortal[];
-    },
-    enabled: !!clienteId,
-    refetchInterval: 30000, // Atualiza a cada 30 segundos
-  });
+export interface LancamentoClientePortal {
+  id: string;
+  cliente_id: string;
+  ordem_servico_id: string | null;
+  status: "pendente" | "conferido" | "divergente";
+  data_lancamento: string;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+  itens: Array<{
+    id: string;
+    lancamento_id: string;
+    produto_id: string;
+    quantidade: number;
+    observacoes: string | null;
+    created_at: string;
+    produto?: { id: string; nome: string; unidade: string | null } | null;
+  }>;
 }
 
-export function usePortalFaturas(clienteId: string | null) {
-  return useQuery({
-    queryKey: ["portal-faturas", clienteId],
-    queryFn: async () => {
-      if (!clienteId) return [];
-      
-      const { data, error } = await supabase
-        .from("faturas")
-        .select(`
-          id,
-          periodo_inicio,
-          periodo_fim,
-          valor_total,
-          status,
-          numero_nf,
-          link_pdf_nf,
-          boleto_url,
-          boleto_linha_digitavel,
-          pix_qr_code,
-          pix_copia_cola,
-          data_vencimento,
-          data_emissao_nf,
-          chave_acesso,
-          created_at
-        `)
-        .eq("cliente_id", clienteId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-      return (data || []) as FaturaPortal[];
-    },
-    enabled: !!clienteId,
-  });
+export interface ProdutoPortal {
+  id: string;
+  nome: string;
+  unidade: string | null;
 }
 
-export function usePortalEstatisticas(clienteId: string | null) {
-  const inicioMes = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const fimMes = format(endOfMonth(new Date()), "yyyy-MM-dd");
+export interface AgendamentoPortal {
+  id: string;
+  tipo: string;
+  data: string;
+  horario: string | null;
+  status: string | null;
+}
+
+export interface EstatisticasPortal {
+  totalOS: number;
+  osEntregues: number;
+  osEmProcesso: number;
+  totalPecas: number;
+  valorFaturado: number;
+  faturasPagas: number;
+  totalFaturas: number;
+}
+
+export interface PortalBootstrap {
+  cliente: {
+    id: string;
+    razao_social: string;
+    nome_fantasia: string | null;
+  };
+  config: {
+    cliente_id: string;
+    frequencia: string | null;
+    dias_retirada: string[] | null;
+    dias_entrega: string[] | null;
+    horario_retirada: string | null;
+    horario_entrega: string | null;
+    tipo_relatorio: string | null;
+  };
+  empresa: {
+    nome_empresa: string | null;
+    logo_url: string | null;
+    whatsapp_numero: string | null;
+  } | null;
+  ordens: OrdemServicoPortal[];
+  faturas: FaturaPortal[];
+  agendamentos: AgendamentoPortal[];
+  lancamentos: LancamentoClientePortal[];
+  produtos: ProdutoPortal[];
+  estatisticas: EstatisticasPortal;
+}
+
+export interface LancamentoComItensPortal {
+  id: string;
+  data_lancamento: string;
+  data_entrega: string | null;
+  valor_total: number;
+  itens: Array<{
+    id: string;
+    produto_nome: string;
+    quantidade: number;
+    preco_unitario: number;
+    subtotal: number;
+    unidade: string;
+  }>;
+}
+
+interface PortalEnvelope<T> {
+  data?: T;
+  error?: string;
+}
+
+async function portalRequest<T>(
+  accessCode: string,
+  payload: Record<string, unknown>,
+): Promise<T> {
+  const code = normalizePortalAccessCode(accessCode);
+  if (!isStrongPortalAccessCode(code)) throw new Error("Acesso inválido ou expirado");
+
+  const { data, error } = await supabase.functions.invoke<PortalEnvelope<T>>("portal-customer", {
+    body: { ...payload, code },
+  });
+
+  if (error || !data?.data) {
+    throw new Error(data?.error || "Não foi possível acessar o portal");
+  }
+
+  return data.data;
+}
+
+export function usePortalBootstrap(accessCode: string | undefined) {
+  const normalizedCode = normalizePortalAccessCode(accessCode ?? "");
 
   return useQuery({
-    queryKey: ["portal-estatisticas", clienteId, inicioMes],
-    queryFn: async () => {
-      if (!clienteId) return null;
-
-      // Buscar OS do mês
-      const { data: osDoMes, error: osError } = await supabase
-        .from("ordens_servico")
-        .select("id, status, valor_total, itens:itens_ordem_servico(quantidade)")
-        .eq("cliente_id", clienteId)
-        .gte("data_retirada", inicioMes)
-        .lte("data_retirada", fimMes);
-
-      if (osError) throw osError;
-
-      // Buscar faturas do mês
-      const { data: faturasDoMes, error: faturasError } = await supabase
-        .from("faturas")
-        .select("id, valor_total, status")
-        .eq("cliente_id", clienteId)
-        .gte("periodo_inicio", inicioMes)
-        .lte("periodo_fim", fimMes);
-
-      if (faturasError) throw faturasError;
-
-      // Calcular estatísticas
-      const totalOS = osDoMes?.length || 0;
-      const osEntregues = osDoMes?.filter(os => os.status === "entregue").length || 0;
-      const osEmProcesso = osDoMes?.filter(os => !["entregue", "cancelada"].includes(os.status)).length || 0;
-      
-      const totalPecas = osDoMes?.reduce((acc, os) => {
-        const pecasOS = os.itens?.reduce((sum, item) => sum + (item.quantidade || 0), 0) || 0;
-        return acc + pecasOS;
-      }, 0) || 0;
-
-      const valorFaturado = faturasDoMes?.reduce((acc, f) => acc + Number(f.valor_total || 0), 0) || 0;
-      const faturaspagas = faturasDoMes?.filter(f => f.status === "pago").length || 0;
-
-      return {
-        totalOS,
-        osEntregues,
-        osEmProcesso,
-        totalPecas,
-        valorFaturado,
-        faturasPagas: faturaspagas,
-        totalFaturas: faturasDoMes?.length || 0,
-      };
-    },
-    enabled: !!clienteId,
+    queryKey: ["portal-bootstrap", normalizedCode],
+    queryFn: () => portalRequest<PortalBootstrap>(normalizedCode, { action: "bootstrap" }),
+    enabled: Boolean(normalizedCode),
+    retry: false,
+    refetchInterval: 60_000,
   });
 }
 
 export function usePortalAlertas(
-  clienteId: string | null,
   ordens: OrdemServicoPortal[],
-  faturas: FaturaPortal[]
+  faturas: FaturaPortal[],
 ): AlertaPortal[] {
   const alertas: AlertaPortal[] = [];
   const hoje = new Date();
   const em3Dias = subDays(hoje, -3);
 
-  // OS prontas para entrega
-  const osProntas = ordens.filter(os => os.status === "expedicao");
-  osProntas.forEach(os => {
+  for (const ordem of ordens.filter((item) => item.status === "expedicao")) {
     alertas.push({
       tipo: "os_pronta",
       titulo: "Ordem pronta para entrega",
-      descricao: `OS #${os.numero} está pronta para ser entregue`,
-      referencia: os.numero,
+      descricao: `OS #${ordem.numero} está pronta para ser entregue`,
+      referencia: ordem.numero,
     });
-  });
+  }
 
-  // OS atrasadas
-  const osAtrasadas = ordens.filter(os => {
-    if (!os.data_previsao_entrega || os.status === "entregue") return false;
-    return new Date(os.data_previsao_entrega) < hoje;
-  });
-  osAtrasadas.forEach(os => {
+  for (const ordem of ordens.filter((item) => {
+    if (!item.data_previsao_entrega || item.status === "entregue") return false;
+    return new Date(item.data_previsao_entrega) < hoje;
+  })) {
     alertas.push({
       tipo: "os_atrasada",
       titulo: "Entrega em atraso",
-      descricao: `OS #${os.numero} estava prevista para ${format(new Date(os.data_previsao_entrega!), "dd/MM")}`,
-      data: os.data_previsao_entrega!,
-      referencia: os.numero,
+      descricao: `OS #${ordem.numero} estava prevista para ${format(new Date(ordem.data_previsao_entrega!), "dd/MM")}`,
+      data: ordem.data_previsao_entrega!,
+      referencia: ordem.numero,
     });
-  });
+  }
 
-  // Boletos vencendo
-  const boletosVencendo = faturas.filter(f => {
-    if (!f.data_vencimento || f.status === "pago") return false;
-    const vencimento = new Date(f.data_vencimento);
+  for (const fatura of faturas.filter((item) => {
+    if (!item.data_vencimento || item.status === "pago") return false;
+    const vencimento = new Date(item.data_vencimento);
     return vencimento >= hoje && vencimento <= em3Dias;
-  });
-  boletosVencendo.forEach(f => {
+  })) {
     alertas.push({
       tipo: "boleto_vencendo",
       titulo: "Boleto próximo do vencimento",
-      descricao: `Fatura de R$ ${Number(f.valor_total).toFixed(2)} vence em ${format(new Date(f.data_vencimento!), "dd/MM")}`,
-      data: f.data_vencimento!,
+      descricao: `Fatura de R$ ${Number(fatura.valor_total).toFixed(2)} vence em ${format(new Date(fatura.data_vencimento!), "dd/MM")}`,
+      data: fatura.data_vencimento!,
     });
-  });
+  }
 
-  // Faturas pendentes
-  const faturasPendentes = faturas.filter(f => f.status === "pendente" || f.status === "nota_emitida");
-  if (faturasPendentes.length > 0) {
-    const total = faturasPendentes.reduce((acc, f) => acc + Number(f.valor_total), 0);
+  const faturasPendentes = faturas.filter(
+    (fatura) => fatura.status === "pendente" || fatura.status === "nota_emitida",
+  );
+  if (faturasPendentes.length) {
+    const total = faturasPendentes.reduce(
+      (accumulator, fatura) => accumulator + Number(fatura.valor_total),
+      0,
+    );
     alertas.push({
       tipo: "fatura_pendente",
       titulo: `${faturasPendentes.length} fatura(s) pendente(s)`,
@@ -264,62 +246,43 @@ export function usePortalAlertas(
   return alertas;
 }
 
-export interface LancamentoComItensPortal {
-  id: string;
-  data_lancamento: string;
-  data_entrega: string | null;
-  valor_total: number;
-  itens: {
-    id: string;
-    produto_nome: string;
-    quantidade: number;
-    preco_unitario: number;
-    subtotal: number;
-    unidade: string;
-  }[];
+export function usePortalRelatorio(accessCode: string, faturaId: string | null) {
+  return useQuery({
+    queryKey: ["portal-relatorio", accessCode, faturaId],
+    queryFn: () =>
+      portalRequest<LancamentoComItensPortal[]>(accessCode, {
+        action: "report",
+        faturaId,
+      }),
+    enabled: Boolean(accessCode && faturaId),
+    retry: false,
+  });
 }
 
-export function usePortalRelatorio(faturaId: string | null) {
-  return useQuery({
-    queryKey: ["portal-relatorio", faturaId],
-    queryFn: async () => {
-      if (!faturaId) return [];
+export interface CreatePortalLaunchInput {
+  observacoes?: string;
+  itens: Array<{
+    produto_id: string;
+    quantidade: number;
+    observacoes?: string;
+  }>;
+}
 
-      // Buscar lancamentos via lancamentos_fatura
-      const { data: links, error: linksError } = await supabase
-        .from("lancamentos_fatura")
-        .select("lancamento_id")
-        .eq("fatura_id", faturaId);
+export function useCreatePortalLancamento(accessCode: string) {
+  const queryClient = useQueryClient();
 
-      if (linksError) throw linksError;
-
-      if (!links || links.length === 0) return [];
-
-      const lancamentoIds = links.map((l) => l.lancamento_id);
-
-      // Buscar detalhes dos lancamentos
-      const { data: lancamentos, error: lancError } = await supabase
-        .from("lancamentos")
-        .select(`
-          id,
-          data_lancamento,
-          data_entrega,
-          valor_total,
-          itens:itens_lancamento(
-            id,
-            produto_nome,
-            quantidade,
-            preco_unitario,
-            subtotal,
-            unidade
-          )
-        `)
-        .in("id", lancamentoIds)
-        .order("data_lancamento", { ascending: true });
-
-      if (lancError) throw lancError;
-      return (lancamentos || []) as LancamentoComItensPortal[];
+  return useMutation({
+    mutationFn: (input: CreatePortalLaunchInput) =>
+      portalRequest<LancamentoClientePortal>(accessCode, {
+        action: "create-launch",
+        ...input,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["portal-bootstrap", normalizePortalAccessCode(accessCode)],
+      });
+      toast.success("Lançamento enviado com sucesso!");
     },
-    enabled: !!faturaId,
+    onError: () => toast.error("Não foi possível enviar o lançamento"),
   });
 }

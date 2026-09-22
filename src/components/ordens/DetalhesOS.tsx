@@ -125,14 +125,19 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
               size="sm"
               onClick={async () => {
                 const evento = ordem.status === "expedicao" ? "os_pronta" : "os_status";
-                await dispararNotificacao(evento, {
+                const enviado = await dispararNotificacao(evento, {
                   cliente: ordem.cliente?.razao_social || "",
                   telefone: ordem.cliente?.telefone || "",
                   numero: ordem.numero,
                   ordem_servico_id: ordemServicoId,
                   cliente_id: ordem.cliente_id,
                 });
-                toast({ title: "Notificação WhatsApp disparada!" });
+                toast({
+                  title: enviado
+                    ? "WhatsApp confirmado pela Evolution API"
+                    : "Envio de WhatsApp não confirmado",
+                  variant: enviado ? "default" : "destructive",
+                });
               }}
             >
               <Send className="h-4 w-4" />

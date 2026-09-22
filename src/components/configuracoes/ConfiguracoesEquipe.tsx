@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +94,34 @@ const getInitials = (name: string): string => {
     return words[0].substring(0, 2).toUpperCase();
   }
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+};
+
+const AVATAR_EXTENSION_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+const getAvatarExtension = (file: File): string => {
+  const extension = AVATAR_EXTENSION_BY_MIME[file.type];
+  if (!extension || file.size <= 0 || file.size > 2 * 1024 * 1024) {
+    throw new Error("Arquivo de avatar inválido");
+  }
+  return extension;
+};
+
+const getAvatarStoragePath = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    const marker = "/storage/v1/object/public/avatars/";
+    const markerIndex = url.pathname.indexOf(marker);
+    if (url.protocol !== "https:" || markerIndex < 0) return null;
+    const storagePath = decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
+    return storagePath.startsWith("funcionarios/") && !storagePath.includes("..") ? storagePath : null;
+  } catch {
+    return null;
+  }
 };
 
 // ===== CONSTANTS =====
@@ -434,14 +462,16 @@ function FuncionariosTab({
     e.preventDefault();
     if (!formData.nome.trim() || !formData.login.trim() || !formData.senha.trim()) return;
 
+    let uploadedAvatarPath: string | null = null;
+    let employeeMutationStarted = false;
     try {
       setIsUploading(true);
       let avatarUrl: string | undefined = undefined;
 
       // Upload avatar if file exists
       if (avatarFile) {
-        const fileExt = avatarFile.name.split('.').pop();
-        const filePath = `funcionarios/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileExt = getAvatarExtension(avatarFile);
+        const filePath = `funcionarios/${crypto.randomUUID()}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -449,8 +479,9 @@ function FuncionariosTab({
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
-          toast.error('Erro ao fazer upload da foto');
+          throw new Error('Erro ao fazer upload da foto');
         } else {
+          uploadedAvatarPath = filePath;
           const { data: { publicUrl } } = supabase.storage
             .from('avatars')
             .getPublicUrl(filePath);
@@ -458,6 +489,7 @@ function FuncionariosTab({
         }
       }
 
+      employeeMutationStarted = true;
       await createFuncionario.mutateAsync({
         nome: formData.nome,
         cargo: formData.cargo,
@@ -472,6 +504,14 @@ function FuncionariosTab({
 
       resetForm();
       setIsFormOpen(false);
+    } catch (error) {
+      if (uploadedAvatarPath) {
+        const { error: cleanupError } = await supabase.storage.from("avatars").remove([uploadedAvatarPath]);
+        if (cleanupError) console.error("Falha ao remover avatar órfão", cleanupError);
+      }
+      if (!employeeMutationStarted) {
+        toast.error(error instanceof Error ? error.message : "Erro ao cadastrar funcionário");
+      }
     } finally {
       setIsUploading(false);
     }
@@ -688,9 +728,9 @@ function FuncionariosTab({
                       type="password"
                       value={formData.senha}
                       onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Mínimo 12 caracteres"
                       required
-                      minLength={6}
+                      minLength={12}
                     />
                   </div>
                 </div>
@@ -861,7 +901,7 @@ function FuncionariosTab({
                         <TableCell colSpan={8} className="p-3">
                           <FuncionarioFolhaInline
                             funcionarioId={func.id}
-                            folha={folha as any}
+                            folha={folha}
                             competenciaLabel={competenciaLabel}
                           />
                         </TableCell>
@@ -960,15 +1000,15 @@ function FuncionariosTab({
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                minLength={6}
+                placeholder="Mínimo 12 caracteres"
+                minLength={12}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPasswordItem(null)}>Cancelar</Button>
             <Button
-              disabled={!newPassword || newPassword.length < 6 || changePassword.isPending}
+              disabled={!newPassword || newPassword.length < 12 || changePassword.isPending}
               onClick={async () => {
                 if (passwordItem?.user_id) {
                   await changePassword.mutateAsync({ userId: passwordItem.user_id, newPassword });
@@ -1013,7 +1053,7 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
   const [isUploading, setIsUploading] = useState(false);
 
   // Update form when funcionario changes
-  useMemo(() => {
+  useEffect(() => {
     if (funcionario) {
       setFormData({
         nome: funcionario.nome,
@@ -1045,14 +1085,16 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
     e.preventDefault();
     if (!funcionario) return;
     
+    let uploadedAvatarPath: string | null = null;
+    let employeeMutationStarted = false;
     try {
       setIsUploading(true);
-      let finalAvatarUrl: string | undefined = avatarUrl || undefined;
+      let finalAvatarUrl: string | null = avatarUrl;
 
       // Upload new avatar if file exists
       if (avatarFile) {
-        const fileExt = avatarFile.name.split('.').pop();
-        const filePath = `funcionarios/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileExt = getAvatarExtension(avatarFile);
+        const filePath = `funcionarios/${crypto.randomUUID()}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -1060,8 +1102,9 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
-          toast.error('Erro ao fazer upload da foto');
+          throw new Error('Erro ao fazer upload da foto');
         } else {
+          uploadedAvatarPath = filePath;
           const { data: { publicUrl } } = supabase.storage
             .from('avatars')
             .getPublicUrl(filePath);
@@ -1069,22 +1112,37 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
         }
       }
 
+      employeeMutationStarted = true;
       await onSave.mutateAsync({
         id: funcionario.id,
         nome: formData.nome,
         cargo: formData.cargo,
-        departamento: formData.departamento || undefined,
-        telefone: formData.telefone || undefined,
-        cpf: formData.cpf || undefined,
-        email: formData.email || undefined,
+        departamento: formData.departamento || null,
+        telefone: formData.telefone || null,
+        cpf: formData.cpf || null,
+        email: formData.email || null,
         login: formData.login,
         avatar_url: finalAvatarUrl,
         data_admissao: formData.data_admissao || null,
         carga_horaria: formData.carga_horaria ? Number(formData.carga_horaria) : null,
         dias_trabalhados: formData.dias_trabalhados.length > 0 ? formData.dias_trabalhados : null,
       });
+
+      const previousAvatarPath = getAvatarStoragePath(funcionario.avatar_url);
+      if (previousAvatarPath && previousAvatarPath !== uploadedAvatarPath && funcionario.avatar_url !== finalAvatarUrl) {
+        const { error: cleanupError } = await supabase.storage.from("avatars").remove([previousAvatarPath]);
+        if (cleanupError) console.error("Falha ao remover avatar substituído", cleanupError);
+      }
       
       onClose();
+    } catch (error) {
+      if (uploadedAvatarPath) {
+        const { error: cleanupError } = await supabase.storage.from("avatars").remove([uploadedAvatarPath]);
+        if (cleanupError) console.error("Falha ao remover avatar órfão", cleanupError);
+      }
+      if (!employeeMutationStarted) {
+        toast.error(error instanceof Error ? error.message : "Erro ao atualizar funcionário");
+      }
     } finally {
       setIsUploading(false);
     }

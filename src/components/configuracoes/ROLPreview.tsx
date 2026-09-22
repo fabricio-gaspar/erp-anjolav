@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { escapeHtml, openPrintDocument, safeHttpsUrl } from "@/lib/safePrint";
 
 export interface ROLPreviewConfig {
   nomeCurto: string;
@@ -42,9 +42,32 @@ export const getFontFamily = (font: string) => {
   }
 };
 
+const boundedNumber = (value: unknown, fallback: number, min: number, max: number) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue)
+    ? Math.min(max, Math.max(min, numericValue))
+    : fallback;
+};
+
+const safeColor = (value: unknown, fallback: string) =>
+  typeof value === "string" && /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(value)
+    ? value
+    : fallback;
+
 export const generateROLHTML = (config: ROLPreviewConfig) => {
   const width = config.larguraPapel === '58mm' ? '58mm' : '80mm';
   const fontFamily = getFontFamily(config.fontePrincipal);
+  const margemSuperior = boundedNumber(config.margemSuperior, 10, 0, 100);
+  const margemLateral = boundedNumber(config.margemLateral, 8, 0, 100);
+  const tamanhoNome = boundedNumber(config.tamanhoNome, 14, 6, 72);
+  const tamanhoItem = boundedNumber(config.tamanhoItem, 11, 6, 72);
+  const tamanhoTotal = boundedNumber(config.tamanhoTotal, 14, 6, 72);
+  const corPrimaria = safeColor(config.corPrimaria, "#3c62f6");
+  const corSecundaria = safeColor(config.corSecundaria, "#2583eb");
+  const logoUrl = safeHttpsUrl(config.logoUrl);
+  const sampleDate = new Date();
+  const sampleDelivery = new Date(sampleDate);
+  sampleDelivery.setDate(sampleDelivery.getDate() + 3);
 
   const sampleItems = [
     { qty: 5, name: 'Camisa Social', unit: 8.50, total: 42.50 },
@@ -60,7 +83,7 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>ROL - ${config.nomeCompleto || config.nomeCurto}</title>
+      <title>ROL de amostra - ${escapeHtml(config.nomeCompleto || config.nomeCurto)}</title>
       <style>
         @page {
           size: ${width} auto;
@@ -74,7 +97,7 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
         body {
           font-family: ${fontFamily};
           width: ${width};
-          padding: ${config.margemSuperior}px ${config.margemLateral}px;
+          padding: ${margemSuperior}px ${margemLateral}px;
           font-size: 10px;
           line-height: 1.3;
         }
@@ -89,9 +112,9 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
           margin-bottom: 8px;
         }
         .company-name {
-          font-size: ${config.tamanhoNome}px;
+          font-size: ${tamanhoNome}px;
           font-weight: bold;
-          color: ${config.corPrimaria};
+          color: ${corPrimaria};
           text-transform: uppercase;
         }
         .cnpj, .address, .contact {
@@ -106,7 +129,7 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
         .rol-title {
           font-size: 10px;
           font-weight: bold;
-          color: ${config.corSecundaria};
+          color: ${corSecundaria};
         }
         .rol-number {
           font-size: 9px;
@@ -129,13 +152,13 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
           justify-content: space-between;
           font-size: 9px;
           font-weight: bold;
-          color: ${config.corPrimaria};
+          color: ${corPrimaria};
           margin-bottom: 4px;
         }
         .item-row {
           display: flex;
           justify-content: space-between;
-          font-size: ${config.tamanhoItem}px;
+          font-size: ${tamanhoItem}px;
           padding: 2px 0;
         }
         .item-qty { width: 25px; }
@@ -156,9 +179,9 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
           color: #059669;
         }
         .grand-total {
-          font-size: ${config.tamanhoTotal}px;
+          font-size: ${tamanhoTotal}px;
           font-weight: bold;
-          color: ${config.corPrimaria};
+          color: ${corPrimaria};
           margin-top: 4px;
         }
         .obs {
@@ -197,25 +220,33 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
           color: #aaa;
           margin-top: 4px;
         }
+        .sample-warning {
+          color: #b91c1c;
+          font-size: 8px;
+          font-weight: bold;
+          text-align: center;
+          margin-bottom: 6px;
+        }
       </style>
     </head>
     <body>
+      <div class="sample-warning">AMOSTRA — NÃO USAR COMO COMPROVANTE</div>
       <div class="header">
-        ${config.exibirLogo && config.logoUrl ? `<img src="${config.logoUrl}" alt="Logo" class="logo" />` : ''}
-        <div class="company-name">${config.nomeCompleto || config.nomeCurto}</div>
-        ${config.cnpj ? `<div class="cnpj">CNPJ: ${config.cnpj}</div>` : ''}
-        ${config.endereco ? `<div class="address">${config.endereco}</div>` : ''}
-        ${config.telefone || config.email ? `<div class="contact">${config.telefone}${config.telefone && config.email ? ' | ' : ''}${config.email}</div>` : ''}
+        ${config.exibirLogo && logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="Logo" class="logo" />` : ''}
+        <div class="company-name">${escapeHtml(config.nomeCompleto || config.nomeCurto)}</div>
+        ${config.cnpj ? `<div class="cnpj">CNPJ: ${escapeHtml(config.cnpj)}</div>` : ''}
+        ${config.endereco ? `<div class="address">${escapeHtml(config.endereco)}</div>` : ''}
+        ${config.telefone || config.email ? `<div class="contact">${escapeHtml(config.telefone)}${config.telefone && config.email ? ' | ' : ''}${escapeHtml(config.email)}</div>` : ''}
       </div>
 
       <div class="rol-info">
         <div class="rol-title">RECIBO DE LAVANDERIA</div>
-        <div class="rol-number">Nº 00001 - ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+        <div class="rol-number">Nº AMOSTRA-00001 - ${sampleDate.toLocaleDateString('pt-BR')} ${sampleDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
       </div>
 
       <div class="section">
-        <div class="client-info"><strong>Cliente:</strong> Maria Silva</div>
-        ${config.previsaoEntrega ? `<div class="client-info previsao"><strong>Previsão:</strong> ${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')}</div>` : ''}
+        <div class="client-info"><strong>Cliente:</strong> CLIENTE DE EXEMPLO</div>
+        ${config.previsaoEntrega ? `<div class="client-info previsao"><strong>Previsão:</strong> ${sampleDelivery.toLocaleDateString('pt-BR')}</div>` : ''}
       </div>
 
       <div class="section">
@@ -254,7 +285,7 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
 
       ${config.observacoes ? `
         <div class="section">
-          <div class="obs"><strong>Obs:</strong> Peças com manchas de café. Tratamento especial.</div>
+          <div class="obs"><strong>Obs:</strong> OBSERVAÇÃO DE EXEMPLO.</div>
         </div>
       ` : ''}
 
@@ -272,8 +303,8 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
       ` : ''}
 
       <div class="footer">
-        <div class="footer-text">${config.textoRodape || 'Obrigado pela preferência!'}</div>
-        <div class="footer-slogan">${config.slogan}</div>
+        <div class="footer-text">${escapeHtml(config.textoRodape || 'Obrigado pela preferência!')}</div>
+        <div class="footer-slogan">${escapeHtml(config.slogan)}</div>
       </div>
     </body>
     </html>
@@ -282,12 +313,9 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
 
 export const printROL = (config: ROLPreviewConfig) => {
   const html = generateROLHTML(config);
-  const printWindow = window.open('', '_blank', 'width=400,height=600');
+  const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
   
   if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-    
     // Wait for images to load before printing
     printWindow.onload = () => {
       setTimeout(() => {
@@ -301,6 +329,17 @@ export const printROL = (config: ROLPreviewConfig) => {
 export function ROLPreview({ config }: ROLPreviewProps) {
   const width = config.larguraPapel === '58mm' ? '220px' : '300px';
   const fontFamily = getFontFamily(config.fontePrincipal);
+  const margemSuperior = boundedNumber(config.margemSuperior, 10, 0, 100);
+  const margemLateral = boundedNumber(config.margemLateral, 8, 0, 100);
+  const tamanhoNome = boundedNumber(config.tamanhoNome, 14, 6, 72);
+  const tamanhoItem = boundedNumber(config.tamanhoItem, 11, 6, 72);
+  const tamanhoTotal = boundedNumber(config.tamanhoTotal, 14, 6, 72);
+  const corPrimaria = safeColor(config.corPrimaria, "#3c62f6");
+  const corSecundaria = safeColor(config.corSecundaria, "#2583eb");
+  const logoUrl = safeHttpsUrl(config.logoUrl);
+  const sampleDate = new Date();
+  const sampleDelivery = new Date(sampleDate);
+  sampleDelivery.setDate(sampleDelivery.getDate() + 3);
 
   // Sample data for preview
   const sampleItems = [
@@ -318,15 +357,18 @@ export function ROLPreview({ config }: ROLPreviewProps) {
       style={{ 
         width,
         fontFamily,
-        padding: `${config.margemSuperior}px ${config.margemLateral}px`,
+        padding: `${margemSuperior}px ${margemLateral}px`,
       }}
     >
+      <p className="mb-1 text-center text-[8px] font-bold text-red-700">
+        AMOSTRA — NÃO USAR COMO COMPROVANTE
+      </p>
       {/* Header */}
       <div className="text-center border-b border-dashed border-gray-400 pb-2 mb-2">
-        {config.exibirLogo && config.logoUrl && (
+        {config.exibirLogo && logoUrl && (
           <div className="flex justify-center mb-2">
             <img 
-              src={config.logoUrl} 
+              src={logoUrl}
               alt="Logo" 
               className="h-12 object-contain"
             />
@@ -335,8 +377,8 @@ export function ROLPreview({ config }: ROLPreviewProps) {
         <p 
           className="font-bold uppercase"
           style={{ 
-            fontSize: `${config.tamanhoNome}px`,
-            color: config.corPrimaria
+            fontSize: `${tamanhoNome}px`,
+            color: corPrimaria
           }}
         >
           {config.nomeCompleto || config.nomeCurto}
@@ -356,25 +398,27 @@ export function ROLPreview({ config }: ROLPreviewProps) {
 
       {/* ROL Info */}
       <div className="text-center mb-2">
-        <p className="text-[10px] font-bold" style={{ color: config.corSecundaria }}>
+        <p className="text-[10px] font-bold" style={{ color: corSecundaria }}>
           RECIBO DE LAVANDERIA
         </p>
-        <p className="text-[9px] text-gray-600">Nº 00001 - 09/01/2026 14:35</p>
+        <p className="text-[9px] text-gray-600">
+          Nº AMOSTRA-00001 - {sampleDate.toLocaleDateString("pt-BR")} {sampleDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+        </p>
       </div>
 
       {/* Cliente */}
       <div className="border-t border-dashed border-gray-400 pt-2 mb-2">
-        <p className="text-[10px]"><strong>Cliente:</strong> Maria Silva</p>
+        <p className="text-[10px]"><strong>Cliente:</strong> CLIENTE DE EXEMPLO</p>
         {config.previsaoEntrega && (
           <p className="text-[10px] text-amber-600 font-medium">
-            <strong>Previsão:</strong> 12/01/2026
+            <strong>Previsão:</strong> {sampleDelivery.toLocaleDateString("pt-BR")}
           </p>
         )}
       </div>
 
       {/* Items */}
       <div className="border-t border-dashed border-gray-400 pt-2 mb-2">
-        <div className="text-[9px] font-bold flex justify-between mb-1" style={{ color: config.corPrimaria }}>
+        <div className="text-[9px] font-bold flex justify-between mb-1" style={{ color: corPrimaria }}>
           <span>QTD</span>
           <span className="flex-1 text-left ml-2">ITEM</span>
           {config.tipoPreco && (
@@ -388,7 +432,7 @@ export function ROLPreview({ config }: ROLPreviewProps) {
           <div 
             key={idx} 
             className="flex justify-between text-[9px] py-0.5"
-            style={{ fontSize: `${config.tamanhoItem}px` }}
+            style={{ fontSize: `${tamanhoItem}px` }}
           >
             <span className="w-6">{item.qty}x</span>
             <span className="flex-1 text-left truncate">{item.name}</span>
@@ -420,8 +464,8 @@ export function ROLPreview({ config }: ROLPreviewProps) {
           <div 
             className="flex justify-between font-bold mt-1"
             style={{ 
-              fontSize: `${config.tamanhoTotal}px`,
-              color: config.corPrimaria
+              fontSize: `${tamanhoTotal}px`,
+              color: corPrimaria
             }}
           >
             <span>TOTAL:</span>
@@ -434,7 +478,7 @@ export function ROLPreview({ config }: ROLPreviewProps) {
       {config.observacoes && (
         <div className="border-t border-dashed border-gray-400 pt-2 mb-2">
           <p className="text-[9px] text-gray-600">
-            <strong>Obs:</strong> Peças com manchas de café. Tratamento especial.
+            <strong>Obs:</strong> OBSERVAÇÃO DE EXEMPLO.
           </p>
         </div>
       )}

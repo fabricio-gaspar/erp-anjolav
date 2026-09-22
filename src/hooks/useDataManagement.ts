@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+
 import { supabase } from "@/integrations/supabase/client";
 
 export interface EntityStats {
@@ -19,11 +20,11 @@ export interface DataOverview {
     producao: number;
   };
   entities: EntityStats[];
+  destructiveEnabled: boolean;
   lastUpdated: Date;
 }
 
 const entityDefinitions = [
-  // Cadastros
   { key: "clientes", name: "Clientes", table: "clientes", description: "Cadastro de clientes", category: "cadastros" as const },
   { key: "enderecos_clientes", name: "Endereços de Clientes", table: "enderecos_clientes", description: "Endereços vinculados aos clientes", category: "cadastros" as const },
   { key: "configuracoes_cliente", name: "Config. Cliente", table: "configuracoes_cliente", description: "Configurações por cliente", category: "cadastros" as const },
@@ -38,8 +39,6 @@ const entityDefinitions = [
   { key: "contratos_aluguel", name: "Contratos de Aluguel", table: "contratos_aluguel", description: "Contratos de locação", category: "cadastros" as const },
   { key: "itens_contrato_aluguel", name: "Itens Contrato Aluguel", table: "itens_contrato_aluguel", description: "Itens dos contratos de aluguel", category: "cadastros" as const },
   { key: "modulo_permissoes", name: "Permissões de Módulos", table: "modulo_permissoes", description: "Permissões granulares por usuário", category: "cadastros" as const },
-
-  // Operacional
   { key: "ordens_servico", name: "Ordens de Serviço", table: "ordens_servico", description: "Ordens de serviço registradas", category: "operacional" as const },
   { key: "itens_ordem_servico", name: "Itens OS", table: "itens_ordem_servico", description: "Itens das ordens de serviço", category: "operacional" as const },
   { key: "lancamentos", name: "Lançamentos (ROLs)", table: "lancamentos", description: "Lançamentos de consumo", category: "operacional" as const },
@@ -54,8 +53,6 @@ const entityDefinitions = [
   { key: "orcamentos", name: "Orçamentos", table: "orcamentos", description: "Orçamentos formais", category: "operacional" as const },
   { key: "mensagens_log", name: "Log de Mensagens", table: "mensagens_log", description: "Histórico de mensagens enviadas", category: "operacional" as const },
   { key: "notificacoes_enviadas", name: "Notificações Enviadas", table: "notificacoes_enviadas", description: "Notificações automáticas", category: "operacional" as const },
-
-  // Financeiro
   { key: "faturas", name: "Faturas", table: "faturas", description: "Faturas emitidas", category: "financeiro" as const },
   { key: "lancamentos_fatura", name: "Lançamentos × Fatura", table: "lancamentos_fatura", description: "Vínculo de ROLs com faturas", category: "financeiro" as const },
   { key: "contas_pagar", name: "Contas a Pagar", table: "contas_pagar", description: "Contas a pagar", category: "financeiro" as const },
@@ -66,259 +63,152 @@ const entityDefinitions = [
   { key: "folha_pagamento", name: "Folha de Pagamento", table: "folha_pagamento", description: "Folhas de pagamento dos funcionários", category: "financeiro" as const },
   { key: "folha_beneficios", name: "Benefícios/Descontos", table: "folha_beneficios", description: "Benefícios e descontos extras", category: "financeiro" as const },
   { key: "historico_envios", name: "Histórico de Envios", table: "historico_envios", description: "Envios de faturas/NFs", category: "financeiro" as const },
-
-  // Produção
   { key: "lotes_producao", name: "Lotes de Produção", table: "lotes_producao", description: "Lotes de processamento", category: "producao" as const },
   { key: "lotes_ordens", name: "Lotes × OS", table: "lotes_ordens", description: "Vínculo de OS aos lotes", category: "producao" as const },
   { key: "historico_producao", name: "Histórico Produção", table: "historico_producao", description: "Histórico de produção", category: "producao" as const },
+] satisfies Array<Omit<EntityStats, "count">>;
+
+const knownTables = new Set(entityDefinitions.map((entity) => entity.table));
+const insertionOrder = [
+  "clientes", "produtos", "funcionarios", "veiculos", "motoristas", "fornecedores",
+  "estoque_produtos", "enderecos_clientes", "configuracoes_cliente",
+  "configuracoes_pagamento_cliente", "precos_especiais", "modulo_permissoes",
+  "contratos_aluguel", "itens_contrato_aluguel", "agendamentos", "eventos_agenda",
+  "ordens_servico", "itens_ordem_servico", "lotes_producao", "lotes_ordens",
+  "rotas_entrega", "paradas_rota", "lancamentos", "itens_lancamento",
+  "lancamentos_cliente", "itens_lancamento_cliente", "orcamentos", "faturas",
+  "lancamentos_fatura", "contas_pagar", "folha_pagamento", "folha_beneficios",
+  "caixas", "caixa_movimentacoes", "asaas_charges", "asaas_webhook_events",
+  "movimentacoes_estoque", "historico_producao", "historico_envios", "mensagens_log",
+  "notificacoes_enviadas",
 ];
 
-async function fetchEntityCount(table: string): Promise<number> {
-  const { count, error } = await supabase
-    .from(table as any)
-    .select("*", { count: "exact", head: true });
-  
-  if (error) {
-    console.error(`Error fetching count for ${table}:`, error);
-    return 0;
+interface DataAdminEnvelope<T> {
+  data?: T;
+  error?: string;
+}
+
+async function dataAdminRequest<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke<DataAdminEnvelope<T>>(
+    "data-administration",
+    { body },
+  );
+  if (error || data?.data === undefined) {
+    throw new Error(data?.error || "Não foi possível concluir a operação administrativa");
   }
-  
-  return count || 0;
+  return data.data;
 }
 
 export function useDataManagement() {
   return useQuery({
     queryKey: ["data-management-stats"],
     queryFn: async (): Promise<DataOverview> => {
-      const entityPromises = entityDefinitions.map(async (def) => {
-        const count = await fetchEntityCount(def.table);
-        return {
-          ...def,
-          count,
-        };
-      });
-
-      const entities = await Promise.all(entityPromises);
-      
+      const result = await dataAdminRequest<{
+        counts: Record<string, number>;
+        destructiveEnabled: boolean;
+      }>({ operation: "stats" });
+      const entities = entityDefinitions.map((definition) => ({
+        ...definition,
+        count: result.counts[definition.table] ?? 0,
+      }));
       const categories = {
-        cadastros: entities.filter(e => e.category === "cadastros").reduce((sum, e) => sum + e.count, 0),
-        operacional: entities.filter(e => e.category === "operacional").reduce((sum, e) => sum + e.count, 0),
-        financeiro: entities.filter(e => e.category === "financeiro").reduce((sum, e) => sum + e.count, 0),
-        producao: entities.filter(e => e.category === "producao").reduce((sum, e) => sum + e.count, 0),
+        cadastros: entities.filter((entity) => entity.category === "cadastros").reduce((sum, entity) => sum + entity.count, 0),
+        operacional: entities.filter((entity) => entity.category === "operacional").reduce((sum, entity) => sum + entity.count, 0),
+        financeiro: entities.filter((entity) => entity.category === "financeiro").reduce((sum, entity) => sum + entity.count, 0),
+        producao: entities.filter((entity) => entity.category === "producao").reduce((sum, entity) => sum + entity.count, 0),
       };
 
-      const totalRecords = entities.reduce((sum, e) => sum + e.count, 0);
-
       return {
-        totalRecords,
+        totalRecords: entities.reduce((sum, entity) => sum + entity.count, 0),
         categories,
         entities,
+        destructiveEnabled: result.destructiveEnabled,
         lastUpdated: new Date(),
       };
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30_000,
   });
 }
 
-export async function exportEntityData(table: string): Promise<any[]> {
-  const { data, error } = await supabase
-    .from(table as any)
-    .select("*");
-  
-  if (error) {
-    throw new Error(`Erro ao exportar dados: ${error.message}`);
-  }
-  
-  return data || [];
-}
+export async function exportEntityData(table: string): Promise<Array<Record<string, unknown>>> {
+  if (!knownTables.has(table)) throw new Error("Tabela não autorizada para exportação");
 
-export async function exportAllData(): Promise<Record<string, any[]>> {
-  const result: Record<string, any[]> = {};
-  
-  for (const entity of entityDefinitions) {
-    try {
-      const data = await exportEntityData(entity.table);
-      result[entity.table] = data;
-    } catch (error) {
-      console.error(`Error exporting ${entity.table}:`, error);
-      result[entity.table] = [];
+  const result: Array<Record<string, unknown>> = [];
+  for (let offset = 0; ; offset += 500) {
+    const page = await dataAdminRequest<Array<Record<string, unknown>>>({
+      operation: "export-page",
+      table,
+      offset,
+    });
+    result.push(...page);
+    if (page.length < 500) return result;
+    if (result.length >= 100_000) {
+      throw new Error("A exportação excede o limite da interface; utilize pg_dump");
     }
   }
-  
+}
+
+export async function exportAllData(): Promise<Record<string, Array<Record<string, unknown>>>> {
+  const result: Record<string, Array<Record<string, unknown>>> = {};
+  for (const entity of entityDefinitions) result[entity.table] = await exportEntityData(entity.table);
   return result;
 }
 
 export async function deleteEntityData(table: string): Promise<number> {
-  const { error, count } = await supabase
-    .from(table as any)
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all (workaround)
-  
-  if (error) {
-    throw new Error(`Erro ao excluir dados: ${error.message}`);
-  }
-  
-  return count || 0;
+  if (!knownTables.has(table)) throw new Error("Tabela não autorizada para exclusão");
+  const result = await dataAdminRequest<{ deleted: number }>({
+    operation: "delete-table",
+    table,
+    confirmation: `EXCLUIR:${table}`,
+  });
+  return result.deleted;
 }
-
-// Ordem de exclusão respeitando dependências de FK
-const deletionOrder = [
-  // Filhas (dependentes)
-  "notificacoes_enviadas",
-  "mensagens_log",
-  "historico_envios",
-  "historico_producao",
-  "lotes_ordens",
-  "paradas_rota",
-  "itens_lancamento",
-  "itens_lancamento_cliente",
-  "itens_ordem_servico",
-  "itens_contrato_aluguel",
-  "lancamentos_fatura",
-  "asaas_webhook_events",
-  "caixa_movimentacoes",
-  "movimentacoes_estoque",
-  "folha_beneficios",
-  "modulo_permissoes",
-  "precos_especiais",
-  "configuracoes_cliente",
-  "configuracoes_pagamento_cliente",
-  "enderecos_clientes",
-  // Intermediárias
-  "lancamentos",
-  "lancamentos_cliente",
-  "orcamentos",
-  "faturas",
-  "ordens_servico",
-  "rotas_entrega",
-  "lotes_producao",
-  "agendamentos",
-  "eventos_agenda",
-  "contratos_aluguel",
-  "contas_pagar",
-  "folha_pagamento",
-  "caixas",
-  "asaas_charges",
-  "estoque_produtos",
-  // Principais
-  "motoristas",
-  "veiculos",
-  "fornecedores",
-  "funcionarios",
-  "produtos",
-  "clientes",
-];
 
 export async function deleteAllData(): Promise<{ deleted: number; errors: string[] }> {
-  let totalDeleted = 0;
-  const errors: string[] = [];
-
-  for (const table of deletionOrder) {
-    try {
-      const { error } = await supabase
-        .from(table as any)
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      if (error) {
-        errors.push(`${table}: ${error.message}`);
-      } else {
-        totalDeleted++;
-      }
-    } catch (err) {
-      errors.push(`${table}: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-    }
-  }
-
-  return { deleted: totalDeleted, errors };
+  return dataAdminRequest({
+    operation: "delete-all",
+    confirmation: "ZERAR DADOS OPERACIONAIS",
+  });
 }
 
-// Ordem de inserção respeitando dependências de FK (inversa da exclusão)
-const insertionOrder = [
-  // Principais (sem FK)
-  "clientes",
-  "produtos",
-  "funcionarios",
-  "veiculos",
-  "motoristas",
-  "fornecedores",
-  "estoque_produtos",
-  // Dependem das principais
-  "enderecos_clientes",
-  "configuracoes_cliente",
-  "configuracoes_pagamento_cliente",
-  "precos_especiais",
-  "modulo_permissoes",
-  "contratos_aluguel",
-  "itens_contrato_aluguel",
-  "agendamentos",
-  "eventos_agenda",
-  "ordens_servico",
-  "itens_ordem_servico",
-  "lotes_producao",
-  "lotes_ordens",
-  "rotas_entrega",
-  "paradas_rota",
-  "lancamentos",
-  "itens_lancamento",
-  "lancamentos_cliente",
-  "itens_lancamento_cliente",
-  "orcamentos",
-  "faturas",
-  "lancamentos_fatura",
-  "contas_pagar",
-  "folha_pagamento",
-  "folha_beneficios",
-  "caixas",
-  "caixa_movimentacoes",
-  "asaas_charges",
-  "asaas_webhook_events",
-  "movimentacoes_estoque",
-  "historico_producao",
-  "historico_envios",
-  "mensagens_log",
-  "notificacoes_enviadas",
-];
-
 export async function importAllData(
-  backupData: Record<string, any[]>
+  backupData: Record<string, unknown>,
 ): Promise<{ imported: number; skipped: number; errors: string[] }> {
-  let totalImported = 0;
-  let totalSkipped = 0;
+  let imported = 0;
+  let skipped = 0;
   const errors: string[] = [];
 
   for (const table of insertionOrder) {
-    const tableData = backupData[table];
-    
-    if (!tableData || !Array.isArray(tableData) || tableData.length === 0) {
+    const value = backupData[table];
+    if (value === undefined) continue;
+    if (!Array.isArray(value)) {
+      errors.push(table);
       continue;
     }
 
-    try {
-      // Inserir em lotes de 100 para evitar timeout
-      const batchSize = 100;
-      for (let i = 0; i < tableData.length; i += batchSize) {
-        const batch = tableData.slice(i, i + batchSize);
-        
-        const { error, count } = await supabase
-          .from(table as any)
-          .upsert(batch, { 
-            onConflict: 'id',
-            ignoreDuplicates: false 
-          });
+    const records = value.filter(
+      (record): record is Record<string, unknown> =>
+        Boolean(record) && typeof record === "object" && !Array.isArray(record),
+    );
+    skipped += value.length - records.length;
 
-        if (error) {
-          errors.push(`${table}: ${error.message}`);
-          totalSkipped += batch.length;
-        } else {
-          totalImported += batch.length;
-        }
+    for (let offset = 0; offset < records.length; offset += 250) {
+      const batch = records.slice(offset, offset + 250);
+      try {
+        const result = await dataAdminRequest<{ imported: number }>({
+          operation: "import-page",
+          table,
+          records: batch,
+        });
+        imported += result.imported;
+      } catch {
+        skipped += batch.length;
+        errors.push(table);
       }
-    } catch (err) {
-      errors.push(`${table}: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-      totalSkipped += tableData.length;
     }
   }
 
-  return { imported: totalImported, skipped: totalSkipped, errors };
+  const unknownTables = Object.keys(backupData).filter((table) => !knownTables.has(table));
+  errors.push(...unknownTables);
+  return { imported, skipped, errors: [...new Set(errors)] };
 }

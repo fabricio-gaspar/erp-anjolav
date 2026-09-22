@@ -57,6 +57,7 @@ const categoryLabels = {
 
 export function ConfiguracoesDados() {
   const { data, isLoading, refetch, isRefetching } = useDataManagement();
+  const destructiveEnabled = data?.destructiveEnabled === true;
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [showEmptyFilter, setShowEmptyFilter] = useState<string>("all");
@@ -312,7 +313,7 @@ export function ConfiguracoesDados() {
   };
 
   const handleResetSystem = async () => {
-    if (resetConfirmText !== "ZERAR TUDO") return;
+    if (resetConfirmText !== "ZERAR DADOS OPERACIONAIS") return;
 
     setIsResetting(true);
     try {
@@ -363,6 +364,16 @@ export function ConfiguracoesDados() {
         </AlertDescription>
       </Alert>
 
+      {!destructiveEnabled && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Importação e exclusão estão bloqueadas neste ambiente. Essa proteção deve permanecer
+            ativa em produção; backups continuam disponíveis somente para administradores.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Backup e Restauração Completa */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-2">
@@ -373,7 +384,7 @@ export function ConfiguracoesDados() {
           Exporte ou importe todos os dados do sistema de uma só vez.
         </p>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Button
             onClick={handleExportAllBackup}
             disabled={isExportingAll}
@@ -386,7 +397,11 @@ export function ConfiguracoesDados() {
             )}
             Exportar Backup Completo
           </Button>
-          <Button variant="outline" onClick={handleImportBackup} disabled={isImporting}>
+          <Button
+            variant="outline"
+            onClick={handleImportBackup}
+            disabled={isImporting || !destructiveEnabled}
+          >
             {isImporting ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
@@ -404,7 +419,8 @@ export function ConfiguracoesDados() {
           <h2 className="font-semibold text-red-600">Zerar Sistema</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Remove <strong>TODOS</strong> os dados do sistema de uma só vez. Use esta opção para começar do zero.
+          Remove os dados operacionais e cadastros de negócio, preservando usuários administrativos
+          e permissões para evitar perda de acesso.
           <span className="block mt-1 text-red-600 font-medium">
             ⚠️ Esta ação é IRREVERSÍVEL. Faça backup antes de prosseguir.
           </span>
@@ -414,10 +430,10 @@ export function ConfiguracoesDados() {
           variant="destructive"
           onClick={() => setShowResetConfirm(true)}
           className="bg-red-600 hover:bg-red-700"
-          disabled={data?.totalRecords === 0}
+          disabled={data?.totalRecords === 0 || !destructiveEnabled}
         >
           <Bomb className="w-4 h-4 mr-2" />
-          Zerar Todos os Dados ({data?.totalRecords || 0} registros)
+          Zerar Dados Operacionais ({data?.totalRecords || 0} registros inventariados)
         </Button>
       </Card>
 
@@ -444,7 +460,7 @@ export function ConfiguracoesDados() {
         </div>
 
         {/* Category KPIs */}
-        <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
           <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
             <div className="flex items-center gap-2 mb-2">
               <Database className="w-5 h-5 text-primary" />
@@ -471,7 +487,7 @@ export function ConfiguracoesDados() {
         </div>
 
         {/* Data Grid */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {data?.entities.map((entity) => {
             const catInfo = categoryLabels[entity.category];
             return (
@@ -631,7 +647,11 @@ export function ConfiguracoesDados() {
                             setDeleteConfirmText("");
                             setDeleteEntity(entity);
                           }}
-                          disabled={entity.count === 0}
+                          disabled={
+                            entity.count === 0 ||
+                            !destructiveEnabled ||
+                            ["funcionarios", "modulo_permissoes"].includes(entity.table)
+                          }
                           className="text-xs"
                         >
                           <Trash2 className="w-3 h-3 mr-1" />
@@ -726,11 +746,12 @@ export function ConfiguracoesDados() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <Bomb className="w-5 h-5" />
-              Zerar Sistema Completamente
+              Zerar Dados Operacionais
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <p>
-                Você está prestes a excluir <strong>TODOS OS {data?.totalRecords || 0} REGISTROS</strong> do sistema.
+                Você está prestes a excluir os dados operacionais e cadastros de negócio. Usuários
+                administrativos e permissões serão preservados.
               </p>
               <div className="p-3 bg-red-100 dark:bg-red-950 rounded-lg border border-red-300 dark:border-red-800">
                 <p className="text-red-700 dark:text-red-300 font-medium text-sm">
@@ -745,12 +766,12 @@ export function ConfiguracoesDados() {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">
-                  Digite <span className="font-mono bg-muted px-1 rounded">ZERAR TUDO</span> para confirmar:
+                  Digite <span className="font-mono bg-muted px-1 rounded">ZERAR DADOS OPERACIONAIS</span> para confirmar:
                 </p>
                 <Input
                   value={resetConfirmText}
                   onChange={(e) => setResetConfirmText(e.target.value.toUpperCase())}
-                  placeholder="Digite ZERAR TUDO"
+                  placeholder="Digite ZERAR DADOS OPERACIONAIS"
                   className="font-mono"
                 />
               </div>
@@ -771,7 +792,7 @@ export function ConfiguracoesDados() {
             <Button
               variant="destructive"
               onClick={handleResetSystem}
-              disabled={resetConfirmText !== "ZERAR TUDO" || isResetting}
+              disabled={resetConfirmText !== "ZERAR DADOS OPERACIONAIS" || isResetting}
               className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
             >
               {isResetting ? (
@@ -779,7 +800,7 @@ export function ConfiguracoesDados() {
               ) : (
                 <Bomb className="w-4 h-4 mr-2" />
               )}
-              Zerar Sistema
+              Zerar Dados
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

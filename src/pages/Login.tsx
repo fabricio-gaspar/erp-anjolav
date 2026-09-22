@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { resolveLoginToEmail } from "@/lib/authByLogin";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/components/auth/AuthShell";
@@ -60,19 +59,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const lookup = await resolveLoginToEmail(trimmedLogin);
-
-      if (lookup.ok === false) {
-        if (lookup.reason === "lookup_error") {
-          setFormError(lookup.message);
-        } else {
-          setLoginError(lookup.message);
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      const { error } = await signIn(lookup.email, password);
+      const { error } = await signIn(trimmedLogin, password);
       if (error) {
         setPasswordError("Login ou senha incorretos");
         setIsLoading(false);

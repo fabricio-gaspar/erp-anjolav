@@ -35,7 +35,7 @@ export function RolsLojaCard() {
       const { data, error } = await supabase
         .from("ordens_servico")
         .select("id, numero, status, data_retirada, data_previsao_entrega, valor_total, cliente:clientes(razao_social)")
-        .eq("origem", "loja")
+        .in("origem", ["residencial", "loja"])
         .not("status", "in", "(cancelada)")
         .order("created_at", { ascending: false })
         .limit(50);

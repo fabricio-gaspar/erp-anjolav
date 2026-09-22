@@ -49,7 +49,6 @@ export function useConfiguracaoAutomatica() {
 
       if (configExistente) {
         // Configuração já existe, não sobrescrever
-        console.log("Configuração já existe para o cliente:", clienteId);
         return true;
       }
 
@@ -96,7 +95,6 @@ export function useConfiguracaoAutomatica() {
         }
       }
 
-      console.log(`Cliente ${clienteId}: Configuração e ${agendamentos.length} agendamentos criados`);
       return true;
     } catch (error) {
       console.error("Erro ao criar configuração automática:", error);

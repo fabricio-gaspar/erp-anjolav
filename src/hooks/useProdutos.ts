@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { getAllowedProductUnits } from "@/lib/workspaceScope";
 
 export interface Produto {
   id: string;
@@ -29,14 +31,18 @@ export type ProdutoUpdate = Partial<ProdutoInsert>;
 
 export function useProdutos() {
   const queryClient = useQueryClient();
+  const { activeArea } = useWorkspace();
+  const allowedBusinessUnits = getAllowedProductUnits(activeArea);
 
   const { data: produtos = [], isLoading, error } = useQuery({
-    queryKey: ["produtos"],
+    queryKey: ["produtos", activeArea],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("produtos")
         .select("*")
         .order("nome");
+      if (allowedBusinessUnits) query = query.in("unidade_negocio", [...allowedBusinessUnits]);
+      const { data, error } = await query;
       if (error) throw error;
       return data as Produto[];
     },
@@ -44,6 +50,13 @@ export function useProdutos() {
 
   const createProduto = useMutation({
     mutationFn: async (produto: ProdutoInsert) => {
+      if (
+        allowedBusinessUnits &&
+        produto.unidade_negocio &&
+        !allowedBusinessUnits.includes(produto.unidade_negocio)
+      ) {
+        throw new Error("Produto fora do escopo deste painel");
+      }
       const { data, error } = await supabase
         .from("produtos")
         .insert(produto)
@@ -63,12 +76,19 @@ export function useProdutos() {
 
   const updateProduto = useMutation({
     mutationFn: async ({ id, ...updates }: ProdutoUpdate & { id: string }) => {
-      const { data, error } = await supabase
+      if (
+        allowedBusinessUnits &&
+        updates.unidade_negocio &&
+        !allowedBusinessUnits.includes(updates.unidade_negocio)
+      ) {
+        throw new Error("Produto fora do escopo deste painel");
+      }
+      let query = supabase
         .from("produtos")
         .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+        .eq("id", id);
+      if (allowedBusinessUnits) query = query.in("unidade_negocio", [...allowedBusinessUnits]);
+      const { data, error } = await query.select().single();
       if (error) throw error;
       return data;
     },
@@ -83,7 +103,9 @@ export function useProdutos() {
 
   const deleteProduto = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("produtos").delete().eq("id", id);
+      let query = supabase.from("produtos").delete().eq("id", id);
+      if (allowedBusinessUnits) query = query.in("unidade_negocio", [...allowedBusinessUnits]);
+      const { error } = await query;
       if (error) throw error;
     },
     onSuccess: () => {
@@ -116,13 +138,22 @@ export interface PrecoEspecial {
   updated_at: string;
 }
 
+export interface PrecoEspecialComProduto extends PrecoEspecial {
+  produto: {
+    nome: string;
+    unidade: string | null;
+  } | null;
+}
+
+const EMPTY_PRECOS_ESPECIAIS: PrecoEspecialComProduto[] = [];
+
 export function usePrecosEspeciais(clienteId: string | null) {
   const queryClient = useQueryClient();
 
-  const { data: precos = [], isLoading } = useQuery({
+  const { data: precos = EMPTY_PRECOS_ESPECIAIS, isLoading } = useQuery({
     queryKey: ["precos_especiais", clienteId],
     queryFn: async () => {
-      if (!clienteId) return [];
+      if (!clienteId) return EMPTY_PRECOS_ESPECIAIS;
       const { data, error } = await supabase
         .from("precos_especiais")
         .select(`
@@ -131,7 +162,7 @@ export function usePrecosEspeciais(clienteId: string | null) {
         `)
         .eq("cliente_id", clienteId);
       if (error) throw error;
-      return data;
+      return (data ?? []) as PrecoEspecialComProduto[];
     },
     enabled: !!clienteId,
   });
@@ -190,5 +221,53 @@ export function usePrecosEspeciais(clienteId: string | null) {
     },
   });
 
-  return { precos, isLoading, upsertPrecoEspecial, deletePrecoEspecial };
+  const copyPrecosEspeciais = useMutation({
+    mutationFn: async ({ sourceClientId, targetClientId }: {
+      sourceClientId: string;
+      targetClientId: string;
+    }) => {
+      if (!sourceClientId || !targetClientId || sourceClientId === targetClientId) {
+        throw new Error("Selecione clientes diferentes para copiar os preços");
+      }
+
+      const { data: sourcePrices, error: sourceError } = await supabase
+        .from("precos_especiais")
+        .select("produto_id, preco_especial, tipo")
+        .eq("cliente_id", sourceClientId);
+      if (sourceError) throw sourceError;
+      if (!sourcePrices?.length) {
+        throw new Error("O cliente selecionado não possui preços especiais");
+      }
+
+      const rows = sourcePrices.map((price) => ({
+        cliente_id: targetClientId,
+        produto_id: price.produto_id,
+        preco_especial: price.preco_especial,
+        tipo:
+          price.tipo === "acrescido" || price.tipo === "desconto" || price.tipo === "normal"
+            ? price.tipo
+            : "normal",
+      }));
+      const { error: copyError } = await supabase
+        .from("precos_especiais")
+        .upsert(rows, { onConflict: "cliente_id,produto_id" });
+      if (copyError) throw copyError;
+      return rows.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["precos_especiais"] });
+      toast.success(`${count} preço(s) copiado(s) com sucesso!`);
+    },
+    onError: (error) => {
+      toast.error("Erro ao copiar preços: " + error.message);
+    },
+  });
+
+  return {
+    precos,
+    isLoading,
+    upsertPrecoEspecial,
+    deletePrecoEspecial,
+    copyPrecosEspeciais,
+  };
 }

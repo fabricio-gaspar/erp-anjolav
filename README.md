@@ -1,73 +1,55 @@
-# Welcome to your Lovable project
+# AnjoLav ERP
 
-## Project info
+ERP web para as operações industrial e residencial da AnjoLav, com painéis separados, portal do cliente, produção, ordens de serviço, estoque, caixa, financeiro e integrações externas.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+> Estado atual: endurecimento técnico em andamento. O código local passa em typecheck, 25 testes, lint e build de produção, mas o sistema **ainda não está aprovado para comercialização**. RLS/tenancy no banco, tratamento de dados pessoais históricos, transações, fila do webhook Asaas, homologação NFS-e, pagamentos, WhatsApp, e-mail transacional e testes integrados ainda exigem banco, ambiente e credenciais reais. Consulte [Prontidão comercial](docs/COMMERCIAL_READINESS.md).
 
-## How can I edit this code?
+## Stack
 
-There are several ways of editing your application.
+- React 18, TypeScript e Vite
+- Tailwind CSS e shadcn/ui
+- TanStack Query
+- Supabase Auth, Postgres, Storage e Edge Functions
+- Asaas, Evolution API e webhooks n8n
 
-**Use Lovable**
+## Desenvolvimento local
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Requisitos: Node.js 24 ou superior e npm.
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm ci
+cp .env.example .env.local
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Preencha `.env.local` com os valores públicos do projeto Supabase. Secrets de provedores nunca devem usar o prefixo `VITE_` nem entrar no frontend; use o cofre de secrets das Edge Functions conforme `supabase/.env.example`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Verificação
 
-**Use GitHub Codespaces**
+```bash
+npm run typecheck
+npm test
+npm run lint
+npm run build
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+O comando `npm run check` executa toda a sequência. A integração contínua repete essas verificações em pushes e pull requests.
 
-## What technologies are used for this project?
+## Painéis e acesso
 
-This project is built with:
+- `/central/*`: administração e visão consolidada
+- `/industrial/*`: operação industrial
+- `/residencial/*`: loja e PDV
+- `/portal/:codigo`: portal público com código criptograficamente forte
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Rotas protegidas exigem sessão, área e permissão de módulo. Isso é defesa de aplicação; o isolamento definitivo também precisa existir nas policies RLS do Postgres.
 
-## How can I deploy this project?
+## Documentação operacional
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- [Prontidão comercial](docs/COMMERCIAL_READINESS.md)
+- [Segurança](docs/SECURITY.md)
+- [Implantação](docs/DEPLOYMENT.md)
+- [Preparação do ambiente real](docs/PRODUCTION_PREPARATION.md)
+- [Checklist de go-live](docs/GO_LIVE_CHECKLIST.md)
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Repositório: [fabricio-gaspar/erp-anjolav](https://github.com/fabricio-gaspar/erp-anjolav)

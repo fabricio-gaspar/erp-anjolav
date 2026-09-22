@@ -64,7 +64,7 @@ import { useAutomacoesConfig } from "@/hooks/useAutomacoesConfig";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-type ServiceStatusType = "online" | "offline" | "slow" | "not_configured" | "untested";
+type ServiceStatusType = "online" | "offline" | "slow" | "configured" | "not_configured" | "untested";
 
 interface ServiceStatus {
   id: string;
@@ -202,49 +202,58 @@ const testServices = {
   edgeFunctions: async (): Promise<{ success: boolean; latency: number }> => {
     const start = performance.now();
     try {
-      // Tenta verificar se as edge functions estão acessíveis
-      const { error } = await supabase.functions.invoke("asaas-webhook", {
-        method: "POST",
-        body: { event: "health_check" },
+      const { data, error } = await supabase.functions.invoke("manage-employee", {
+        body: { action: "health" },
       });
       const latency = Math.round(performance.now() - start);
-      // Se conseguiu conectar (mesmo com erro de validação), está online
-      return { success: true, latency };
+      return { success: !error && data?.success === true, latency };
     } catch {
-      const latency = Math.round(performance.now() - start);
-      // Mesmo com erro, se conseguiu conectar rapidamente, está online
-      return { success: latency < 5000, latency };
+      return { success: false, latency: Math.round(performance.now() - start) };
     }
   },
 
   asaas: async (): Promise<{ success: boolean; latency: number; configured: boolean }> => {
     const start = performance.now();
     try {
-      // Verifica se o Asaas está configurado tentando acessar o endpoint
-      const resp = await fetch("https://sandbox.asaas.com/api/v3/", {
-        method: "HEAD",
-        signal: AbortSignal.timeout(5000)
+      const { data, error } = await supabase.functions.invoke("create-asaas-charge", {
+        body: { action: "health" },
       });
       const latency = Math.round(performance.now() - start);
-      return { success: resp.status !== 500, latency, configured: true };
+      return {
+        success: !error && data?.success === true,
+        latency,
+        configured: data?.configured !== false,
+      };
     } catch {
-      return { success: false, latency: Math.round(performance.now() - start), configured: true };
+      return { success: false, latency: Math.round(performance.now() - start), configured: false };
     }
   },
 
-  asaasWebhook: async (): Promise<{ success: boolean; latency: number }> => {
+  asaasWebhook: async (): Promise<{
+    success: boolean;
+    latency: number;
+    configured: boolean;
+    verified: false;
+  }> => {
     const start = performance.now();
     try {
-      // Verifica se há eventos de webhook recentes
-      const { data, error } = await supabase
-        .from("asaas_webhook_events")
-        .select("id")
-        .limit(1);
+      const { data, error } = await supabase.functions.invoke("create-asaas-charge", {
+        body: { action: "health" },
+      });
       const latency = Math.round(performance.now() - start);
-      // Se a tabela existe e está acessível, o webhook está configurado
-      return { success: !error, latency };
+      return {
+        success: !error && data?.webhookConfigured === true,
+        latency,
+        configured: data?.webhookConfigured === true,
+        verified: false,
+      };
     } catch {
-      return { success: false, latency: Math.round(performance.now() - start) };
+      return {
+        success: false,
+        latency: Math.round(performance.now() - start),
+        configured: false,
+        verified: false,
+      };
     }
   },
 };
@@ -511,8 +520,12 @@ export function ConfiguracoesSistema() {
       }
 
       let status: ServiceStatusType;
-      if (!result.success) {
+      if (result.configured === false) {
+        status = "not_configured";
+      } else if (!result.success) {
         status = "offline";
+      } else if ("verified" in result && result.verified === false) {
+        status = "configured";
       } else if (result.latency > 2000) {
         status = "slow";
       } else {
@@ -542,10 +555,11 @@ export function ConfiguracoesSistema() {
     const onlineCount = updatedServices.filter(s => s.status === "online").length;
     const slowCount = updatedServices.filter(s => s.status === "slow").length;
     const offlineCount = updatedServices.filter(s => s.status === "offline").length;
+    const configuredCount = updatedServices.filter(s => s.status === "configured").length;
 
     toast({
       title: "Testes concluídos",
-      description: `${onlineCount} online, ${slowCount} lento(s), ${offlineCount} offline`,
+      description: `${onlineCount} online, ${configuredCount} configurado(s), ${slowCount} lento(s), ${offlineCount} offline`,
     });
 
     // Recarregar estatísticas do banco
@@ -590,6 +604,15 @@ export function ConfiguracoesSistema() {
           <div className="flex items-center gap-2">
             <Settings2 className="w-4 h-4 text-gray-400" />
             <Badge variant="secondary">Não configurado</Badge>
+          </div>
+        );
+      case "configured":
+        return (
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-blue-600" />
+            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+              Configurado — entrega não homologada
+            </Badge>
           </div>
         );
       default:

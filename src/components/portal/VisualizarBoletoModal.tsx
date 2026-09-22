@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { FaturaPortal } from "@/hooks/usePortalData";
+import { openExternalHttpsUrl } from "@/lib/safePrint";
 
 interface VisualizarBoletoModalProps {
   open: boolean;
@@ -44,7 +45,7 @@ export function VisualizarBoletoModal({ open, onOpenChange, fatura }: Visualizar
 
   const handleDownload = () => {
     if (fatura.boleto_url) {
-      window.open(fatura.boleto_url, "_blank");
+      openExternalHttpsUrl(fatura.boleto_url);
     }
   };
 

@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { openExternalHttpsUrl } from "@/lib/safePrint";
 
 interface DocumentoCardProps {
   titulo: string;
@@ -116,7 +117,7 @@ export function DocumentoCard({
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs"
-                  onClick={() => window.open(downloadUrl, "_blank")}
+                  onClick={() => openExternalHttpsUrl(downloadUrl)}
                 >
                   <Download className="h-3 w-3 mr-1" />
                   {downloadLabel || "Baixar"}

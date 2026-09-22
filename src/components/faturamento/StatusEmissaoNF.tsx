@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { STATUS_SEFAZ, type StatusSefaz } from "@/lib/validacoesFiscais";
+import { openExternalHttpsUrl } from "@/lib/safePrint";
 
 interface StatusEmissaoNFProps {
   status: StatusSefaz;
@@ -139,7 +140,7 @@ export function StatusEmissaoNF({
               variant="outline"
               size="sm"
               className="w-full gap-2"
-              onClick={() => window.open(linkPdf, "_blank")}
+              onClick={() => openExternalHttpsUrl(linkPdf)}
             >
               <ExternalLink className="w-4 h-4" />
               Consultar na Prefeitura

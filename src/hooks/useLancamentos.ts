@@ -262,8 +262,17 @@ export function useLinkLancamentosToFatura() {
 
   return useMutation({
     mutationFn: async ({ lancamentoIds, faturaId }: { lancamentoIds: string[]; faturaId: string }) => {
-      // Insert links
-      const links = lancamentoIds.map((lancamento_id) => ({
+      const uniqueLancamentoIds = [...new Set(lancamentoIds)];
+      const { data: previousLancamentos, error: snapshotError } = await supabase
+        .from("lancamentos")
+        .select("id, status")
+        .in("id", uniqueLancamentoIds);
+      if (snapshotError) throw snapshotError;
+      if ((previousLancamentos?.length ?? 0) !== uniqueLancamentoIds.length) {
+        throw new Error("Um ou mais lançamentos não estão disponíveis");
+      }
+
+      const links = uniqueLancamentoIds.map((lancamento_id) => ({
         lancamento_id,
         fatura_id: faturaId,
       }));
@@ -273,12 +282,28 @@ export function useLinkLancamentosToFatura() {
         .insert(links);
       if (linkError) throw linkError;
 
-      // Update lancamentos status to "faturado"
-      const { error: updateError } = await supabase
+      const { data: updatedLancamentos, error: updateError } = await supabase
         .from("lancamentos")
         .update({ status: "faturado" })
-        .in("id", lancamentoIds);
-      if (updateError) throw updateError;
+        .in("id", uniqueLancamentoIds)
+        .select("id");
+      if (updateError || (updatedLancamentos?.length ?? 0) !== uniqueLancamentoIds.length) {
+        const { error: unlinkError } = await supabase
+          .from("lancamentos_fatura")
+          .delete()
+          .eq("fatura_id", faturaId)
+          .in("lancamento_id", uniqueLancamentoIds);
+        const restoreResults = await Promise.all(
+          (previousLancamentos ?? []).map(({ id, status }) =>
+            supabase.from("lancamentos").update({ status }).eq("id", id)
+          ),
+        );
+        const restoreFailed = restoreResults.some(({ error }) => Boolean(error));
+        if (unlinkError || restoreFailed) {
+          throw new Error("Falha crítica ao reverter o vínculo dos lançamentos");
+        }
+        throw updateError ?? new Error("Nem todos os lançamentos puderam ser atualizados");
+      }
 
       return { success: true };
     },

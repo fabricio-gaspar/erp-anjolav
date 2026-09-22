@@ -5,7 +5,7 @@
  */
 export function formatCurrencyInput(raw: string): string {
   // Remove tudo que não é dígito ou vírgula
-  let cleaned = raw.replace(/[^\d,]/g, "");
+  const cleaned = raw.replace(/[^\d,]/g, "");
 
   // Separa parte inteira e decimal pela vírgula
   const parts = cleaned.split(",");

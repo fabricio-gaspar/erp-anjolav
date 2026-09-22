@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from "./faturamentoUtils";
+import { escapeHtml, openPrintDocument, securePrintHtml } from "./safePrint";
 
 interface EmitenteDados {
   razao_social?: string | null;
@@ -59,17 +60,15 @@ interface NFPreviewData {
 export function gerarPreviewNFHtml(data: NFPreviewData): string {
   const { emitente, tomador, itens, valorTotal, periodoInicio, periodoFim, ambiente } = data;
   
-  const aliquotaIss = emitente.aliquota_iss || 5;
+  const aliquotaIss = emitente.aliquota_iss ?? 0;
   const valorIss = valorTotal * (aliquotaIss / 100);
-  const codigoServico = emitente.codigo_servico || "14.10";
+  const codigoServico = emitente.codigo_servico || "Não configurado";
   
   const enderecoEmitente = emitente.endereco;
   const enderecoTomador = tomador.endereco;
 
-  const chaveAcessoSimulada = "00000000000000000000000000000000000000000000";
   const numeroPrevia = "PRÉVIA";
-  
-  const isHomologacao = ambiente !== "producao";
+  const ambienteConfigurado = ambiente === "producao" ? "CONFIGURAÇÃO DE PRODUÇÃO" : "HOMOLOGAÇÃO";
 
   return `
 <!DOCTYPE html>
@@ -98,7 +97,6 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
       border: 2px solid #000;
       position: relative;
     }
-    ${isHomologacao ? `
     .watermark {
       position: absolute;
       top: 50%;
@@ -111,7 +109,6 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
       z-index: 1000;
       white-space: nowrap;
     }
-    ` : ''}
     .header {
       background: #1a365d;
       color: #fff;
@@ -257,7 +254,7 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
 </head>
 <body>
   <div class="container">
-    ${isHomologacao ? '<div class="watermark">PRÉVIA - SEM VALOR FISCAL</div>' : ''}
+    <div class="watermark">PRÉVIA - SEM VALOR FISCAL</div>
     
     <div class="preview-banner">
       ⚠️ DOCUMENTO DE PRÉVIA - SEM VALOR FISCAL - NÃO É NOTA FISCAL VÁLIDA
@@ -267,8 +264,8 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
       <div>
         <div class="header-title">NFS-e Nota Fiscal de Serviço Eletrônica</div>
         <div style="font-size: 10px; margin-top: 4px;">
-          <span class="badge ${isHomologacao ? 'badge-warning' : 'badge-success'}">
-            ${isHomologacao ? 'HOMOLOGAÇÃO' : 'PRODUÇÃO'}
+          <span class="badge badge-warning">
+            PRÉVIA — ${ambienteConfigurado}
           </span>
         </div>
       </div>
@@ -280,40 +277,40 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
     <!-- Emitente -->
     <div class="section">
       <div class="section-title">Prestador de Serviços (Emitente)</div>
-      <div class="company-name">${emitente.razao_social || 'Razão Social não informada'}</div>
+      <div class="company-name">${escapeHtml(emitente.razao_social || 'Razão Social não informada')}</div>
       <div class="grid-2">
         <div>
           <div class="info-row">
             <span class="info-label">CNPJ:</span>
-            <span class="info-value">${emitente.cnpj || 'Não informado'}</span>
+            <span class="info-value">${escapeHtml(emitente.cnpj || 'Não informado')}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Inscrição Municipal:</span>
-            <span class="info-value">${emitente.inscricao_municipal || 'Não informada'}</span>
+            <span class="info-value">${escapeHtml(emitente.inscricao_municipal || 'Não informada')}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Inscrição Estadual:</span>
-            <span class="info-value">${emitente.inscricao_estadual || 'Isento'}</span>
+            <span class="info-value">${escapeHtml(emitente.inscricao_estadual || 'Isento')}</span>
           </div>
         </div>
         <div>
           ${enderecoEmitente ? `
           <div class="info-row">
             <span class="info-label">Endereço:</span>
-            <span class="info-value">${enderecoEmitente.logradouro || ''}, ${enderecoEmitente.numero || ''}</span>
+            <span class="info-value">${escapeHtml(enderecoEmitente.logradouro || '')}, ${escapeHtml(enderecoEmitente.numero || '')}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Bairro:</span>
-            <span class="info-value">${enderecoEmitente.bairro || ''}</span>
+            <span class="info-value">${escapeHtml(enderecoEmitente.bairro || '')}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Cidade/UF:</span>
-            <span class="info-value">${enderecoEmitente.cidade || ''}/${enderecoEmitente.uf || ''} - CEP: ${enderecoEmitente.cep || ''}</span>
+            <span class="info-value">${escapeHtml(enderecoEmitente.cidade || '')}/${escapeHtml(enderecoEmitente.uf || '')} - CEP: ${escapeHtml(enderecoEmitente.cep || '')}</span>
           </div>
           ` : '<div class="info-row"><span class="info-label">Endereço não informado</span></div>'}
           <div class="info-row">
             <span class="info-label">E-mail:</span>
-            <span class="info-value">${emitente.email || 'Não informado'}</span>
+            <span class="info-value">${escapeHtml(emitente.email || 'Não informado')}</span>
           </div>
         </div>
       </div>
@@ -321,8 +318,8 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
 
     <!-- Chave de Acesso -->
     <div class="section">
-      <div class="section-title">Chave de Acesso da NFS-e (Simulada)</div>
-      <div class="chave-acesso">${chaveAcessoSimulada}</div>
+      <div class="section-title">Identificação fiscal</div>
+      <div class="chave-acesso">NÃO EMITIDA — chave e código dependem do provedor fiscal homologado</div>
       <div style="margin-top: 8px; font-size: 9px; color: #666;">
         Data de Emissão: ${new Date().toLocaleDateString('pt-BR')} | 
         Período: ${formatDate(periodoInicio)} a ${formatDate(periodoFim)}
@@ -332,35 +329,35 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
     <!-- Tomador -->
     <div class="section">
       <div class="section-title">Tomador do Serviço</div>
-      <div class="company-name">${tomador.razao_social || 'Razão Social não informada'}</div>
+      <div class="company-name">${escapeHtml(tomador.razao_social || 'Razão Social não informada')}</div>
       <div class="grid-2">
         <div>
           <div class="info-row">
             <span class="info-label">${tomador.tipo_pessoa === 'cnpj' ? 'CNPJ' : 'CPF'}:</span>
-            <span class="info-value">${tomador.cpf_cnpj || 'Não informado'}</span>
+            <span class="info-value">${escapeHtml(tomador.cpf_cnpj || 'Não informado')}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Inscrição Municipal:</span>
-            <span class="info-value">${tomador.inscricao_municipal || 'Não informada'}</span>
+            <span class="info-value">${escapeHtml(tomador.inscricao_municipal || 'Não informada')}</span>
           </div>
           <div class="info-row">
             <span class="info-label">E-mail:</span>
-            <span class="info-value">${tomador.email || 'Não informado'}</span>
+            <span class="info-value">${escapeHtml(tomador.email || 'Não informado')}</span>
           </div>
         </div>
         <div>
           ${enderecoTomador ? `
           <div class="info-row">
             <span class="info-label">Endereço:</span>
-            <span class="info-value">${enderecoTomador.logradouro || ''}, ${enderecoTomador.numero || ''}</span>
+            <span class="info-value">${escapeHtml(enderecoTomador.logradouro || '')}, ${escapeHtml(enderecoTomador.numero || '')}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Bairro:</span>
-            <span class="info-value">${enderecoTomador.bairro || ''}</span>
+            <span class="info-value">${escapeHtml(enderecoTomador.bairro || '')}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Cidade/UF:</span>
-            <span class="info-value">${enderecoTomador.cidade || ''}/${enderecoTomador.uf || ''} - CEP: ${enderecoTomador.cep || ''}</span>
+            <span class="info-value">${escapeHtml(enderecoTomador.cidade || '')}/${escapeHtml(enderecoTomador.uf || '')} - CEP: ${escapeHtml(enderecoTomador.cep || '')}</span>
           </div>
           ` : '<div class="info-row"><span class="info-label">Endereço não informado</span></div>'}
         </div>
@@ -383,9 +380,9 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
         <tbody>
           ${itens.map(item => `
           <tr>
-            <td>${item.produto}</td>
-            <td class="text-center">${item.quantidade}</td>
-            <td class="text-center">${item.unidade}</td>
+            <td>${escapeHtml(item.produto)}</td>
+            <td class="text-center">${escapeHtml(item.quantidade)}</td>
+            <td class="text-center">${escapeHtml(item.unidade)}</td>
             <td class="text-right">${formatCurrency(item.valorUnitario)}</td>
             <td class="text-right">${formatCurrency(item.valorTotal)}</td>
           </tr>
@@ -403,7 +400,7 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
       <div class="section-title">Informações Fiscais</div>
       <div style="margin-bottom: 8px;">
         <span class="info-label">Código do Serviço:</span>
-        <span class="info-value">${codigoServico} - Tinturaria e lavanderia</span>
+        <span class="info-value">${escapeHtml(codigoServico)} - Tinturaria e lavanderia</span>
       </div>
       <div class="fiscal-info">
         <div class="fiscal-box">
@@ -432,7 +429,7 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
       </div>
       <div>
         Este documento foi gerado para fins de conferência e aprovação antes da emissão oficial da NFS-e.
-        A nota fiscal eletrônica válida será emitida após confirmação no sistema.
+        Somente o retorno assinado de um provedor fiscal homologado pode gerar uma nota válida.
       </div>
     </div>
   </div>
@@ -443,11 +440,12 @@ export function gerarPreviewNFHtml(data: NFPreviewData): string {
 
 export function downloadNFPreviewPdf(htmlContent: string, filename: string = "previa-nfse.html") {
   // Criar blob com o HTML
-  const blob = new Blob([htmlContent], { type: "text/html" });
+  const blob = new Blob([securePrintHtml(htmlContent)], { type: "text/html" });
   const url = URL.createObjectURL(blob);
   
   // Abrir em nova janela para impressão/download
-  const printWindow = window.open(url, "_blank");
+  const printWindow = window.open(url, "_blank", "noopener,noreferrer");
+  if (printWindow) printWindow.opener = null;
   
   if (printWindow) {
     printWindow.onload = () => {
@@ -463,11 +461,9 @@ export function downloadNFPreviewPdf(htmlContent: string, filename: string = "pr
 }
 
 export function printNFPreview(htmlContent: string) {
-  const printWindow = window.open("", "_blank");
+  const printWindow = openPrintDocument(htmlContent);
   
   if (printWindow) {
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
     printWindow.focus();
     
     // Esperar carregar e imprimir

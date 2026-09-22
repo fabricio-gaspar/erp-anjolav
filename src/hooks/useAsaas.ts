@@ -9,7 +9,21 @@ interface CreateChargeParams {
   description: string;
   value: number;
   due_date: string;
-  billing_type: "BOLETO" | "PIX" | "BOLETO_PIX";
+  billing_type: "BOLETO" | "PIX";
+  idempotency_key: string;
+  cliente_id?: string;
+}
+
+interface CreatedCharge {
+  id: string;
+  asaasId: string;
+  status: string;
+  invoiceUrl: string | null;
+  bankSlipUrl: string | null;
+  identificationField: string | null;
+  nossoNumero: string | null;
+  pixQrCode: string | null;
+  pixCopyPaste: string | null;
 }
 
 interface AsaasCharge {
@@ -59,7 +73,8 @@ export function useCreateAsaasCharge() {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      return data;
+      if (!data.charge) throw new Error("A integração não retornou a cobrança criada");
+      return data.charge as CreatedCharge;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["asaas-charges"] });
@@ -68,55 +83,6 @@ export function useCreateAsaasCharge() {
     onError: (error: Error) => {
       console.error("Error creating charge:", error);
       toast.error(`Erro ao criar cobrança: ${error.message}`);
-    },
-  });
-}
-
-export function useDeleteAsaasCharge() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (chargeId: string) => {
-      const { error } = await supabase
-        .from("asaas_charges")
-        .delete()
-        .eq("id", chargeId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["asaas-charges"] });
-      toast.success("Cobrança excluída com sucesso!");
-    },
-    onError: (error: Error) => {
-      toast.error(`Erro ao excluir cobrança: ${error.message}`);
-    },
-  });
-}
-
-export function useUpdateChargeStatus() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ chargeId, status, paidAt }: { chargeId: string; status: string; paidAt?: string }) => {
-      const updateData: { status: string; paid_at?: string } = { status };
-      if (paidAt) {
-        updateData.paid_at = paidAt;
-      }
-
-      const { error } = await supabase
-        .from("asaas_charges")
-        .update(updateData)
-        .eq("id", chargeId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["asaas-charges"] });
-      toast.success("Status atualizado com sucesso!");
-    },
-    onError: (error: Error) => {
-      toast.error(`Erro ao atualizar status: ${error.message}`);
     },
   });
 }

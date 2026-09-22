@@ -1,4 +1,4 @@
-import { Truck, Package, Clock, ChevronRight, Route, Loader2 } from "lucide-react";
+import { Truck, Package, Clock, Route, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -71,7 +71,7 @@ export function DailySchedule({ type, items, count, onGenerateRoute, isGeneratin
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between py-2.5 group"
+              className="flex items-center justify-between py-2.5"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center flex-shrink-0">
@@ -113,7 +113,6 @@ export function DailySchedule({ type, items, count, onGenerateRoute, isGeneratin
                 >
                   {item.status === "completed" ? "Concluído" : item.status === "in_progress" ? "Em Andamento" : "Pendente"}
                 </Badge>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-200 group-hover:text-slate-400 transition-colors" />
               </div>
             </div>
           ))}

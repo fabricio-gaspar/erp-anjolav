@@ -34,6 +34,9 @@ import { cn } from "@/lib/utils";
 import { addDays, format, isWeekend, nextMonday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LogisticaSection } from "@/components/delivery/LogisticaSection";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CARD_BRANDS } from "@/lib/pdvPayment";
+import { validarCpfCnpj } from "@/lib/validacoesFiscais";
 
 interface CartItem {
   id: string;
@@ -83,6 +86,9 @@ export interface DadosPagamento {
   parcelas?: number;
   valorRecebido?: number;
   troco?: number;
+  bandeira?: string;
+  nsu?: string;
+  codigoAutorizacao?: string;
 }
 
 type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO";
@@ -125,6 +131,9 @@ export function PagamentoModal({
   // Novos estados para parcelamento e troco
   const [parcelas, setParcelas] = useState(1);
   const [valorRecebido, setValorRecebido] = useState("");
+  const [bandeira, setBandeira] = useState("");
+  const [nsu, setNsu] = useState("");
+  const [codigoAutorizacao, setCodigoAutorizacao] = useState("");
 
   // Reset form when modal opens
   useEffect(() => {
@@ -139,6 +148,9 @@ export function PagamentoModal({
       setVeiculoId("");
       setParcelas(1);
       setValorRecebido("");
+      setBandeira("");
+      setNsu("");
+      setCodigoAutorizacao("");
       // Reset delivery date
       const data = addDays(new Date(), DIAS_ENTREGA_PADRAO);
       setPrevisaoEntrega(isWeekend(data) ? nextMonday(data) : data);
@@ -159,6 +171,11 @@ export function PagamentoModal({
   useEffect(() => {
     if (formaPagamento !== "CARTAO_CREDITO") {
       setParcelas(1);
+    }
+    if (formaPagamento !== "CARTAO_CREDITO" && formaPagamento !== "CARTAO_DEBITO") {
+      setBandeira("");
+      setNsu("");
+      setCodigoAutorizacao("");
     }
   }, [formaPagamento]);
 
@@ -212,13 +229,35 @@ export function PagamentoModal({
 
   const canSubmit = useMemo(() => {
     if (pagoAgora && !formaPagamento) return false;
+    if (calculos.valorDesconto > totalOriginal || calculos.valorTotal <= 0) return false;
+    if (tipoLogistica === "entregar" && (!motoristaId || !veiculoId)) return false;
     // Para dinheiro, verificar se valor recebido é suficiente
     if (pagoAgora && formaPagamento === "DINHEIRO") {
       const recebido = parseCurrencyToNumber(valorRecebido);
       if (recebido < calculos.valorTotal) return false;
     }
+    if (pagoAgora && formaPagamento === "PIX") {
+      if (!cliente?.cpf_cnpj || !validarCpfCnpj(cliente.cpf_cnpj).valid) return false;
+    }
+    if (pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO")) {
+      if (!bandeira || (!nsu.trim() && !codigoAutorizacao.trim())) return false;
+    }
     return true;
-  }, [pagoAgora, formaPagamento, valorRecebido, calculos.valorTotal]);
+  }, [
+    pagoAgora,
+    formaPagamento,
+    valorRecebido,
+    calculos.valorDesconto,
+    calculos.valorTotal,
+    totalOriginal,
+    cliente?.cpf_cnpj,
+    bandeira,
+    nsu,
+    codigoAutorizacao,
+    tipoLogistica,
+    motoristaId,
+    veiculoId,
+  ]);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -239,6 +278,11 @@ export function PagamentoModal({
       parcelas: formaPagamento === "CARTAO_CREDITO" ? parcelas : 1,
       valorRecebido: formaPagamento === "DINHEIRO" ? recebido : undefined,
       troco: formaPagamento === "DINHEIRO" ? troco : undefined,
+      bandeira: formaPagamento?.startsWith("CARTAO_") ? bandeira : undefined,
+      nsu: formaPagamento?.startsWith("CARTAO_") ? nsu.trim() || undefined : undefined,
+      codigoAutorizacao: formaPagamento?.startsWith("CARTAO_")
+        ? codigoAutorizacao.trim() || undefined
+        : undefined,
     });
   };
 
@@ -413,7 +457,7 @@ export function PagamentoModal({
                 )}
               >
                 <p className="font-semibold">Pagar Agora</p>
-                <p className="text-xs text-muted-foreground mt-1">Na retirada</p>
+                <p className="text-xs text-muted-foreground mt-1">No balcão agora</p>
               </button>
             </div>
           </div>
@@ -422,7 +466,7 @@ export function PagamentoModal({
           {pagoAgora && (
             <div className="space-y-3">
               <Label>Forma de Pagamento</Label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {FORMAS_PAGAMENTO.map((forma) => (
                   <button
                     key={forma.value}
@@ -470,6 +514,62 @@ export function PagamentoModal({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO") && (
+            <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+              <div>
+                <Label>Bandeira</Label>
+                <Select value={bandeira} onValueChange={setBandeira}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione a bandeira" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARD_BRANDS.map((brand) => (
+                      <SelectItem key={brand.value} value={brand.value}>{brand.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="pdv-nsu">NSU</Label>
+                  <Input
+                    id="pdv-nsu"
+                    value={nsu}
+                    onChange={(event) => setNsu(event.target.value)}
+                    maxLength={100}
+                    placeholder="Número do comprovante"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pdv-autorizacao">Código de autorização</Label>
+                  <Input
+                    id="pdv-autorizacao"
+                    value={codigoAutorizacao}
+                    onChange={(event) => setCodigoAutorizacao(event.target.value)}
+                    maxLength={100}
+                    placeholder="Código da maquininha"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Confirme a aprovação na maquininha e informe ao menos o NSU ou o código de autorização.
+                O sistema não solicita nem armazena número, validade ou CVV do cartão.
+              </p>
+            </div>
+          )}
+
+          {pagoAgora && formaPagamento === "PIX" && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+              {cliente?.cpf_cnpj && validarCpfCnpj(cliente.cpf_cnpj).valid ? (
+                <p>Será gerado um QR Code dinâmico com a conta e o valor exato. A baixa ocorrerá somente após a confirmação do provedor.</p>
+              ) : (
+                <p className="text-destructive">Cadastre um CPF/CNPJ válido no cliente para gerar o PIX dinâmico.</p>
+              )}
             </div>
           )}
 
@@ -574,7 +674,7 @@ export function PagamentoModal({
                 Processando...
               </>
             ) : (
-              "Finalizar Venda"
+              formaPagamento === "PIX" ? "Criar OS e gerar PIX" : "Finalizar Venda"
             )}
           </Button>
         </DialogFooter>

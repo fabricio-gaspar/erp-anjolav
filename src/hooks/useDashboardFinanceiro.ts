@@ -179,7 +179,7 @@ export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): Dashbo
       receitasLoja,
       receitasLojaCount,
     };
-  }, [contas, faturas, vendasCaixa, setor]);
+  }, [activeArea, contas, faturas, vendasCaixa, setor]);
 
   return {
     ...data,

@@ -8,8 +8,8 @@ const traduzirErroAuth = (raw: string | undefined | null): string => {
   if (/known to be weak|pwned|leaked|HIBP/i.test(msg)) {
     return "Esta senha é muito fraca ou já apareceu em vazamentos públicos. Escolha uma senha mais forte (combine letras maiúsculas, minúsculas, números e símbolos).";
   }
-  if (/Password should be at least|password.*short|min(imum)? length/i.test(msg)) {
-    return "A senha é muito curta. Use no mínimo 6 caracteres (recomendado 8+).";
+  if (/Password should be at least|password.*short|min(imum)? length|menos de 12 caracteres/i.test(msg)) {
+    return "A senha é muito curta. Use no mínimo 12 caracteres.";
   }
   if (/already registered|already been registered/i.test(msg)) {
     return "Este email já está cadastrado no sistema.";
@@ -55,13 +55,13 @@ export interface UpdateFuncionarioData {
   id: string;
   nome?: string;
   cargo?: string;
-  departamento?: string;
-  telefone?: string;
-  cpf?: string;
-  email?: string;
+  departamento?: string | null;
+  telefone?: string | null;
+  cpf?: string | null;
+  email?: string | null;
   login?: string;
   ativo?: boolean;
-  avatar_url?: string;
+  avatar_url?: string | null;
   data_admissao?: string | null;
   carga_horaria?: number | null;
   dias_trabalhados?: string[] | null;
@@ -109,80 +109,28 @@ export const useCreateFuncionario = () => {
 
   return useMutation({
     mutationFn: async (data: CreateFuncionarioData) => {
-      // Check if login already exists
-      const { data: existing } = await supabase
-        .from("funcionarios")
-        .select("id")
-        .eq("login", data.login)
-        .maybeSingle();
-
-      if (existing) {
-        throw new Error("Já existe um funcionário com este login");
-      }
-
-      // Create auth user via edge function (server-side, won't log out current user)
-      let userId: string | null = null;
-      
-      if (data.email) {
-        const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
-          body: {
-            action: "create",
-            email: data.email,
-            password: data.senha,
-            nome: data.nome,
-            cargo: data.cargo,
-          },
-        });
-
-        if (fnError) {
-          throw new Error(traduzirErroAuth(fnError.message) || "Erro ao criar usuário de autenticação");
-        }
-
-        if (result?.error) {
-          throw new Error(traduzirErroAuth(result.error));
-        }
-
-        userId = result?.userId || null;
-      }
-
-      // Create employee record
-      const { data: funcionario, error } = await supabase
-        .from("funcionarios")
-        .insert({
-          user_id: userId,
+      const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
+        body: {
+          action: "create",
+          email: data.email || null,
+          password: data.senha,
           nome: data.nome,
           cargo: data.cargo,
           departamento: data.departamento || null,
           telefone: data.telefone || null,
           cpf: data.cpf || null,
-          email: data.email || null,
           login: data.login,
           avatar_url: data.avatar_url || null,
-          ativo: true,
-        })
-        .select()
-        .single();
+        },
+      });
 
-      if (error) throw error;
-
-      // If cargo is MOTORISTA, automatically create a motorista record
-      if (data.cargo === "MOTORISTA") {
-        const { error: motoristaError } = await supabase
-          .from("motoristas")
-          .insert({
-            nome: data.nome,
-            telefone: data.telefone || null,
-            email: data.email || null,
-            funcionario_id: funcionario.id,
-            ativo: true,
-          });
-
-        if (motoristaError) {
-          console.error("Erro ao criar motorista:", motoristaError);
-        }
+      if (fnError) {
+        throw new Error(traduzirErroAuth(fnError.message) || "Erro ao cadastrar funcionário");
       }
+      if (result?.error) throw new Error(traduzirErroAuth(result.error));
+      if (!result?.employee) throw new Error("O cadastro não retornou o funcionário criado");
 
-      return funcionario;
+      return result.employee as Funcionario;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
@@ -202,35 +150,13 @@ export const useUpdateFuncionario = () => {
   return useMutation({
     mutationFn: async (data: UpdateFuncionarioData) => {
       const { id, ...updateData } = data;
-
-      // Check if login already exists (if changing login)
-      if (updateData.login) {
-        const { data: existing } = await supabase
-          .from("funcionarios")
-          .select("id")
-          .eq("login", updateData.login)
-          .neq("id", id)
-          .maybeSingle();
-
-        if (existing) {
-          throw new Error("Já existe um funcionário com este login");
-        }
-      }
-
-      const { data: funcionario, error } = await supabase
-        .from("funcionarios")
-        .update(updateData)
-        .eq("id", id)
-        .select()
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!funcionario) {
-        throw new Error(
-          "Não foi possível salvar as alterações. Você não tem permissão para editar funcionários (necessário perfil ADMINISTRADOR)."
-        );
-      }
-      return funcionario;
+      const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
+        body: { action: "update", employeeId: id, ...updateData },
+      });
+      if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao atualizar funcionário");
+      if (result?.error) throw new Error(traduzirErroAuth(result.error));
+      if (!result?.employee) throw new Error("A atualização não retornou o funcionário");
+      return result.employee as Funcionario;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
@@ -248,12 +174,12 @@ export const useDeleteFuncionario = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("funcionarios")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
+        body: { action: "delete", employeeId: id },
+      });
+      if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao remover funcionário");
+      if (result?.error) throw new Error(traduzirErroAuth(result.error));
+      if (!result?.success) throw new Error("A remoção não foi confirmada");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
@@ -321,18 +247,13 @@ export const useToggleFuncionarioStatus = () => {
 
   return useMutation({
     mutationFn: async ({ id, ativo }: { id: string; ativo: boolean }) => {
-      const { data: funcionario, error } = await supabase
-        .from("funcionarios")
-        .update({ ativo })
-        .eq("id", id)
-        .select()
-        .maybeSingle();
-
-      if (error) throw error;
-      if (!funcionario) {
-        throw new Error("Sem permissão para alterar o status (necessário perfil ADMINISTRADOR).");
-      }
-      return funcionario;
+      const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
+        body: { action: "set-active", employeeId: id, active: ativo },
+      });
+      if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao alterar status");
+      if (result?.error) throw new Error(traduzirErroAuth(result.error));
+      if (!result?.employee) throw new Error("A alteração de status não foi confirmada");
+      return result.employee as Funcionario;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["funcionarios"] });

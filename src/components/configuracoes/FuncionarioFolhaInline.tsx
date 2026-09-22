@@ -111,14 +111,14 @@ export function FuncionarioFolhaInline({ funcionarioId, folha, competenciaLabel 
           value={Number(folha.adiantamento_salarial || 0)}
           disabled={!isAberto}
           onSave={(v) =>
-            updateFolha.mutate({ id: folha.id, adiantamento_salarial: v } as any)
+            updateFolha.mutate({ id: folha.id, adiantamento_salarial: v })
           }
         />
         <CampoMoeda
           label="Pagamento (Salário)"
           value={Number(folha.salario_base || 0)}
           disabled={!isAberto}
-          onSave={(v) => updateFolha.mutate({ id: folha.id, salario_base: v } as any)}
+          onSave={(v) => updateFolha.mutate({ id: folha.id, salario_base: v })}
         />
       </div>
 

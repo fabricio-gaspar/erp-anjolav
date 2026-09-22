@@ -17,10 +17,10 @@ interface AuthContextType {
   user: User | null;
   funcionario: Funcionario | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (login: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
+  updatePassword: (password: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from("funcionarios")
         .select("id, nome, cargo, email, avatar_url, departamento")
         .eq("user_id", userId)
+        .eq("ativo", true)
         .maybeSingle();
 
       if (error) {
@@ -55,87 +56,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Set up auth state listener BEFORE checking session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
+      (_event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
 
         if (currentSession?.user) {
+          setLoading(true);
           // Use setTimeout to avoid Supabase client deadlock
           setTimeout(async () => {
             const func = await fetchFuncionario(currentSession.user.id);
             setFuncionario(func);
+            setLoading(false);
           }, 0);
         } else {
           setFuncionario(null);
+          setLoading(false);
         }
-
-        setLoading(false);
       }
     );
 
     // Then check for existing session
-    supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
-      setSession(existingSession);
-      setUser(existingSession?.user ?? null);
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session: existingSession }, error }) => {
+        if (error) throw error;
+        setSession(existingSession);
+        setUser(existingSession?.user ?? null);
 
-      if (existingSession?.user) {
-        const func = await fetchFuncionario(existingSession.user.id);
-        setFuncionario(func);
-      }
-
-      setLoading(false);
-    });
+        if (existingSession?.user) {
+          const func = await fetchFuncionario(existingSession.user.id);
+          setFuncionario(func);
+        } else {
+          setFuncionario(null);
+        }
+      })
+      .catch(() => {
+        console.error("Não foi possível restaurar a sessão do usuário");
+        setSession(null);
+        setUser(null);
+        setFuncionario(null);
+      })
+      .finally(() => setLoading(false));
 
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (login: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        toast.error("Erro ao fazer login: " + error.message);
-        return { error };
+      const { data, error } = await supabase.functions.invoke<{
+        data?: { access_token: string; refresh_token: string };
+        error?: string;
+      }>("sign-in", { body: { login, password } });
+
+      if (error || !data?.data) {
+        toast.error("Não foi possível entrar com as credenciais informadas.");
+        return { error: new Error(data?.error || "Falha na autenticação") };
       }
+
+      const { error: sessionError } = await supabase.auth.setSession(data.data);
+      if (sessionError) throw sessionError;
 
       toast.success("Login realizado com sucesso!");
       return { error: null };
     } catch (err) {
       const error = err as Error;
-      toast.error("Erro inesperado: " + error.message);
-      return { error };
-    }
-  };
-
-  const signUp = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-        },
-      });
-
-      if (error) {
-        toast.error("Erro ao criar conta: " + error.message);
-        return { error };
-      }
-
-      toast.success("Conta criada com sucesso! Você já pode fazer login.");
-      return { error: null };
-    } catch (err) {
-      const error = err as Error;
-      toast.error("Erro inesperado: " + error.message);
+      toast.error("Não foi possível entrar. Tente novamente mais tarde.");
       return { error };
     }
   };
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       setFuncionario(null);
       toast.success("Logout realizado com sucesso!");
     } catch (err) {
@@ -151,7 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
-        toast.error("Erro ao enviar email de recuperação: " + error.message);
+        console.error("Erro ao solicitar recuperação de senha:", error);
+        toast.error("Não foi possível processar a solicitação. Tente novamente mais tarde.");
         return { error };
       }
 
@@ -164,6 +160,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updatePassword = async (password: string) => {
+    try {
+      if (password.length < 12 || password.length > 128) {
+        const error = new Error("A senha deve ter entre 12 e 128 caracteres.");
+        toast.error(error.message);
+        return { error };
+      }
+
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        console.error("Erro ao redefinir senha:", error);
+        toast.error("Não foi possível redefinir a senha. Solicite um novo link.");
+        return { error };
+      }
+
+      toast.success("Senha redefinida com sucesso.");
+      return { error: null };
+    } catch (err) {
+      const error = err as Error;
+      toast.error("Não foi possível redefinir a senha. Solicite um novo link.");
+      return { error };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -172,9 +192,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         funcionario,
         loading,
         signIn,
-        signUp,
         signOut,
         resetPassword,
+        updatePassword,
       }}
     >
       {children}
@@ -182,6 +202,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// O hook compartilha o contexto no mesmo módulo para manter a API pública existente.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {

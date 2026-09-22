@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { format, startOfDay, subDays } from "date-fns";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 
 export interface HistoricoProducao {
   id: string;
@@ -54,19 +57,24 @@ export interface DadosFormularioEntrega {
 
 export function useHistoricoProducao(ordemServicoId: string | null) {
   const queryClient = useQueryClient();
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
 
   const { data: historico = [], isLoading } = useQuery({
-    queryKey: ["historico_producao", ordemServicoId],
+    queryKey: ["historico_producao", ordemServicoId, activeArea],
     queryFn: async () => {
       if (!ordemServicoId) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from("historico_producao")
         .select(`
           *,
-          funcionario:funcionarios(nome)
+          funcionario:funcionarios(nome),
+          ordem:ordens_servico!inner(origem)
         `)
         .eq("ordem_servico_id", ordemServicoId)
         .order("created_at", { ascending: true });
+      if (allowedOrigins) query = query.in("ordem.origem", [...allowedOrigins]);
+      const { data, error } = await query;
       if (error) throw error;
       return data as HistoricoProducao[];
     },
@@ -89,6 +97,16 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
       observacoes?: string;
       dados_formulario?: Record<string, unknown>;
     }) => {
+      if (allowedOrigins) {
+        const { data: scopedOrder, error: scopeError } = await supabase
+          .from("ordens_servico")
+          .select("id")
+          .eq("id", ordem_servico_id)
+          .in("origem", [...allowedOrigins])
+          .maybeSingle();
+        if (scopeError) throw scopeError;
+        if (!scopedOrder) throw new Error("OS não encontrada neste painel");
+      }
       const { data, error } = await supabase
         .from("historico_producao")
         .insert([{
@@ -116,46 +134,65 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
 }
 
 // Hook para métricas do Dashboard
-export function useMetricasProducao() {
-  const { data: metricas, isLoading } = useQuery({
-    queryKey: ["metricas_producao"],
+export function useMetricasProducao(enabled = true) {
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const { data: metricas, isLoading, error } = useQuery({
+    queryKey: ["metricas_producao", activeArea],
     queryFn: async () => {
-      const hoje = new Date().toISOString().split("T")[0];
-      const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const agora = new Date();
+      const hoje = format(agora, "yyyy-MM-dd");
+      const inicioHoje = startOfDay(agora).toISOString();
+      const trintaDiasAtras = subDays(agora, 30).toISOString();
 
       // OS em aberto
-      const { count: osEmAberto } = await supabase
+      let osEmAbertoQuery = supabase
         .from("ordens_servico")
         .select("*", { count: "exact", head: true })
         .not("status", "in", '("entregue","cancelada")');
+      if (allowedOrigins) osEmAbertoQuery = osEmAbertoQuery.in("origem", [...allowedOrigins]);
+      const { count: osEmAberto, error: osEmAbertoError } = await osEmAbertoQuery;
+      if (osEmAbertoError) throw osEmAbertoError;
 
       // Entregas atrasadas
-      const { count: entregasAtrasadas } = await supabase
+      let entregasAtrasadasQuery = supabase
         .from("ordens_servico")
         .select("*", { count: "exact", head: true })
         .lt("data_previsao_entrega", hoje)
         .not("status", "eq", "entregue")
         .not("status", "eq", "cancelada");
+      if (allowedOrigins) entregasAtrasadasQuery = entregasAtrasadasQuery.in("origem", [...allowedOrigins]);
+      const { count: entregasAtrasadas, error: entregasAtrasadasError } = await entregasAtrasadasQuery;
+      if (entregasAtrasadasError) throw entregasAtrasadasError;
 
       // Clientes ativos (últimos 30 dias)
-      const { data: clientesAtivosData } = await supabase
+      let clientesAtivosQuery = supabase
         .from("ordens_servico")
         .select("cliente_id")
         .gte("created_at", trintaDiasAtras);
+      if (allowedOrigins) clientesAtivosQuery = clientesAtivosQuery.in("origem", [...allowedOrigins]);
+      const { data: clientesAtivosData, error: clientesAtivosError } = await clientesAtivosQuery;
+      if (clientesAtivosError) throw clientesAtivosError;
       const clientesAtivos = new Set(clientesAtivosData?.map(o => o.cliente_id)).size;
 
-      // Peças processadas hoje
-      const { data: itensHoje } = await supabase
+      // Peças registradas hoje
+      let itensHojeQuery = supabase
         .from("itens_ordem_servico")
-        .select("quantidade, ordem_servico_id")
-        .gte("created_at", hoje);
+        .select("quantidade, ordem:ordens_servico!inner(origem)")
+        .gte("created_at", inicioHoje);
+      if (allowedOrigins) itensHojeQuery = itensHojeQuery.in("ordem.origem", [...allowedOrigins]);
+      const { data: itensHoje, error: itensHojeError } = await itensHojeQuery;
+      if (itensHojeError) throw itensHojeError;
       const pecasProcessadasHoje = itensHoje?.reduce((acc, item) => acc + Number(item.quantidade), 0) || 0;
 
       // OS por etapa (para gargalos)
-      const { data: osPorEtapa } = await supabase
+      let osPorEtapaQuery = supabase
         .from("ordens_servico")
         .select("status")
         .not("status", "in", '("entregue","cancelada")');
+      if (allowedOrigins) osPorEtapaQuery = osPorEtapaQuery.in("origem", [...allowedOrigins]);
+      const { data: osPorEtapa, error: osPorEtapaError } = await osPorEtapaQuery;
+      if (osPorEtapaError) throw osPorEtapaError;
       
       const gargalos = osPorEtapa?.reduce((acc, os) => {
         acc[os.status] = (acc[os.status] || 0) + 1;
@@ -170,51 +207,59 @@ export function useMetricasProducao() {
         gargalos,
       };
     },
-    refetchInterval: 30000, // Atualiza a cada 30 segundos
+    enabled,
+    refetchInterval: enabled ? 30000 : false,
   });
 
-  return { metricas, isLoading };
+  return { metricas, isLoading, error };
 }
 
 // Hook para agenda do dia
-export function useAgendaDia() {
-  const hoje = new Date().toISOString().split("T")[0];
+export function useAgendaDia(enabled = true) {
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const hoje = format(new Date(), "yyyy-MM-dd");
 
-  const { data: retiradas = [], isLoading: isLoadingRetiradas } = useQuery({
-    queryKey: ["agenda_retiradas", hoje],
+  const { data: retiradas = [], isLoading: isLoadingRetiradas, error: retiradasError } = useQuery({
+    queryKey: ["agenda_retiradas", hoje, activeArea],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("agendamentos")
         .select(`
           *,
-          cliente:clientes(razao_social)
+          cliente:clientes!inner(razao_social, classificacao)
         `)
         .eq("tipo", "retirada")
         .eq("data", hoje)
         .order("horario");
+      if (activeArea !== "central") query = query.eq("cliente.classificacao", activeArea);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
+    enabled,
   });
 
-  const { data: entregas = [], isLoading: isLoadingEntregas } = useQuery({
-    queryKey: ["agenda_entregas", hoje],
+  const { data: entregas = [], isLoading: isLoadingEntregas, error: entregasError } = useQuery({
+    queryKey: ["agenda_entregas", hoje, activeArea],
     queryFn: async () => {
       // 1. Buscar agendamentos de entrega do dia
-      const { data: agendamentosEntrega, error: errAgend } = await supabase
+      let agendamentosQuery = supabase
         .from("agendamentos")
         .select(`
           *,
-          cliente:clientes(razao_social)
+          cliente:clientes!inner(razao_social, classificacao)
         `)
         .eq("tipo", "entrega")
         .eq("data", hoje)
         .neq("status", "realizado")
         .order("horario");
+      if (activeArea !== "central") agendamentosQuery = agendamentosQuery.eq("cliente.classificacao", activeArea);
+      const { data: agendamentosEntrega, error: errAgend } = await agendamentosQuery;
       if (errAgend) throw errAgend;
 
       // 2. Buscar OS prontas para entrega (status: expedicao)
-      const { data: osProntasEntrega, error: errOS } = await supabase
+      let osProntasQuery = supabase
         .from("ordens_servico")
         .select(`
           *,
@@ -222,6 +267,8 @@ export function useAgendaDia() {
         `)
         .eq("status", "expedicao")
         .order("created_at");
+      if (allowedOrigins) osProntasQuery = osProntasQuery.in("origem", [...allowedOrigins]);
+      const { data: osProntasEntrega, error: errOS } = await osProntasQuery;
       if (errOS) throw errOS;
 
       // 3. Formatar agendamentos
@@ -249,21 +296,25 @@ export function useAgendaDia() {
 
       return [...entregasProntas, ...entregasAgendadas];
     },
+    enabled,
   });
 
   return {
     retiradas,
     entregas,
     isLoading: isLoadingRetiradas || isLoadingEntregas,
+    error: retiradasError || entregasError,
   };
 }
 
 // Hook para resumo de processamento
-export function useResumoProcessamento() {
-  const { data: osEmProcessamento = [], isLoading } = useQuery({
-    queryKey: ["resumo_processamento"],
+export function useResumoProcessamento(enabled = true) {
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const { data: osEmProcessamento = [], isLoading, error } = useQuery({
+    queryKey: ["resumo_processamento", activeArea],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ordens_servico")
         .select(`
           *,
@@ -281,10 +332,13 @@ export function useResumoProcessamento() {
         .not("status", "in", '("entregue","cancelada")')
         .order("created_at", { ascending: false })
         .limit(10);
+      if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
+    enabled,
   });
 
-  return { osEmProcessamento, isLoading };
+  return { osEmProcessamento, isLoading, error };
 }

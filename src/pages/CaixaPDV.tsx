@@ -30,8 +30,7 @@ import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
-import { useCaixaAberto, useAddMovimentacao } from "@/hooks/useCaixa";
-import { useOrdensServico, useItensOrdemServico } from "@/hooks/useOrdensServico";
+import { useCaixaAberto } from "@/hooks/useCaixa";
 import { ItemDetalhesModal } from "@/components/caixa/ItemDetalhesModal";
 import { PagamentoModal, DadosPagamento } from "@/components/caixa/PagamentoModal";
 import { ImpressaoPosVendaModal } from "@/components/caixa/ImpressaoPosVendaModal";
@@ -40,13 +39,17 @@ import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
 import { SangriaModal } from "@/components/caixa/SangriaModal";
 import { SuprimentoModal } from "@/components/caixa/SuprimentoModal";
 import { ConsultarOSModal } from "@/components/caixa/ConsultarOSModal";
-import { ReceberPagamentoModal } from "@/components/caixa/ReceberPagamentoModal";
+import { ReceberPagamentoModal, type PixRecebimentoRequest } from "@/components/caixa/ReceberPagamentoModal";
+import { PixPagamentoModal } from "@/components/caixa/PixPagamentoModal";
 import { HistoricoVendasModal } from "@/components/caixa/HistoricoVendasModal";
 import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
 import { OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { usePrintOS } from "@/hooks/usePrintOS";
+import { useCreatePdvSale } from "@/hooks/usePdvPayments";
+import { createPdvIdempotencyKey, type PdvPixPayment } from "@/lib/pdvPayment";
 
 interface CartItem {
   id: string;
@@ -70,20 +73,42 @@ interface OSRecemCriada {
   previsaoEntrega: Date;
 }
 
+interface PixFlowContext {
+  orderId: string;
+  orderNumber: string;
+  amount: number;
+  cashRegisterId: string;
+  moment: "ENTRADA" | "RETIRADA";
+  idempotencyKey: string;
+  initialPix?: PdvPixPayment | null;
+  initialError?: string | null;
+  source: "sale" | "receivable";
+}
+
 const alphabet = ["TODOS", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
+
+const getUnidadeLabel = (unidade: string | null) => {
+  switch (unidade) {
+    case "kg": return "Kg";
+    case "peca": return "Pç";
+    case "metro": return "Mt";
+    case "unidade": return "Un";
+    default: return "Pç";
+  }
+};
 
 const CaixaPDV = () => {
   const navigate = useNavigate();
   const { produtos, isLoading: isLoadingProdutos } = useProdutos();
   const { clientes, isLoading: isLoadingClientes } = useClientes();
   const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto();
-  const { createOrdemServico } = useOrdensServico();
-  const { addItem } = useItensOrdemServico(null);
-  const addMovimentacao = useAddMovimentacao();
+  const createPdvSale = useCreatePdvSale();
+  const { printROL, printEtiqueta } = usePrintOS();
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const clientSearchRef = useRef<HTMLInputElement>(null);
-  const barcodeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const barcodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const barcodeBufferRef = useRef("");
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLetter, setSelectedLetter] = useState("TODOS");
@@ -101,6 +126,8 @@ const CaixaPDV = () => {
   const [showImpressaoModal, setShowImpressaoModal] = useState(false);
   const [osRecemCriada, setOsRecemCriada] = useState<OSRecemCriada | null>(null);
   const [isProcessingVenda, setIsProcessingVenda] = useState(false);
+  const [pixContext, setPixContext] = useState<PixFlowContext | null>(null);
+  const saleIdempotencyRef = useRef<string | null>(null);
   
   // Estados para modais de caixa
   const [showAbrirCaixaModal, setShowAbrirCaixaModal] = useState(false);
@@ -115,7 +142,6 @@ const CaixaPDV = () => {
   const [showHistoricoVendas, setShowHistoricoVendas] = useState(false);
   const [showAjudaAtalhos, setShowAjudaAtalhos] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [barcodeBuffer, setBarcodeBuffer] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
   
   const { precos: precosEspeciais } = usePrecosEspeciais(selectedClientId);
@@ -143,17 +169,17 @@ const CaixaPDV = () => {
   }, [clientes]);
 
   // Get price for product (special price or default)
-  const getPrecoForProduto = (produto: Produto): number => {
+  const getPrecoForProduto = useCallback((produto: Produto): number => {
     if (selectedClientId && precosEspeciais.length > 0) {
       const precoEspecial = precosEspeciais.find(
-        (pe: any) => pe.produto_id === produto.id
+        (pe) => pe.produto_id === produto.id
       );
       if (precoEspecial) {
         return precoEspecial.preco_especial;
       }
     }
     return produto.preco;
-  };
+  }, [precosEspeciais, selectedClientId]);
 
   const filteredProdutos = useMemo(() => {
     return produtosAtivos.filter((produto) => {
@@ -176,17 +202,7 @@ const CaixaPDV = () => {
     ).slice(0, 10);
   }, [clientesFiltradosPorTipo, clientSearch]);
 
-  const getUnidadeLabel = (unidade: string | null) => {
-    switch (unidade) {
-      case "kg": return "Kg";
-      case "peca": return "Pç";
-      case "metro": return "Mt";
-      case "unidade": return "Un";
-      default: return "Pç";
-    }
-  };
-
-  const addToCart = (produto: Produto) => {
+  const addToCart = useCallback((produto: Produto) => {
     if (!caixaAberto) {
       toast.error("Abra o caixa para iniciar vendas");
       return;
@@ -211,9 +227,9 @@ const CaixaPDV = () => {
         quantidade: 1 
       }];
     });
-  };
+  }, [caixaAberto, getPrecoForProduto]);
 
-  const updateQuantity = (id: string, delta: number) => {
+  const updateQuantity = useCallback((id: string, delta: number) => {
     setCart((prev) =>
       prev
         .map((item) =>
@@ -223,15 +239,15 @@ const CaixaPDV = () => {
         )
         .filter((item) => item.quantidade > 0)
     );
-  };
+  }, []);
 
   const removeFromCart = (id: string) => {
     setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setCart([]);
-  };
+  }, []);
 
   const openDetalhesModal = (item: CartItem) => {
     setSelectedCartItem(item);
@@ -258,11 +274,16 @@ const CaixaPDV = () => {
     return !!(item.cor_item || item.marca_item || item.avarias || item.posicao_prateleira || item.observacoes);
   };
 
-  const selectClient = (clientId: string) => {
+  const selectClient = useCallback((clientId: string) => {
     setSelectedClientId(clientId);
     setShowClientList(false);
     setClientSearch("");
-    // Recalculate cart prices when client changes
+  }, []);
+
+  useEffect(() => {
+    if (!selectedClientId) return;
+
+    // Recalcula somente quando os preços do cliente selecionado estiverem disponíveis.
     setCart(prev => prev.map(item => {
       const produto = produtos.find(p => p.id === item.id);
       if (produto) {
@@ -271,7 +292,7 @@ const CaixaPDV = () => {
       }
       return item;
     }));
-  };
+  }, [getPrecoForProduto, produtos, selectedClientId]);
 
   const clearClient = () => {
     setSelectedClientId(null);
@@ -284,7 +305,7 @@ const CaixaPDV = () => {
   };
 
   // Função para abrir modal de pagamento
-  const handleOpenPagamento = () => {
+  const handleOpenPagamento = useCallback(() => {
     if (!caixaAberto) {
       toast.error("Abra o caixa primeiro");
       return;
@@ -297,8 +318,9 @@ const CaixaPDV = () => {
       toast.error("Selecione um cliente");
       return;
     }
+    saleIdempotencyRef.current = createPdvIdempotencyKey("sale");
     setShowPagamentoModal(true);
-  };
+  }, [caixaAberto, cart.length, selectedClientId]);
 
   // Função para finalizar venda
   const handleFinalizarVenda = async (dados: DadosPagamento) => {
@@ -307,70 +329,70 @@ const CaixaPDV = () => {
     setIsProcessingVenda(true);
     
     try {
-      // 1. Criar a OS
-      const os = await createOrdemServico.mutateAsync({
-        cliente_id: selectedClientId,
-        data_retirada: new Date().toISOString().split('T')[0],
-        data_previsao_entrega: dados.previsaoEntrega.toISOString().split('T')[0],
-        data_entrega: null,
-        status: "retirada",
-        prioridade: dados.urgente ? "urgente" : "normal",
-        observacoes: null,
-        motorista_id: null,
-        veiculo_id: null,
-        valor_total: dados.valorTotal,
-        valor_desconto: dados.valorDesconto,
-        forma_pagamento: dados.formaPagamento,
-        status_pagamento: dados.pagoAgora ? "pago" : "pendente",
-        pago_na_entrada: dados.pagoAgora,
-        valor_pago: dados.pagoAgora ? dados.valorTotal : 0,
-        urgente: dados.urgente,
-        percentual_urgencia: dados.percentualUrgencia,
-        origem: "loja",
-      });
-
-      // 2. Inserir todos os itens
-      for (const item of cart) {
-        await addItem.mutateAsync({
-          ordem_servico_id: os.id,
+      const saleKey = saleIdempotencyRef.current ?? createPdvIdempotencyKey("sale");
+      saleIdempotencyRef.current = saleKey;
+      const payment = !dados.pagoAgora || !dados.formaPagamento
+        ? null
+        : dados.formaPagamento === "PIX"
+          ? { method: "PIX" as const }
+          : {
+              method: dados.formaPagamento,
+              amountReceived: dados.formaPagamento === "DINHEIRO" ? dados.valorRecebido : undefined,
+              installments: dados.formaPagamento === "CARTAO_CREDITO" ? dados.parcelas ?? 1 : 1,
+              brand: dados.bandeira,
+              nsu: dados.nsu,
+              authorizationCode: dados.codigoAutorizacao,
+            };
+      const result = await createPdvSale.mutateAsync({
+        clientId: selectedClientId,
+        cashRegisterId: caixaAberto.id,
+        deliveryDate: dados.previsaoEntrega.toISOString().split("T")[0],
+        urgent: dados.urgente,
+        urgencyPercentage: dados.percentualUrgencia,
+        discountAmount: dados.valorDesconto,
+        driverId: dados.tipoLogistica === "entregar" ? dados.motoristaId : undefined,
+        vehicleId: dados.tipoLogistica === "entregar" ? dados.veiculoId : undefined,
+        items: cart.map((item) => ({
           produto_id: item.id,
           quantidade: item.quantidade,
-          preco_unitario: item.preco,
-          subtotal: item.preco * item.quantidade,
-          cor_item: item.cor_item || null,
-          marca_item: item.marca_item || null,
-          avarias: item.avarias || null,
-          posicao_prateleira: item.posicao_prateleira || null,
-          observacoes: item.observacoes || null,
-        });
-      }
+          cor_item: item.cor_item,
+          marca_item: item.marca_item,
+          avarias: item.avarias,
+          posicao_prateleira: item.posicao_prateleira,
+          observacoes: item.observacoes,
+        })),
+        payment,
+        idempotencyKey: saleKey,
+      });
 
-      // 3. Registrar movimentação no caixa (se pago agora)
-      if (dados.pagoAgora && dados.formaPagamento) {
-        await addMovimentacao.mutateAsync({
-          caixa_id: caixaAberto.id,
-          tipo: "VENDA",
-          valor: dados.valorTotal,
-          forma_pagamento: dados.formaPagamento,
-          descricao: `Venda OS ${os.numero}`,
-        });
-      }
-
-      // 4. Preparar dados para modal de impressão
       setOsRecemCriada({
-        id: os.id,
-        numero: os.numero,
-        valorTotal: dados.valorTotal,
+        id: result.order.id,
+        numero: result.order.number,
+        valorTotal: result.order.total,
         previsaoEntrega: dados.previsaoEntrega,
       });
 
-      // 5. Fechar modal de pagamento e abrir modal de impressão
       setShowPagamentoModal(false);
-      setShowImpressaoModal(true);
+      if (dados.pagoAgora && dados.formaPagamento === "PIX") {
+        if (result.pixError) toast.error(result.pixError);
+        setPixContext({
+          orderId: result.order.id,
+          orderNumber: result.order.number,
+          amount: result.pix?.amount ?? result.order.total,
+          cashRegisterId: caixaAberto.id,
+          moment: "ENTRADA",
+          idempotencyKey: `${saleKey}:pix`,
+          initialPix: result.pix,
+          initialError: result.pixError,
+          source: "sale",
+        });
+      } else {
+        setShowImpressaoModal(true);
+      }
       
     } catch (error) {
       console.error("Erro ao finalizar venda:", error);
-      toast.error("Erro ao finalizar venda");
+      toast.error(error instanceof Error ? error.message : "Erro ao finalizar venda");
     } finally {
       setIsProcessingVenda(false);
     }
@@ -384,10 +406,31 @@ const CaixaPDV = () => {
       setUltimoClienteId(selectedClientId);
     }
     setOsRecemCriada(null);
+    saleIdempotencyRef.current = null;
     setCart([]);
     setSelectedClientId(null);
     setClientSearch("");
     toast.success("Venda finalizada com sucesso!");
+  };
+
+  const handlePixRecebimento = (request: PixRecebimentoRequest) => {
+    setPixContext({
+      ...request,
+      moment: "RETIRADA",
+      source: "receivable",
+    });
+  };
+
+  const handlePixFinished = (confirmed: boolean) => {
+    const source = pixContext?.source;
+    setPixContext(null);
+    if (source === "sale") {
+      setShowImpressaoModal(true);
+      if (!confirmed) toast.info("A OS foi criada e o pagamento permanece pendente");
+    } else {
+      setOsParaReceber(null);
+      if (!confirmed) toast.info("O pagamento da OS permanece pendente");
+    }
   };
 
   // Atualizar hora a cada segundo
@@ -407,26 +450,37 @@ const CaixaPDV = () => {
 
       // Detectar digitação rápida de números (scanner)
       if (/^[0-9]$/.test(e.key)) {
-        setBarcodeBuffer((prev) => prev + e.key);
-        clearTimeout(barcodeTimeoutRef.current);
+        const nextBuffer = barcodeBufferRef.current + e.key;
+        barcodeBufferRef.current = nextBuffer;
+        if (barcodeTimeoutRef.current) {
+          clearTimeout(barcodeTimeoutRef.current);
+        }
         barcodeTimeoutRef.current = setTimeout(() => {
-          if (barcodeBuffer.length >= 3) {
-            const produto = produtos.find((p) => p.codigo === barcodeBuffer);
+          if (nextBuffer.length >= 3) {
+            const produto = produtos.find((p) => p.codigo === nextBuffer);
             if (produto) {
               addToCart(produto);
               toast.success(`${produto.nome} adicionado`);
             } else {
-              toast.error(`Produto não encontrado: ${barcodeBuffer}`);
+              toast.error(`Produto não encontrado: ${nextBuffer}`);
             }
           }
-          setBarcodeBuffer("");
+          barcodeBufferRef.current = "";
+          barcodeTimeoutRef.current = null;
         }, 150);
       }
     };
 
     window.addEventListener("keypress", handleBarcodeInput);
-    return () => window.removeEventListener("keypress", handleBarcodeInput);
-  }, [barcodeBuffer, produtos, showPagamentoModal, showConsultarOSModal, showAjudaAtalhos]);
+    return () => {
+      window.removeEventListener("keypress", handleBarcodeInput);
+      if (barcodeTimeoutRef.current) {
+        clearTimeout(barcodeTimeoutRef.current);
+        barcodeTimeoutRef.current = null;
+      }
+      barcodeBufferRef.current = "";
+    };
+  }, [addToCart, produtos, showPagamentoModal, showConsultarOSModal, showAjudaAtalhos]);
 
   // Toggle fullscreen
   const toggleFullscreen = useCallback(() => {
@@ -440,14 +494,14 @@ const CaixaPDV = () => {
   }, []);
 
   // Usar último cliente
-  const useLastClient = useCallback(() => {
+  const selectLastClient = useCallback(() => {
     if (ultimoClienteId) {
       selectClient(ultimoClienteId);
       toast.success("Último cliente selecionado");
     } else {
       toast.info("Nenhum cliente anterior disponível");
     }
-  }, [ultimoClienteId]);
+  }, [ultimoClienteId, selectClient]);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -504,7 +558,7 @@ const CaixaPDV = () => {
     // F9 - Último cliente
     if (e.key === "F9") {
       e.preventDefault();
-      useLastClient();
+      selectLastClient();
     }
     // F10 - Fechar caixa
     if (e.key === "F10") {
@@ -538,7 +592,19 @@ const CaixaPDV = () => {
       if (showHistoricoVendas) setShowHistoricoVendas(false);
       if (showAjudaAtalhos) setShowAjudaAtalhos(false);
     }
-  }, [cart, selectedClientId, caixaAberto, showPagamentoModal, showConsultarOSModal, showHistoricoVendas, showAjudaAtalhos, toggleFullscreen, useLastClient]);
+  }, [
+    caixaAberto,
+    cart,
+    clearCart,
+    handleOpenPagamento,
+    selectLastClient,
+    showAjudaAtalhos,
+    showConsultarOSModal,
+    showHistoricoVendas,
+    showPagamentoModal,
+    toggleFullscreen,
+    updateQuantity,
+  ]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -1077,12 +1143,10 @@ const CaixaPDV = () => {
           setShowReceberPagamentoModal(true);
         }}
         onImprimirROL={(osId) => {
-          console.log("Imprimir ROL:", osId);
-          toast.info("Função de impressão de ROL em desenvolvimento");
+          void printROL(osId);
         }}
         onImprimirEtiquetas={(osId) => {
-          console.log("Imprimir Etiquetas:", osId);
-          toast.info("Função de impressão de etiquetas em desenvolvimento");
+          void printEtiqueta(osId);
         }}
       />
 
@@ -1099,6 +1163,23 @@ const CaixaPDV = () => {
           onSuccess={() => {
             setOsParaReceber(null);
           }}
+          onRequestPix={handlePixRecebimento}
+        />
+      )}
+
+      {pixContext && (
+        <PixPagamentoModal
+          open
+          onOpenChange={() => undefined}
+          orderId={pixContext.orderId}
+          orderNumber={pixContext.orderNumber}
+          amount={pixContext.amount}
+          cashRegisterId={pixContext.cashRegisterId}
+          moment={pixContext.moment}
+          idempotencyKey={pixContext.idempotencyKey}
+          initialPix={pixContext.initialPix}
+          initialError={pixContext.initialError}
+          onFinished={handlePixFinished}
         />
       )}
 
@@ -1109,10 +1190,10 @@ const CaixaPDV = () => {
           onOpenChange={setShowHistoricoVendas}
           caixaId={caixaAberto.id}
           onImprimirROL={(osId) => {
-            toast.info("Impressão ROL em desenvolvimento");
+            void printROL(osId);
           }}
           onImprimirEtiquetas={(osId) => {
-            toast.info("Impressão etiquetas em desenvolvimento");
+            void printEtiqueta(osId);
           }}
         />
       )}

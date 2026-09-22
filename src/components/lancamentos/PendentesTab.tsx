@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -104,12 +104,12 @@ export function PendentesTab() {
     enabled: clienteIds.length > 0,
   });
 
-  const getCiclo = (clienteId: string): CicloKey => {
+  const getCiclo = useCallback((clienteId: string): CicloKey => {
     const tipo = tipoFaturamentoMap[clienteId] || "mensal";
     if (tipo === "quinzenal") return "quinzenal";
     if (tipo === "mensal") return "mensal";
     return "outro";
-  };
+  }, [tipoFaturamentoMap]);
 
   const clienteFiltroInfo = useMemo(() => {
     if (!clienteFiltroId || lancamentosFiltrados.length === 0) return null;
@@ -138,7 +138,7 @@ export function PendentesTab() {
       blocos[ciclo][l.cliente_id].push(l);
     });
     return blocos;
-  }, [lancamentosFiltrados, tipoFaturamentoMap]);
+  }, [lancamentosFiltrados, getCiclo]);
 
   const handleToggleLancamento = (id: string) => {
     setSelectedLancamentos(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);

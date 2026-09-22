@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ROLPreviewConfig, getFontFamily } from "@/components/configuracoes/ROLPreview";
+import { generateCode128BPattern } from "@/lib/code128";
+import { escapeHtml, openPrintDocument, safeHttpsUrl } from "@/lib/safePrint";
 
 // ===== INTERFACES =====
 
@@ -36,64 +38,43 @@ export interface EtiquetaConfig {
   nomeEmpresa?: string;
 }
 
-// ===== BARCODE GENERATOR (Code128) =====
+// ===== BARCODE GENERATOR (Code 128-B) =====
 
-const CODE128_PATTERNS: Record<string, string> = {
-  ' ': '11011001100', '!': '11001101100', '"': '11001100110', '#': '10010011000',
-  '$': '10010001100', '%': '10001001100', '&': '10011001000', "'": '10011000100',
-  '(': '10001100100', ')': '11001001000', '*': '11001000100', '+': '11000100100',
-  ',': '10110011100', '-': '10011011100', '.': '10011001110', '/': '10111001100',
-  '0': '10011101100', '1': '10011100110', '2': '11001110010', '3': '11001011100',
-  '4': '11001001110', '5': '11011100100', '6': '11001110100', '7': '11101101110',
-  '8': '11101001100', '9': '11100101100', ':': '11100100110', ';': '11101100100',
-  '<': '11100110100', '=': '11100110010', '>': '11011011000', '?': '11011000110',
-  '@': '11000110110', 'A': '10100011000', 'B': '10001011000', 'C': '10001000110',
-  'D': '10110001000', 'E': '10001101000', 'F': '10001100010', 'G': '11010001000',
-  'H': '11000101000', 'I': '11000100010', 'J': '10110111000', 'K': '10110001110',
-  'L': '10001101110', 'M': '10111011000', 'N': '10111000110', 'O': '10001110110',
-  'P': '11101110110', 'Q': '11010001110', 'R': '11000101110', 'S': '11011101000',
-  'T': '11011100010', 'U': '11011101110', 'V': '11101011000', 'W': '11101000110',
-  'X': '11100010110', 'Y': '11101101000', 'Z': '11101100010', '[': '11100011010',
-  '\\': '11101111010', ']': '11001000010', '^': '11110001010', '_': '10100110000',
-};
+function boundedNumber(value: unknown, fallback: number, min: number, max: number): number {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue)
+    ? Math.min(max, Math.max(min, numericValue))
+    : fallback;
+}
 
-const START_CODE_B = '11010010000';
-const STOP_CODE = '1100011101011';
+function safeColor(value: unknown, fallback: string): string {
+  return typeof value === "string" && /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(value)
+    ? value
+    : fallback;
+}
 
 export function generateBarcodePattern(text: string): number[] {
-  const pattern: number[] = [];
-  
-  // Start code
-  START_CODE_B.split('').forEach(bit => pattern.push(parseInt(bit)));
-  
-  // Data
-  for (const char of text.toUpperCase()) {
-    const charPattern = CODE128_PATTERNS[char] || CODE128_PATTERNS['0'];
-    charPattern.split('').forEach(bit => pattern.push(parseInt(bit)));
-  }
-  
-  // Stop code
-  STOP_CODE.split('').forEach(bit => pattern.push(parseInt(bit)));
-  
-  return pattern;
+  return generateCode128BPattern(text);
 }
 
 export function generateBarcodeSVG(text: string, height: number = 50): string {
   const pattern = generateBarcodePattern(text);
   const barWidth = 2;
-  const totalWidth = pattern.length * barWidth;
+  const quietZoneModules = 10;
+  const totalWidth = (pattern.length + quietZoneModules * 2) * barWidth;
+  const safeHeight = boundedNumber(height, 50, 10, 300);
   
-  let x = 0;
+  let x = quietZoneModules * barWidth;
   let bars = '';
   
   for (const bit of pattern) {
     if (bit === 1) {
-      bars += `<rect x="${x}" y="0" width="${barWidth}" height="${height}" fill="black"/>`;
+      bars += `<rect x="${x}" y="0" width="${barWidth}" height="${safeHeight}" fill="black"/>`;
     }
     x += barWidth;
   }
   
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${height}" viewBox="0 0 ${totalWidth} ${height}">${bars}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${safeHeight}" viewBox="0 0 ${totalWidth} ${safeHeight}">${bars}</svg>`;
 }
 
 // ===== FETCH OS DATA =====
@@ -247,42 +228,51 @@ export async function fetchEtiquetaConfig(): Promise<EtiquetaConfig | null> {
 export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSData): string {
   const width = config.larguraPapel === '58mm' ? '58mm' : '80mm';
   const fontFamily = getFontFamily(config.fontePrincipal);
+  const margemSuperior = boundedNumber(config.margemSuperior, 10, 0, 100);
+  const margemLateral = boundedNumber(config.margemLateral, 8, 0, 100);
+  const tamanhoNome = boundedNumber(config.tamanhoNome, 14, 6, 72);
+  const tamanhoItem = boundedNumber(config.tamanhoItem, 11, 6, 72);
+  const tamanhoTotal = boundedNumber(config.tamanhoTotal, 14, 6, 72);
+  const corPrimaria = safeColor(config.corPrimaria, "#3c62f6");
+  const corSecundaria = safeColor(config.corSecundaria, "#2583eb");
+  const logoUrl = safeHttpsUrl(config.logoUrl);
+  const osNumero = escapeHtml(data.numero);
 
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>ROL - ${data.numero}</title>
+      <title>ROL - ${osNumero}</title>
       <style>
         @page { size: ${width} auto; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
           font-family: ${fontFamily};
           width: ${width};
-          padding: ${config.margemSuperior}px ${config.margemLateral}px;
+          padding: ${margemSuperior}px ${margemLateral}px;
           font-size: 10px;
           line-height: 1.3;
         }
         .header { text-align: center; border-bottom: 1px dashed #666; padding-bottom: 8px; margin-bottom: 8px; }
         .logo { max-height: 40px; margin-bottom: 8px; }
-        .company-name { font-size: ${config.tamanhoNome}px; font-weight: bold; color: ${config.corPrimaria}; text-transform: uppercase; }
+        .company-name { font-size: ${tamanhoNome}px; font-weight: bold; color: ${corPrimaria}; text-transform: uppercase; }
         .cnpj, .address, .contact { font-size: 9px; color: #666; margin-top: 2px; }
         .rol-info { text-align: center; margin-bottom: 8px; }
-        .rol-title { font-size: 10px; font-weight: bold; color: ${config.corSecundaria}; }
+        .rol-title { font-size: 10px; font-weight: bold; color: ${corSecundaria}; }
         .rol-number { font-size: 9px; color: #666; }
         .section { border-top: 1px dashed #666; padding-top: 8px; margin-bottom: 8px; }
         .client-info { font-size: 10px; }
         .previsao { color: #d97706; font-weight: 500; }
-        .items-header { display: flex; justify-content: space-between; font-size: 9px; font-weight: bold; color: ${config.corPrimaria}; margin-bottom: 4px; }
-        .item-row { display: flex; justify-content: space-between; font-size: ${config.tamanhoItem}px; padding: 2px 0; }
+        .items-header { display: flex; justify-content: space-between; font-size: 9px; font-weight: bold; color: ${corPrimaria}; margin-bottom: 4px; }
+        .item-row { display: flex; justify-content: space-between; font-size: ${tamanhoItem}px; padding: 2px 0; }
         .item-qty { width: 25px; }
         .item-name { flex: 1; text-align: left; }
         .item-unit { width: 45px; text-align: right; }
         .item-total { width: 50px; text-align: right; }
         .totals { border-top: 1px dashed #666; padding-top: 8px; margin-bottom: 8px; }
         .total-row { display: flex; justify-content: space-between; font-size: 10px; }
-        .grand-total { font-size: ${config.tamanhoTotal}px; font-weight: bold; color: ${config.corPrimaria}; margin-top: 4px; }
+        .grand-total { font-size: ${tamanhoTotal}px; font-weight: bold; color: ${corPrimaria}; margin-top: 4px; }
         .obs { font-size: 9px; color: #666; }
         .bloco { font-size: 9px; text-align: center; color: #888; }
         .signature { padding-top: 20px; margin-bottom: 8px; }
@@ -295,21 +285,21 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
     </head>
     <body>
       <div class="header">
-        ${config.exibirLogo && config.logoUrl ? `<img src="${config.logoUrl}" alt="Logo" class="logo" />` : ''}
-        <div class="company-name">${config.nomeCompleto || config.nomeCurto}</div>
-        ${config.cnpj ? `<div class="cnpj">CNPJ: ${config.cnpj}</div>` : ''}
-        ${config.endereco ? `<div class="address">${config.endereco}</div>` : ''}
-        ${config.telefone || config.email ? `<div class="contact">${config.telefone}${config.telefone && config.email ? ' | ' : ''}${config.email}</div>` : ''}
+        ${config.exibirLogo && logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="Logo" class="logo" />` : ''}
+        <div class="company-name">${escapeHtml(config.nomeCompleto || config.nomeCurto)}</div>
+        ${config.cnpj ? `<div class="cnpj">CNPJ: ${escapeHtml(config.cnpj)}</div>` : ''}
+        ${config.endereco ? `<div class="address">${escapeHtml(config.endereco)}</div>` : ''}
+        ${config.telefone || config.email ? `<div class="contact">${escapeHtml(config.telefone)}${config.telefone && config.email ? ' | ' : ''}${escapeHtml(config.email)}</div>` : ''}
       </div>
 
       <div class="rol-info">
         <div class="rol-title">RECIBO DE LAVANDERIA</div>
-        <div class="rol-number">Nº ${data.numero} - ${data.dataEmissao.toLocaleDateString('pt-BR')} ${data.dataEmissao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+        <div class="rol-number">Nº ${osNumero} - ${escapeHtml(data.dataEmissao.toLocaleDateString('pt-BR'))} ${escapeHtml(data.dataEmissao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))}</div>
       </div>
 
       <div class="section">
-        <div class="client-info"><strong>Cliente:</strong> ${data.clienteNome}</div>
-        ${data.clienteTelefone ? `<div class="client-info"><strong>Tel:</strong> ${data.clienteTelefone}</div>` : ''}
+        <div class="client-info"><strong>Cliente:</strong> ${escapeHtml(data.clienteNome)}</div>
+        ${data.clienteTelefone ? `<div class="client-info"><strong>Tel:</strong> ${escapeHtml(data.clienteTelefone)}</div>` : ''}
         ${config.previsaoEntrega && data.previsaoEntrega ? `<div class="client-info previsao"><strong>Previsão:</strong> ${data.previsaoEntrega.toLocaleDateString('pt-BR')}</div>` : ''}
       </div>
 
@@ -322,7 +312,7 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
         ${data.itens.map(item => `
           <div class="item-row">
             <span class="item-qty">${item.quantidade}x</span>
-            <span class="item-name">${item.nome}</span>
+            <span class="item-name">${escapeHtml(item.nome)}</span>
             ${config.tipoPreco ? `<span class="item-unit">${item.precoUnitario.toFixed(2)}</span><span class="item-total">${item.subtotal.toFixed(2)}</span>` : ''}
           </div>
         `).join('')}
@@ -339,13 +329,13 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
 
       ${config.observacoes && data.observacoes ? `
         <div class="section">
-          <div class="obs"><strong>Obs:</strong> ${data.observacoes}</div>
+          <div class="obs"><strong>Obs:</strong> ${escapeHtml(data.observacoes)}</div>
         </div>
       ` : ''}
 
       ${config.bloco && (data.bloco || data.posicao) ? `
         <div class="section">
-          <div class="bloco">${data.bloco ? `Bloco: ${data.bloco}` : ''} ${data.bloco && data.posicao ? '|' : ''} ${data.posicao ? `Posição: ${data.posicao}` : ''}</div>
+          <div class="bloco">${data.bloco ? `Bloco: ${escapeHtml(data.bloco)}` : ''} ${data.bloco && data.posicao ? '|' : ''} ${data.posicao ? `Posição: ${escapeHtml(data.posicao)}` : ''}</div>
         </div>
       ` : ''}
 
@@ -357,8 +347,8 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
       ` : ''}
 
       <div class="footer">
-        <div class="footer-text">${config.textoRodape || 'Obrigado pela preferência!'}</div>
-        <div class="footer-slogan">${config.slogan}</div>
+        <div class="footer-text">${escapeHtml(config.textoRodape || 'Obrigado pela preferência!')}</div>
+        <div class="footer-slogan">${escapeHtml(config.slogan)}</div>
       </div>
     </body>
     </html>
@@ -381,13 +371,17 @@ function getEtiquetaDimensions(tamanho: string): { w: string; h: string } {
 export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: EtiquetaData): string {
   const size = getEtiquetaDimensions(config.tamanhoEtiqueta);
   const barcodeSVG = generateBarcodeSVG(data.osNumero, config.alturaCodigoBarras);
+  const margemSuperior = boundedNumber(config.margemSuperior, 5, 0, 100);
+  const margemLateral = boundedNumber(config.margemLateral, 5, 0, 100);
+  const tamanhoFonte = boundedNumber(config.tamanhoFonte, 12, 6, 72);
+  const osNumero = escapeHtml(data.osNumero);
 
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Etiqueta - ${data.osNumero}</title>
+      <title>Etiqueta - ${osNumero}</title>
       <style>
         @page { size: ${size.w} ${size.h}; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -395,40 +389,40 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
           font-family: Arial, sans-serif;
           width: ${size.w};
           height: ${size.h};
-          padding: ${config.margemSuperior}mm ${config.margemLateral}mm;
+          padding: ${margemSuperior}mm ${margemLateral}mm;
           display: flex;
           flex-direction: column;
         }
         .header { text-align: center; margin-bottom: 3mm; }
-        .company { font-size: ${config.tamanhoFonte}px; font-weight: bold; text-transform: uppercase; }
+        .company { font-size: ${tamanhoFonte}px; font-weight: bold; text-transform: uppercase; }
         .content { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .os-number { font-size: ${config.tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
-        .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 2mm; text-align: center; }
-        .produto { font-size: ${config.tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 1mm; text-align: center; text-transform: uppercase; }
-        .quantidade { font-size: ${config.tamanhoFonte - 1}px; font-weight: bold; color: #000; margin-bottom: 3mm; text-align: center; background: #f0f0f0; padding: 1mm 3mm; border-radius: 2px; }
+        .os-number { font-size: ${tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
+        .client { font-size: ${Math.max(6, tamanhoFonte - 2)}px; color: #444; margin-bottom: 2mm; text-align: center; }
+        .produto { font-size: ${tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 1mm; text-align: center; text-transform: uppercase; }
+        .quantidade { font-size: ${Math.max(6, tamanhoFonte - 1)}px; font-weight: bold; color: #000; margin-bottom: 3mm; text-align: center; background: #f0f0f0; padding: 1mm 3mm; border-radius: 2px; }
         .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
-        .barcode-number { font-size: ${config.tamanhoFonte - 4}px; font-family: monospace; color: #666; }
+        .barcode-number { font-size: ${Math.max(6, tamanhoFonte - 4)}px; font-family: monospace; color: #666; }
         .footer { text-align: center; margin-top: 2mm; }
-        .location { font-size: ${config.tamanhoFonte - 4}px; color: #666; }
-        .date { font-size: ${config.tamanhoFonte - 4}px; color: #888; }
+        .location { font-size: ${Math.max(6, tamanhoFonte - 4)}px; color: #666; }
+        .date { font-size: ${Math.max(6, tamanhoFonte - 4)}px; color: #888; }
       </style>
     </head>
     <body>
       <div class="header">
-        <div class="company">${config.nomeEmpresa || 'ANJOLAV LAVANDERIA'}</div>
+        <div class="company">${escapeHtml(config.nomeEmpresa || 'ANJOLAV LAVANDERIA')}</div>
       </div>
       
       <div class="content">
-        <div class="os-number">OS: ${data.osNumero}</div>
-        <div class="client">${data.clienteNome}</div>
-        ${data.produtoNome ? `<div class="produto">${data.produtoNome}</div><div class="quantidade">QTD: ${data.quantidade || 1} peça(s)</div>` : ''}
+        <div class="os-number">OS: ${osNumero}</div>
+        <div class="client">${escapeHtml(data.clienteNome)}</div>
+        ${data.produtoNome ? `<div class="produto">${escapeHtml(data.produtoNome)}</div><div class="quantidade">QTD: ${escapeHtml(data.quantidade || 1)} peça(s)</div>` : ''}
         
         <div class="barcode">${barcodeSVG}</div>
-        <div class="barcode-number">${data.osNumero}</div>
+        <div class="barcode-number">${osNumero}</div>
       </div>
       
       <div class="footer">
-        ${(data.bloco || data.posicao) ? `<div class="location">${data.bloco ? `Bloco: ${data.bloco}` : ''} ${data.bloco && data.posicao ? '|' : ''} ${data.posicao ? `Pos: ${data.posicao}` : ''}</div>` : ''}
+        ${(data.bloco || data.posicao) ? `<div class="location">${data.bloco ? `Bloco: ${escapeHtml(data.bloco)}` : ''} ${data.bloco && data.posicao ? '|' : ''} ${data.posicao ? `Pos: ${escapeHtml(data.posicao)}` : ''}</div>` : ''}
         <div class="date">${data.data.toLocaleDateString('pt-BR')}</div>
       </div>
     </body>
@@ -439,12 +433,9 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
 // ===== PRINT FUNCTIONS =====
 
 function openPrintWindow(html: string) {
-  const printWindow = window.open('', '_blank', 'width=400,height=600');
+  const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
   
   if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-    
     printWindow.onload = () => {
       setTimeout(() => {
         printWindow.print();
@@ -523,24 +514,28 @@ export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade
 // Generate a print page with one label per item type
 function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSData): string {
   const size = getEtiquetaDimensions(config.tamanhoEtiqueta);
+  const margemSuperior = boundedNumber(config.margemSuperior, 5, 0, 100);
+  const margemLateral = boundedNumber(config.margemLateral, 5, 0, 100);
+  const tamanhoFonte = boundedNumber(config.tamanhoFonte, 12, 6, 72);
+  const osNumero = escapeHtml(osData.numero);
 
   const labels = osData.itens.map(item => {
     const barcodeSVG = generateBarcodeSVG(osData.numero, config.alturaCodigoBarras);
     return `
       <div class="label">
         <div class="header">
-          <div class="company">${config.nomeEmpresa || 'ANJOLAV LAVANDERIA'}</div>
+          <div class="company">${escapeHtml(config.nomeEmpresa || 'ANJOLAV LAVANDERIA')}</div>
         </div>
         <div class="content">
-          <div class="os-number">OS: ${osData.numero}</div>
-          <div class="client">${osData.clienteNome}</div>
-          <div class="produto">${item.nome}</div>
-          <div class="quantidade">QTD: ${item.quantidade} peça(s)</div>
+          <div class="os-number">OS: ${osNumero}</div>
+          <div class="client">${escapeHtml(osData.clienteNome)}</div>
+          <div class="produto">${escapeHtml(item.nome)}</div>
+          <div class="quantidade">QTD: ${escapeHtml(item.quantidade)} peça(s)</div>
           <div class="barcode">${barcodeSVG}</div>
-          <div class="barcode-number">${osData.numero}</div>
+          <div class="barcode-number">${osNumero}</div>
         </div>
         <div class="footer">
-          ${(osData.bloco || osData.posicao) ? `<div class="location">${osData.bloco ? `Bloco: ${osData.bloco}` : ''} ${osData.bloco && osData.posicao ? '|' : ''} ${osData.posicao ? `Pos: ${osData.posicao}` : ''}</div>` : ''}
+          ${(osData.bloco || osData.posicao) ? `<div class="location">${osData.bloco ? `Bloco: ${escapeHtml(osData.bloco)}` : ''} ${osData.bloco && osData.posicao ? '|' : ''} ${osData.posicao ? `Pos: ${escapeHtml(osData.posicao)}` : ''}</div>` : ''}
           <div class="date">${osData.dataEmissao.toLocaleDateString('pt-BR')}</div>
         </div>
       </div>
@@ -552,7 +547,7 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>Etiquetas - ${osData.numero}</title>
+      <title>Etiquetas - ${osNumero}</title>
       <style>
         @page { size: ${size.w} ${size.h}; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -560,24 +555,24 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
         .label {
           width: ${size.w};
           height: ${size.h};
-          padding: ${config.margemSuperior}mm ${config.margemLateral}mm;
+          padding: ${margemSuperior}mm ${margemLateral}mm;
           display: flex;
           flex-direction: column;
           page-break-after: always;
         }
         .label:last-child { page-break-after: auto; }
         .header { text-align: center; margin-bottom: 3mm; }
-        .company { font-size: ${config.tamanhoFonte}px; font-weight: bold; text-transform: uppercase; }
+        .company { font-size: ${tamanhoFonte}px; font-weight: bold; text-transform: uppercase; }
         .content { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .os-number { font-size: ${config.tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
-        .client { font-size: ${config.tamanhoFonte - 2}px; color: #444; margin-bottom: 2mm; text-align: center; }
-        .produto { font-size: ${config.tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 1mm; text-align: center; text-transform: uppercase; }
-        .quantidade { font-size: ${config.tamanhoFonte - 1}px; font-weight: bold; color: #000; margin-bottom: 3mm; text-align: center; background: #f0f0f0; padding: 1mm 3mm; border-radius: 2px; }
+        .os-number { font-size: ${tamanhoFonte + 2}px; font-weight: bold; margin-bottom: 2mm; }
+        .client { font-size: ${Math.max(6, tamanhoFonte - 2)}px; color: #444; margin-bottom: 2mm; text-align: center; }
+        .produto { font-size: ${tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 1mm; text-align: center; text-transform: uppercase; }
+        .quantidade { font-size: ${Math.max(6, tamanhoFonte - 1)}px; font-weight: bold; color: #000; margin-bottom: 3mm; text-align: center; background: #f0f0f0; padding: 1mm 3mm; border-radius: 2px; }
         .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
-        .barcode-number { font-size: ${config.tamanhoFonte - 4}px; font-family: monospace; color: #666; }
+        .barcode-number { font-size: ${Math.max(6, tamanhoFonte - 4)}px; font-family: monospace; color: #666; }
         .footer { text-align: center; margin-top: 2mm; }
-        .location { font-size: ${config.tamanhoFonte - 4}px; color: #666; }
-        .date { font-size: ${config.tamanhoFonte - 4}px; color: #888; }
+        .location { font-size: ${Math.max(6, tamanhoFonte - 4)}px; color: #666; }
+        .date { font-size: ${Math.max(6, tamanhoFonte - 4)}px; color: #888; }
       </style>
     </head>
     <body>

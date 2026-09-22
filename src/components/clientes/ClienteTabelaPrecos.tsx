@@ -49,7 +49,13 @@ interface PrecoEspecialLocal {
 export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => {
   const { produtos, isLoading: isLoadingProdutos } = useProdutos();
   const { clientes } = useClientes();
-  const { precos: precosEspeciais, isLoading: isLoadingPrecos, upsertPrecoEspecial, deletePrecoEspecial } = usePrecosEspeciais(clienteId);
+  const {
+    precos: precosEspeciais,
+    isLoading: isLoadingPrecos,
+    upsertPrecoEspecial,
+    deletePrecoEspecial,
+    copyPrecosEspeciais,
+  } = usePrecosEspeciais(clienteId);
 
   const [precosLocais, setPrecosLocais] = useState<PrecoEspecialLocal[]>([]);
   const [clienteImportar, setClienteImportar] = useState("");
@@ -64,6 +70,8 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
         const produto = produtos.find((p) => p.id === pe.produto_id);
         const precoNum = pe.preco_especial;
         const precoPadrao = produto?.preco || 0;
+        const tipo: PrecoEspecialLocal["tipo"] =
+          precoNum > precoPadrao ? "acrescido" : precoNum < precoPadrao ? "desconto" : "normal";
         return {
           id: pe.id,
           produto_id: pe.produto_id,
@@ -71,7 +79,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
           unidade: produto?.unidade || "un",
           preco_padrao: precoPadrao,
           preco_especial: precoNum,
-          tipo: precoNum > precoPadrao ? "acrescido" : precoNum < precoPadrao ? "desconto" : "normal",
+          tipo,
         };
       });
       setPrecosLocais(precosFormatados);
@@ -107,14 +115,17 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   });
 
   // Outros clientes para importação
-  const outrosClientes = clientes.filter((c) => c.id !== clienteId);
+  const outrosClientes = clientes.filter(
+    (c) => c.id !== clienteId && c.classificacao === clienteAtual?.classificacao,
+  );
 
   const handleImportar = async () => {
     if (!clienteImportar || !clienteId) return;
-    
-    // Buscar preços do cliente selecionado (isso precisaria de uma query adicional)
-    toast.info("Funcionalidade de importação será implementada em breve.");
-    setClienteImportar("");
+
+    await copyPrecosEspeciais.mutateAsync(
+      { sourceClientId: clienteImportar, targetClientId: clienteId },
+      { onSuccess: () => setClienteImportar("") },
+    ).catch(() => undefined);
   };
 
   const handleAdicionarProduto = () => {
@@ -209,8 +220,15 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={handleImportar} disabled={!clienteImportar}>
-            Importar
+          <Button
+            onClick={handleImportar}
+            disabled={!clienteImportar || copyPrecosEspeciais.isPending}
+          >
+            {copyPrecosEspeciais.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              "Importar"
+            )}
           </Button>
         </div>
 

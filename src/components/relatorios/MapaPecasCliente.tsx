@@ -3,6 +3,7 @@ import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Printer, Download } from "lucide-react";
 import type { LancamentoComItens } from "@/hooks/useRelatorioCliente";
+import { openPrintClone } from "@/lib/safePrint";
 
 interface MapaPecasClienteProps {
   clienteNome: string;
@@ -57,19 +58,18 @@ export function MapaPecasCliente({
   const handlePrint = () => {
     const printContent = document.getElementById("mapa-pecas-print");
     if (!printContent) return;
-    const printWindow = window.open("", "_blank");
+    const printWindow = openPrintClone(
+      printContent,
+      `Mapa de Peças - ${clienteNome}`,
+      `
+        @page { size: A4 landscape; margin: 10mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 10px; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #000; padding: 3px 6px; vertical-align: middle; }
+      `,
+    );
     if (printWindow) {
-      printWindow.document.write(`<!DOCTYPE html><html><head>
-        <title>Mapa de Peças - ${clienteNome}</title>
-        <style>
-          @page { size: A4 landscape; margin: 10mm; }
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: Arial, sans-serif; font-size: 10px; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #000; padding: 3px 6px; vertical-align: middle; }
-        </style>
-      </head><body>${printContent.innerHTML}</body></html>`);
-      printWindow.document.close();
       setTimeout(() => printWindow.print(), 250);
     }
     onPrint?.();

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export interface Cliente {
   id: string;
@@ -75,14 +76,18 @@ export type ClienteUpdate = Partial<ClienteInsert>;
 
 export function useClientes() {
   const queryClient = useQueryClient();
+  const { activeArea } = useWorkspace();
 
   const { data: clientes = [], isLoading, error } = useQuery({
-    queryKey: ["clientes"],
+    queryKey: ["clientes", activeArea],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("clientes")
         .select("*")
         .order("razao_social");
+      if (activeArea !== "central") query = query.eq("classificacao", activeArea);
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Cliente[];
     },
@@ -90,9 +95,13 @@ export function useClientes() {
 
   const createCliente = useMutation({
     mutationFn: async (cliente: ClienteInsert) => {
+      const scopedCliente = {
+        ...cliente,
+        classificacao: activeArea === "central" ? cliente.classificacao : activeArea,
+      };
       const { data, error } = await supabase
         .from("clientes")
-        .insert(cliente)
+        .insert(scopedCliente)
         .select()
         .single();
       if (error) throw error;
@@ -109,12 +118,20 @@ export function useClientes() {
 
   const updateCliente = useMutation({
     mutationFn: async ({ id, ...updates }: ClienteUpdate & { id: string }) => {
-      const { data, error } = await supabase
+      if (
+        activeArea !== "central" &&
+        updates.classificacao &&
+        updates.classificacao !== activeArea
+      ) {
+        throw new Error("Não é permitido mover o cliente para outra unidade por este painel");
+      }
+
+      let query = supabase
         .from("clientes")
         .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+        .eq("id", id);
+      if (activeArea !== "central") query = query.eq("classificacao", activeArea);
+      const { data, error } = await query.select().single();
       if (error) throw error;
       return data;
     },
@@ -129,20 +146,22 @@ export function useClientes() {
 
   const deleteCliente = useMutation({
     mutationFn: async (id: string) => {
-      // Deletar registros dependentes primeiro (devido às foreign keys)
-      // Deletar endereços
-      await supabase.from("enderecos_clientes").delete().eq("cliente_id", id);
-      
-      // Deletar configurações de pagamento
-      await supabase.from("configuracoes_pagamento_cliente").delete().eq("cliente_id", id);
-      
-      // Deletar configurações do cliente
-      await supabase.from("configuracoes_cliente").delete().eq("cliente_id", id);
-      
-      // Deletar preços especiais
-      await supabase.from("precos_especiais").delete().eq("cliente_id", id);
-      
-      // Agora deletar o cliente
+      let scopeQuery = supabase.from("clientes").select("id").eq("id", id);
+      if (activeArea !== "central") scopeQuery = scopeQuery.eq("classificacao", activeArea);
+      const { data: scopedClient, error: scopeError } = await scopeQuery.maybeSingle();
+      if (scopeError) throw scopeError;
+      if (!scopedClient) throw new Error("Cliente não encontrado neste painel");
+
+      for (const table of [
+        "enderecos_clientes",
+        "configuracoes_pagamento_cliente",
+        "configuracoes_cliente",
+        "precos_especiais",
+      ] as const) {
+        const { error } = await supabase.from(table).delete().eq("cliente_id", id);
+        if (error) throw error;
+      }
+
       const { error } = await supabase.from("clientes").delete().eq("id", id);
       if (error) throw error;
     },
@@ -166,15 +185,17 @@ export function useClientes() {
 }
 
 export function useClienteById(clienteId: string | null) {
+  const { activeArea } = useWorkspace();
   return useQuery({
-    queryKey: ["cliente", clienteId],
+    queryKey: ["cliente", clienteId, activeArea],
     queryFn: async () => {
       if (!clienteId) return null;
-      const { data, error } = await supabase
+      let query = supabase
         .from("clientes")
         .select("*")
-        .eq("id", clienteId)
-        .maybeSingle();
+        .eq("id", clienteId);
+      if (activeArea !== "central") query = query.eq("classificacao", activeArea);
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data as Cliente | null;
     },

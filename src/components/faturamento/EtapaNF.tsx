@@ -19,12 +19,10 @@ import {
   Building2,
   User,
   ChevronLeft,
-  ChevronRight,
   Loader2,
   AlertCircle,
   SkipForward,
   AlertTriangle,
-  FileDown,
   Eye,
   FileText,
   List,
@@ -32,15 +30,15 @@ import {
   Gavel,
   Info,
 } from "lucide-react";
-import { gerarPreviewNFHtml, printNFPreview, downloadNFPreviewPdf } from "@/lib/nfPreviewPdf";
-import { NFSePreviewOficial, type NFSeOficialData } from "./NFSePreviewOficial";
-import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
-import { useFaturas } from "@/hooks/useFaturas";
+import { gerarPreviewNFHtml, printNFPreview } from "@/lib/nfPreviewPdf";
+import { NFSePreviewOficial } from "./NFSePreviewOficial";
+import {
+  useConfiguracoesFiscais,
+  useDescricoesServicosFiscais,
+  type ConfiguracaoFiscal,
+} from "@/hooks/useConfiguracoesFiscais";
 import {
   formatCurrency,
-  gerarSnapshotCliente,
-  gerarSnapshotEmitente,
-  gerarChaveAcesso,
   validarDadosFiscaisCliente,
 } from "@/lib/faturamentoUtils";
 import { NATUREZAS_OPERACAO, type NaturezaOperacao, validarCpfCnpj } from "@/lib/validacoesFiscais";
@@ -57,7 +55,7 @@ interface EtapaNFProps {
 
 // Extracted: builds NF preview data to avoid duplication
 function buildNFPreviewData(
-  configuracaoAtiva: any,
+  configuracaoAtiva: ConfiguracaoFiscal,
   dados: DadosFaturamento,
 ) {
   const enderecoConfig = configuracaoAtiva.endereco as Record<string, string> | null;
@@ -119,9 +117,7 @@ export function EtapaNF({
   faturaId,
   onNext,
   onBack,
-  onNFEmitida,
 }: EtapaNFProps) {
-  const [isEmitting, setIsEmitting] = useState(false);
   const [tipoDescricao, setTipoDescricao] = useState<"itens" | "padrao">("itens");
   const [descricaoPadraoSelecionada, setDescricaoPadraoSelecionada] = useState<string>("");
   const [naturezaOperacao, setNaturezaOperacao] = useState<NaturezaOperacao>("tributacao_municipio");
@@ -130,8 +126,6 @@ export function EtapaNF({
   
   const { configuracaoAtiva: configuracaoAtivaGlobal, configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
   const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
-  const { updateFatura } = useFaturas();
-
   const isLoading = isLoadingFiscal || isLoadingDescricoes;
   
   // Use client's preferred CNPJ emissor if configured, otherwise use global active config
@@ -216,72 +210,10 @@ export function EtapaNF({
   }
   
   // Verificar modo de emissão
-  const modoEmissao = (configuracaoAtiva as any)?.modo_emissao || "simulacao";
-
-  const handleEmitirNF = async () => {
-    if (!faturaId || !configuracaoAtiva) return;
-
-    setIsEmitting(true);
-    try {
-      const year = new Date().getFullYear();
-      const random = Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
-      const nfNumber = `${year}${random}`;
-      const chaveAcesso = gerarChaveAcesso();
-
-      // Gerar snapshots using centralized data
-      const snapshotCliente = gerarSnapshotCliente(
-        {
-          razao_social: dados.clienteNome,
-          cpf_cnpj: dados.clienteDocumento || null,
-          email: dados.clienteEmail,
-          telefone: dados.clienteTelefone,
-          inscricao_municipal: dados.clienteInscricaoMunicipal,
-        },
-        dados.clienteEndereco
-      );
-
-      const snapshotEmitente = gerarSnapshotEmitente({
-        razao_social: configuracaoAtiva.razao_social,
-        cnpj: configuracaoAtiva.cnpj,
-        inscricao_municipal: configuracaoAtiva.inscricao_municipal,
-        inscricao_estadual: configuracaoAtiva.inscricao_estadual,
-        endereco: configuracaoAtiva.endereco as Record<string, string> | null,
-        codigo_servico: configuracaoAtiva.codigo_servico,
-        aliquota_iss: configuracaoAtiva.aliquota_iss,
-      });
-
-      const descricaoServico = gerarDescricaoServico();
-
-      await updateFatura.mutateAsync({
-        id: faturaId,
-        numero_nf: nfNumber,
-        status: "nota_emitida",
-        chave_acesso: chaveAcesso,
-        data_emissao_nf: new Date().toISOString(),
-        snapshot_cliente: snapshotCliente,
-        snapshot_emitente: snapshotEmitente,
-        descricao_servico: descricaoServico,
-        natureza_operacao: naturezaOperacao,
-        status_sefaz: modoEmissao === "simulacao" ? "nao_enviada" : "processando",
-      });
-
-      onNFEmitida(nfNumber);
-      onNext();
-    } catch (error) {
-      console.error("Erro ao emitir NF:", error);
-    } finally {
-      setIsEmitting(false);
-    }
-  };
+  const modoEmissao = configuracaoAtiva?.modo_emissao ?? "simulacao";
 
   const handleSkip = () => {
     onNext();
-  };
-
-  const handlePreviewPdf = () => {
-    if (!configuracaoAtiva) return;
-    const htmlContent = gerarPreviewNFHtml(buildNFPreviewData(configuracaoAtiva, dados));
-    downloadNFPreviewPdf(htmlContent);
   };
 
   const handlePrintPreview = () => {
@@ -360,7 +292,7 @@ export function EtapaNF({
             </div>
             <Select 
               value={naturezaOperacao} 
-              onValueChange={(value) => setNaturezaOperacao(value as any)}
+              onValueChange={(value) => setNaturezaOperacao(value as NaturezaOperacao)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione a natureza da operação" />
@@ -574,8 +506,13 @@ export function EtapaNF({
 
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-muted-foreground">
-                    <p>Código do Serviço: {configuracaoAtiva.codigo_servico || "7.04"}</p>
-                    <p>Alíquota ISS: {configuracaoAtiva.aliquota_iss || 5}%</p>
+                    <p>Código do Serviço: {configuracaoAtiva.codigo_servico || "Não configurado"}</p>
+                    <p>
+                      Alíquota ISS:{" "}
+                      {configuracaoAtiva.aliquota_iss == null
+                        ? "Não configurada"
+                        : `${configuracaoAtiva.aliquota_iss}%`}
+                    </p>
                   </div>
                   <div className="text-right">
                     <span className="text-sm text-muted-foreground">Valor Total</span>
@@ -623,10 +560,10 @@ export function EtapaNF({
                   },
                   descricao_servico: gerarDescricaoServico(),
                   valor_servico: dados.valorTotal,
-                  aliquota_iss: configuracaoAtiva.aliquota_iss || 0,
-                  valor_iss: dados.valorTotal * ((configuracaoAtiva.aliquota_iss || 0) / 100),
+                  aliquota_iss: configuracaoAtiva.aliquota_iss ?? 0,
+                  valor_iss: dados.valorTotal * ((configuracaoAtiva.aliquota_iss ?? 0) / 100),
                   natureza_operacao: naturezaOperacao,
-                  ambiente: modoEmissao as "producao" | "homologacao",
+                  ambiente: modoEmissao === "producao" ? "producao" : "homologacao",
                   isPrevia: true,
                 }}
                 onPrint={handlePrintPreview}
@@ -636,7 +573,15 @@ export function EtapaNF({
         </>
       )}
 
-      <div className="flex justify-between pt-4 border-t">
+      <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+        <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <AlertDescription>
+          A emissão real está bloqueada até a integração com o provedor NFS-e municipal, o certificado A1
+          e o retorno assinado serem homologados. As visualizações acima são apenas prévias sem valor fiscal.
+        </AlertDescription>
+      </Alert>
+
+      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-between">
         <Button variant="outline" onClick={onBack} className="gap-2">
           <ChevronLeft className="w-4 h-4" />
           Voltar
@@ -650,18 +595,11 @@ export function EtapaNF({
 
           {configuracaoAtiva && (
             <Button
-              onClick={handleEmitirNF}
-              disabled={isEmitting || !validacaoCliente.valid || (tipoDescricao === "padrao" && !descricaoPadraoSelecionada)}
+              disabled
               className="gap-2"
+              title="Aguardando homologação da integração NFS-e"
             >
-              {isEmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  Emitir Nota Fiscal
-                  <ChevronRight className="w-4 h-4" />
-                </>
-              )}
+              Emissão fiscal indisponível
             </Button>
           )}
         </div>

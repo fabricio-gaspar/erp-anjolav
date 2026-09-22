@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,30 +10,31 @@ import { SidebarProvider } from "@/contexts/SidebarContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import Dashboard from "./pages/Dashboard";
-import Clientes from "./pages/Clientes";
-import Produtos from "./pages/Produtos";
-import FluxoProducao from "./pages/FluxoProducao";
-import OrdensServico from "./pages/OrdensServico";
-import Agenda from "./pages/Agenda";
-import CaixaPDV from "./pages/CaixaPDV";
-import Lancamentos from "./pages/Lancamentos";
-import DashboardFinanceiro from "./pages/DashboardFinanceiro";
-import Contas from "./pages/Contas";
-import RelatoriosCliente from "./pages/RelatoriosCliente";
-import RelatorioProximidade from "./pages/RelatorioProximidade";
-import Configuracoes from "./pages/Configuracoes";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import ForgotPassword from "./pages/ForgotPassword";
-import NotFound from "./pages/NotFound";
-import PortalCliente from "./pages/PortalCliente";
-import Fornecedores from "./pages/Fornecedores";
-import Estoque from "./pages/Estoque";
-import HistoricoCaixas from "./pages/HistoricoCaixas";
-import AgendaEventos from "./pages/AgendaEventos";
-import RelatorioKilometragem from "./pages/RelatorioKilometragem";
-import RelatorioMensal from "./pages/RelatorioMensal";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Clientes = lazy(() => import("./pages/Clientes"));
+const Produtos = lazy(() => import("./pages/Produtos"));
+const FluxoProducao = lazy(() => import("./pages/FluxoProducao"));
+const OrdensServico = lazy(() => import("./pages/OrdensServico"));
+const Agenda = lazy(() => import("./pages/Agenda"));
+const CaixaPDV = lazy(() => import("./pages/CaixaPDV"));
+const Lancamentos = lazy(() => import("./pages/Lancamentos"));
+const DashboardFinanceiro = lazy(() => import("./pages/DashboardFinanceiro"));
+const Contas = lazy(() => import("./pages/Contas"));
+const RelatoriosCliente = lazy(() => import("./pages/RelatoriosCliente"));
+const RelatorioProximidade = lazy(() => import("./pages/RelatorioProximidade"));
+const Configuracoes = lazy(() => import("./pages/Configuracoes"));
+const Login = lazy(() => import("./pages/Login"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const PortalCliente = lazy(() => import("./pages/PortalCliente"));
+const Fornecedores = lazy(() => import("./pages/Fornecedores"));
+const Estoque = lazy(() => import("./pages/Estoque"));
+const HistoricoCaixas = lazy(() => import("./pages/HistoricoCaixas"));
+const AgendaEventos = lazy(() => import("./pages/AgendaEventos"));
+const RelatorioKilometragem = lazy(() => import("./pages/RelatorioKilometragem"));
+const RelatorioMensal = lazy(() => import("./pages/RelatorioMensal"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,45 +63,53 @@ const App = () => (
             <SidebarProvider>
             <Toaster />
             <Sonner />
+            <Suspense
+              fallback={(
+                <div className="flex min-h-screen items-center justify-center" role="status" aria-live="polite">
+                  Carregando módulo…
+                </div>
+              )}
+            >
             <Routes>
               {/* Auth routes - public */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Navigate to="/login" replace />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* Central Panel Routes */}
-              <Route path="/central" element={<ProtectedRoute requiredArea="central"><Dashboard /></ProtectedRoute>} />
-              <Route path="/central/financeiro" element={<ProtectedRoute requiredArea="central"><DashboardFinanceiro /></ProtectedRoute>} />
-              <Route path="/central/contas" element={<ProtectedRoute requiredArea="central"><Contas /></ProtectedRoute>} />
-              <Route path="/central/agenda-eventos" element={<ProtectedRoute requiredArea="central"><AgendaEventos /></ProtectedRoute>} />
-              <Route path="/central/relatorios/quilometragem" element={<ProtectedRoute requiredArea="central"><RelatorioKilometragem /></ProtectedRoute>} />
-              <Route path="/central/relatorios/mensal" element={<ProtectedRoute requiredArea="central"><RelatorioMensal /></ProtectedRoute>} />
-              <Route path="/central/configuracoes" element={<ProtectedRoute requiredArea="central"><Configuracoes /></ProtectedRoute>} />
+              <Route path="/central" element={<ProtectedRoute requiredArea="central" requiredModule="dashboard"><Dashboard /></ProtectedRoute>} />
+              <Route path="/central/financeiro" element={<ProtectedRoute requiredArea="central" requiredModule="faturamento"><DashboardFinanceiro /></ProtectedRoute>} />
+              <Route path="/central/contas" element={<ProtectedRoute requiredArea="central" requiredModule={["contas_receber", "contas_pagar"]}><Contas /></ProtectedRoute>} />
+              <Route path="/central/agenda-eventos" element={<ProtectedRoute requiredArea="central" requiredModule="agenda"><AgendaEventos /></ProtectedRoute>} />
+              <Route path="/central/relatorios/quilometragem" element={<ProtectedRoute requiredArea="central" requiredModule="relatorios"><RelatorioKilometragem /></ProtectedRoute>} />
+              <Route path="/central/relatorios/mensal" element={<ProtectedRoute requiredArea="central" requiredModule="relatorios"><RelatorioMensal /></ProtectedRoute>} />
+              <Route path="/central/configuracoes" element={<ProtectedRoute requiredArea="central" requiredModule="configuracoes" adminOnly><Configuracoes /></ProtectedRoute>} />
 
               {/* Industrial Panel Routes */}
-              <Route path="/industrial" element={<ProtectedRoute requiredArea="industrial"><Dashboard /></ProtectedRoute>} />
-              <Route path="/industrial/clientes" element={<ProtectedRoute requiredArea="industrial"><Clientes /></ProtectedRoute>} />
-              <Route path="/industrial/produtos" element={<ProtectedRoute requiredArea="industrial"><Produtos /></ProtectedRoute>} />
-              <Route path="/industrial/fornecedores" element={<ProtectedRoute requiredArea="industrial"><Fornecedores /></ProtectedRoute>} />
-              <Route path="/industrial/agenda" element={<ProtectedRoute requiredArea="industrial"><Agenda /></ProtectedRoute>} />
-              <Route path="/industrial/ordens" element={<ProtectedRoute requiredArea="industrial"><OrdensServico /></ProtectedRoute>} />
-              <Route path="/industrial/producao" element={<ProtectedRoute requiredArea="industrial"><FluxoProducao /></ProtectedRoute>} />
-              <Route path="/industrial/lancamentos" element={<ProtectedRoute requiredArea="industrial"><Lancamentos /></ProtectedRoute>} />
-              <Route path="/industrial/financeiro" element={<ProtectedRoute requiredArea="industrial"><DashboardFinanceiro /></ProtectedRoute>} />
-              <Route path="/industrial/estoque" element={<ProtectedRoute requiredArea="industrial"><Estoque /></ProtectedRoute>} />
-              <Route path="/industrial/relatorios/clientes" element={<ProtectedRoute requiredArea="industrial"><RelatoriosCliente /></ProtectedRoute>} />
-              <Route path="/industrial/relatorios/proximidade" element={<ProtectedRoute requiredArea="industrial"><RelatorioProximidade /></ProtectedRoute>} />
+              <Route path="/industrial" element={<ProtectedRoute requiredArea="industrial" requiredModule="dashboard"><Dashboard /></ProtectedRoute>} />
+              <Route path="/industrial/clientes" element={<ProtectedRoute requiredArea="industrial" requiredModule="clientes"><Clientes /></ProtectedRoute>} />
+              <Route path="/industrial/produtos" element={<ProtectedRoute requiredArea="industrial" requiredModule="produtos"><Produtos /></ProtectedRoute>} />
+              <Route path="/industrial/fornecedores" element={<ProtectedRoute requiredArea="industrial" requiredModule="clientes"><Fornecedores /></ProtectedRoute>} />
+              <Route path="/industrial/agenda" element={<ProtectedRoute requiredArea="industrial" requiredModule="agenda"><Agenda /></ProtectedRoute>} />
+              <Route path="/industrial/ordens" element={<ProtectedRoute requiredArea="industrial" requiredModule="ordens"><OrdensServico /></ProtectedRoute>} />
+              <Route path="/industrial/producao" element={<ProtectedRoute requiredArea="industrial" requiredModule="producao"><FluxoProducao /></ProtectedRoute>} />
+              <Route path="/industrial/lancamentos" element={<ProtectedRoute requiredArea="industrial" requiredModule="faturamento"><Lancamentos /></ProtectedRoute>} />
+              <Route path="/industrial/financeiro" element={<ProtectedRoute requiredArea="industrial" requiredModule="faturamento"><DashboardFinanceiro /></ProtectedRoute>} />
+              <Route path="/industrial/estoque" element={<ProtectedRoute requiredArea="industrial" requiredModule="produtos"><Estoque /></ProtectedRoute>} />
+              <Route path="/industrial/relatorios/clientes" element={<ProtectedRoute requiredArea="industrial" requiredModule="relatorios"><RelatoriosCliente /></ProtectedRoute>} />
+              <Route path="/industrial/relatorios/proximidade" element={<ProtectedRoute requiredArea="industrial" requiredModule="relatorios"><RelatorioProximidade /></ProtectedRoute>} />
 
               {/* Residencial Panel Routes */}
-              <Route path="/residencial" element={<ProtectedRoute requiredArea="residencial"><Dashboard /></ProtectedRoute>} />
-              <Route path="/residencial/caixa" element={<ProtectedRoute requiredArea="residencial"><CaixaPDV /></ProtectedRoute>} />
-              <Route path="/residencial/clientes" element={<ProtectedRoute requiredArea="residencial"><Clientes /></ProtectedRoute>} />
-              <Route path="/residencial/agenda" element={<ProtectedRoute requiredArea="residencial"><Agenda /></ProtectedRoute>} />
-              <Route path="/residencial/ordens" element={<ProtectedRoute requiredArea="residencial"><OrdensServico /></ProtectedRoute>} />
-              <Route path="/residencial/producao" element={<ProtectedRoute requiredArea="residencial"><FluxoProducao /></ProtectedRoute>} />
-              <Route path="/residencial/financeiro" element={<ProtectedRoute requiredArea="residencial"><DashboardFinanceiro /></ProtectedRoute>} />
-              <Route path="/residencial/produtos" element={<ProtectedRoute requiredArea="residencial"><Produtos /></ProtectedRoute>} />
-              <Route path="/residencial/relatorios/caixa" element={<ProtectedRoute requiredArea="residencial"><HistoricoCaixas /></ProtectedRoute>} />
+              <Route path="/residencial" element={<ProtectedRoute requiredArea="residencial" requiredModule="dashboard"><Dashboard /></ProtectedRoute>} />
+              <Route path="/residencial/caixa" element={<ProtectedRoute requiredArea="residencial" requiredModule="caixa"><CaixaPDV /></ProtectedRoute>} />
+              <Route path="/residencial/clientes" element={<ProtectedRoute requiredArea="residencial" requiredModule="clientes"><Clientes /></ProtectedRoute>} />
+              <Route path="/residencial/agenda" element={<ProtectedRoute requiredArea="residencial" requiredModule="agenda"><Agenda /></ProtectedRoute>} />
+              <Route path="/residencial/ordens" element={<ProtectedRoute requiredArea="residencial" requiredModule="ordens"><OrdensServico /></ProtectedRoute>} />
+              <Route path="/residencial/producao" element={<ProtectedRoute requiredArea="residencial" requiredModule="producao"><FluxoProducao /></ProtectedRoute>} />
+              <Route path="/residencial/financeiro" element={<ProtectedRoute requiredArea="residencial" requiredModule="faturamento"><DashboardFinanceiro /></ProtectedRoute>} />
+              <Route path="/residencial/produtos" element={<ProtectedRoute requiredArea="residencial" requiredModule="produtos"><Produtos /></ProtectedRoute>} />
+              <Route path="/residencial/relatorios/caixa" element={<ProtectedRoute requiredArea="residencial" requiredModule="relatorios"><HistoricoCaixas /></ProtectedRoute>} />
 
               {/* Legacy and Redirects */}
               <Route path="/" element={<ProtectedRoute><Navigate to="/central" replace /></ProtectedRoute>} />
@@ -136,6 +145,7 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
             </SidebarProvider>
           </WorkspaceProvider>
         </AuthProvider>

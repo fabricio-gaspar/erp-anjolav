@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { FaturaPortal } from "@/hooks/usePortalData";
+import { openExternalHttpsUrl } from "@/lib/safePrint";
 
 interface VisualizarNFModalProps {
   open: boolean;
@@ -33,7 +34,7 @@ export function VisualizarNFModal({ open, onOpenChange, fatura }: VisualizarNFMo
 
   const handleDownload = () => {
     if (fatura.link_pdf_nf) {
-      window.open(fatura.link_pdf_nf, "_blank");
+      openExternalHttpsUrl(fatura.link_pdf_nf);
     }
   };
 
