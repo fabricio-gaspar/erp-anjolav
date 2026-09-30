@@ -275,6 +275,7 @@ export function useCreatePortalLancamento(accessCode: string) {
     mutationFn: (input: CreatePortalLaunchInput) =>
       portalRequest<LancamentoClientePortal>(accessCode, {
         action: "create-launch",
+        idempotencyKey: `portal:${crypto.randomUUID()}`,
         ...input,
       }),
     onSuccess: () => {

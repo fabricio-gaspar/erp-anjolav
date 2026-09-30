@@ -18,12 +18,12 @@ interface MovimentacaoVencida {
 }
 
 interface DashboardFinanceiroData {
-  saldoAtual: number;
+  resultadoRegistrado: number;
   receitasTotais: number;
   receitasCount: number;
   despesasTotais: number;
   despesasCount: number;
-  margemLucro: number;
+  margemOperacionalRegistrada: number;
   aReceberVencido: number;
   aReceberHoje: number;
   aReceberProximos7Dias: number;
@@ -41,15 +41,16 @@ interface DashboardFinanceiroData {
   receitasLoja: number;
   receitasLojaCount: number;
   isLoading: boolean;
+  error: Error | null;
 }
 
 export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): DashboardFinanceiroData {
   const { activeArea } = useWorkspace();
-  const { contas, isLoading: isLoadingContas } = useContasPagar();
-  const { faturas, isLoading: isLoadingFaturas } = useFaturas();
+  const { contas, isLoading: isLoadingContas, error: contasError } = useContasPagar();
+  const { faturas, isLoading: isLoadingFaturas, error: faturasError } = useFaturas();
 
   // Fetch caixa sales (Loja revenue)
-  const { data: vendasCaixa = [], isLoading: isLoadingCaixa } = useQuery({
+  const { data: vendasCaixa = [], isLoading: isLoadingCaixa, error: caixaError } = useQuery({
     queryKey: ["dashboard-vendas-caixa"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -67,9 +68,11 @@ export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): Dashbo
     const proximos7 = addDays(hoje, 7);
 
     // === Despesas (Contas a Pagar) — always shared ===
-    const despesasPagas = contas.filter(c => c.status === "pago");
-    const despesasPendentes = contas.filter(c => c.status === "pendente");
-    const despesasTotais = despesasPagas.reduce((sum, c) => sum + Number(c.valor), 0);
+    const despesasComPagamento = contas.filter(c =>
+      (c.status === "pago" || c.status === "parcial") && Number(c.valor_pago || 0) > 0
+    );
+    const despesasPendentes = contas.filter(c => c.status === "pendente" || c.status === "parcial");
+    const despesasTotais = despesasComPagamento.reduce((sum, c) => sum + Number(c.valor_pago || 0), 0);
 
     const despesasVencidas = despesasPendentes.filter(c => isBefore(parseISO(c.vencimento), hoje));
     const aPagarVencido = despesasVencidas.reduce((sum, c) => sum + Number(c.valor), 0);
@@ -127,8 +130,10 @@ export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): Dashbo
     const aReceberProximos7Dias = faturasProximos.reduce((sum, f) => sum + Number(f.valor_total), 0);
 
     // === Totals ===
-    const saldoAtual = receitasTotais - despesasTotais;
-    const margemLucro = receitasTotais > 0 ? Math.round((saldoAtual / receitasTotais) * 100) : 0;
+    const resultadoRegistrado = receitasTotais - despesasTotais;
+    const margemOperacionalRegistrada = receitasTotais > 0
+      ? Math.round((resultadoRegistrado / receitasTotais) * 100)
+      : 0;
 
     const vencidasTotal = aReceberVencido + aPagarVencido;
     const vencidasCount = faturasVencidas.length + despesasVencidas.length;
@@ -157,12 +162,12 @@ export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): Dashbo
     ].sort((a, b) => parseISO(a.dataVencimento).getTime() - parseISO(b.dataVencimento).getTime());
 
     return {
-      saldoAtual,
+      resultadoRegistrado,
       receitasTotais,
       receitasCount,
       despesasTotais,
-      despesasCount: despesasPagas.length,
-      margemLucro,
+      despesasCount: despesasComPagamento.length,
+      margemOperacionalRegistrada,
       aReceberVencido,
       aReceberHoje,
       aReceberProximos7Dias,
@@ -184,5 +189,6 @@ export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): Dashbo
   return {
     ...data,
     isLoading: isLoadingContas || isLoadingFaturas || isLoadingCaixa,
+    error: (contasError || faturasError || caixaError) as Error | null,
   };
 }

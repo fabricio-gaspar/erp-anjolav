@@ -11,7 +11,7 @@ O sistema só pode receber a aprovação comercial quando todos os itens obrigat
 
 ## Segurança e dados
 
-- [ ] Modelo de tenancy/unidades aprovado e implementado no banco.
+- [ ] Migration SaaS multiempresa aplicada em staging e produção, com backfill e contagens validados.
 - [ ] Policies RLS e grants revisados; nenhuma policy ampla indevida permanece.
 - [ ] Testes cruzados provam que cada perfil recebe zero linhas fora de seu escopo.
 - [ ] RPC legado de descoberta de e-mail foi revogado.
@@ -19,7 +19,7 @@ O sistema só pode receber a aprovação comercial quando todos os itens obrigat
 - [ ] Secrets e certificados estão no cofre, com rotação e acesso mínimo.
 - [ ] LGPD, privacidade, retenção, exportação e exclusão foram revisadas juridicamente.
 - [ ] Seeds identificáveis da migration histórica foram tratados no banco e no histórico Git conforme decisão formal de LGPD.
-- [ ] Diretório de backup legado foi revisado e excluído do artefato/repositório de release conforme decisão do proprietário.
+- [x] Diretório de backup legado e artefatos do Lovable foram excluídos do estado atual do repositório.
 - [ ] Auditoria de ações administrativas e financeiras está ativa.
 
 ## Integridade e qualidade
@@ -41,7 +41,7 @@ O sistema só pode receber a aprovação comercial quando todos os itens obrigat
 - [ ] PDV homologado com dinheiro/troco, débito, crédito parcelado, pagamento parcial e múltiplas formas na mesma OS.
 - [ ] PIX do PDV homologado com QR/valor, confirmação pelo webhook e consulta, cancelamento pendente, evento duplicado, reabertura sem nova cobrança, browser fechado, estorno e bloqueio de fechamento do caixa enquanto houver PIX pendente.
 - [ ] Webhook Asaas persiste ID único antes da conciliação e possui worker, retry, ordenação e monitoramento de eventos `failed`.
-- [ ] NFS-e homologada com emissão, consulta, rejeição, cancelamento e DANFSE.
+- [ ] NFS-e permanece `NFSE_ENABLED=false`; antes de anunciá-la, homologar emissão, consulta, rejeição, cancelamento e DANFSE.
 - [ ] Certificado A1 validado e alerta de expiração configurado.
 - [ ] Evolution/WhatsApp homologado com retry e fila de falhas.
 - [ ] Provedor de e-mail transacional homologado para faturamento, anexos, entrega, bounce e retry; ações manuais `mailto:` não são contabilizadas como envio.
@@ -58,6 +58,8 @@ O sistema só pode receber a aprovação comercial quando todos os itens obrigat
 - [ ] Domínio, HTTPS, DNS, CORS, CSP e redirects de autenticação foram validados.
 - [ ] Responsáveis técnico, operacional e comercial assinaram o go-live.
 - [ ] `ops/release-evidence.json` contém evidências dos gates e `npm run preflight:production` aprova o commit de release.
+- [ ] Projeto Supabase próprio `uomhckyqghkcnctbdwvp` está ativo; nenhuma configuração aponta para o project ref antigo.
+- [ ] Integração GitHub App do Lovable foi revogada nas configurações da conta/organização.
 
 ## Aprovação
 

@@ -270,10 +270,12 @@ async function getOrCreatePix(
   moment: PaymentMoment,
   idempotencyKey: string,
   userId: string,
+  tenantId: string,
 ) {
   const { data: paymentByKey, error: paymentByKeyError } = await supabase
     .from("pdv_pagamentos")
     .select("id, ordem_servico_id, caixa_id, status, status_provedor, valor, asaas_charge_id, provedor_pagamento_id")
+    .eq("tenant_id", tenantId)
     .eq("idempotency_key", idempotencyKey)
     .maybeSingle();
   if (paymentByKeyError) throw paymentByKeyError;
@@ -283,6 +285,7 @@ async function getOrCreatePix(
     : await supabase
         .from("pdv_pagamentos")
         .select("id, ordem_servico_id, caixa_id, status, status_provedor, valor, asaas_charge_id, provedor_pagamento_id")
+        .eq("tenant_id", tenantId)
         .eq("ordem_servico_id", orderId)
         .eq("metodo", "PIX")
         .in("status", ["PENDENTE", "PROCESSANDO"])
@@ -304,6 +307,7 @@ async function getOrCreatePix(
     const { data: charge, error: chargeError } = await supabase
       .from("asaas_charges")
       .select("pix_qr_code, pix_copy_paste")
+      .eq("tenant_id", tenantId)
       .eq("id", existingPayment.asaas_charge_id)
       .single();
     if (chargeError) throw chargeError;
@@ -321,6 +325,7 @@ async function getOrCreatePix(
   const { data: order, error: orderError } = await supabase
     .from("ordens_servico")
     .select("id, numero, cliente_id, valor_total, valor_pago, status, origem")
+    .eq("tenant_id", tenantId)
     .eq("id", orderId)
     .maybeSingle();
   if (orderError) throw orderError;
@@ -333,6 +338,7 @@ async function getOrCreatePix(
   const { data: client, error: clientError } = await supabase
     .from("clientes")
     .select("id, razao_social, email, cpf_cnpj, ativo, classificacao")
+    .eq("tenant_id", tenantId)
     .eq("id", order.cliente_id)
     .maybeSingle();
   if (clientError) throw clientError;
@@ -403,10 +409,11 @@ async function getOrCreatePix(
   }
 
   const [{ data: category }, { data: costCenter }] = await Promise.all([
-    supabase.from("categorias_financeiras").select("id").eq("nome", "Cobrança Asaas").eq("tipo", "receita").maybeSingle(),
-    supabase.from("centros_custo").select("id").eq("nome", "Loja").maybeSingle(),
+    supabase.from("categorias_financeiras").select("id").eq("tenant_id", tenantId).eq("nome", "Cobrança Asaas").eq("tipo", "receita").maybeSingle(),
+    supabase.from("centros_custo").select("id").eq("tenant_id", tenantId).eq("nome", "Loja").maybeSingle(),
   ]);
   const chargePayload = {
+    tenant_id: tenantId,
     asaas_id: providerPayment.id,
     external_reference: externalReference,
     cliente_id: client.id,
@@ -426,12 +433,13 @@ async function getOrCreatePix(
   const chargeLookup = await supabase
     .from("asaas_charges")
     .select("id")
+    .eq("tenant_id", tenantId)
     .eq("external_reference", externalReference)
     .maybeSingle();
   let charge = chargeLookup.data;
   if (chargeLookup.error) throw chargeLookup.error;
   if (charge) {
-    const { error } = await supabase.from("asaas_charges").update(chargePayload).eq("id", charge.id);
+    const { error } = await supabase.from("asaas_charges").update(chargePayload).eq("tenant_id", tenantId).eq("id", charge.id);
     if (error) throw error;
   } else {
     const inserted = await supabase.from("asaas_charges").insert(chargePayload).select("id").single();
@@ -439,6 +447,7 @@ async function getOrCreatePix(
       const recovered = await supabase
         .from("asaas_charges")
         .select("id")
+        .eq("tenant_id", tenantId)
         .eq("external_reference", externalReference)
         .single();
       if (recovered.error) throw recovered.error;
@@ -486,10 +495,11 @@ async function getOrCreatePix(
   };
 }
 
-async function reconcilePix(supabase: SupabaseClient, paymentId: string) {
+async function reconcilePix(supabase: SupabaseClient, paymentId: string, tenantId: string) {
   const { data: payment, error: paymentError } = await supabase
     .from("pdv_pagamentos")
     .select("id, ordem_servico_id, asaas_charge_id, provedor_pagamento_id, idempotency_key, status, valor")
+    .eq("tenant_id", tenantId)
     .eq("id", paymentId)
     .eq("metodo", "PIX")
     .maybeSingle();
@@ -500,6 +510,7 @@ async function reconcilePix(supabase: SupabaseClient, paymentId: string) {
   const { data: order, error: orderError } = await supabase
     .from("ordens_servico")
     .select("origem")
+    .eq("tenant_id", tenantId)
     .eq("id", payment.ordem_servico_id)
     .maybeSingle();
   if (orderError) throw orderError;
@@ -516,6 +527,7 @@ async function reconcilePix(supabase: SupabaseClient, paymentId: string) {
       status: providerPayment.status,
       paid_at: paidAt,
     })
+    .eq("tenant_id", tenantId)
     .eq("id", payment.asaas_charge_id);
   if (chargeUpdateError) throw chargeUpdateError;
 
@@ -557,6 +569,13 @@ Deno.serve(async (req) => {
 
     if (action === "create_sale") {
       const sale = validateSale(raw);
+      const [{ data: scopedClient, error: clientScopeError }, { data: scopedCash, error: cashScopeError }] =
+        await Promise.all([
+          supabase.from("clientes").select("id").eq("tenant_id", authorization.tenantId).eq("id", sale.clientId).maybeSingle(),
+          supabase.from("caixas").select("id").eq("tenant_id", authorization.tenantId).eq("id", sale.cashRegisterId).maybeSingle(),
+        ]);
+      if (clientScopeError || cashScopeError) throw clientScopeError ?? cashScopeError;
+      if (!scopedClient || !scopedCash) throw new RequestError("Cliente ou caixa fora da empresa ativa", 403);
       const rpcPayment = sale.payment && sale.payment.method !== "PIX"
         ? {
             metodo: sale.payment.method,
@@ -594,6 +613,7 @@ Deno.serve(async (req) => {
             "ENTRADA",
             `${sale.idempotencyKey}:pix`,
             authorization.user.id,
+            authorization.tenantId,
           );
         } catch (error: unknown) {
           pixError = error instanceof Error ? error.message : "Não foi possível gerar o PIX";
@@ -615,13 +635,14 @@ Deno.serve(async (req) => {
         moment,
         idempotencyKey,
         authorization.user.id,
+        authorization.tenantId,
       );
       return jsonResponse(req, { success: true, pix });
     }
 
     if (action === "get_pix_status") {
       const paymentId = requireUuid(raw.paymentId, "Pagamento");
-      const payment = await reconcilePix(supabase, paymentId);
+      const payment = await reconcilePix(supabase, paymentId, authorization.tenantId);
       return jsonResponse(req, { success: true, payment });
     }
 
@@ -631,6 +652,13 @@ Deno.serve(async (req) => {
       const moment: PaymentMoment = raw.moment === "ENTRADA" ? "ENTRADA" : "RETIRADA";
       const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
       const payment = validateManualPayment(raw.payment, true);
+      const [{ data: scopedOrder, error: orderScopeError }, { data: scopedCash, error: cashScopeError }] =
+        await Promise.all([
+          supabase.from("ordens_servico").select("id").eq("tenant_id", authorization.tenantId).eq("id", orderId).maybeSingle(),
+          supabase.from("caixas").select("id").eq("tenant_id", authorization.tenantId).eq("id", cashRegisterId).maybeSingle(),
+        ]);
+      if (orderScopeError || cashScopeError) throw orderScopeError ?? cashScopeError;
+      if (!scopedOrder || !scopedCash) throw new RequestError("OS ou caixa fora da empresa ativa", 403);
       const { data, error } = await supabase.rpc("registrar_pagamento_pdv", {
         _ordem_servico_id: orderId,
         _caixa_id: cashRegisterId,
@@ -654,6 +682,7 @@ Deno.serve(async (req) => {
       const { data: payment, error: paymentError } = await supabase
         .from("pdv_pagamentos")
         .select("id, status, asaas_charge_id, provedor_pagamento_id, idempotency_key, valor")
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", paymentId)
         .eq("metodo", "PIX")
         .maybeSingle();
@@ -664,13 +693,14 @@ Deno.serve(async (req) => {
       const current = await asaasRequest<AsaasPayment>(`/payments/${encodeURIComponent(payment.provedor_pagamento_id)}`);
       assertProviderPayment(current, payment.idempotency_key, Number(payment.valor));
       if (current.status === "RECEIVED") {
-        await reconcilePix(supabase, payment.id);
+        await reconcilePix(supabase, payment.id, authorization.tenantId);
         throw new RequestError("O PIX já foi recebido e não pode ser cancelado", 409);
       }
       await asaasRequest<unknown>(`/payments/${encodeURIComponent(payment.provedor_pagamento_id)}`, { method: "DELETE" });
       const { error: chargeError } = await supabase
         .from("asaas_charges")
         .update({ status: "DELETED" })
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", payment.asaas_charge_id);
       if (chargeError) throw chargeError;
       const { data, error } = await supabase.rpc("cancelar_intencao_pagamento_pdv", {

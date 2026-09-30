@@ -13,7 +13,7 @@ Copy-Item ops/release-evidence.example.json ops/release-evidence.json
 ```
 
 1. Em `.env.production`, preencha apenas a chave publicável do projeto Supabase. O `project_ref` e a URL já correspondem ao `supabase/config.toml` deste repositório.
-2. Em `supabase/.env.production`, informe os valores reais de Asaas, Evolution e n8n. Não copie `SUPABASE_URL`, `SUPABASE_ANON_KEY` ou `SUPABASE_SERVICE_ROLE_KEY`: as Edge Functions hospedadas recebem essas variáveis da plataforma.
+2. Em `supabase/.env.production`, informe os valores reais de Asaas, Evolution e n8n. Mantenha `NFSE_ENABLED=false` até contratar e homologar o adaptador fiscal. Não copie `SUPABASE_URL`, `SUPABASE_ANON_KEY` ou `SUPABASE_SERVICE_ROLE_KEY`: as Edge Functions hospedadas recebem essas variáveis da plataforma.
 3. Cadastre em `ALLOWED_ORIGINS` somente a origem HTTPS final do ERP, sem caminho ou barra no fim. URL de preview não deve ser tratada como domínio de produção.
 4. Configure o n8n para exigir o header `X-AnjoLav-Webhook-Token` e use nele o mesmo `N8N_WEBHOOK_TOKEN` de 32+ caracteres aleatórios. O dispatcher não envia ao n8n sem esse token.
 5. Em `ops/release-evidence.json`, mantenha todos os gates como pendentes até executar e registrar o teste correspondente. O arquivo é ignorado pelo Git para que contenha evidências internas sem ir ao repositório.
@@ -39,7 +39,7 @@ Nesta máquina, a CLI do Supabase não está instalada; instale uma versão atua
 ```powershell
 supabase login
 supabase projects list
-supabase link --project-ref lbrsblimephbjyjlrefv
+supabase link --project-ref uomhckyqghkcnctbdwvp
 supabase migration list
 ```
 
@@ -52,7 +52,7 @@ supabase secrets list
 
 As variáveis gravadas ficam disponíveis imediatamente para as Edge Functions hospedadas; não é preciso reimplantar apenas para atualizar secrets. Consulte a documentação oficial de [secrets de Edge Functions](https://supabase.com/docs/guides/functions/secrets).
 
-Não execute `supabase db push` nesta fase. O banco ainda exige decisão formal de tenancy, uma migration nova e aditiva para RLS, testes cruzados e a fila persistente do webhook Asaas. As migrations históricas não devem ser editadas.
+Não execute `supabase db push` antes de reativar, inspecionar e fazer backup do projeto próprio. Depois, aplique em staging a migration de hardening multiempresa e execute testes cruzados antes da produção.
 
 ## Publicação controlada
 
@@ -68,6 +68,7 @@ supabase functions deploy pdv-payment
 supabase functions deploy asaas-webhook
 supabase functions deploy whatsapp-evolution
 supabase functions deploy webhook-dispatcher
+supabase functions deploy nfse-adapter
 ```
 
 Também existe o workflow manual [deploy-edge-functions-production.yml](../.github/workflows/deploy-edge-functions-production.yml). Antes de usá-lo, crie o GitHub Environment `production`, exija aprovação e armazene somente `SUPABASE_ACCESS_TOKEN` e `SUPABASE_PROJECT_REF` nele. Digite `DEPLOY_PRODUCTION` ao disparar o workflow. Ele verifica o código e publica Edge Functions, mas não faz migrations, não define secrets e não publica o frontend automaticamente.

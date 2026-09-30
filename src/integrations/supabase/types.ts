@@ -3418,6 +3418,22 @@ export type Database = {
       }
     }
     Functions: {
+      avancar_etapa_producao: {
+        Args: {
+          _dados_formulario: Json
+          _etapa_esperada: string
+          _funcionario_id: string | null
+          _itens?: Json
+          _observacoes: string | null
+          _ordem_servico_id: string
+          _proxima_etapa: string
+        }
+        Returns: Json
+      }
+      cancelar_ordem_servico: {
+        Args: { _motivo: string; _ordem_servico_id: string }
+        Returns: Json
+      }
       cancelar_intencao_pagamento_pdv: {
         Args: { _pagamento_id: string; _status_provedor: string }
         Returns: Json
@@ -3447,6 +3463,14 @@ export type Database = {
         }[]
       }
       get_funcionario_for_user: { Args: { _user_id: string }; Returns: string }
+      get_fiscal_configs_for_operations: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      get_my_tenant_context: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       has_area_access: {
         Args: { _area: string; _user_id: string }
         Returns: boolean
@@ -3495,6 +3519,10 @@ export type Database = {
           _valor: number
           _valor_recebido: number | null
         }
+        Returns: Json
+      }
+      switch_active_tenant: {
+        Args: { _tenant_id: string }
         Returns: Json
       }
     }

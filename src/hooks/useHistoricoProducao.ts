@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { format, startOfDay, subDays } from "date-fns";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface HistoricoProducao {
   id: string;
@@ -130,7 +131,48 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
     },
   });
 
-  return { historico, isLoading, registrarMudancaEtapa };
+  const avancarEtapa = useMutation({
+    mutationFn: async ({
+      ordem_servico_id,
+      etapa_esperada,
+      proxima_etapa,
+      funcionario_id,
+      observacoes,
+      dados_formulario,
+      itens,
+    }: {
+      ordem_servico_id: string;
+      etapa_esperada: string;
+      proxima_etapa: string;
+      funcionario_id?: string;
+      observacoes?: string;
+      dados_formulario?: Record<string, unknown>;
+      itens?: Array<{ produto_id: string; quantidade: number }>;
+    }) => {
+      const { data, error } = await supabase.rpc("avancar_etapa_producao", {
+        _ordem_servico_id: ordem_servico_id,
+        _etapa_esperada: etapa_esperada,
+        _proxima_etapa: proxima_etapa,
+        _funcionario_id: funcionario_id || null,
+        _observacoes: observacoes || null,
+        _dados_formulario: (dados_formulario || {}) as Json,
+        _itens: (itens || []) as Json,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["historico_producao"] });
+      queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
+      queryClient.invalidateQueries({ queryKey: ["itens_ordem_servico"] });
+      queryClient.invalidateQueries({ queryKey: ["metricas_producao"] });
+    },
+    onError: (error) => {
+      toast.error("Não foi possível avançar a etapa: " + error.message);
+    },
+  });
+
+  return { historico, isLoading, registrarMudancaEtapa, avancarEtapa };
 }
 
 // Hook para métricas do Dashboard

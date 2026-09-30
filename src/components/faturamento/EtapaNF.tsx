@@ -33,9 +33,9 @@ import {
 import { gerarPreviewNFHtml, printNFPreview } from "@/lib/nfPreviewPdf";
 import { NFSePreviewOficial } from "./NFSePreviewOficial";
 import {
-  useConfiguracoesFiscais,
+  useConfiguracoesFiscaisOperacionais,
   useDescricoesServicosFiscais,
-  type ConfiguracaoFiscal,
+  type ConfiguracaoFiscalOperacional,
 } from "@/hooks/useConfiguracoesFiscais";
 import {
   formatCurrency,
@@ -55,7 +55,7 @@ interface EtapaNFProps {
 
 // Extracted: builds NF preview data to avoid duplication
 function buildNFPreviewData(
-  configuracaoAtiva: ConfiguracaoFiscal,
+  configuracaoAtiva: ConfiguracaoFiscalOperacional,
   dados: DadosFaturamento,
 ) {
   const enderecoConfig = configuracaoAtiva.endereco as Record<string, string> | null;
@@ -124,7 +124,7 @@ export function EtapaNF({
   const [naturezaAutoSelected, setNaturezaAutoSelected] = useState(false);
   const [initialized, setInitialized] = useState(false);
   
-  const { configuracaoAtiva: configuracaoAtivaGlobal, configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
+  const { configuracaoAtiva: configuracaoAtivaGlobal, configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscaisOperacionais();
   const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
   const isLoading = isLoadingFiscal || isLoadingDescricoes;
   

@@ -2,7 +2,7 @@
 
 ERP web para as operações industrial e residencial da AnjoLav, com painéis separados, portal do cliente, produção, ordens de serviço, estoque, caixa, financeiro e integrações externas.
 
-> Estado atual: endurecimento técnico em andamento. O código local passa em typecheck, 25 testes, lint e build de produção, mas o sistema **ainda não está aprovado para comercialização**. RLS/tenancy no banco, tratamento de dados pessoais históricos, transações, fila do webhook Asaas, homologação NFS-e, pagamentos, WhatsApp, e-mail transacional e testes integrados ainda exigem banco, ambiente e credenciais reais. Consulte [Prontidão comercial](docs/COMMERCIAL_READINESS.md).
+> Estado atual: código preparado para implantação controlada. A branch passa em TypeScript, 35 testes, lint sem erros, checagem das Edge Functions e build de produção. O hardening SaaS multiempresa, portal, operações transacionais e NFS-e fail-closed está implementado no repositório, mas o ambiente real ainda precisa ser reativado, migrado e homologado. Consulte [Prontidão comercial](docs/COMMERCIAL_READINESS.md).
 
 ## Stack
 
@@ -42,7 +42,7 @@ O comando `npm run check` executa toda a sequência. A integração contínua re
 - `/residencial/*`: loja e PDV
 - `/portal/:codigo`: portal público com código criptograficamente forte
 
-Rotas protegidas exigem sessão, área e permissão de módulo. Isso é defesa de aplicação; o isolamento definitivo também precisa existir nas policies RLS do Postgres.
+Rotas protegidas exigem sessão, área e permissão de módulo. A migration comercial acrescenta isolamento por tenant, módulo e área de negócio também no Postgres; a proteção só passa a valer no ambiente real depois da aplicação e dos testes de RLS.
 
 ## Documentação operacional
 

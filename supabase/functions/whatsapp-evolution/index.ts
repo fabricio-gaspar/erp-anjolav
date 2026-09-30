@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
     const { data: instance, error: configError } = await supabase
       .from("whatsapp_instancias")
       .select("id, api_url, nome_instancia, qr_code")
+      .eq("tenant_id", authorization.tenantId)
       .limit(1)
       .maybeSingle();
     if (configError) throw configError;
@@ -106,6 +107,7 @@ Deno.serve(async (req) => {
       const { error: updateError } = await supabase
         .from("whatsapp_instancias")
         .update({ qr_code: qrCode, status: "aguardando_scan" })
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", instance.id);
       if (updateError) throw updateError;
       return jsonResponse(req, { success: true, qr_code: qrCode });
@@ -128,6 +130,7 @@ Deno.serve(async (req) => {
       const { error: updateError } = await supabase
         .from("whatsapp_instancias")
         .update({ status: newStatus, qr_code: connected ? null : instance.qr_code })
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", instance.id);
       if (updateError) throw updateError;
       return jsonResponse(req, { success: true, connected, status: newStatus });
@@ -168,6 +171,7 @@ Deno.serve(async (req) => {
           const { data: order, error: orderError } = await supabase
             .from("ordens_servico")
             .select("id, cliente_id")
+            .eq("tenant_id", authorization.tenantId)
             .eq("id", orderId)
             .maybeSingle();
           if (orderError) throw orderError;
@@ -181,6 +185,7 @@ Deno.serve(async (req) => {
           const { data: invoice, error: invoiceError } = await supabase
             .from("faturas")
             .select("id, cliente_id")
+            .eq("tenant_id", authorization.tenantId)
             .eq("id", invoiceId)
             .maybeSingle();
           if (invoiceError) throw invoiceError;
@@ -197,6 +202,7 @@ Deno.serve(async (req) => {
         const { data: client, error: clientError } = await supabase
           .from("clientes")
           .select("id, telefone, ativo")
+          .eq("tenant_id", authorization.tenantId)
           .eq("id", clientId)
           .maybeSingle();
         if (clientError) throw clientError;
@@ -233,6 +239,7 @@ Deno.serve(async (req) => {
         : null;
 
       const { error: logError } = await supabase.from("mensagens_log").insert({
+        tenant_id: authorization.tenantId,
         ordem_servico_id: orderId,
         cliente_id: clientId,
         telefone: normalizedPhone,
@@ -267,6 +274,7 @@ Deno.serve(async (req) => {
       const { error: updateError } = await supabase
         .from("whatsapp_instancias")
         .update({ status: "desconectado", qr_code: null })
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", instance.id);
       if (updateError) throw updateError;
       return jsonResponse(req, { success: true });

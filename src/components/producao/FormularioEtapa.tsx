@@ -26,10 +26,10 @@ import { useFuncionarios } from "@/hooks/useFuncionarios";
 import { useMotoristas } from "@/hooks/useMotoristas";
 import { useVeiculos } from "@/hooks/useVeiculos";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { dispararNotificacao } from "@/services/notificacaoService";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ItemSeparacao {
   produto_id: string;
@@ -118,8 +118,8 @@ export function FormularioEtapa({
   // Campos específicos da etapa Retirada
   const [horarioRetirada, setHorarioRetirada] = useState("");
 
-  const { ordensServico, updateOrdemServico } = useOrdensServico();
-  const { registrarMudancaEtapa } = useHistoricoProducao(ordemServicoId);
+  const { ordensServico } = useOrdensServico();
+  const { avancarEtapa } = useHistoricoProducao(ordemServicoId);
   const { data: funcionarios = [] } = useFuncionarios();
   const { motoristasAtivos } = useMotoristas();
   const { veiculosAtivos } = useVeiculos();
@@ -179,18 +179,6 @@ export function FormularioEtapa({
           };
           break;
         case "separacao":
-          // Salvar itens na tabela itens_ordem_servico
-          for (const item of itensSeparacao) {
-            const { error } = await supabase.from("itens_ordem_servico").insert({
-              ordem_servico_id: ordemServicoId,
-              produto_id: item.produto_id,
-              quantidade: item.quantidade,
-              preco_unitario: item.preco_unitario,
-              subtotal: item.subtotal,
-            });
-            if (error) throw error;
-          }
-
           dadosFormulario = {
             quantidade_pecas: itensSeparacao.reduce((acc, i) => acc + i.quantidade, 0),
             itens_danificados: itensDanificados || null,
@@ -247,23 +235,17 @@ export function FormularioEtapa({
           break;
       }
 
-      // Atualizar status da OS
-      await updateOrdemServico.mutateAsync({
-        id: ordemServicoId,
-        status: proximaEtapa as any,
-        ...(proximaEtapa === "entregue" && {
-          data_entrega: new Date().toISOString().split("T")[0],
-        }),
-      });
-
-      // Registrar no histórico
-      await registrarMudancaEtapa.mutateAsync({
+      // Uma única transação valida o status esperado, grava itens, histórico e OS.
+      await avancarEtapa.mutateAsync({
         ordem_servico_id: ordemServicoId,
-        etapa_anterior: etapaAtual,
-        etapa_nova: proximaEtapa,
+        etapa_esperada: etapaAtual,
+        proxima_etapa: proximaEtapa,
         funcionario_id: funcionarioId || undefined,
         observacoes,
         dados_formulario: dadosFormulario,
+        itens: etapaAtual === "separacao"
+          ? itensSeparacao.map((item) => ({ produto_id: item.produto_id, quantidade: item.quantidade }))
+          : [],
       });
 
       toast.success(`OS avançada para ${etapaLabels[proximaEtapa] || proximaEtapa}`);

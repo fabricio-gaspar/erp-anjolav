@@ -1,4 +1,4 @@
-project_id = "lbrsblimephbjyjlrefv"
+project_id = "uomhckyqghkcnctbdwvp"
 
 [functions.create-asaas-charge]
 verify_jwt = true
@@ -26,3 +26,6 @@ verify_jwt = true
 
 [functions.sign-in]
 verify_jwt = false
+
+[functions.nfse-adapter]
+verify_jwt = true

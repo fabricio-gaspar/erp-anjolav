@@ -15,6 +15,7 @@ interface PortalRequest {
   action?: PortalAction;
   code?: string;
   faturaId?: string;
+  idempotencyKey?: string;
   observacoes?: string;
   itens?: Array<{
     produto_id?: string;
@@ -27,12 +28,14 @@ interface PortalClient {
   id: string;
   razao_social: string;
   nome_fantasia: string | null;
+  classificacao: "industrial" | "residencial";
   ativo: boolean;
 }
 
 interface PortalContext {
   cliente: PortalClient;
   config: {
+    tenant_id: string;
     cliente_id: string;
     frequencia: string | null;
     dias_retirada: string[] | null;
@@ -41,6 +44,11 @@ interface PortalContext {
     horario_entrega: string | null;
     tipo_relatorio: string | null;
   };
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function normalizeCode(value: unknown): string {
@@ -102,13 +110,17 @@ Deno.serve(async (req) => {
       .from("configuracoes_cliente")
       .select(`
         cliente_id,
+        tenant_id,
+        portal_ativo,
+        portal_expira_em,
+        portal_revogado_em,
         frequencia,
         dias_retirada,
         dias_entrega,
         horario_retirada,
         horario_entrega,
         tipo_relatorio,
-        cliente:clientes(id, razao_social, nome_fantasia, ativo)
+        cliente:clientes(id, razao_social, nome_fantasia, classificacao, ativo)
       `)
       .eq("codigo_acesso", code)
       .limit(1)
@@ -120,11 +132,16 @@ Deno.serve(async (req) => {
     }
 
     const cliente = relationOne(data?.cliente as PortalClient | PortalClient[] | null);
-    if (!data || !cliente?.ativo || cliente.id !== data.cliente_id) return null;
+    const expired = data?.portal_expira_em && new Date(data.portal_expira_em).getTime() <= Date.now();
+    if (
+      !data || !cliente?.ativo || cliente.id !== data.cliente_id || !data.portal_ativo ||
+      data.portal_revogado_em || expired
+    ) return null;
 
     return {
       cliente,
       config: {
+        tenant_id: data.tenant_id,
         cliente_id: data.cliente_id,
         frequencia: data.frequencia,
         dias_retirada: data.dias_retirada,
@@ -139,6 +156,22 @@ Deno.serve(async (req) => {
   try {
     const context = await resolveContext();
     if (!context) return jsonResponse(req, { error: "Acesso inválido ou expirado" }, 404);
+
+    const forwardedFor = (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim().slice(0, 64);
+    const userAgent = (req.headers.get("user-agent") ?? "unknown").slice(0, 256);
+    const [codeHash, clientHash] = await Promise.all([
+      sha256Hex(code),
+      sha256Hex(`${forwardedFor}|${userAgent}`),
+    ]);
+    const { data: rateAllowed, error: rateError } = await supabase.rpc("consume_portal_rate_limit", {
+      _tenant_id: context.config.tenant_id,
+      _code_hash: codeHash,
+      _client_hash: clientHash,
+      _limit: 60,
+      _window_seconds: 60,
+    });
+    if (rateError) throw rateError;
+    if (rateAllowed !== true) return jsonResponse(req, { error: "Muitas tentativas. Aguarde um minuto." }, 429);
 
     const action = body.action ?? "bootstrap";
 
@@ -163,6 +196,7 @@ Deno.serve(async (req) => {
           supabase
             .from("configuracoes_gerais")
             .select("nome_empresa, logo_url, whatsapp_numero")
+            .eq("tenant_id", context.config.tenant_id)
             .limit(1)
             .maybeSingle(),
           supabase
@@ -186,6 +220,7 @@ Deno.serve(async (req) => {
                 produto:produtos(nome)
               )
             `)
+            .eq("tenant_id", context.config.tenant_id)
             .eq("cliente_id", context.cliente.id)
             .neq("status", "cancelada")
             .order("created_at", { ascending: false })
@@ -209,12 +244,14 @@ Deno.serve(async (req) => {
               chave_acesso,
               created_at
             `)
+            .eq("tenant_id", context.config.tenant_id)
             .eq("cliente_id", context.cliente.id)
             .order("created_at", { ascending: false })
             .limit(50),
           supabase
             .from("agendamentos")
             .select("id, tipo, data, horario, status")
+            .eq("tenant_id", context.config.tenant_id)
             .eq("cliente_id", context.cliente.id)
             .gte("data", hoje)
             .order("data", { ascending: true })
@@ -222,22 +259,26 @@ Deno.serve(async (req) => {
           supabase
             .from("lancamentos_cliente")
             .select("id, cliente_id, ordem_servico_id, status, data_lancamento, observacoes, created_at, updated_at")
+            .eq("tenant_id", context.config.tenant_id)
             .eq("cliente_id", context.cliente.id)
             .order("created_at", { ascending: false })
             .limit(20),
           supabase
             .from("precos_especiais")
             .select("produto_id")
+            .eq("tenant_id", context.config.tenant_id)
             .eq("cliente_id", context.cliente.id),
           supabase
             .from("ordens_servico")
             .select("id, status, itens:itens_ordem_servico(quantidade)")
+            .eq("tenant_id", context.config.tenant_id)
             .eq("cliente_id", context.cliente.id)
             .gte("data_retirada", inicioMes)
             .lte("data_retirada", fimMes),
           supabase
             .from("faturas")
             .select("id, valor_total, status")
+            .eq("tenant_id", context.config.tenant_id)
             .eq("cliente_id", context.cliente.id)
             .gte("periodo_inicio", inicioMes)
             .lte("periodo_fim", fimMes),
@@ -265,6 +306,7 @@ Deno.serve(async (req) => {
         ? await supabase
             .from("itens_lancamento_cliente")
             .select("id, lancamento_id, produto_id, quantidade, observacoes, created_at")
+            .eq("tenant_id", context.config.tenant_id)
             .in("lancamento_id", lancamentoIds)
         : { data: [], error: null };
 
@@ -277,7 +319,11 @@ Deno.serve(async (req) => {
       let productQuery = supabase
         .from("produtos")
         .select("id, nome, unidade")
+        .eq("tenant_id", context.config.tenant_id)
         .eq("status", "ativo")
+        .in("unidade_negocio", context.cliente.classificacao === "residencial"
+          ? ["ID2", "ambos"]
+          : ["ID1", "ambos"])
         .order("nome");
       if (specialProductIds.length) productQuery = productQuery.in("id", specialProductIds);
       const produtosResult = await productQuery;
@@ -358,6 +404,7 @@ Deno.serve(async (req) => {
       const { data: fatura, error: faturaError } = await supabase
         .from("faturas")
         .select("id")
+        .eq("tenant_id", context.config.tenant_id)
         .eq("id", body.faturaId)
         .eq("cliente_id", context.cliente.id)
         .maybeSingle();
@@ -367,6 +414,7 @@ Deno.serve(async (req) => {
       const { data: links, error: linksError } = await supabase
         .from("lancamentos_fatura")
         .select("lancamento_id")
+        .eq("tenant_id", context.config.tenant_id)
         .eq("fatura_id", fatura.id);
       if (linksError) throw linksError;
       if (!links?.length) return jsonResponse(req, { data: [] });
@@ -380,6 +428,7 @@ Deno.serve(async (req) => {
           valor_total,
           itens:itens_lancamento(id, produto_nome, quantidade, preco_unitario, subtotal, unidade)
         `)
+        .eq("tenant_id", context.config.tenant_id)
         .eq("cliente_id", context.cliente.id)
         .in("id", links.map((link) => link.lancamento_id))
         .order("data_lancamento", { ascending: true });
@@ -389,6 +438,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === "create-launch") {
+      if (typeof body.idempotencyKey !== "string" || !/^[A-Za-z0-9:._-]{8,200}$/.test(body.idempotencyKey)) {
+        return jsonResponse(req, { error: "Chave de idempotência inválida" }, 400);
+      }
       if (!Array.isArray(body.itens) || body.itens.length < 1 || body.itens.length > 100) {
         return jsonResponse(req, { error: "Informe de 1 a 100 itens" }, 400);
       }
@@ -416,11 +468,16 @@ Deno.serve(async (req) => {
           supabase
             .from("precos_especiais")
             .select("produto_id")
+            .eq("tenant_id", context.config.tenant_id)
             .eq("cliente_id", context.cliente.id),
           supabase
             .from("produtos")
             .select("id")
+            .eq("tenant_id", context.config.tenant_id)
             .eq("status", "ativo")
+            .in("unidade_negocio", context.cliente.classificacao === "residencial"
+              ? ["ID2", "ambos"]
+              : ["ID1", "ambos"])
             .in("id", requestedProductIds),
         ]);
       if (specialError || productsError) throw specialError ?? productsError;
@@ -435,33 +492,27 @@ Deno.serve(async (req) => {
         return jsonResponse(req, { error: "Um ou mais produtos não estão disponíveis" }, 400);
       }
 
-      const { data: lancamento, error: lancamentoError } = await supabase
-        .from("lancamentos_cliente")
-        .insert({
+      const { data: result, error: launchError } = await supabase.rpc("criar_lancamento_portal", {
+        _tenant_id: context.config.tenant_id,
+        _cliente_id: context.cliente.id,
+        _observacoes: cleanOptionalText(body.observacoes, 500),
+        _itens: items,
+        _idempotency_key: body.idempotencyKey,
+      });
+      if (launchError) throw launchError;
+      const launch = result as { id?: string; idempotent?: boolean };
+      if (!launch.id) throw new Error("portal_launch_missing_id");
+
+      return jsonResponse(req, {
+        data: {
+          id: launch.id,
           cliente_id: context.cliente.id,
-          observacoes: cleanOptionalText(body.observacoes, 500),
           status: "pendente",
-        })
-        .select("id, cliente_id, status, data_lancamento, observacoes, created_at, updated_at")
-        .single();
-      if (lancamentoError) throw lancamentoError;
-
-      const { error: itemsError } = await supabase.from("itens_lancamento_cliente").insert(
-        items.map((item) => ({ ...item, lancamento_id: lancamento.id })),
-      );
-      if (itemsError) {
-        const { error: rollbackError } = await supabase
-          .from("lancamentos_cliente")
-          .delete()
-          .eq("id", lancamento.id)
-          .eq("cliente_id", context.cliente.id);
-        if (rollbackError) {
-          console.error("Falha ao compensar lançamento incompleto", { errorCode: rollbackError.code });
-        }
-        throw itemsError;
-      }
-
-      return jsonResponse(req, { data: { ...lancamento, itens: items } }, 201);
+          observacoes: cleanOptionalText(body.observacoes, 500),
+          itens: items,
+          idempotent: launch.idempotent === true,
+        },
+      }, launch.idempotent ? 200 : 201);
     }
 
     return jsonResponse(req, { error: "Ação não suportada" }, 400);

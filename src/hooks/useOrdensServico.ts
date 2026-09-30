@@ -149,20 +149,28 @@ export function useOrdensServico() {
 
   const deleteOrdemServico = useMutation({
     mutationFn: async (id: string) => {
-      let query = supabase
-        .from("ordens_servico")
-        .delete()
-        .eq("id", id);
-      if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
-      const { error } = await query;
+      if (allowedOrigins) {
+        const { data: scopedOrder, error: scopeError } = await supabase
+          .from("ordens_servico")
+          .select("id")
+          .eq("id", id)
+          .in("origem", [...allowedOrigins])
+          .maybeSingle();
+        if (scopeError) throw scopeError;
+        if (!scopedOrder) throw new Error("OS não encontrada neste painel");
+      }
+      const { error } = await supabase.rpc("cancelar_ordem_servico", {
+        _ordem_servico_id: id,
+        _motivo: "Cancelada pelo usuário no módulo de ordens de serviço.",
+      });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
-      toast.success("OS excluída com sucesso!");
+      toast.success("OS cancelada e preservada no histórico.");
     },
     onError: (error) => {
-      toast.error("Erro ao excluir OS: " + error.message);
+      toast.error("Erro ao cancelar OS: " + error.message);
     },
   });
 

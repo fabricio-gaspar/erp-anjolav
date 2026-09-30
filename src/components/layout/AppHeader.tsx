@@ -1,5 +1,6 @@
-import { ChevronRight, Menu, LayoutGrid } from "lucide-react";
+import { Building2, ChevronRight, Menu, LayoutGrid } from "lucide-react";
 import { useWorkspace, WorkspaceArea } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -51,6 +52,7 @@ const routeNames: Record<string, string> = {
 
 export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppHeaderProps) {
   const { activeArea } = useWorkspace();
+  const { activeTenant, tenants, switchTenant } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -117,6 +119,39 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
+        {activeTenant && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "max-w-48 gap-2",
+                  activeArea === "central" ? "text-white hover:bg-white/10" : "text-slate-700",
+                )}
+                aria-label={`Empresa ativa: ${activeTenant.name}`}
+              >
+                <Building2 className="h-4 w-4 shrink-0" />
+                <span className="hidden truncate text-xs font-bold md:inline">{activeTenant.name}</span>
+                {tenants.length > 1 && <ChevronRight className="h-3 w-3 rotate-90 opacity-60" />}
+              </Button>
+            </DropdownMenuTrigger>
+            {tenants.length > 1 && (
+              <DropdownMenuContent align="end" className="w-64">
+                {tenants.map((tenant) => (
+                  <DropdownMenuItem
+                    key={tenant.id}
+                    onClick={() => void switchTenant(tenant.id)}
+                    className={cn(tenant.id === activeTenant.id && "bg-muted font-bold")}
+                  >
+                    <Building2 className="mr-2 h-4 w-4" />
+                    <span className="truncate">{tenant.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            )}
+          </DropdownMenu>
+        )}
         <GlobalSearch />
       </div>
     </header>

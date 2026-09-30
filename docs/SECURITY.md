@@ -10,9 +10,11 @@
 - Tokens públicos do portal com 160 bits de entropia e lookup server-side.
 - Operações administrativas e integrações privilegiadas executadas em Edge Functions autenticadas.
 
-## Limite importante
+## Isolamento multiempresa
 
-Os filtros do frontend não são uma fronteira de segurança. O banco atual contém policies históricas amplas, incluindo `USING (true)`. Até que uma migration nova feche essas policies e testes RLS comprovem o isolamento, qualquer usuário autenticado pode potencialmente acessar dados além do que a interface exibe.
+A migration `20260930120000_commercial_multitenancy_hardening.sql` remove as policies históricas e recria o isolamento por tenant, módulo e área de negócio. Ela também adiciona FKs compostas e um gatilho que rejeita referências cruzadas. Isso é código preparado, não evidência de produção: até a migration ser aplicada e testada no projeto real, considere o ambiente remoto não homologado.
+
+Os filtros do frontend nunca são fronteira de segurança. Toda Edge Function que usa `service_role` deve validar a empresa do usuário e repetir `tenant_id` em cada consulta e mutação.
 
 ## Secrets
 
@@ -24,25 +26,22 @@ Os filtros do frontend não são uma fronteira de segurança. O banco atual cont
 
 ## Dados pessoais no histórico
 
-A migration histórica `supabase/migrations/20260511151748_5134974c-2254-4cc9-bbcf-829c541bf05f.sql` contém seeds identificáveis de funcionários e folha. Isso precisa de avaliação imediata de LGPD antes de qualquer comercialização ou ampliação de acesso ao repositório.
+A migration histórica continha seeds identificáveis de funcionários e folha. O conteúdo foi neutralizado no estado atual da branch, mas continua alcançável em commits antigos. Isso precisa de avaliação de LGPD antes de ampliar o acesso ao repositório.
 
-- Não edite a migration se ela já foi aplicada.
-- Verifique em staging e produção quais registros vieram desse seed e faça correção/anonimização por migration nova, após aprovação dos responsáveis pelos dados.
+- Verifique em staging e produção quais registros vieram desse seed; correção, retenção ou anonimização no banco exige decisão documentada do controlador dos dados.
 - Decida com o proprietário do repositório se o histórico Git público precisa ser saneado; reescrita de histórico é operação coordenada e não foi executada nesta auditoria.
 - Revise clones, artefatos, logs, backups e forks, pois remover o arquivo da branch atual não apaga cópias existentes.
-- O diretório legado `backup/` também permanece versionado; ele é ignorado para novas inclusões, mas deve ser arquivado ou removido do release após revisão do proprietário.
+- O diretório legado `backup/` foi removido do estado atual da branch.
 
 ## Revisão obrigatória do Supabase
 
-1. Inventariar tabelas, views, funções, buckets, grants e policies no projeto vinculado.
-2. Definir tenant/unidade e propagar o identificador em todas as relações transacionais.
-3. Criar helpers RLS `SECURITY DEFINER` com `search_path` fixo e privilégios mínimos.
-4. Aplicar policies separadas para `SELECT`, `INSERT`, `UPDATE` e `DELETE`.
-5. Restringir tabelas administrativas e de integração a admin/service role.
-6. Revogar o RPC legado `get_employee_email_by_login` de `anon` e `public`.
-7. Tornar códigos de portal únicos e armazenar somente hash quando o modelo de dados for atualizado.
-8. Adicionar constraints únicas para idempotência de cobranças e webhooks.
-9. Testar cada policy com JWTs de admin, industrial, residencial, usuário sem permissão, portal e anon.
+1. Reativar o projeto próprio e inventariar tabelas, views, funções, buckets, grants e policies antes da aplicação.
+2. Criar backup e restaurá-lo em ambiente isolado.
+3. Aplicar a migration de hardening primeiro em staging.
+4. Gerar os tipos TypeScript do esquema resultante e revisar o diff.
+5. Testar cada policy com JWTs de owner/admin, membro, usuário sem associação, outra empresa, portal e anon.
+6. Confirmar que tabelas administrativas, folha, integrações, auditoria e Storage negam acesso indevido.
+7. Repetir os advisors de segurança e desempenho após a DDL.
 
 O receptor Asaas valida o token, grava o evento com ID determinístico antes da conciliação, reconcilia o estado no provedor e registra falhas/tentativas. O ledger do PDV é inacessível a `anon` e `authenticated`; apenas a Edge Function autorizada no módulo `caixa` chama as rotinas transacionais com `service_role`. A implantação comercial ainda exige um worker assíncrono monitorado para reprocessar eventos `failed` sem depender apenas do retry do provedor.
 
@@ -54,7 +53,7 @@ O receptor Asaas valida o token, grava o evento com ID determinístico antes da 
 - Envio de faturamento por provedor transacional no backend; `mailto:` manual não oferece confirmação, anexos confiáveis, retry ou auditoria de entrega.
 - CSP e demais headers no host do frontend.
 - SAST, dependency scanning, secret scanning e atualização controlada de dependências.
-- Trilha de auditoria imutável para ações administrativas e financeiras.
+- Validar retenção e exportação da trilha append-only de auditoria no banco real.
 - Monitoramento, alertas e procedimento de resposta a incidentes.
 - Backups/PITR e teste periódico de restauração.
 

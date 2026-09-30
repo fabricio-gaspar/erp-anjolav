@@ -33,11 +33,12 @@ export interface ConfiguracaoGeral {
 
 export type ConfiguracaoGeralUpdate = Partial<Omit<ConfiguracaoGeral, "id" | "created_at" | "updated_at">>;
 
-export function useConfiguracoesGerais() {
+export function useConfiguracoesGerais(enabled = true) {
   const queryClient = useQueryClient();
 
   const { data: configuracao, isLoading, error } = useQuery({
     queryKey: ["configuracoes_gerais"],
+    enabled,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("configuracoes_gerais")

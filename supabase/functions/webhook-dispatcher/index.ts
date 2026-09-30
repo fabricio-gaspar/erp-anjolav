@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
     const { data: instance, error: configError } = await supabase
       .from("whatsapp_instancias")
       .select("webhook_n8n_url")
+      .eq("tenant_id", authorization.tenantId)
       .limit(1)
       .maybeSingle();
     if (configError) throw configError;
@@ -89,6 +90,7 @@ Deno.serve(async (req) => {
     const success = response.ok;
 
     const { error: logError } = await supabase.from("mensagens_log").insert({
+      tenant_id: authorization.tenantId,
       ordem_servico_id: orderId,
       telefone: "n8n",
       mensagem: `Webhook ${event} para a ordem ${orderId}`,

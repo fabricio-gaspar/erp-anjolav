@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,6 +134,7 @@ Titular: {{banco_titular}}
 Código de Acesso: {{codigo_portal}}`;
 
 export function ConfiguracoesGeral() {
+  const { activeTenant } = useAuth();
   const { configuracao, saveConfiguracao, isLoading } = useConfiguracoesGerais();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isTesting, setIsTesting] = useState(false);
@@ -239,9 +241,10 @@ export function ConfiguracoesGeral() {
     setIsUploadingLogo(true);
 
     try {
+      if (!activeTenant) throw new Error("Empresa ativa não identificada");
       const fileExt = file.name.split(".").pop();
       const fileName = `logo-${Date.now()}.${fileExt}`;
-      const filePath = `logos/${fileName}`;
+      const filePath = `${activeTenant.id}/logos/${fileName}`;
 
       // Upload para o bucket company-assets
       const { error: uploadError } = await supabase.storage

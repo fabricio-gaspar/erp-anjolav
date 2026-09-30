@@ -199,7 +199,7 @@ function optionalText(value: unknown, maxLength: number): string | null {
   return normalized ? normalized.slice(0, maxLength) : null;
 }
 
-function optionalAvatarUrl(value: unknown, supabaseUrl: string): string | null {
+function optionalAvatarUrl(value: unknown, supabaseUrl: string, tenantId: string): string | null {
   const rawUrl = optionalText(value, 2_048);
   if (!rawUrl) return null;
   try {
@@ -209,24 +209,8 @@ function optionalAvatarUrl(value: unknown, supabaseUrl: string): string | null {
         !url.username &&
         !url.password &&
         url.hostname === storageHost &&
-        url.pathname.startsWith("/storage/v1/object/public/avatars/funcionarios/")
+        url.pathname.startsWith(`/storage/v1/object/public/avatars/${tenantId}/funcionarios/`)
       ? url.toString()
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function avatarObjectPath(value: unknown, supabaseUrl: string): string | null {
-  const avatarUrl = optionalAvatarUrl(value, supabaseUrl);
-  if (!avatarUrl) return null;
-  try {
-    const marker = "/storage/v1/object/public/avatars/";
-    const pathname = new URL(avatarUrl).pathname;
-    if (!pathname.startsWith(marker)) return null;
-    const objectPath = decodeURIComponent(pathname.slice(marker.length));
-    return /^funcionarios\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/i.test(objectPath)
-      ? objectPath
       : null;
   } catch {
     return null;
@@ -247,10 +231,11 @@ function roleForCargo(cargo: string): "admin" | "producao" | "operador" {
   return "operador";
 }
 
-async function countActiveAdmins(supabase: SupabaseClient): Promise<number> {
+async function countActiveAdmins(supabase: SupabaseClient, tenantId: string): Promise<number> {
   const { data: activeEmployees, error: employeeError } = await supabase
     .from("funcionarios")
     .select("user_id")
+    .eq("tenant_id", tenantId)
     .eq("ativo", true)
     .not("user_id", "is", null);
   if (employeeError) throw employeeError;
@@ -262,6 +247,7 @@ async function countActiveAdmins(supabase: SupabaseClient): Promise<number> {
   const { count, error: roleError } = await supabase
     .from("user_roles")
     .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
     .eq("role", "admin")
     .in("user_id", userIds);
   if (roleError) throw roleError;
@@ -312,7 +298,7 @@ Deno.serve(async (req) => {
       const cpf = rawCpf?.replace(/\D/g, "") ?? null;
       const telefone = optionalText(body.telefone, 30);
       const telefoneDigits = telefone?.replace(/\D/g, "") ?? "";
-      const avatarUrl = optionalAvatarUrl(body.avatar_url, supabaseUrl);
+      const avatarUrl = optionalAvatarUrl(body.avatar_url, supabaseUrl, authorization.tenantId);
 
       if (!nome || !cargo || !login) {
         return jsonResponse(req, { error: "Nome, cargo e login são obrigatórios" }, 400);
@@ -339,6 +325,7 @@ Deno.serve(async (req) => {
       const { data: existingEmployee, error: lookupError } = await supabase
         .from("funcionarios")
         .select("id")
+        .eq("tenant_id", authorization.tenantId)
         .eq("login", login)
         .maybeSingle();
       if (lookupError) throw lookupError;
@@ -362,6 +349,7 @@ Deno.serve(async (req) => {
       }
 
       const employeePayload = {
+        tenant_id: authorization.tenantId,
         user_id: createdUserId,
         nome,
         cargo,
@@ -386,8 +374,33 @@ Deno.serve(async (req) => {
         return jsonResponse(req, { error: "Não foi possível cadastrar o funcionário" }, 409);
       }
 
+      if (createdUserId) {
+        const tenantRole = roleForCargo(cargo) === "admin" ? "admin" : "member";
+        const [{ error: membershipError }, { error: roleError }] = await Promise.all([
+          supabase.from("tenant_memberships").upsert({
+            tenant_id: authorization.tenantId,
+            user_id: createdUserId,
+            role: tenantRole,
+            enabled: true,
+            is_active: true,
+          }, { onConflict: "tenant_id,user_id" }),
+          supabase.from("user_roles").upsert({
+            tenant_id: authorization.tenantId,
+            user_id: createdUserId,
+            role: roleForCargo(cargo),
+          }, { onConflict: "tenant_id,user_id,role" }),
+        ]);
+        if (membershipError || roleError) {
+          await supabase.from("funcionarios").delete()
+            .eq("tenant_id", authorization.tenantId).eq("id", employee.id);
+          await supabase.auth.admin.deleteUser(createdUserId);
+          return jsonResponse(req, { error: "Não foi possível atribuir o acesso à empresa" }, 409);
+        }
+      }
+
       if (cargo.toUpperCase() === "MOTORISTA") {
         const { error: driverError } = await supabase.from("motoristas").insert({
+          tenant_id: authorization.tenantId,
           nome,
           telefone: employeePayload.telefone,
           email,
@@ -396,7 +409,8 @@ Deno.serve(async (req) => {
         });
 
         if (driverError) {
-          await supabase.from("funcionarios").delete().eq("id", employee.id);
+          await supabase.from("funcionarios").delete()
+            .eq("tenant_id", authorization.tenantId).eq("id", employee.id);
           if (createdUserId) await supabase.auth.admin.deleteUser(createdUserId);
           console.error("Falha ao criar motorista; cadastro compensado", { code: driverError.code });
           return jsonResponse(req, { error: "Não foi possível cadastrar o motorista" }, 409);
@@ -415,6 +429,7 @@ Deno.serve(async (req) => {
       const { data: existing, error: employeeLookupError } = await supabase
         .from("funcionarios")
         .select("*")
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", employeeId)
         .maybeSingle();
       if (employeeLookupError) throw employeeLookupError;
@@ -432,7 +447,7 @@ Deno.serve(async (req) => {
       const rawCpf = hasOwn(body, "cpf") ? optionalText(body.cpf, 20) : existing.cpf;
       const cpf = rawCpf?.replace(/\D/g, "") ?? null;
       const avatarUrl = hasOwn(body, "avatar_url")
-        ? optionalAvatarUrl(body.avatar_url, supabaseUrl)
+        ? optionalAvatarUrl(body.avatar_url, supabaseUrl, authorization.tenantId)
         : existing.avatar_url;
       const dataAdmissao = hasOwn(body, "data_admissao")
         ? optionalText(body.data_admissao, 10)
@@ -476,6 +491,7 @@ Deno.serve(async (req) => {
       const { data: duplicateLogin, error: duplicateLoginError } = await supabase
         .from("funcionarios")
         .select("id")
+        .eq("tenant_id", authorization.tenantId)
         .eq("login", login)
         .neq("id", employeeId)
         .limit(1)
@@ -486,6 +502,7 @@ Deno.serve(async (req) => {
         const { data: duplicateEmail, error: duplicateEmailError } = await supabase
           .from("funcionarios")
           .select("id")
+          .eq("tenant_id", authorization.tenantId)
           .eq("email", email)
           .neq("id", employeeId)
           .limit(1)
@@ -502,6 +519,7 @@ Deno.serve(async (req) => {
         const { data: roles, error: rolesError } = await supabase
           .from("user_roles")
           .select("role")
+          .eq("tenant_id", authorization.tenantId)
           .eq("user_id", existing.user_id);
         if (rolesError) throw rolesError;
         previousRoles = (roles ?? []) as Array<{ role: "admin" | "producao" | "operador" }>;
@@ -510,7 +528,7 @@ Deno.serve(async (req) => {
           if (existing.user_id === authorization.user.id) {
             return jsonResponse(req, { error: "Você não pode remover seu próprio acesso administrativo" }, 409);
           }
-          if (await countActiveAdmins(supabase) <= 1) {
+          if (await countActiveAdmins(supabase, authorization.tenantId) <= 1) {
             return jsonResponse(req, { error: "O sistema deve manter ao menos um administrador" }, 409);
           }
         }
@@ -549,6 +567,7 @@ Deno.serve(async (req) => {
         const { error: employeeRollbackError } = await supabase
           .from("funcionarios")
           .update(previousPayload)
+            .eq("tenant_id", authorization.tenantId)
           .eq("id", employeeId);
         if (employeeRollbackError) rollbackErrors.push(employeeRollbackError);
 
@@ -556,14 +575,21 @@ Deno.serve(async (req) => {
           const { error: clearRoleError } = await supabase
             .from("user_roles")
             .delete()
+            .eq("tenant_id", authorization.tenantId)
             .eq("user_id", existing.user_id);
           if (clearRoleError) rollbackErrors.push(clearRoleError);
           if (!clearRoleError && previousRoles.length > 0) {
             const { error: restoreRoleError } = await supabase.from("user_roles").insert(
-              previousRoles.map(({ role }) => ({ user_id: existing.user_id, role })),
+              previousRoles.map(({ role }) => ({ tenant_id: authorization.tenantId, user_id: existing.user_id, role })),
             );
             if (restoreRoleError) rollbackErrors.push(restoreRoleError);
           }
+          const { error: restoreMembershipError } = await supabase
+            .from("tenant_memberships")
+            .update({ role: previousRoles.some(({ role }) => role === "admin") ? "admin" : "member" })
+            .eq("tenant_id", authorization.tenantId)
+            .eq("user_id", existing.user_id);
+          if (restoreMembershipError) rollbackErrors.push(restoreMembershipError);
 
           const { error: restoreAuthError } = await supabase.auth.admin.updateUserById(existing.user_id, {
             ...(previousAuthEmail ? { email: previousAuthEmail, email_confirm: true } : {}),
@@ -583,25 +609,35 @@ Deno.serve(async (req) => {
       const { data: employee, error: updateError } = await supabase
         .from("funcionarios")
         .update(employeePayload)
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", employeeId)
         .select()
         .single();
       if (updateError) throw updateError;
 
       if (existing.user_id) {
-        const { error: clearRolesError } = await supabase.from("user_roles").delete().eq("user_id", existing.user_id);
+        const { error: clearRolesError } = await supabase.from("user_roles").delete()
+          .eq("tenant_id", authorization.tenantId).eq("user_id", existing.user_id);
         const { error: insertRoleError } = clearRolesError
           ? { error: clearRolesError }
-          : await supabase.from("user_roles").insert({ user_id: existing.user_id, role: targetRole });
-        const { error: authUpdateError } = clearRolesError || insertRoleError
+          : await supabase.from("user_roles").insert({
+            tenant_id: authorization.tenantId, user_id: existing.user_id, role: targetRole,
+          });
+        const { error: membershipRoleError } = clearRolesError || insertRoleError
           ? { error: clearRolesError ?? insertRoleError }
+          : await supabase.from("tenant_memberships")
+            .update({ role: targetRole === "admin" ? "admin" : "member" })
+            .eq("tenant_id", authorization.tenantId)
+            .eq("user_id", existing.user_id);
+        const { error: authUpdateError } = clearRolesError || insertRoleError || membershipRoleError
+          ? { error: clearRolesError ?? insertRoleError ?? membershipRoleError }
           : await supabase.auth.admin.updateUserById(existing.user_id, {
             email: email ?? undefined,
             email_confirm: true,
             user_metadata: { ...previousMetadata, nome, cargo },
           });
 
-        if (clearRolesError || insertRoleError || authUpdateError) {
+        if (clearRolesError || insertRoleError || membershipRoleError || authUpdateError) {
           await rollbackEmployeeAndAccess();
           console.error("Falha ao sincronizar funcionário, role e Auth", { employeeId });
           return jsonResponse(req, { error: "Não foi possível sincronizar o acesso do funcionário" }, 500);
@@ -611,6 +647,7 @@ Deno.serve(async (req) => {
       const { data: linkedDrivers, error: driverLookupError } = await supabase
         .from("motoristas")
         .select("id")
+        .eq("tenant_id", authorization.tenantId)
         .eq("funcionario_id", employeeId);
       if (driverLookupError) {
         await rollbackEmployeeAndAccess();
@@ -629,10 +666,12 @@ Deno.serve(async (req) => {
       const { error: driverSyncError } = isDriver && (linkedDrivers?.length ?? 0) === 0
         ? await supabase.from("motoristas").insert({
           ...driverPayload,
+          tenant_id: authorization.tenantId,
           funcionario_id: employeeId,
         })
         : (linkedDrivers?.length ?? 0) > 0
-        ? await supabase.from("motoristas").update(driverPayload).eq("funcionario_id", employeeId)
+        ? await supabase.from("motoristas").update(driverPayload)
+          .eq("tenant_id", authorization.tenantId).eq("funcionario_id", employeeId)
         : { error: null };
       if (driverSyncError) {
         await rollbackEmployeeAndAccess();
@@ -655,6 +694,7 @@ Deno.serve(async (req) => {
       const { data: employee, error: lookupError } = await supabase
         .from("funcionarios")
         .select("id, user_id, ativo, cargo")
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", employeeId)
         .maybeSingle();
       if (lookupError) throw lookupError;
@@ -664,18 +704,24 @@ Deno.serve(async (req) => {
       }
 
       let previousRoles: Array<{ role: "admin" | "producao" | "operador" }> = [];
+      let previousMembershipEnabled = true;
       if (employee.user_id) {
-        const { data: roles, error: roleLookupError } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", employee.user_id);
-        if (roleLookupError) throw roleLookupError;
+        const [{ data: roles, error: roleLookupError }, { data: membership, error: membershipLookupError }] =
+          await Promise.all([
+            supabase.from("user_roles").select("role")
+              .eq("tenant_id", authorization.tenantId).eq("user_id", employee.user_id),
+            supabase.from("tenant_memberships").select("enabled")
+              .eq("tenant_id", authorization.tenantId).eq("user_id", employee.user_id).maybeSingle(),
+          ]);
+        if (roleLookupError || membershipLookupError) throw roleLookupError ?? membershipLookupError;
+        if (!membership) return jsonResponse(req, { error: "Vínculo com a empresa não encontrado" }, 409);
         previousRoles = (roles ?? []) as Array<{ role: "admin" | "producao" | "operador" }>;
+        previousMembershipEnabled = membership.enabled !== false;
       }
 
       if (!active && employee.user_id) {
         if (previousRoles.some(({ role }) => role === "admin")) {
-          if (await countActiveAdmins(supabase) <= 1) {
+          if (await countActiveAdmins(supabase, authorization.tenantId) <= 1) {
             return jsonResponse(req, { error: "O sistema deve manter ao menos um administrador ativo" }, 409);
           }
         }
@@ -683,29 +729,32 @@ Deno.serve(async (req) => {
 
       const restoreAccessState = async () => {
         if (!employee.user_id) return;
-        await supabase.from("user_roles").delete().eq("user_id", employee.user_id);
+        await supabase.from("user_roles").delete()
+          .eq("tenant_id", authorization.tenantId).eq("user_id", employee.user_id);
         if (previousRoles.length > 0) {
           await supabase.from("user_roles").insert(
-            previousRoles.map(({ role }) => ({ user_id: employee.user_id, role })),
+            previousRoles.map(({ role }) => ({ tenant_id: authorization.tenantId, user_id: employee.user_id, role })),
           );
         }
-        await supabase.auth.admin.updateUserById(employee.user_id, {
-          ban_duration: employee.ativo ? "none" : "876000h",
-        });
+        await supabase.from("tenant_memberships").update({ enabled: previousMembershipEnabled })
+          .eq("tenant_id", authorization.tenantId).eq("user_id", employee.user_id);
       };
 
       if (employee.user_id) {
-        const { error: authError } = await supabase.auth.admin.updateUserById(employee.user_id, {
-          ban_duration: active ? "none" : "876000h",
-        });
-        if (authError) return jsonResponse(req, { error: "Não foi possível alterar o acesso" }, 409);
+        const { error: membershipError } = await supabase.from("tenant_memberships")
+          .update({ enabled: active })
+          .eq("tenant_id", authorization.tenantId)
+          .eq("user_id", employee.user_id);
+        if (membershipError) return jsonResponse(req, { error: "Não foi possível alterar o vínculo com a empresa" }, 409);
 
         const { error: clearRoleError } = await supabase
           .from("user_roles")
           .delete()
+          .eq("tenant_id", authorization.tenantId)
           .eq("user_id", employee.user_id);
         const { error: insertRoleError } = active && !clearRoleError
           ? await supabase.from("user_roles").insert({
+            tenant_id: authorization.tenantId,
             user_id: employee.user_id,
             role: roleForCargo(employee.cargo),
           })
@@ -718,6 +767,7 @@ Deno.serve(async (req) => {
       const { data: updated, error: updateError } = await supabase
         .from("funcionarios")
         .update({ ativo: active })
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", employeeId)
         .select()
         .single();
@@ -729,9 +779,11 @@ Deno.serve(async (req) => {
       const { error: driverStatusError } = await supabase
         .from("motoristas")
         .update({ ativo: active && employee.cargo.toUpperCase() === "MOTORISTA" })
+        .eq("tenant_id", authorization.tenantId)
         .eq("funcionario_id", employeeId);
       if (driverStatusError) {
-        await supabase.from("funcionarios").update({ ativo: employee.ativo }).eq("id", employeeId);
+        await supabase.from("funcionarios").update({ ativo: employee.ativo })
+          .eq("tenant_id", authorization.tenantId).eq("id", employeeId);
         await restoreAccessState();
         console.error("Falha ao sincronizar status do funcionário e motorista", {
           employeeId,
@@ -747,7 +799,8 @@ Deno.serve(async (req) => {
       if (!UUID_PATTERN.test(employeeId)) return jsonResponse(req, { error: "Funcionário inválido" }, 400);
       const { data: employee, error: lookupError } = await supabase
         .from("funcionarios")
-        .select("id, user_id, avatar_url")
+        .select("id, user_id")
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", employeeId)
         .maybeSingle();
       if (lookupError) throw lookupError;
@@ -760,12 +813,13 @@ Deno.serve(async (req) => {
         const { data: adminRole, error: roleError } = await supabase
           .from("user_roles")
           .select("id")
+          .eq("tenant_id", authorization.tenantId)
           .eq("user_id", employee.user_id)
           .eq("role", "admin")
           .maybeSingle();
         if (roleError) throw roleError;
         if (adminRole) {
-          if (await countActiveAdmins(supabase) <= 1) {
+          if (await countActiveAdmins(supabase, authorization.tenantId) <= 1) {
             return jsonResponse(req, { error: "O sistema deve manter ao menos um administrador" }, 409);
           }
         }
@@ -774,42 +828,58 @@ Deno.serve(async (req) => {
       const { data: linkedDrivers, error: driverLookupError } = await supabase
         .from("motoristas")
         .select("id, ativo")
+        .eq("tenant_id", authorization.tenantId)
         .eq("funcionario_id", employeeId);
       if (driverLookupError) throw driverLookupError;
+      const restoreDriverState = async () => {
+        await Promise.all((linkedDrivers ?? []).map((driver) =>
+          supabase.from("motoristas").update({ ativo: driver.ativo })
+            .eq("tenant_id", authorization.tenantId).eq("id", driver.id)
+        ));
+      };
       if ((linkedDrivers?.length ?? 0) > 0) {
         const { error: driverDisableError } = await supabase
           .from("motoristas")
           .update({ ativo: false })
+          .eq("tenant_id", authorization.tenantId)
           .eq("funcionario_id", employeeId);
         if (driverDisableError) {
           return jsonResponse(req, { error: "Não foi possível desativar o cadastro de motorista" }, 409);
         }
       }
 
+      const { error: archiveError } = await supabase.from("funcionarios")
+        .update({ ativo: false })
+        .eq("tenant_id", authorization.tenantId)
+        .eq("id", employeeId);
+      if (archiveError) {
+        await restoreDriverState();
+        return jsonResponse(req, { error: "Não foi possível arquivar o funcionário" }, 500);
+      }
       if (employee.user_id) {
-        const { error: authDeleteError } = await supabase.auth.admin.deleteUser(employee.user_id);
-        if (authDeleteError) {
-          for (const driver of linkedDrivers ?? []) {
-            await supabase.from("motoristas").update({ ativo: driver.ativo }).eq("id", driver.id);
-          }
-          return jsonResponse(req, { error: "Não foi possível remover a conta de autenticação" }, 409);
+        const { error: membershipError } = await supabase.from("tenant_memberships")
+          .update({ enabled: false })
+          .eq("tenant_id", authorization.tenantId)
+          .eq("user_id", employee.user_id);
+        if (membershipError) {
+          await supabase.from("funcionarios").update({ ativo: true })
+            .eq("tenant_id", authorization.tenantId).eq("id", employeeId);
+          await restoreDriverState();
+          return jsonResponse(req, { error: "Não foi possível remover o vínculo com a empresa" }, 500);
+        }
+        const { error: rolesError } = await supabase.from("user_roles").delete()
+          .eq("tenant_id", authorization.tenantId)
+          .eq("user_id", employee.user_id);
+        if (rolesError) {
+          await supabase.from("tenant_memberships").update({ enabled: true })
+            .eq("tenant_id", authorization.tenantId).eq("user_id", employee.user_id);
+          await supabase.from("funcionarios").update({ ativo: true })
+            .eq("tenant_id", authorization.tenantId).eq("id", employeeId);
+          await restoreDriverState();
+          return jsonResponse(req, { error: "Não foi possível remover as permissões da empresa" }, 500);
         }
       }
-
-      const { error: deleteError } = await supabase.from("funcionarios").delete().eq("id", employeeId);
-      if (deleteError) {
-        console.error("Conta Auth removida, mas cadastro do funcionário permaneceu", { employeeId });
-        return jsonResponse(req, { error: "O acesso foi removido, mas o cadastro requer limpeza administrativa" }, 500);
-      }
-
-      const avatarPath = avatarObjectPath(employee.avatar_url, supabaseUrl);
-      if (avatarPath) {
-        const { error: avatarDeleteError } = await supabase.storage.from("avatars").remove([avatarPath]);
-        if (avatarDeleteError) {
-          console.warn("Funcionário removido, mas o avatar exige limpeza posterior", { employeeId });
-        }
-      }
-      return jsonResponse(req, { success: true });
+      return jsonResponse(req, { success: true, archived: true });
     }
 
     if (action === "update-password") {
@@ -822,6 +892,7 @@ Deno.serve(async (req) => {
       const { data: employee, error: employeeLookupError } = await supabase
         .from("funcionarios")
         .select("id")
+        .eq("tenant_id", authorization.tenantId)
         .eq("user_id", userId)
         .maybeSingle();
       if (employeeLookupError) throw employeeLookupError;
@@ -847,6 +918,7 @@ Deno.serve(async (req) => {
       const { data: employee, error: employeeLookupError } = await supabase
         .from("funcionarios")
         .select("id, email")
+        .eq("tenant_id", authorization.tenantId)
         .eq("user_id", userId)
         .maybeSingle();
       if (employeeLookupError) throw employeeLookupError;
@@ -857,6 +929,7 @@ Deno.serve(async (req) => {
       const { data: duplicateEmail, error: duplicateError } = await supabase
         .from("funcionarios")
         .select("id")
+        .eq("tenant_id", authorization.tenantId)
         .eq("email", newEmail)
         .neq("id", employee.id)
         .limit(1)
@@ -885,6 +958,7 @@ Deno.serve(async (req) => {
       const { error: employeeUpdateError } = await supabase
         .from("funcionarios")
         .update({ email: newEmail })
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", employee.id);
       if (employeeUpdateError) {
         if (previousEmail) {

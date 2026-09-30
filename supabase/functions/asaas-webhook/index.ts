@@ -216,14 +216,35 @@ Deno.serve(async (req) => {
       return serverJsonResponse({ error: "Evento inválido" }, 400);
     }
 
+    const { data: knownCharge, error: chargeLookupError } = payload.payment?.id
+      ? await supabase
+          .from("asaas_charges")
+          .select("id, tenant_id, billing_type")
+          .eq("asaas_id", payload.payment.id)
+          .maybeSingle()
+      : { data: null, error: null };
+    if (chargeLookupError) throw chargeLookupError;
+    if (
+      payload.payment &&
+      !knownCharge &&
+      /^(?:fatura|manual|pdv):[A-Za-z0-9:._-]{1,190}$/.test(payload.payment.externalReference ?? "")
+    ) {
+      throw new Error("Cobrança gerenciada ainda não encontrada no banco local");
+    }
+    if (!knownCharge) {
+      console.info("Evento Asaas não gerenciado ignorado", { event: payload.event });
+      return serverJsonResponse({ success: true, ignored: true }, 202);
+    }
+
     const eventKey = payload.id;
     eventRecordId = await deterministicEventId(eventKey);
     const storedPayload = { ...payload, _anjolav_event_key: eventKey };
     const { error: inboxError } = await supabase.from("asaas_webhook_events").insert({
       id: eventRecordId,
+      tenant_id: knownCharge.tenant_id,
       event_type: payload.event,
       payment_id: payload.payment?.id ?? null,
-      charge_id: null,
+      charge_id: knownCharge.id,
       payload: storedPayload,
       processing_status: "processing",
       attempt_count: 1,
@@ -260,26 +281,8 @@ Deno.serve(async (req) => {
     if (duplicateError) throw duplicateError;
     if (!duplicate) throw new Error("Evento não foi persistido antes do processamento");
 
-    let chargeId: string | null = null;
-    let chargeBillingType: string | null = null;
-    if (payload.payment?.id) {
-      const { data: existingCharge, error: chargeLookupError } = await supabase
-        .from("asaas_charges")
-        .select("id, billing_type")
-        .eq("asaas_id", payload.payment.id)
-        .maybeSingle();
-      if (chargeLookupError) throw chargeLookupError;
-      chargeId = existingCharge?.id ?? null;
-      chargeBillingType = existingCharge?.billing_type ?? null;
-    }
-
-    if (
-      payload.payment &&
-      !chargeId &&
-      /^(?:fatura|manual|pdv):[A-Za-z0-9:._-]{1,190}$/.test(payload.payment.externalReference ?? "")
-    ) {
-      throw new Error("Cobrança gerenciada ainda não encontrada no banco local");
-    }
+    const chargeId: string = knownCharge.id;
+    const chargeBillingType: string | null = knownCharge.billing_type ?? null;
 
     if (chargeId && payload.payment) {
       const payment = NON_STATE_EVENTS.has(payload.event)
@@ -304,6 +307,7 @@ Deno.serve(async (req) => {
         const { error: updateError } = await supabase
           .from("asaas_charges")
           .update(update)
+          .eq("tenant_id", knownCharge.tenant_id)
           .eq("id", chargeId);
         if (updateError) throw updateError;
       }
@@ -319,6 +323,7 @@ Deno.serve(async (req) => {
         const { error: invoiceUpdateError } = await supabase
           .from("faturas")
           .update(invoiceUpdate)
+          .eq("tenant_id", knownCharge.tenant_id)
           .eq("asaas_charge_id", chargeId);
         if (invoiceUpdateError) throw invoiceUpdateError;
       }
@@ -327,6 +332,7 @@ Deno.serve(async (req) => {
         const { error: invoiceUpdateError } = await supabase
           .from("faturas")
           .update({ status: "pago" })
+          .eq("tenant_id", knownCharge.tenant_id)
           .eq("asaas_charge_id", chargeId);
         if (invoiceUpdateError) throw invoiceUpdateError;
       }
@@ -342,6 +348,7 @@ Deno.serve(async (req) => {
         const { error: invoiceUpdateError } = await supabase
           .from("faturas")
           .update({ status: "pendente" })
+          .eq("tenant_id", knownCharge.tenant_id)
           .eq("asaas_charge_id", chargeId);
         if (invoiceUpdateError) throw invoiceUpdateError;
       }
@@ -360,7 +367,7 @@ Deno.serve(async (req) => {
       processing_status: "processed",
       processed_at: new Date().toISOString(),
       last_error: null,
-    }).eq("id", eventRecordId);
+    }).eq("tenant_id", knownCharge.tenant_id).eq("id", eventRecordId);
     if (eventError) throw eventError;
 
     console.log("Webhook Asaas processado", {

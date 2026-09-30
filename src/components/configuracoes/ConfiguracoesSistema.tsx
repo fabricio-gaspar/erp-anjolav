@@ -686,7 +686,7 @@ export function ConfiguracoesSistema() {
           )}
 
           {renderServiceGroup(
-            "Backend (Lovable Cloud)",
+            "Backend (Supabase)",
             backendServices,
             <Database className="w-4 h-4" />
           )}

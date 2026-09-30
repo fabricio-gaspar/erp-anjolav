@@ -145,7 +145,8 @@ Deno.serve(async (req) => {
       for (const table of TABLES) {
         const { count, error } = await supabase
           .from(table)
-          .select("id", { count: "exact", head: true });
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", authorization.tenantId);
         if (error) {
           console.error("Falha ao contar tabela", { table, errorCode: error.code });
           return jsonResponse(req, { error: "Não foi possível calcular os indicadores" }, 500);
@@ -165,6 +166,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase
         .from(body.table)
         .select("*")
+        .eq("tenant_id", authorization.tenantId)
         .range(offset, offset + 499)
         .order("id", { ascending: true });
       if (error) throw error;
@@ -188,9 +190,31 @@ Deno.serve(async (req) => {
         return jsonResponse(req, { error: "Registros de importação inválidos" }, 400);
       }
 
+      if (body.records.some((record) =>
+        typeof record.tenant_id === "string" && record.tenant_id !== authorization.tenantId
+      )) {
+        return jsonResponse(req, { error: "O lote contém dados de outra empresa" }, 403);
+      }
+      const tenantRecords = body.records.map((record) => ({
+        ...record,
+        tenant_id: authorization.tenantId,
+      }));
+      const importedIds = tenantRecords
+        .map((record) => record.id)
+        .filter((id): id is string => typeof id === "string");
+      if (importedIds.length > 0) {
+        const { data: existingRecords, error: existingError } = await supabase
+          .from(body.table)
+          .select("id, tenant_id")
+          .in("id", importedIds);
+        if (existingError) throw existingError;
+        if ((existingRecords ?? []).some((record) => record.tenant_id !== authorization.tenantId)) {
+          return jsonResponse(req, { error: "Um identificador do lote pertence a outra empresa" }, 403);
+        }
+      }
       const { error } = await supabase
         .from(body.table)
-        .upsert(body.records, { onConflict: "id", ignoreDuplicates: false });
+        .upsert(tenantRecords, { onConflict: "id", ignoreDuplicates: false });
       if (error) throw error;
       return jsonResponse(req, { data: { imported: body.records.length } });
     }
@@ -206,6 +230,7 @@ Deno.serve(async (req) => {
       const { count, error } = await supabase
         .from(body.table)
         .delete({ count: "exact" })
+        .eq("tenant_id", authorization.tenantId)
         .not("id", "is", null);
       if (error) throw error;
       return jsonResponse(req, { data: { deleted: count ?? 0 } });
@@ -219,7 +244,8 @@ Deno.serve(async (req) => {
       let deletedTables = 0;
       const errors: string[] = [];
       for (const table of DELETION_ORDER) {
-        const { error } = await supabase.from(table).delete().not("id", "is", null);
+        const { error } = await supabase.from(table).delete()
+          .eq("tenant_id", authorization.tenantId).not("id", "is", null);
         if (error) {
           console.error("Falha ao limpar tabela", { table, errorCode: error.code });
           errors.push(table);

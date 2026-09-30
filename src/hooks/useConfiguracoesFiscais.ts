@@ -46,6 +46,45 @@ export type ConfiguracaoFiscalInsert = Omit<ConfiguracaoFiscal, "id" | "created_
 };
 export type ConfiguracaoFiscalUpdate = Partial<ConfiguracaoFiscalInsert>;
 
+export type ConfiguracaoFiscalOperacional = Pick<
+  ConfiguracaoFiscal,
+  | "id"
+  | "nome"
+  | "cnpj"
+  | "razao_social"
+  | "inscricao_municipal"
+  | "inscricao_estadual"
+  | "endereco"
+  | "aliquota_iss"
+  | "codigo_servico"
+  | "ambiente"
+  | "ativo"
+  | "validade_certificado"
+  | "regime_tributario"
+  | "codigo_municipio_ibge"
+  | "modo_emissao"
+  | "created_at"
+  | "updated_at"
+>;
+
+export function useConfiguracoesFiscaisOperacionais() {
+  const { data: configuracoes = [], isLoading, error } = useQuery({
+    queryKey: ["configuracoes_fiscais", "operacional"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_fiscal_configs_for_operations");
+      if (error) throw error;
+      return Array.isArray(data) ? data as unknown as ConfiguracaoFiscalOperacional[] : [];
+    },
+  });
+
+  return {
+    configuracoes,
+    configuracaoAtiva: configuracoes.find((config) => config.ativo),
+    isLoading,
+    error,
+  };
+}
+
 export function useConfiguracoesFiscais() {
   const queryClient = useQueryClient();
 

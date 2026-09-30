@@ -16,13 +16,13 @@ const setorLabels: Record<SetorFinanceiro, { title: string; subtitle: string }> 
 const DashboardFinanceiro = () => {
   const [setor, setSetor] = useState<SetorFinanceiro>("todos");
   const {
-    saldoAtual, receitasTotais, receitasCount,
-    despesasTotais, despesasCount, margemLucro,
+    resultadoRegistrado, receitasTotais, receitasCount,
+    despesasTotais, despesasCount, margemOperacionalRegistrada,
     aReceberVencido, aReceberHoje, aReceberProximos7Dias,
     aPagarVencido, aPagarHoje, aPagarProximos7Dias,
     vencidasTotal, vencidasCount, vencemHoje, vencemHojeCount,
     proximos7Dias, proximos7DiasCount, movimentacoesVencidas,
-    receitasLoja, receitasLojaCount, isLoading,
+    receitasLoja, receitasLojaCount, isLoading, error,
   } = useDashboardFinanceiro(setor);
 
   const { title, subtitle } = setorLabels[setor];
@@ -40,6 +40,17 @@ const DashboardFinanceiro = () => {
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <span className="ml-2 text-muted-foreground">Carregando dados financeiros...</span>
         </div>
+      </AppLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppLayout title={title} subtitle={subtitle}>
+        <Card className="border-destructive/40 p-6" role="alert">
+          <p className="font-semibold text-destructive">Não foi possível consolidar os dados financeiros.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Atualize a página. Se o erro persistir, verifique a conexão e as permissões da empresa ativa.</p>
+        </Card>
       </AppLayout>
     );
   }
@@ -78,9 +89,9 @@ const DashboardFinanceiro = () => {
         {/* Top KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           <Card className="p-3 sm:p-4 border-l-4 border-l-primary min-w-0">
-            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-primary truncate">SALDO ATUAL</p>
-            <p className="text-lg sm:text-2xl font-black text-primary mt-1 truncate">{formatCurrency(saldoAtual)}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Receitas - Despesas</p>
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-primary truncate">RESULTADO REGISTRADO</p>
+            <p className="text-lg sm:text-2xl font-black text-primary mt-1 truncate">{formatCurrency(resultadoRegistrado)}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Recebimentos menos pagamentos registrados</p>
           </Card>
 
           <Card className="p-3 sm:p-4 border-l-4 border-l-success min-w-0">
@@ -100,9 +111,9 @@ const DashboardFinanceiro = () => {
           </Card>
 
           <Card className="p-3 sm:p-4 border-l-4 border-l-violet-500 min-w-0">
-            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-violet-600 truncate">MARGEM LUCRO</p>
-            <p className="text-lg sm:text-2xl font-black text-violet-600 mt-1">{margemLucro}%</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Rentabilidade</p>
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-violet-600 truncate">MARGEM OPERACIONAL</p>
+            <p className="text-lg sm:text-2xl font-black text-violet-600 mt-1">{margemOperacionalRegistrada}%</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">Sobre valores efetivamente registrados</p>
           </Card>
         </div>
 

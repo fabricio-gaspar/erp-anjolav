@@ -1,7 +1,7 @@
 import type { SupabaseClient, User } from "https://esm.sh/@supabase/supabase-js@2.90.1";
 import { jsonResponse } from "./http.ts";
 
-type Authorized = { ok: true; user: User };
+type Authorized = { ok: true; user: User; tenantId: string };
 type Rejected = { ok: false; response: Response };
 export type AuthorizationResult = Authorized | Rejected;
 
@@ -23,7 +23,26 @@ export async function requireUser(
     return { ok: false, response: jsonResponse(req, { error: "Não autorizado" }, 401) };
   }
 
-  return { ok: true, user: data.user };
+  const { data: membership, error: membershipError } = await supabase
+    .from("tenant_memberships")
+    .select("tenant_id, tenant:tenants!inner(status)")
+    .eq("user_id", data.user.id)
+    .eq("enabled", true)
+    .eq("is_active", true)
+    .eq("tenant.status", "active")
+    .maybeSingle();
+  if (membershipError) {
+    console.error("Falha ao validar empresa ativa", { userId: data.user.id });
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a empresa ativa" }, 500),
+    };
+  }
+  if (!membership?.tenant_id) {
+    return { ok: false, response: jsonResponse(req, { error: "Usuário sem empresa ativa" }, 403) };
+  }
+
+  return { ok: true, user: data.user, tenantId: membership.tenant_id };
 }
 
 export async function requireAdmin(
@@ -33,10 +52,13 @@ export async function requireAdmin(
   const authorization = await requireUser(req, supabase);
   if (!authorization.ok) return authorization;
 
-  const { data: isAdmin, error } = await supabase.rpc("has_role", {
-    _user_id: authorization.user.id,
-    _role: "admin",
-  });
+  const { data: membership, error } = await supabase
+    .from("tenant_memberships")
+    .select("id")
+    .eq("tenant_id", authorization.tenantId)
+    .eq("user_id", authorization.user.id)
+    .in("role", ["owner", "admin"])
+    .maybeSingle();
 
   if (error) {
     console.error("Falha ao validar perfil administrativo", { userId: authorization.user.id });
@@ -46,13 +68,14 @@ export async function requireAdmin(
     };
   }
 
-  if (isAdmin !== true) {
+  if (!membership) {
     return { ok: false, response: jsonResponse(req, { error: "Acesso negado" }, 403) };
   }
 
   const { data: activeEmployee, error: employeeError } = await supabase
     .from("funcionarios")
     .select("id")
+    .eq("tenant_id", authorization.tenantId)
     .eq("user_id", authorization.user.id)
     .eq("ativo", true)
     .maybeSingle();
@@ -80,6 +103,7 @@ export async function requireModule(
   const { data: employee, error: employeeError } = await supabase
     .from("funcionarios")
     .select("id, ativo")
+    .eq("tenant_id", authorization.tenantId)
     .eq("user_id", authorization.user.id)
     .eq("ativo", true)
     .maybeSingle();
@@ -92,21 +116,25 @@ export async function requireModule(
   }
   if (!employee) return { ok: false, response: jsonResponse(req, { error: "Acesso negado" }, 403) };
 
-  const { data: isAdmin, error: roleError } = await supabase.rpc("has_role", {
-    _user_id: authorization.user.id,
-    _role: "admin",
-  });
+  const { data: adminMembership, error: roleError } = await supabase
+    .from("tenant_memberships")
+    .select("id")
+    .eq("tenant_id", authorization.tenantId)
+    .eq("user_id", authorization.user.id)
+    .in("role", ["owner", "admin"])
+    .maybeSingle();
   if (roleError) {
     return {
       ok: false,
       response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
     };
   }
-  if (isAdmin === true) return authorization;
+  if (adminMembership) return authorization;
 
   const { data: permission, error: permissionError } = await supabase
     .from("modulo_permissoes")
     .select("tem_acesso")
+    .eq("tenant_id", authorization.tenantId)
     .eq("funcionario_id", employee.id)
     .eq("modulo_key", moduleKey)
     .eq("tem_acesso", true)

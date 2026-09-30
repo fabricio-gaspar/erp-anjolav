@@ -27,15 +27,15 @@ O host deve servir a SPA com fallback para `index.html`, HTTPS obrigatório, hea
 
 ## 3. Banco Supabase
 
-O endurecimento de RLS **não está pronto para aplicação automática** porque o projeto remoto não pôde ser inspecionado nesta execução. Antes de alterar o banco:
+O destino próprio do produto é `uomhckyqghkcnctbdwvp`. Na revisão de 30/09/2026 ele estava inativo; não confunda esse projeto com a referência antiga do ambiente ligado ao Lovable. Antes de alterar o banco:
 
 ```powershell
 supabase login
-supabase link --project-ref lbrsblimephbjyjlrefv
+supabase link --project-ref uomhckyqghkcnctbdwvp
 supabase migration list
 ```
 
-Compare o histórico local e remoto. Depois, em staging, crie migrations somente com a CLI (`supabase migration new ...`), execute primeiro o SQL de forma controlada, valide contagens/backfill e rode os testes de isolamento. Não edite os 58 arquivos de migration já existentes e não remova policies permissivas antes de confirmar que as novas policies funcionam.
+Compare o histórico local e remoto e faça backup. A migration `20260930120000_commercial_multitenancy_hardening.sql` é aditiva: cria tenants, faz backfill, acrescenta FKs compostas, substitui policies permissivas, cria auditoria e RPCs transacionais. Aplique-a primeiro em staging, valide contagens e rode os testes de isolamento antes de repetir em produção.
 
 O plano mínimo do banco está em [Prontidão comercial](COMMERCIAL_READINESS.md) e [Segurança](SECURITY.md).
 
@@ -58,6 +58,7 @@ Regras:
 - Tokens de webhook devem ser aleatórios, exclusivos e rotacionáveis.
 - Hosts Evolution e n8n devem estar nas allowlists e usar HTTPS válido.
 - O n8n deve validar `X-AnjoLav-Webhook-Token`; o dispatcher exige `N8N_WEBHOOK_TOKEN` com 32+ caracteres e não enviará sem ele.
+- `NFSE_ENABLED=false` deve permanecer até existir adaptador específico homologado para o município e provedor contratados.
 - Não acrescente `SUPABASE_URL`, `SUPABASE_ANON_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` ao arquivo: são secrets padrão das Edge Functions hospedadas.
 
 Rode o contrato local antes de alterar o ambiente:
@@ -83,13 +84,16 @@ supabase functions deploy pdv-payment
 supabase functions deploy asaas-webhook
 supabase functions deploy whatsapp-evolution
 supabase functions deploy webhook-dispatcher
+supabase functions deploy nfse-adapter
 ```
 
 `supabase/config.toml` mantém JWT obrigatório nas funções privadas e o desliga apenas nos endpoints que precisam ser públicos (`sign-in`, portal e webhook Asaas); esses endpoints possuem validação própria.
 
 Antes de promover o Asaas, consulte a saúde da integração na área administrativa. “Configurado — entrega não homologada” confirma API key, URL, eventos, estado ativo e fila não interrompida no cadastro do provedor; ainda é obrigatório provocar um evento de teste em staging para confirmar que o token recebido corresponde ao secret e que o processamento chega ao estado final.
 
-A migration `20260914201853_pdv_payment_flow.sql` cria o ledger do PDV, as rotinas transacionais e o inbox idempotente do webhook. Aplique-a antes de publicar `pdv-payment` e `asaas-webhook`. O receptor já persiste o evento com ID único antes da conciliação e devolve erro para permitir retry do provedor quando o processamento falha; valide em staging o tempo de resposta, as tentativas e os eventos em estado `failed`. Antes de escala comercial, adicione um worker assíncrono monitorado para reprocessar automaticamente o inbox sem depender apenas do retry do provedor.
+A migration `20260914201853_pdv_payment_flow.sql` cria o ledger do PDV, as rotinas transacionais e o inbox idempotente do webhook. Aplique-a antes de publicar `pdv-payment` e `asaas-webhook`. O receptor persiste o evento com ID único antes da conciliação e devolve erro para permitir retry do provedor quando o processamento falha; valide em staging o tempo de resposta, as tentativas e os eventos em estado `failed`. Antes de escala comercial, adicione um worker assíncrono monitorado para reprocessar automaticamente o inbox sem depender apenas do retry do provedor.
+
+`nfse-adapter` deve ser publicado ainda com `NFSE_ENABLED=false`. O endpoint de saúde informa as pendências e as operações de emissão/consulta/cancelamento respondem `NFSE_NOT_READY`; ele não encaminha dados fiscais para URL genérica.
 
 O faturamento ainda usa `mailto:` apenas para preparar uma mensagem manual, sem anexos e sem marcar a fatura como enviada. Antes do go-live, integre e homologue um provedor de e-mail transacional no backend, com autenticação de domínio, rastreio de entrega/bounce, retry e trilha de auditoria.
 

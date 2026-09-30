@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, Fragment } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,7 +111,10 @@ const getAvatarExtension = (file: File): string => {
   return extension;
 };
 
-const getAvatarStoragePath = (value: string | null | undefined): string | null => {
+const getAvatarStoragePath = (
+  value: string | null | undefined,
+  tenantId: string,
+): string | null => {
   if (!value) return null;
   try {
     const url = new URL(value);
@@ -118,7 +122,9 @@ const getAvatarStoragePath = (value: string | null | undefined): string | null =
     const markerIndex = url.pathname.indexOf(marker);
     if (url.protocol !== "https:" || markerIndex < 0) return null;
     const storagePath = decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
-    return storagePath.startsWith("funcionarios/") && !storagePath.includes("..") ? storagePath : null;
+    return storagePath.startsWith(`${tenantId}/funcionarios/`) && !storagePath.includes("..")
+      ? storagePath
+      : null;
   } catch {
     return null;
   }
@@ -376,6 +382,7 @@ function FuncionariosTab({
   deleteFuncionario,
   toggleStatus,
 }: FuncionariosTabProps) {
+  const { activeTenant } = useAuth();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
@@ -470,8 +477,9 @@ function FuncionariosTab({
 
       // Upload avatar if file exists
       if (avatarFile) {
+        if (!activeTenant) throw new Error("Empresa ativa não identificada");
         const fileExt = getAvatarExtension(avatarFile);
-        const filePath = `funcionarios/${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `${activeTenant.id}/funcionarios/${crypto.randomUUID()}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -966,16 +974,16 @@ function FuncionariosTab({
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Arquivar funcionário</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover este funcionário? Esta ação não pode ser desfeita.
+              O funcionário será desativado e perderá as permissões desta empresa. O histórico de folha e auditoria será preservado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
               {deleteFuncionario.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Excluir
+              Arquivar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1036,6 +1044,7 @@ interface EditFuncionarioModalProps {
 }
 
 function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncionarioModalProps) {
+  const { activeTenant } = useAuth();
   const [formData, setFormData] = useState({
     nome: "",
     cargo: "",
@@ -1083,7 +1092,10 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!funcionario) return;
+    if (!funcionario || !activeTenant) {
+      toast.error("Empresa ativa não identificada");
+      return;
+    }
     
     let uploadedAvatarPath: string | null = null;
     let employeeMutationStarted = false;
@@ -1094,7 +1106,7 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
       // Upload new avatar if file exists
       if (avatarFile) {
         const fileExt = getAvatarExtension(avatarFile);
-        const filePath = `funcionarios/${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `${activeTenant.id}/funcionarios/${crypto.randomUUID()}.${fileExt}`;
         
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -1128,7 +1140,7 @@ function EditFuncionarioModal({ open, onClose, funcionario, onSave }: EditFuncio
         dias_trabalhados: formData.dias_trabalhados.length > 0 ? formData.dias_trabalhados : null,
       });
 
-      const previousAvatarPath = getAvatarStoragePath(funcionario.avatar_url);
+      const previousAvatarPath = getAvatarStoragePath(funcionario.avatar_url, activeTenant.id);
       if (previousAvatarPath && previousAvatarPath !== uploadedAvatarPath && funcionario.avatar_url !== finalAvatarUrl) {
         const { error: cleanupError } = await supabase.storage.from("avatars").remove([previousAvatarPath]);
         if (cleanupError) console.error("Falha ao remover avatar substituído", cleanupError);

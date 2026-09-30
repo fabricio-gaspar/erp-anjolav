@@ -188,6 +188,7 @@ export function validateProductionConfig({ frontend, functions, evidence, projec
     "EVOLUTION_ALLOWED_HOSTS",
     "N8N_ALLOWED_HOSTS",
     "N8N_WEBHOOK_TOKEN",
+    "NFSE_ENABLED",
     "ENABLE_DESTRUCTIVE_DATA_ADMIN",
   ]) {
     addRequiredConfigured(errors, functions, key);
@@ -217,6 +218,45 @@ export function validateProductionConfig({ frontend, functions, evidence, projec
   }
   if (isConfigured(functions.N8N_ALLOWED_HOSTS)) {
     validateHostAllowlist(errors, functions, "N8N_ALLOWED_HOSTS");
+  }
+  if (!['true', 'false'].includes(functions.NFSE_ENABLED)) {
+    errors.push("NFSE_ENABLED deve ser true ou false.");
+  } else if (functions.NFSE_ENABLED === "false") {
+    warnings.push("NFS-e está desativada por segurança. Não anuncie emissão fiscal até instalar e homologar um adaptador específico.");
+  } else {
+    for (const key of [
+      "NFSE_PROVIDER",
+      "NFSE_MUNICIPALITY_IBGE",
+      "NFSE_ENVIRONMENT",
+      "NFSE_API_BASE_URL",
+      "NFSE_ALLOWED_HOSTS",
+      "NFSE_API_TOKEN",
+      "NFSE_CERTIFICATE_SECRET",
+    ]) {
+      addRequiredConfigured(errors, functions, key);
+    }
+    if (functions.NFSE_ENVIRONMENT !== "production") {
+      errors.push("NFSE_ENVIRONMENT deve ser production quando NFSE_ENABLED=true no arquivo de produção.");
+    }
+    if (isConfigured(functions.NFSE_MUNICIPALITY_IBGE) && !/^\d{7}$/.test(functions.NFSE_MUNICIPALITY_IBGE)) {
+      errors.push("NFSE_MUNICIPALITY_IBGE deve conter os 7 dígitos do código IBGE.");
+    }
+    if (isConfigured(functions.NFSE_ALLOWED_HOSTS)) {
+      validateHostAllowlist(errors, functions, "NFSE_ALLOWED_HOSTS");
+    }
+    if (isConfigured(functions.NFSE_API_BASE_URL)) {
+      const nfseUrl = validHttpsUrl(functions.NFSE_API_BASE_URL);
+      const allowedHosts = new Set((functions.NFSE_ALLOWED_HOSTS ?? "").split(",").map((host) => host.trim()).filter(Boolean));
+      if (!nfseUrl || !allowedHosts.has(nfseUrl.hostname)) {
+        errors.push("NFSE_API_BASE_URL deve usar HTTPS e um hostname presente em NFSE_ALLOWED_HOSTS.");
+      }
+    }
+    if (isConfigured(functions.NFSE_API_TOKEN) && functions.NFSE_API_TOKEN.length < 20) {
+      errors.push("NFSE_API_TOKEN parece curto demais.");
+    }
+    if (isConfigured(functions.NFSE_CERTIFICATE_SECRET) && functions.NFSE_CERTIFICATE_SECRET.length < 16) {
+      errors.push("NFSE_CERTIFICATE_SECRET parece curto demais.");
+    }
   }
   if (functions.ENABLE_DESTRUCTIVE_DATA_ADMIN !== "false") {
     errors.push("ENABLE_DESTRUCTIVE_DATA_ADMIN deve permanecer false em produção.");

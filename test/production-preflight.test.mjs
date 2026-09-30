@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { REQUIRED_RELEASE_GATES, parseDotEnv, validateProductionConfig } from "../scripts/production-preflight.mjs";
 
-const projectId = "lbrsblimephbjyjlrefv";
+const projectId = "uomhckyqghkcnctbdwvp";
 
 function validEvidence() {
   return {
@@ -37,6 +37,7 @@ function validFunctions() {
     EVOLUTION_ALLOWED_HOSTS: "evolution.anjolav.example",
     N8N_ALLOWED_HOSTS: "n8n.anjolav.example",
     N8N_WEBHOOK_TOKEN: "c".repeat(32),
+    NFSE_ENABLED: "false",
     ENABLE_DESTRUCTIVE_DATA_ADMIN: "false",
   };
 }
@@ -85,4 +86,18 @@ test("preserva valores com sinal de igual ao ler dotenv", () => {
 
   assert.equal(values.TOKEN, "abc=def");
   assert.equal(values.ALLOWED_ORIGINS, "https://erp.anjolav.example");
+});
+
+test("bloqueia ativação de NFS-e sem provedor, município e cofre configurados", () => {
+  const result = validateProductionConfig({
+    frontend: validFrontend(),
+    functions: { ...validFunctions(), NFSE_ENABLED: "true" },
+    evidence: validEvidence(),
+    projectId,
+  });
+
+  assert.equal(result.ready, false);
+  assert.match(result.errors.join("\n"), /NFSE_PROVIDER/);
+  assert.match(result.errors.join("\n"), /NFSE_MUNICIPALITY_IBGE/);
+  assert.match(result.errors.join("\n"), /NFSE_CERTIFICATE_SECRET/);
 });

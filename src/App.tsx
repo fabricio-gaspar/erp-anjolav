@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { aplicarTema, getTemaIdFromCorPrimaria } from "@/lib/themeUtils";
 import { SidebarProvider } from "@/contexts/SidebarContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
@@ -45,7 +45,8 @@ const queryClient = new QueryClient({
 });
 
 function ThemeLoader({ children }: { children: React.ReactNode }) {
-  const { configuracao } = useConfiguracoesGerais();
+  const { session, activeTenant, loading } = useAuth();
+  const { configuracao } = useConfiguracoesGerais(Boolean(session && activeTenant && !loading));
   useEffect(() => {
     const temaId = getTemaIdFromCorPrimaria(configuracao?.cor_primaria ?? null);
     aplicarTema(temaId);
@@ -55,11 +56,11 @@ function ThemeLoader({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeLoader>
     <TooltipProvider>
       <BrowserRouter>
         <AuthProvider>
           <WorkspaceProvider>
+            <ThemeLoader>
             <SidebarProvider>
             <Toaster />
             <Sonner />
@@ -147,11 +148,11 @@ const App = () => (
             </Routes>
             </Suspense>
             </SidebarProvider>
+            </ThemeLoader>
           </WorkspaceProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
-    </ThemeLoader>
   </QueryClientProvider>
 );
 

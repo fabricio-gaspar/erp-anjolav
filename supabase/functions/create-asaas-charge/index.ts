@@ -283,6 +283,7 @@ Deno.serve(async (req) => {
       const { data: client, error: clientError } = await supabase
         .from("clientes")
         .select("id, razao_social, email, cpf_cnpj, ativo")
+        .eq("tenant_id", authorization.tenantId)
         .eq("id", body.cliente_id)
         .maybeSingle();
       if (clientError) throw clientError;
@@ -402,6 +403,7 @@ Deno.serve(async (req) => {
     }
 
     const chargePayload = {
+      tenant_id: authorization.tenantId,
       asaas_id: payment.id,
       external_reference: body.idempotency_key,
       cliente_id: body.cliente_id ?? null,
@@ -422,6 +424,7 @@ Deno.serve(async (req) => {
     const { data: existingCharge, error: lookupError } = await supabase
       .from("asaas_charges")
       .select("id")
+      .eq("tenant_id", authorization.tenantId)
       .eq("asaas_id", payment.id)
       .maybeSingle();
     if (lookupError) throw lookupError;

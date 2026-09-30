@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -12,27 +13,45 @@ interface Funcionario {
   departamento: string | null;
 }
 
+export interface TenantSummary {
+  id: string;
+  name: string;
+  slug: string;
+  role: "owner" | "admin" | "member";
+  active: boolean;
+}
+
+interface TenantContext {
+  activeTenantId: string | null;
+  tenants: TenantSummary[];
+}
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   funcionario: Funcionario | null;
+  activeTenant: TenantSummary | null;
+  tenants: TenantSummary[];
   loading: boolean;
   signIn: (login: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
+  switchTenant: (tenantId: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [funcionario, setFuncionario] = useState<Funcionario | null>(null);
+  const [tenantContext, setTenantContext] = useState<TenantContext>({ activeTenantId: null, tenants: [] });
   const [loading, setLoading] = useState(true);
 
   // Fetch funcionario data linked to user
-  const fetchFuncionario = async (userId: string) => {
+  const fetchFuncionario = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from("funcionarios")
@@ -51,7 +70,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Error in fetchFuncionario:", err);
       return null;
     }
-  };
+  }, []);
+
+  const normalizeTenantContext = useCallback((value: unknown): TenantContext => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return { activeTenantId: null, tenants: [] };
+    }
+    const source = value as Record<string, unknown>;
+    const tenants = Array.isArray(source.tenants)
+      ? source.tenants.filter((candidate): candidate is TenantSummary => {
+          if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return false;
+          const tenant = candidate as Record<string, unknown>;
+          return typeof tenant.id === "string" && typeof tenant.name === "string" &&
+            typeof tenant.slug === "string" && ["owner", "admin", "member"].includes(String(tenant.role));
+        }).map((tenant) => ({ ...tenant, active: tenant.active === true }))
+      : [];
+    return {
+      activeTenantId: typeof source.activeTenantId === "string" ? source.activeTenantId : null,
+      tenants,
+    };
+  }, []);
+
+  const fetchTenantContext = useCallback(async (): Promise<TenantContext> => {
+    const { data, error } = await supabase.rpc("get_my_tenant_context");
+    if (error) throw error;
+    const context = normalizeTenantContext(data);
+    if (!context.activeTenantId || !context.tenants.some((tenant) => tenant.id === context.activeTenantId)) {
+      throw new Error("Usuário sem empresa ativa autorizada");
+    }
+    return context;
+  }, [normalizeTenantContext]);
+
+  const loadUserContext = useCallback(async (userId: string) => {
+    const [employee, tenants] = await Promise.all([
+      fetchFuncionario(userId),
+      fetchTenantContext(),
+    ]);
+    setFuncionario(employee);
+    setTenantContext(tenants);
+  }, [fetchFuncionario, fetchTenantContext]);
 
   useEffect(() => {
     // Set up auth state listener BEFORE checking session
@@ -64,12 +121,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(true);
           // Use setTimeout to avoid Supabase client deadlock
           setTimeout(async () => {
-            const func = await fetchFuncionario(currentSession.user.id);
-            setFuncionario(func);
-            setLoading(false);
+            try {
+              await loadUserContext(currentSession.user.id);
+            } catch (error) {
+              console.error("Não foi possível carregar o contexto da empresa", error);
+              setFuncionario(null);
+              setTenantContext({ activeTenantId: null, tenants: [] });
+            } finally {
+              setLoading(false);
+            }
           }, 0);
         } else {
           setFuncionario(null);
+          setTenantContext({ activeTenantId: null, tenants: [] });
           setLoading(false);
         }
       }
@@ -84,10 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(existingSession?.user ?? null);
 
         if (existingSession?.user) {
-          const func = await fetchFuncionario(existingSession.user.id);
-          setFuncionario(func);
+          await loadUserContext(existingSession.user.id);
         } else {
           setFuncionario(null);
+          setTenantContext({ activeTenantId: null, tenants: [] });
         }
       })
       .catch(() => {
@@ -95,13 +159,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setUser(null);
         setFuncionario(null);
+        setTenantContext({ activeTenantId: null, tenants: [] });
       })
       .finally(() => setLoading(false));
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadUserContext]);
 
   const signIn = async (login: string, password: string) => {
     try {
@@ -131,13 +196,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      queryClient.clear();
       setFuncionario(null);
+      setTenantContext({ activeTenantId: null, tenants: [] });
       toast.success("Logout realizado com sucesso!");
     } catch (err) {
       console.error("Error signing out:", err);
       toast.error("Erro ao fazer logout");
     }
   };
+
+  const switchTenant = async (tenantId: string) => {
+    try {
+      if (!session?.user || tenantId === tenantContext.activeTenantId) return { error: null };
+      const { data, error } = await supabase.rpc("switch_active_tenant", { _tenant_id: tenantId });
+      if (error) throw error;
+      const nextContext = normalizeTenantContext(data);
+      if (nextContext.activeTenantId !== tenantId) throw new Error("A empresa ativa não foi confirmada");
+
+      queryClient.clear();
+      setTenantContext(nextContext);
+      setFuncionario(await fetchFuncionario(session.user.id));
+      toast.success("Empresa alterada com segurança.");
+      return { error: null };
+    } catch (caught) {
+      const error = caught instanceof Error ? caught : new Error("Não foi possível alterar a empresa");
+      toast.error(error.message);
+      return { error };
+    }
+  };
+
+  const activeTenant = tenantContext.tenants.find(
+    (tenant) => tenant.id === tenantContext.activeTenantId,
+  ) ?? null;
 
   const resetPassword = async (email: string) => {
     try {
@@ -190,11 +281,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         user,
         funcionario,
+        activeTenant,
+        tenants: tenantContext.tenants,
         loading,
         signIn,
         signOut,
         resetPassword,
         updatePassword,
+        switchTenant,
       }}
     >
       {children}

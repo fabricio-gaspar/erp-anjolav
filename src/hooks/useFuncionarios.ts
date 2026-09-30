@@ -168,7 +168,7 @@ export const useUpdateFuncionario = () => {
   });
 };
 
-// Delete employee
+// Archive employee while preserving payroll and audit history
 export const useDeleteFuncionario = () => {
   const queryClient = useQueryClient();
 
@@ -177,16 +177,16 @@ export const useDeleteFuncionario = () => {
       const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
         body: { action: "delete", employeeId: id },
       });
-      if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao remover funcionário");
+      if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao arquivar funcionário");
       if (result?.error) throw new Error(traduzirErroAuth(result.error));
-      if (!result?.success) throw new Error("A remoção não foi confirmada");
+      if (!result?.success || !result?.archived) throw new Error("O arquivamento não foi confirmado");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
-      toast.success("Funcionário removido com sucesso!");
+      toast.success("Funcionário arquivado e acesso removido com sucesso!");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Erro ao remover funcionário");
+      toast.error(error.message || "Erro ao arquivar funcionário");
     },
   });
 };
