@@ -175,16 +175,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error?: string;
       }>("sign-in", { body: { login, password } });
 
-      if (error || !data?.data) {
-        toast.error("Não foi possível entrar com as credenciais informadas.");
-        return { error: new Error(data?.error || "Falha na autenticação") };
+      if (!error && data?.data) {
+        const { error: sessionError } = await supabase.auth.setSession(data.data);
+        if (sessionError) throw sessionError;
+
+        toast.success("Login realizado com sucesso!");
+        return { error: null };
       }
 
-      const { error: sessionError } = await supabase.auth.setSession(data.data);
-      if (sessionError) throw sessionError;
+      // A função permite login por nome de usuário, mas instalações novas podem
+      // ainda não ter a Edge Function publicada. Para e-mails, o Supabase Auth
+      // oferece o mesmo fluxo de forma nativa e mantém o sistema utilizável.
+      if (login.includes("@")) {
+        const { error: passwordError } = await supabase.auth.signInWithPassword({
+          email: login,
+          password,
+        });
+        if (!passwordError) {
+          toast.success("Login realizado com sucesso!");
+          return { error: null };
+        }
+        toast.error("Login ou senha incorretos.");
+        return { error: passwordError };
+      }
 
-      toast.success("Login realizado com sucesso!");
-      return { error: null };
+      const signInError = error ?? new Error(data?.error || "Serviço de login indisponível");
+      toast.error("Não foi possível entrar com as credenciais informadas.");
+      return { error: signInError };
     } catch (err) {
       const error = err as Error;
       toast.error("Não foi possível entrar. Tente novamente mais tarde.");
