@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, Shield, FileText, Tag, Receipt, Database, Wrench,
-  Settings as SettingsIcon, MessageSquare, Building2, FolderTree,
+  Settings as SettingsIcon, MessageSquare, Building2, FolderTree, Gift,
 } from "lucide-react";
 import { ConfiguracoesEquipe } from "@/components/configuracoes/ConfiguracoesEquipe";
 import { ConfiguracoesPermissoes } from "@/components/configuracoes/ConfiguracoesPermissoes";
@@ -17,6 +17,7 @@ import { ConfiguracoesGeral } from "@/components/configuracoes/ConfiguracoesGera
 import { ConfiguracoesWhatsApp } from "@/components/configuracoes/ConfiguracoesWhatsApp";
 import { ConfiguracoesCategorias } from "@/components/configuracoes/ConfiguracoesCategorias";
 import { ConfiguracoesCentrosCusto } from "@/components/configuracoes/ConfiguracoesCentrosCusto";
+import { ConfiguracoesFidelidade } from "@/components/configuracoes/ConfiguracoesFidelidade";
 
 const Configuracoes = () => {
   const [searchParams] = useSearchParams();
@@ -70,6 +71,10 @@ const Configuracoes = () => {
               >
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">ROL</span>
+              </TabsTrigger>
+              <TabsTrigger value="fidelidade" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2">
+                <Gift className="w-4 h-4" />
+                <span className="hidden sm:inline">Fidelidade</span>
               </TabsTrigger>
               <TabsTrigger
                 value="etiquetas"
@@ -126,6 +131,10 @@ const Configuracoes = () => {
 
           <TabsContent value="rol" className="mt-4">
             <ConfiguracoesROL />
+          </TabsContent>
+
+          <TabsContent value="fidelidade" className="mt-4">
+            <ConfiguracoesFidelidade />
           </TabsContent>
 
           <TabsContent value="etiquetas" className="mt-4">

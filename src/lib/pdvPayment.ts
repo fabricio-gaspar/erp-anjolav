@@ -46,7 +46,7 @@ export const CARD_BRANDS = [
   { value: "OUTRA", label: "Outra" },
 ] as const;
 
-export function createPdvIdempotencyKey(prefix: "sale" | "receipt" | "pix"): string {
+export function createPdvIdempotencyKey(prefix: "sale" | "receipt" | "pix" | "loyalty"): string {
   return `pdv:${prefix}:${crypto.randomUUID()}`;
 }
 

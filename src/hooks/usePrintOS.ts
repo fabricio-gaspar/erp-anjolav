@@ -12,7 +12,7 @@ import {
   type PrintOSData,
   type EtiquetaData,
 } from "@/services/printService";
-import { openPrintDocument } from "@/lib/safePrint";
+import { openPrintDocument, reservePrintWindow } from "@/lib/safePrint";
 
 export function usePrintOS(ordemServicoId?: string) {
   const { toast } = useToast();
@@ -27,7 +27,12 @@ export function usePrintOS(ordemServicoId?: string) {
 
     setIsLoading(true);
     try {
-      const success = await printROLFromOS(targetId);
+      const printWindow = reservePrintWindow('width=400,height=600,noopener,noreferrer');
+      if (!printWindow) {
+        toast({ title: "Impressão bloqueada", description: "Permita janelas pop-up para este sistema e tente novamente.", variant: "destructive" });
+        return false;
+      }
+      const success = await printROLFromOS(targetId, printWindow);
       if (!success) {
         toast({ title: "Erro", description: "Não foi possível gerar o ROL", variant: "destructive" });
       }
@@ -50,7 +55,12 @@ export function usePrintOS(ordemServicoId?: string) {
 
     setIsLoading(true);
     try {
-      const success = await printEtiquetaFromOS(targetId);
+      const printWindow = reservePrintWindow('width=400,height=600,noopener,noreferrer');
+      if (!printWindow) {
+        toast({ title: "Impressão bloqueada", description: "Permita janelas pop-up para este sistema e tente novamente.", variant: "destructive" });
+        return false;
+      }
+      const success = await printEtiquetaFromOS(targetId, printWindow);
       if (!success) {
         toast({ title: "Erro", description: "Não foi possível gerar a etiqueta", variant: "destructive" });
       }
@@ -73,7 +83,12 @@ export function usePrintOS(ordemServicoId?: string) {
 
     setIsLoading(true);
     try {
-      const success = await printMultipleEtiquetas(targetId, quantidade);
+      const printWindow = reservePrintWindow('width=400,height=600,noopener,noreferrer');
+      if (!printWindow) {
+        toast({ title: "Impressão bloqueada", description: "Permita janelas pop-up para este sistema e tente novamente.", variant: "destructive" });
+        return false;
+      }
+      const success = await printMultipleEtiquetas(targetId, quantidade, printWindow);
       if (!success) {
         toast({ title: "Erro", description: "Não foi possível gerar as etiquetas", variant: "destructive" });
       }

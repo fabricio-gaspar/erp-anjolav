@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Banknote, CreditCard, Loader2, Receipt, Smartphone } from "lucide-react";
+import { Banknote, CreditCard, Gift, Loader2, Receipt, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseCurrencyToNumber, formatNumberToCurrency } from "@/lib/currencyUtils";
 import { useCaixaAberto } from "@/hooks/useCaixa";
-import { useRecordPdvPayment } from "@/hooks/usePdvPayments";
+import { usePdvLoyaltySummary, useRecordPdvPayment, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
 import { CARD_BRANDS, createPdvIdempotencyKey, type PdvPaymentMethod } from "@/lib/pdvPayment";
 
 const PAYMENT_METHODS = [
@@ -18,7 +18,10 @@ const PAYMENT_METHODS = [
   { id: "PIX" as const, label: "PIX", icon: Smartphone },
   { id: "CARTAO_DEBITO" as const, label: "Débito", icon: CreditCard },
   { id: "CARTAO_CREDITO" as const, label: "Crédito", icon: CreditCard },
+  { id: "FIDELIDADE" as const, label: "Pontos", icon: Gift },
 ];
+
+type ReceiptPaymentMethod = PdvPaymentMethod | "FIDELIDADE";
 
 export interface PixRecebimentoRequest {
   orderId: string;
@@ -57,7 +60,7 @@ export function ReceberPagamentoModal({
   onRequestPix,
 }: ReceberPagamentoModalProps) {
   const valorPendente = Math.max(0, Math.round((valorTotal - (valorPago || 0)) * 100) / 100);
-  const [formaPagamento, setFormaPagamento] = useState<PdvPaymentMethod>("DINHEIRO");
+  const [formaPagamento, setFormaPagamento] = useState<ReceiptPaymentMethod>("DINHEIRO");
   const [valorPagamento, setValorPagamento] = useState(formatNumberToCurrency(valorPendente));
   const [valorEntregue, setValorEntregue] = useState(formatNumberToCurrency(valorPendente));
   const [parcelas, setParcelas] = useState(1);
@@ -65,8 +68,11 @@ export function ReceberPagamentoModal({
   const [nsu, setNsu] = useState("");
   const [codigoAutorizacao, setCodigoAutorizacao] = useState("");
   const [paymentIdempotencyKey, setPaymentIdempotencyKey] = useState(() => createPdvIdempotencyKey("receipt"));
+  const [pontosResgate, setPontosResgate] = useState(0);
   const { data: caixaAberto } = useCaixaAberto();
   const recordPayment = useRecordPdvPayment();
+  const redeemLoyalty = useRedeemPdvLoyalty();
+  const { data: loyalty, isLoading: isLoadingLoyalty } = usePdvLoyaltySummary(osId, open && formaPagamento === "FIDELIDADE");
 
   useEffect(() => {
     if (!open) return;
@@ -78,6 +84,7 @@ export function ReceberPagamentoModal({
     setBandeira("");
     setNsu("");
     setCodigoAutorizacao("");
+    setPontosResgate(0);
     setPaymentIdempotencyKey(createPdvIdempotencyKey("receipt"));
   }, [open, valorPendente]);
 
@@ -96,13 +103,23 @@ export function ReceberPagamentoModal({
     ? Math.round((tendered - amount) * 100) / 100
     : 0;
   const canSubmit = useMemo(() => {
-    if (!caixaAberto || !Number.isFinite(amount) || amount <= 0 || amount > valorPendente) return false;
+    if (!caixaAberto) return false;
+    if (formaPagamento === "FIDELIDADE") {
+      const valorResgate = Math.round((pontosResgate * Number(loyalty?.valorPorPonto ?? 0)) * 100) / 100;
+      return Boolean(loyalty?.programaAtivo)
+        && Number.isInteger(pontosResgate)
+        && pontosResgate >= Number(loyalty.pontosMinimosResgate)
+        && pontosResgate <= Number(loyalty.saldoPontos)
+        && valorResgate > 0
+        && valorResgate <= valorPendente + 0.009;
+    }
+    if (!Number.isFinite(amount) || amount <= 0 || amount > valorPendente) return false;
     if (formaPagamento === "DINHEIRO" && tendered < amount) return false;
     if (formaPagamento.startsWith("CARTAO_") && (!bandeira || (!nsu.trim() && !codigoAutorizacao.trim()))) {
       return false;
     }
     return true;
-  }, [amount, bandeira, caixaAberto, codigoAutorizacao, formaPagamento, nsu, tendered, valorPendente]);
+  }, [amount, bandeira, caixaAberto, codigoAutorizacao, formaPagamento, loyalty, nsu, pontosResgate, tendered, valorPendente]);
 
   const handleSubmit = async () => {
     if (!caixaAberto || !canSubmit) return;
@@ -115,6 +132,25 @@ export function ReceberPagamentoModal({
         cashRegisterId: caixaAberto.id,
         idempotencyKey: createPdvIdempotencyKey("pix"),
       });
+      return;
+    }
+
+    if (formaPagamento === "FIDELIDADE") {
+      try {
+        const payment = await redeemLoyalty.mutateAsync({
+          orderId: osId,
+          cashRegisterId: caixaAberto.id,
+          moment: "RETIRADA",
+          points: pontosResgate,
+          idempotencyKey: createPdvIdempotencyKey("loyalty"),
+        });
+        const value = Number(payment.redeemedValue ?? 0);
+        toast.success(`${pontosResgate} pontos resgatados${value > 0 ? ` (${formatCurrency(value)})` : ""}`);
+        onOpenChange(false);
+        onSuccess?.();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Erro ao resgatar pontos");
+      }
       return;
     }
 
@@ -172,7 +208,7 @@ export function ReceberPagamentoModal({
 
           <div className="space-y-2">
             <Label>Forma de pagamento</Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {PAYMENT_METHODS.map((method) => {
                 const Icon = method.icon;
                 return (
@@ -191,7 +227,7 @@ export function ReceberPagamentoModal({
             </div>
           </div>
 
-          {formaPagamento !== "PIX" && (
+          {formaPagamento !== "PIX" && formaPagamento !== "FIDELIDADE" && (
             <div className="space-y-2">
               <Label>Valor deste pagamento</Label>
               <CurrencyInput value={valorPagamento} onChange={(event) => setValorPagamento(event.target.value)} className="text-lg font-semibold" />
@@ -253,6 +289,29 @@ export function ReceberPagamentoModal({
             </div>
           )}
 
+          {formaPagamento === "FIDELIDADE" && (
+            <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 font-medium text-primary"><Gift className="h-4 w-4" /> Fidelidade do cliente</div>
+              {isLoadingLoyalty ? (
+                <p className="text-sm text-muted-foreground">Consultando saldo de pontos...</p>
+              ) : !loyalty?.programaAtivo ? (
+                <p className="text-sm text-muted-foreground">O programa de fidelidade está desativado para esta empresa.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div><span className="text-muted-foreground">Saldo</span><p className="font-bold">{loyalty.saldoPontos} pontos</p></div>
+                    <div><span className="text-muted-foreground">Conversão</span><p className="font-bold">{formatCurrency(Number(loyalty.valorPorPonto))}/ponto</p></div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="loyalty-points">Pontos para resgatar (mínimo {loyalty.pontosMinimosResgate})</Label>
+                    <Input id="loyalty-points" type="number" min={loyalty.pontosMinimosResgate} max={loyalty.saldoPontos} value={pontosResgate || ""} onChange={(event) => setPontosResgate(Math.max(0, Math.floor(Number(event.target.value) || 0)))} />
+                    <p className="text-xs text-muted-foreground">Desconto estimado: {formatCurrency(Math.min(valorPendente, pontosResgate * Number(loyalty.valorPorPonto)))}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {!caixaAberto && (
             <div className="rounded-lg border border-warning bg-warning/10 p-3 text-center text-sm font-medium text-warning">
               Não há caixa aberto para registrar o pagamento.
@@ -262,9 +321,9 @@ export function ReceberPagamentoModal({
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit || recordPayment.isPending}>
-            {recordPayment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {formaPagamento === "PIX" ? "Gerar PIX" : "Confirmar recebimento"}
+          <Button onClick={handleSubmit} disabled={!canSubmit || recordPayment.isPending || redeemLoyalty.isPending}>
+            {(recordPayment.isPending || redeemLoyalty.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {formaPagamento === "PIX" ? "Gerar PIX" : formaPagamento === "FIDELIDADE" ? "Resgatar pontos" : "Confirmar recebimento"}
           </Button>
         </DialogFooter>
       </DialogContent>

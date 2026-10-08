@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type {
@@ -40,6 +40,19 @@ export interface CreatePdvPixInput {
 
 export interface RecordPdvPaymentInput extends CreatePdvPixInput {
   payment: PdvManualPayment & { amount: number };
+}
+
+export interface RedeemPdvLoyaltyInput extends CreatePdvPixInput {
+  points: number;
+}
+
+export interface PdvLoyaltySummary {
+  programaAtivo: boolean;
+  saldoPontos: number;
+  valorSaldo: number;
+  pontosGanhosNestaOrdem: number;
+  pontosMinimosResgate: number;
+  valorPorPonto: number;
 }
 
 async function edgeError(error: unknown): Promise<Error> {
@@ -126,6 +139,34 @@ export function useCancelPdvPix() {
       const result = await invoke<{ success: true; payment: Record<string, unknown> }>({
         action: "cancel_pix",
         paymentId,
+      });
+      return result.payment;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function usePdvLoyaltySummary(orderId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["pdv-loyalty", orderId],
+    enabled: Boolean(orderId) && enabled,
+    queryFn: async () => {
+      const result = await invoke<{ success: true; loyalty: PdvLoyaltySummary }>({
+        action: "loyalty_summary",
+        orderId,
+      });
+      return result.loyalty;
+    },
+  });
+}
+
+export function useRedeemPdvLoyalty() {
+  const invalidate = useInvalidatePdv();
+  return useMutation({
+    mutationFn: async (input: RedeemPdvLoyaltyInput) => {
+      const result = await invoke<{ success: true; payment: Record<string, unknown> }>({
+        action: "redeem_loyalty",
+        ...input,
       });
       return result.payment;
     },

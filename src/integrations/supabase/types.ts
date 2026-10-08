@@ -1355,6 +1355,68 @@ export type Database = {
           },
         ]
       }
+      fidelidade_configuracoes: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          pontos_minimos_resgate: number
+          reais_por_ponto: number
+          tenant_id: string
+          updated_at: string
+          valor_minimo_acumulo: number
+          valor_por_ponto: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          pontos_minimos_resgate?: number
+          reais_por_ponto?: number
+          tenant_id: string
+          updated_at?: string
+          valor_minimo_acumulo?: number
+          valor_por_ponto?: number
+        }
+        Update: {
+          ativo?: boolean
+          pontos_minimos_resgate?: number
+          reais_por_ponto?: number
+          valor_minimo_acumulo?: number
+          valor_por_ponto?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fidelidade_lancamentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          criado_por: string | null
+          descricao: string
+          id: string
+          idempotency_key: string
+          ordem_servico_id: string | null
+          pontos: number
+          tenant_id: string
+          tipo: string
+          valor_referencia: number | null
+        }
+        Insert: {
+          cliente_id: string
+          criado_por?: string | null
+          descricao: string
+          id?: string
+          idempotency_key: string
+          ordem_servico_id?: string | null
+          pontos: number
+          tenant_id: string
+          tipo: string
+          valor_referencia?: number | null
+        }
+        Update: never
+        Relationships: []
+      }
       folha_beneficios: {
         Row: {
           beneficio_id: string | null
@@ -3142,6 +3204,7 @@ export type Database = {
           created_at: string
           email: string | null
           endereco: string | null
+          exibir_fidelidade: boolean
           exibir_logo: boolean | null
           fonte_principal: string | null
           id: string
@@ -3173,6 +3236,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           endereco?: string | null
+          exibir_fidelidade?: boolean
           exibir_logo?: boolean | null
           fonte_principal?: string | null
           id?: string
@@ -3204,6 +3268,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           endereco?: string | null
+          exibir_fidelidade?: boolean
           exibir_logo?: boolean | null
           fonte_principal?: string | null
           id?: string

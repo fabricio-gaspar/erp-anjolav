@@ -199,6 +199,29 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
   };
 }
 
+function loyaltyPoints(value: unknown): number {
+  const points = Number(value);
+  if (!Number.isInteger(points) || points < 1 || points > 1_000_000) {
+    throw new RequestError("Quantidade de pontos inválida");
+  }
+  return points;
+}
+
+async function assertScopedOrderAndCash(
+  supabase: SupabaseClient,
+  tenantId: string,
+  orderId: string,
+  cashRegisterId: string,
+) {
+  const [{ data: scopedOrder, error: orderScopeError }, { data: scopedCash, error: cashScopeError }] =
+    await Promise.all([
+      supabase.from("ordens_servico").select("id").eq("tenant_id", tenantId).eq("id", orderId).maybeSingle(),
+      supabase.from("caixas").select("id").eq("tenant_id", tenantId).eq("id", cashRegisterId).maybeSingle(),
+    ]);
+  if (orderScopeError || cashScopeError) throw orderScopeError ?? cashScopeError;
+  if (!scopedOrder || !scopedCash) throw new RequestError("OS ou caixa fora da empresa ativa", 403);
+}
+
 function dateInSaoPaulo(): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Sao_Paulo",
@@ -652,13 +675,7 @@ Deno.serve(async (req) => {
       const moment: PaymentMoment = raw.moment === "ENTRADA" ? "ENTRADA" : "RETIRADA";
       const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
       const payment = validateManualPayment(raw.payment, true);
-      const [{ data: scopedOrder, error: orderScopeError }, { data: scopedCash, error: cashScopeError }] =
-        await Promise.all([
-          supabase.from("ordens_servico").select("id").eq("tenant_id", authorization.tenantId).eq("id", orderId).maybeSingle(),
-          supabase.from("caixas").select("id").eq("tenant_id", authorization.tenantId).eq("id", cashRegisterId).maybeSingle(),
-        ]);
-      if (orderScopeError || cashScopeError) throw orderScopeError ?? cashScopeError;
-      if (!scopedOrder || !scopedCash) throw new RequestError("OS ou caixa fora da empresa ativa", 403);
+      await assertScopedOrderAndCash(supabase, authorization.tenantId, orderId, cashRegisterId);
       const { data, error } = await supabase.rpc("registrar_pagamento_pdv", {
         _ordem_servico_id: orderId,
         _caixa_id: cashRegisterId,
@@ -675,6 +692,40 @@ Deno.serve(async (req) => {
       });
       if (error) throw error;
       return jsonResponse(req, { success: true, payment: data });
+    }
+
+    if (action === "redeem_loyalty") {
+      const orderId = requireUuid(raw.orderId, "OS");
+      const cashRegisterId = requireUuid(raw.cashRegisterId, "Caixa");
+      const moment: PaymentMoment = raw.moment === "ENTRADA" ? "ENTRADA" : "RETIRADA";
+      const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
+      const points = loyaltyPoints(raw.points);
+      await assertScopedOrderAndCash(supabase, authorization.tenantId, orderId, cashRegisterId);
+      const { data, error } = await supabase.rpc("resgatar_pontos_fidelidade_pdv", {
+        _ordem_servico_id: orderId,
+        _caixa_id: cashRegisterId,
+        _pontos: points,
+        _momento: moment,
+        _idempotency_key: idempotencyKey,
+        _criado_por: authorization.user.id,
+      });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, payment: data });
+    }
+
+    if (action === "loyalty_summary") {
+      const orderId = requireUuid(raw.orderId, "OS");
+      const { data: order, error: orderError } = await supabase
+        .from("ordens_servico")
+        .select("id")
+        .eq("tenant_id", authorization.tenantId)
+        .eq("id", orderId)
+        .maybeSingle();
+      if (orderError) throw orderError;
+      if (!order) throw new RequestError("OS fora da empresa ativa", 403);
+      const { data, error } = await supabase.rpc("consultar_fidelidade_pdv", { _ordem_servico_id: orderId });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, loyalty: data });
     }
 
     if (action === "cancel_pix") {

@@ -29,6 +29,7 @@ import {
   Percent,
   CalendarIcon,
   Calculator,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDays, format, isWeekend, nextMonday } from "date-fns";
@@ -72,7 +73,7 @@ interface PagamentoModalProps {
 
 export interface DadosPagamento {
   pagoAgora: boolean;
-  formaPagamento: "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | null;
+  formaPagamento: "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE" | null;
   urgente: boolean;
   percentualUrgencia: number;
   valorDesconto: number;
@@ -89,15 +90,17 @@ export interface DadosPagamento {
   bandeira?: string;
   nsu?: string;
   codigoAutorizacao?: string;
+  pontosResgate?: number;
 }
 
-type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO";
+type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE";
 
 const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; icon: React.ReactNode }[] = [
   { value: "DINHEIRO", label: "Dinheiro", icon: <Banknote className="w-5 h-5" /> },
   { value: "PIX", label: "PIX", icon: <Smartphone className="w-5 h-5" /> },
   { value: "CARTAO_CREDITO", label: "Crédito", icon: <CreditCard className="w-5 h-5" /> },
   { value: "CARTAO_DEBITO", label: "Débito", icon: <CreditCard className="w-5 h-5" /> },
+  { value: "FIDELIDADE", label: "Pontos", icon: <Gift className="w-5 h-5" /> },
 ];
 
 const PARCELAS_OPCOES = [1, 2, 3, 4, 5, 6, 10, 12];
@@ -134,6 +137,7 @@ export function PagamentoModal({
   const [bandeira, setBandeira] = useState("");
   const [nsu, setNsu] = useState("");
   const [codigoAutorizacao, setCodigoAutorizacao] = useState("");
+  const [pontosResgate, setPontosResgate] = useState("");
 
   // Reset form when modal opens
   useEffect(() => {
@@ -151,6 +155,7 @@ export function PagamentoModal({
       setBandeira("");
       setNsu("");
       setCodigoAutorizacao("");
+      setPontosResgate("");
       // Reset delivery date
       const data = addDays(new Date(), DIAS_ENTREGA_PADRAO);
       setPrevisaoEntrega(isWeekend(data) ? nextMonday(data) : data);
@@ -242,6 +247,7 @@ export function PagamentoModal({
     if (pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO")) {
       if (!bandeira || (!nsu.trim() && !codigoAutorizacao.trim())) return false;
     }
+    if (pagoAgora && formaPagamento === "FIDELIDADE" && (!Number.isInteger(Number(pontosResgate)) || Number(pontosResgate) < 1)) return false;
     return true;
   }, [
     pagoAgora,
@@ -257,6 +263,7 @@ export function PagamentoModal({
     tipoLogistica,
     motoristaId,
     veiculoId,
+    pontosResgate,
   ]);
 
   const handleSubmit = async () => {
@@ -283,6 +290,7 @@ export function PagamentoModal({
       codigoAutorizacao: formaPagamento?.startsWith("CARTAO_")
         ? codigoAutorizacao.trim() || undefined
         : undefined,
+      pontosResgate: formaPagamento === "FIDELIDADE" ? Number(pontosResgate) : undefined,
     });
   };
 
@@ -466,7 +474,7 @@ export function PagamentoModal({
           {pagoAgora && (
             <div className="space-y-3">
               <Label>Forma de Pagamento</Label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                 {FORMAS_PAGAMENTO.map((forma) => (
                   <button
                     key={forma.value}
@@ -570,6 +578,14 @@ export function PagamentoModal({
               ) : (
                 <p className="text-destructive">Cadastre um CPF/CNPJ válido no cliente para gerar o PIX dinâmico.</p>
               )}
+            </div>
+          )}
+
+          {pagoAgora && formaPagamento === "FIDELIDADE" && (
+            <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <Label htmlFor="sale-loyalty-points" className="flex items-center gap-2"><Gift className="h-4 w-4" /> Pontos para resgatar</Label>
+              <Input id="sale-loyalty-points" type="number" min={1} step={1} value={pontosResgate} onChange={(event) => setPontosResgate(event.target.value)} placeholder="Ex.: 100" />
+              <p className="text-xs text-muted-foreground">O saldo, o mínimo e o valor do desconto serão validados com segurança ao criar a OS. Se o resgate não quitar tudo, o restante ficará pendente para outro pagamento.</p>
             </div>
           )}
 

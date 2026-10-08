@@ -23,8 +23,19 @@ test("migration comercial cobre todas as tabelas de negócio existentes", () => 
   }
 
   const infrastructure = new Set(["audit_events", "portal_rate_limits", "tenant_memberships", "tenants"]);
-  const missing = [...created].filter((table) => !listed.has(table) && !infrastructure.has(table)).sort();
+  // Tabelas introduzidas após o hardening criam tenant_id e RLS na própria
+  // migração; incluí-las na migração histórica faria o bootstrap falhar.
+  const laterTenantAware = new Set(["fidelidade_configuracoes", "fidelidade_lancamentos"]);
+  const missing = [...created].filter((table) => !listed.has(table) && !infrastructure.has(table) && !laterTenantAware.has(table)).sort();
   assert.deepEqual(missing, []);
+});
+
+test("fidelidade nasce isolada por empresa e com RLS", () => {
+  const loyalty = readFileSync(new URL("../supabase/migrations/20261008110000_customer_loyalty_program.sql", import.meta.url), "utf8");
+  assert.match(loyalty, /CREATE TABLE IF NOT EXISTS public\.fidelidade_configuracoes[\s\S]+tenant_id uuid NOT NULL/);
+  assert.match(loyalty, /CREATE TABLE IF NOT EXISTS public\.fidelidade_lancamentos[\s\S]+tenant_id uuid NOT NULL/);
+  assert.match(loyalty, /ALTER TABLE public\.fidelidade_configuracoes ENABLE ROW LEVEL SECURITY/);
+  assert.match(loyalty, /ALTER TABLE public\.fidelidade_lancamentos ENABLE ROW LEVEL SECURITY/);
 });
 
 test("migration remove policies antigas e recria isolamento, grants e auditoria", () => {

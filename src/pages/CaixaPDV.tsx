@@ -48,7 +48,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePrintOS } from "@/hooks/usePrintOS";
-import { useCreatePdvSale } from "@/hooks/usePdvPayments";
+import { useCreatePdvSale, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
 import { createPdvIdempotencyKey, type PdvPixPayment } from "@/lib/pdvPayment";
 
 interface CartItem {
@@ -103,6 +103,7 @@ const CaixaPDV = () => {
   const { clientes, isLoading: isLoadingClientes } = useClientes();
   const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto();
   const createPdvSale = useCreatePdvSale();
+  const redeemLoyalty = useRedeemPdvLoyalty();
   const { printROL, printEtiqueta } = usePrintOS();
   
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -331,7 +332,7 @@ const CaixaPDV = () => {
     try {
       const saleKey = saleIdempotencyRef.current ?? createPdvIdempotencyKey("sale");
       saleIdempotencyRef.current = saleKey;
-      const payment = !dados.pagoAgora || !dados.formaPagamento
+      const payment = !dados.pagoAgora || !dados.formaPagamento || dados.formaPagamento === "FIDELIDADE"
         ? null
         : dados.formaPagamento === "PIX"
           ? { method: "PIX" as const }
@@ -373,6 +374,20 @@ const CaixaPDV = () => {
       });
 
       setShowPagamentoModal(false);
+      if (dados.pagoAgora && dados.formaPagamento === "FIDELIDADE" && dados.pontosResgate) {
+        try {
+          const redeemed = await redeemLoyalty.mutateAsync({
+            orderId: result.order.id,
+            cashRegisterId: caixaAberto.id,
+            moment: "ENTRADA",
+            points: dados.pontosResgate,
+            idempotencyKey: `${saleKey}:loyalty`,
+          });
+          toast.success(`${dados.pontosResgate} pontos resgatados (${Number(redeemed.redeemedValue ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`);
+        } catch (loyaltyError) {
+          toast.error(loyaltyError instanceof Error ? loyaltyError.message : "A OS foi criada, mas não foi possível resgatar os pontos");
+        }
+      }
       if (dados.pagoAgora && dados.formaPagamento === "PIX") {
         if (result.pixError) toast.error(result.pixError);
         setPixContext({

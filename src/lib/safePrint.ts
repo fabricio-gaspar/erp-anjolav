@@ -28,13 +28,11 @@ export function securePrintHtml(html: string): string {
   return `${PRINT_SECURITY_META}${html}`;
 }
 
-export function openPrintDocument(
-  html: string,
+export function reservePrintWindow(
   features = "width=900,height=700,noopener,noreferrer",
 ): Window | null {
-  // Browsers may deliberately return null when `noopener` is passed to
-  // window.open(), even though the new window was created. For an about:blank
-  // print document, detach the opener synchronously before writing content.
+  // A print window must be reserved while the click event is still active.
+  // Opening it after an awaited data request is treated as a popup by browsers.
   const printableFeatures = features
     .split(",")
     .map((feature) => feature.trim())
@@ -44,9 +42,32 @@ export function openPrintDocument(
   if (!printWindow) return null;
 
   printWindow.opener = null;
+  return printWindow;
+}
+
+export function writePrintDocument(printWindow: Window, html: string): void {
   printWindow.document.open();
   printWindow.document.write(securePrintHtml(html));
   printWindow.document.close();
+}
+
+export function triggerPrint(printWindow: Window): void {
+  // Do not close immediately after print(): embedded browsers can return before
+  // the native dialog has sent the job to the Windows spooler.
+  window.setTimeout(() => {
+    if (printWindow.closed) return;
+    printWindow.focus();
+    printWindow.print();
+  }, 120);
+}
+
+export function openPrintDocument(
+  html: string,
+  features = "width=900,height=700,noopener,noreferrer",
+): Window | null {
+  const printWindow = reservePrintWindow(features);
+  if (!printWindow) return null;
+  writePrintDocument(printWindow, html);
   return printWindow;
 }
 

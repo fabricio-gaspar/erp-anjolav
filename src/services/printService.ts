@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ROLPreviewConfig, getFontFamily } from "@/components/configuracoes/ROLPreview";
 import { generateCode128BPattern } from "@/lib/code128";
-import { escapeHtml, openPrintDocument, safeHttpsUrl } from "@/lib/safePrint";
+import { escapeHtml, openPrintDocument, safeHttpsUrl, triggerPrint, writePrintDocument } from "@/lib/safePrint";
 
 // ===== INTERFACES =====
 
@@ -17,6 +17,14 @@ export interface PrintOSData {
   observacoes?: string;
   bloco?: string;
   posicao?: string;
+  fidelidade?: {
+    programaAtivo: boolean;
+    exibirRol: boolean;
+    saldoPontos: number;
+    valorSaldo: number;
+    pontosGanhosNestaOrdem: number;
+    pontosMinimosResgate: number;
+  };
 }
 
 export interface EtiquetaData {
@@ -130,6 +138,13 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       }
     }
 
+    type LoyaltyResponse = PrintOSData["fidelidade"];
+    const typedRpc = supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: LoyaltyResponse | null; error: unknown }>;
+    const { data: fidelidade } = await typedRpc("consultar_fidelidade_rol", { _ordem_servico_id: ordemServicoId });
+
     return {
       numero: ordem.numero,
       clienteNome: ordem.cliente?.razao_social || "Cliente",
@@ -142,6 +157,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       observacoes: ordem.observacoes || undefined,
       bloco,
       posicao,
+      fidelidade: fidelidade ?? undefined,
     };
   } catch (error) {
     console.error("Error fetching OS print data:", error);
@@ -184,6 +200,7 @@ export async function fetchROLConfig(): Promise<ROLPreviewConfig | null> {
       assinaturaCliente: data.assinatura_cliente ?? true,
       tipoPreco: data.tipo_preco ?? true,
       linhaDesconto: data.linha_desconto ?? true,
+      exibirFidelidade: data.exibir_fidelidade ?? true,
       textoRodape: data.texto_rodape || "Obrigado pela preferência!",
       margemSuperior: data.margem_superior || 10,
       margemLateral: data.margem_lateral || 8,
@@ -273,6 +290,7 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
         .totals { border-top: 1px dashed #666; padding-top: 8px; margin-bottom: 8px; }
         .total-row { display: flex; justify-content: space-between; font-size: 10px; }
         .grand-total { font-size: ${tamanhoTotal}px; font-weight: bold; color: ${corPrimaria}; margin-top: 4px; }
+        .loyalty { border: 1px dashed ${corSecundaria}; color: #444; font-size: 9px; margin-top: 8px; padding: 6px; text-align: center; }
         .obs { font-size: 9px; color: #666; }
         .bloco { font-size: 9px; text-align: center; color: #888; }
         .signature { padding-top: 20px; margin-bottom: 8px; }
@@ -324,6 +342,15 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
             <span>TOTAL:</span>
             <span>R$ ${data.valorTotal.toFixed(2)}</span>
           </div>
+        </div>
+      ` : ''}
+
+      ${config.exibirFidelidade && data.fidelidade?.programaAtivo && data.fidelidade.exibirRol ? `
+        <div class="loyalty">
+          <strong>FIDELIDADE</strong><br />
+          ${data.fidelidade.pontosGanhosNestaOrdem > 0 ? `Você ganhou ${Math.floor(data.fidelidade.pontosGanhosNestaOrdem)} pontos nesta compra.<br />` : ''}
+          Saldo: ${Math.floor(data.fidelidade.saldoPontos)} pontos (R$ ${Number(data.fidelidade.valorSaldo).toFixed(2)})
+          ${data.fidelidade.saldoPontos < data.fidelidade.pontosMinimosResgate ? `<br />Resgate a partir de ${Math.floor(data.fidelidade.pontosMinimosResgate)} pontos.` : ''}
         </div>
       ` : ''}
 
@@ -432,44 +459,44 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
 
 // ===== PRINT FUNCTIONS =====
 
-function openPrintWindow(html: string) {
-  const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
-  
-  if (printWindow) {
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
-    };
-  }
+function openPrintWindow(html: string, reservedWindow?: Window | null): boolean {
+  const printWindow = reservedWindow ?? openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
+  if (!printWindow) return false;
+  if (reservedWindow) writePrintDocument(printWindow, html);
+  triggerPrint(printWindow);
+  return true;
 }
 
-export async function printROLFromOS(ordemServicoId: string): Promise<boolean> {
+export async function printROLFromOS(ordemServicoId: string, reservedWindow?: Window | null): Promise<boolean> {
   const [config, osData] = await Promise.all([
     fetchROLConfig(),
     fetchOSPrintData(ordemServicoId),
   ]);
 
-  if (!config || !osData) return false;
+  if (!config || !osData) {
+    reservedWindow?.close();
+    return false;
+  }
 
   const html = generateROLHTMLWithData(config, osData);
-  openPrintWindow(html);
-  return true;
+  return openPrintWindow(html, reservedWindow);
 }
 
-export async function printEtiquetaFromOS(ordemServicoId: string): Promise<boolean> {
+export async function printEtiquetaFromOS(ordemServicoId: string, reservedWindow?: Window | null): Promise<boolean> {
   const [config, osData] = await Promise.all([
     fetchEtiquetaConfig(),
     fetchOSPrintData(ordemServicoId),
   ]);
 
-  if (!config || !osData) return false;
+  if (!config || !osData) {
+    reservedWindow?.close();
+    return false;
+  }
 
   // Generate one label per item type
   if (osData.itens.length > 0) {
     const html = generateMultipleItemLabelsHTML(config, osData);
-    openPrintWindow(html);
+    return openPrintWindow(html, reservedWindow);
   } else {
     const etiquetaData: EtiquetaData = {
       osNumero: osData.numero,
@@ -479,23 +506,25 @@ export async function printEtiquetaFromOS(ordemServicoId: string): Promise<boole
       data: osData.dataEmissao,
     };
     const html = generateEtiquetaHTMLWithData(config, etiquetaData);
-    openPrintWindow(html);
+    return openPrintWindow(html, reservedWindow);
   }
-  return true;
 }
 
-export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade: number): Promise<boolean> {
+export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade: number, reservedWindow?: Window | null): Promise<boolean> {
   const [config, osData] = await Promise.all([
     fetchEtiquetaConfig(),
     fetchOSPrintData(ordemServicoId),
   ]);
 
-  if (!config || !osData) return false;
+  if (!config || !osData) {
+    reservedWindow?.close();
+    return false;
+  }
 
   // Generate one label per item type (ignoring manual quantidade, using actual items)
   if (osData.itens.length > 0) {
     const html = generateMultipleItemLabelsHTML(config, osData);
-    openPrintWindow(html);
+    return openPrintWindow(html, reservedWindow);
   } else {
     // Fallback: single generic label
     const etiquetaData: EtiquetaData = {
@@ -506,9 +535,8 @@ export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade
       data: osData.dataEmissao,
     };
     const html = generateEtiquetaHTMLWithData(config, etiquetaData);
-    openPrintWindow(html);
+    return openPrintWindow(html, reservedWindow);
   }
-  return true;
 }
 
 // Generate a print page with one label per item type
