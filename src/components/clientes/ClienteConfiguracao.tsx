@@ -7,6 +7,7 @@ import { useConfiguracaoCliente } from "@/hooks/useClientes";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { gerarAgendamentosDoCliente, Frequencia } from "@/lib/agendamentoUtils";
+import { generatePortalAccessCode } from "@/lib/portalCode";
 import { useAgendamentosRecorrentes } from "@/hooks/useAgendamentosRecorrentes";
 
 interface ClienteConfiguracaoProps {
@@ -177,9 +178,9 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
   }, [clienteId]);
 
   const handleGerarCodigo = async () => {
-    const codigo = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const codigo = generatePortalAccessCode();
     const baseUrl = window.location.origin;
-    const link = `${baseUrl}/portal/${codigo}`;
+    const link = `${baseUrl}/portal/${encodeURIComponent(codigo)}`;
     setCodigoAcesso(codigo);
     setLinkAcesso(link);
 

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Info, Loader2, Building2, MessageSquare, CalendarDays } from "lucide-react";
 import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
-import { useConfiguracoesFiscais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
+import { useConfiguracoesFiscaisOperacionais, useDescricoesServicosFiscais } from "@/hooks/useConfiguracoesFiscais";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,7 @@ function diaFechamentoToTipo(dia: number | null): TipoFechamento {
 
 export const ClientePagamento = ({ clienteId, onBack, onSave }: ClientePagamentoProps) => {
   const { configuracao, isLoading, upsertConfiguracao } = useConfiguracaoPagamentoCliente(clienteId);
-  const { configuracoes: configuracoesFiscais, isLoading: isLoadingFiscal } = useConfiguracoesFiscais();
+  const { configuracoes: configuracoesFiscais, isLoading: isLoadingFiscal } = useConfiguracoesFiscaisOperacionais();
   const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
 
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null);

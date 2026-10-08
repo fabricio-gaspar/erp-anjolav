@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Package, Loader2, Send } from "lucide-react";
-import { useCreateLancamentoCliente } from "@/hooks/useLancamentoCliente";
+import { useCreatePortalLancamento } from "@/hooks/usePortalData";
 
 interface Produto {
   id: string;
@@ -39,16 +39,14 @@ interface ItemLancamento {
 interface LancarProdutosModalProps {
   open: boolean;
   onClose: () => void;
-  clienteId: string;
-  clienteNome: string;
+  accessCode: string;
   produtos: Produto[];
 }
 
 export const LancarProdutosModal = ({
   open,
   onClose,
-  clienteId,
-  clienteNome,
+  accessCode,
   produtos,
 }: LancarProdutosModalProps) => {
   const [itens, setItens] = useState<ItemLancamento[]>([]);
@@ -57,7 +55,7 @@ export const LancarProdutosModal = ({
   const [observacoesItem, setObservacoesItem] = useState<string>("");
   const [observacoesGerais, setObservacoesGerais] = useState<string>("");
 
-  const createLancamento = useCreateLancamentoCliente();
+  const createLancamento = useCreatePortalLancamento(accessCode);
 
   const handleAdicionarItem = () => {
     if (!produtoSelecionado || quantidade <= 0) return;
@@ -88,7 +86,6 @@ export const LancarProdutosModal = ({
     if (itens.length === 0) return;
 
     await createLancamento.mutateAsync({
-      cliente_id: clienteId,
       observacoes: observacoesGerais || undefined,
       itens: itens.map((item) => ({
         produto_id: item.produto_id,
@@ -147,6 +144,7 @@ export const LancarProdutosModal = ({
                   id="quantidade"
                   type="number"
                   min={1}
+                  max={100000}
                   value={quantidade}
                   onChange={(e) => setQuantidade(Number(e.target.value))}
                 />
@@ -160,6 +158,7 @@ export const LancarProdutosModal = ({
                 placeholder="Ex: manchas, avarias..."
                 value={observacoesItem}
                 onChange={(e) => setObservacoesItem(e.target.value)}
+                maxLength={250}
               />
             </div>
 
@@ -220,6 +219,7 @@ export const LancarProdutosModal = ({
               placeholder="Informações adicionais sobre este lançamento..."
               value={observacoesGerais}
               onChange={(e) => setObservacoesGerais(e.target.value)}
+              maxLength={500}
               rows={3}
             />
           </div>

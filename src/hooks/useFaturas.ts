@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export interface Fatura {
   id: string;
@@ -143,17 +144,30 @@ export interface FaturaUpdate {
   mensagem_enviada?: string | null;
 }
 
-export function useFaturas(periodoInicio?: string, periodoFim?: string) {
+export function useFaturas(periodoInicio?: string, periodoFim?: string, enabled = true) {
   const queryClient = useQueryClient();
+  const { activeArea } = useWorkspace();
+
+  const assertFaturaInScope = async (id: string) => {
+    if (activeArea === "central") return;
+    const { data, error } = await supabase
+      .from("faturas")
+      .select("id, cliente:clientes!inner(classificacao)")
+      .eq("id", id)
+      .eq("cliente.classificacao", activeArea)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error("Fatura não encontrada neste painel");
+  };
 
   const { data: faturas = [], isLoading, error } = useQuery({
-    queryKey: ["faturas", periodoInicio, periodoFim],
+    queryKey: ["faturas", activeArea, periodoInicio, periodoFim],
     queryFn: async () => {
       let query = supabase
         .from("faturas")
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .order("created_at", { ascending: false });
 
@@ -163,21 +177,35 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
       if (periodoFim) {
         query = query.lte("periodo_fim", periodoFim);
       }
+      if (activeArea !== "central") {
+        query = query.eq("cliente.classificacao", activeArea);
+      }
 
       const { data, error } = await query;
       if (error) throw error;
       return data as Fatura[];
     },
+    enabled,
   });
 
   const createFatura = useMutation({
     mutationFn: async (fatura: FaturaInsert) => {
+      if (activeArea !== "central") {
+        const { data: scopedClient, error: scopeError } = await supabase
+          .from("clientes")
+          .select("id")
+          .eq("id", fatura.cliente_id)
+          .eq("classificacao", activeArea)
+          .maybeSingle();
+        if (scopeError) throw scopeError;
+        if (!scopedClient) throw new Error("Cliente não encontrado neste painel");
+      }
       const { data, error } = await supabase
         .from("faturas")
         .insert(fatura)
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .single();
       if (error) throw error;
@@ -185,7 +213,6 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["faturas"] });
-      toast.success("Fatura criada com sucesso!");
     },
     onError: (error) => {
       toast.error("Erro ao criar fatura: " + error.message);
@@ -194,13 +221,14 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
 
   const updateFatura = useMutation({
     mutationFn: async ({ id, ...updates }: FaturaUpdate & { id: string }) => {
+      await assertFaturaInScope(id);
       const { data, error } = await supabase
         .from("faturas")
         .update(updates)
         .eq("id", id)
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .single();
       if (error) throw error;
@@ -217,6 +245,7 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
 
   const deleteFatura = useMutation({
     mutationFn: async (id: string) => {
+      await assertFaturaInScope(id);
       const { error } = await supabase.from("faturas").delete().eq("id", id);
       if (error) throw error;
     },
@@ -259,18 +288,20 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string) {
 }
 
 export function useFaturaById(faturaId: string | null) {
+  const { activeArea } = useWorkspace();
   return useQuery({
-    queryKey: ["fatura", faturaId],
+    queryKey: ["fatura", faturaId, activeArea],
     queryFn: async () => {
       if (!faturaId) return null;
-      const { data, error } = await supabase
+      let query = supabase
         .from("faturas")
         .select(`
           *,
-          cliente:clientes(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
-        .eq("id", faturaId)
-        .maybeSingle();
+        .eq("id", faturaId);
+      if (activeArea !== "central") query = query.eq("cliente.classificacao", activeArea);
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data as Fatura | null;
     },

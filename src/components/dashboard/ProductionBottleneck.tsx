@@ -21,8 +21,9 @@ export function ProductionBottleneck({ items, recommendation }: ProductionBottle
         <h3 className="font-semibold text-sm text-slate-800">Gargalos de Produção</h3>
       </div>
 
-      <div className="mt-3 space-y-3">
-        {items.map((item, index) => (
+      {items.length > 0 ? (
+        <div className="mt-3 space-y-3">
+          {items.map((item, index) => (
           <div key={index} className="space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -41,8 +42,11 @@ export function ProductionBottleneck({ items, recommendation }: ProductionBottle
             </div>
             <Progress value={item.percentage} className="h-1.5" />
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="py-6 text-center text-xs text-slate-400">Nenhuma OS aberta por etapa</p>
+      )}
 
       {recommendation && (
         <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-100">

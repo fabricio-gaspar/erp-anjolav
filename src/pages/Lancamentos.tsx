@@ -17,17 +17,19 @@ const Lancamentos = () => {
   const lancamentosPendentes = todosLancamentosPendentes.filter((l: any) => l.cliente?.classificacao === "industrial");
 
   useEffect(() => {
-    const newParams = new URLSearchParams(searchParams);
-    if (activeTab !== "novo") newParams.set("tab", activeTab);
-    else newParams.delete("tab");
-    setSearchParams(newParams, { replace: true });
-  }, [activeTab]);
+    setSearchParams((currentParams) => {
+      const newParams = new URLSearchParams(currentParams);
+      if (activeTab !== "novo") newParams.set("tab", activeTab);
+      else newParams.delete("tab");
+      return newParams;
+    }, { replace: true });
+  }, [activeTab, setSearchParams]);
 
   useEffect(() => {
     if (tabFromUrl && ["novo", "pendentes", "faturas", "historico"].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
-  }, []);
+  }, [tabFromUrl]);
 
   return (
     <AppLayout title="Lançamentos" subtitle="Registre a produção diária e gerencie o faturamento">

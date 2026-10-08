@@ -75,23 +75,51 @@ export function useConfirmarRetiradaAgendamento() {
           origem: activeArea,
           agendamento_id: agendamento.id,
           observacoes: agendamento.observacoes,
-        } as never)
+        })
         .select("id, numero")
         .single();
       if (errOs) throw errOs;
 
-      const { error: errAgenda } = await supabase
+      const { data: agendaAtualizada, error: errAgenda } = await supabase
         .from("agendamentos")
         .update({ status: "realizado" })
-        .eq("id", agendamento.id);
-      if (errAgenda) throw errAgenda;
+        .eq("id", agendamento.id)
+        .eq("status", agendamento.status)
+        .select("id")
+        .maybeSingle();
+      if (errAgenda || !agendaAtualizada) {
+        const { error: rollbackError } = await supabase
+          .from("ordens_servico")
+          .delete()
+          .eq("id", os.id);
+        if (rollbackError) console.error("Falha ao remover OS após conflito no agendamento");
+        throw errAgenda ?? new Error("Este agendamento já foi processado por outro usuário");
+      }
 
-      await supabase.from("historico_producao").insert({
+      const { error: errHistorico } = await supabase.from("historico_producao").insert({
         ordem_servico_id: os.id,
         etapa_anterior: null,
         etapa_nova: "separacao",
         observacoes: "Retirada confirmada via Fluxo de Produção — enviado direto para Separação",
       });
+      if (errHistorico) {
+        const [agendaRollback, osRollback] = await Promise.all([
+          supabase
+            .from("agendamentos")
+            .update({ status: agendamento.status })
+            .eq("id", agendamento.id)
+            .eq("status", "realizado"),
+          supabase.from("ordens_servico").delete().eq("id", os.id),
+        ]);
+        if (agendaRollback.error || osRollback.error) {
+          console.error("Falha ao compensar confirmação incompleta de retirada", {
+            agenda: Boolean(agendaRollback.error),
+            ordem: Boolean(osRollback.error),
+          });
+          throw new Error("A retirada ficou inconsistente e requer revisão administrativa");
+        }
+        throw errHistorico;
+      }
 
       return os;
     },

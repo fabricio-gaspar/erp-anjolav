@@ -92,9 +92,12 @@ export function ImpressaoPosVendaModal({
           valor: formatCurrency(valorTotal),
           previsao: previsaoFormatada,
           totalPecas: totalPecas.toString(),
+          ordem_servico_id: osId,
         });
         if (enviado) {
-          toast.success("WhatsApp aberto com o comprovante!");
+          toast.success("WhatsApp confirmado pela Evolution API!");
+        } else {
+          toast.error("A Evolution API não confirmou o envio do WhatsApp");
         }
       }
     } catch (error) {

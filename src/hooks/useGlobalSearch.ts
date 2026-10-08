@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export interface GlobalSearchResult {
   id: string;
@@ -10,10 +12,12 @@ export interface GlobalSearchResult {
 }
 
 export const useGlobalSearch = (term: string) => {
+  const { activeTenant } = useAuth();
+  const { activeArea } = useWorkspace();
   const trimmed = term.trim();
   return useQuery({
-    queryKey: ["global-search", trimmed],
-    enabled: trimmed.length >= 2,
+    queryKey: ["global-search", activeTenant?.id, activeArea, trimmed],
+    enabled: !!activeTenant && trimmed.length >= 2,
     staleTime: 30_000,
     queryFn: async (): Promise<GlobalSearchResult[]> => {
       const t = `%${trimmed}%`;
@@ -26,36 +30,37 @@ export const useGlobalSearch = (term: string) => {
       ]);
 
       const out: GlobalSearchResult[] = [];
+      const operationalArea = activeArea === "central" ? "industrial" : activeArea;
 
       clientes.data?.forEach((c: any) => out.push({
         id: c.id, type: "cliente",
         label: c.razao_social || c.nome_fantasia || "Cliente",
         sublabel: c.cpf_cnpj || undefined,
-        route: `/clientes?id=${c.id}`,
+        route: `/${operationalArea}/clientes?id=${c.id}`,
       }));
       produtos.data?.forEach((p: any) => out.push({
         id: p.id, type: "produto",
         label: p.nome,
         sublabel: p.codigo || undefined,
-        route: `/produtos?id=${p.id}`,
+        route: `/${operationalArea}/produtos?id=${p.id}`,
       }));
       fornecedores.data?.forEach((f: any) => out.push({
         id: f.id, type: "fornecedor",
         label: f.nome,
         sublabel: f.cnpj_cpf || undefined,
-        route: `/fornecedores?id=${f.id}`,
+        route: `/industrial/fornecedores?id=${f.id}`,
       }));
       ordens.data?.forEach((o: any) => out.push({
         id: o.id, type: "ordem",
         label: `OS ${o.numero}`,
         sublabel: o.cliente?.razao_social,
-        route: `/ordens?id=${o.id}`,
+        route: `/${operationalArea}/ordens?id=${o.id}`,
       }));
       lancamentos.data?.forEach((l: any) => out.push({
         id: l.id, type: "lancamento",
         label: l.numero_rol,
         sublabel: l.cliente?.razao_social,
-        route: `/lancamentos?id=${l.id}`,
+        route: `/industrial/lancamentos?id=${l.id}`,
       }));
 
       return out;

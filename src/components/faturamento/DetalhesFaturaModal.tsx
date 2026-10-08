@@ -36,6 +36,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import type { Fatura } from "@/hooks/useFaturas";
 import { cn } from "@/lib/utils";
+import { safeHttpsUrl } from "@/lib/safePrint";
 
 interface DetalhesFaturaModalProps {
   open: boolean;
@@ -76,6 +77,8 @@ export function DetalhesFaturaModal({
   };
 
   const statusConfig = getStatusConfig(fatura.status);
+  const nfPdfUrl = safeHttpsUrl(fatura.link_pdf_nf);
+  const boletoUrl = safeHttpsUrl(fatura.boleto_url);
 
   const itensSnapshot = (fatura.itens_snapshot as Array<{
     id: string;
@@ -282,9 +285,9 @@ export function DetalhesFaturaModal({
                     </p>
                   </div>
                 )}
-                {fatura.link_pdf_nf && (
+                {nfPdfUrl && (
                   <Button variant="outline" size="sm" className="mt-2 gap-2" asChild>
-                    <a href={fatura.link_pdf_nf} target="_blank" rel="noopener noreferrer">
+                    <a href={nfPdfUrl} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="w-3 h-3" />
                       Abrir PDF da NF
                     </a>
@@ -336,9 +339,9 @@ export function DetalhesFaturaModal({
                         <Copy className="w-3 h-3" />
                       </Button>
                     </div>
-                    {fatura.boleto_url && (
+                    {boletoUrl && (
                       <Button variant="outline" size="sm" className="gap-2" asChild>
-                        <a href={fatura.boleto_url} target="_blank" rel="noopener noreferrer">
+                        <a href={boletoUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="w-3 h-3" />
                           Abrir Boleto
                         </a>

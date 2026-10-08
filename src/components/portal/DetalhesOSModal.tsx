@@ -160,11 +160,6 @@ export function DetalhesOSModal({ open, onOpenChange, ordem }: DetalhesOSModalPr
                           <p className="text-xs text-muted-foreground">
                             {format(new Date(h.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                           </p>
-                          {h.funcionario?.nome && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Por: {h.funcionario.nome}
-                            </p>
-                          )}
                         </div>
                       </div>
                     );

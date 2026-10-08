@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { OSConferencia } from "./useConferenciaProducao";
+import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 
 export const useFilteredConferenciaProducao = (periodo?: { inicio: Date; fim: Date }, statusFiltro?: string) => {
   const { activeArea } = useWorkspace();
@@ -33,11 +34,8 @@ export const useFilteredConferenciaProducao = (periodo?: { inicio: Date; fim: Da
         .neq("status", "retirada")
         .order("created_at", { ascending: false });
 
-      if (activeArea === "industrial") {
-        query = query.eq("origem", "industrial");
-      } else if (activeArea === "residencial") {
-        query = query.eq("origem", "residencial");
-      }
+      const allowedOrigins = getAllowedOrderOrigins(activeArea);
+      if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
 
       if (periodo?.inicio) {
         query = query.gte("data_retirada", periodo.inicio.toISOString().split("T")[0]);

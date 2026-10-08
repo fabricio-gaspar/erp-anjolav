@@ -36,7 +36,6 @@ export function useSidebarContext() {
   if (context === undefined) {
     if (import.meta.env.DEV) {
       // Mantém o alerta para facilitar debug, mas sem quebrar a UI.
-      // eslint-disable-next-line no-console
       console.warn("useSidebarContext foi chamado fora de <SidebarProvider>. Usando fallback.");
     }
 

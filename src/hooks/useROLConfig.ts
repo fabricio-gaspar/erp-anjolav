@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface ROLConfig {
   id: string;
@@ -29,6 +30,7 @@ export interface ROLConfig {
   assinatura_cliente: boolean | null;
   tipo_preco: boolean | null;
   linha_desconto: boolean | null;
+  exibir_fidelidade: boolean | null;
   texto_rodape: string | null;
   created_at: string;
   updated_at: string;
@@ -60,6 +62,7 @@ export interface ROLConfigUpdate {
   assinatura_cliente?: boolean;
   tipo_preco?: boolean;
   linha_desconto?: boolean;
+  exibir_fidelidade?: boolean;
   texto_rodape?: string;
 }
 
@@ -116,12 +119,14 @@ export const useUpdateROLConfig = () => {
 export const useUploadLogo = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { activeTenant } = useAuth();
 
   return useMutation({
     mutationFn: async (file: File) => {
+      if (!activeTenant) throw new Error("Empresa ativa não identificada");
       const fileExt = file.name.split('.').pop();
       const fileName = `logo-${Date.now()}.${fileExt}`;
-      const filePath = `logos/${fileName}`;
+      const filePath = `${activeTenant.id}/logos/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('company-assets')

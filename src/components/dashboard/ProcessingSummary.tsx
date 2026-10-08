@@ -31,7 +31,9 @@ export function ProcessingSummary({ items }: ProcessingSummaryProps) {
         <span className="text-xs text-slate-400 ml-auto">{items.length} itens</span>
       </div>
 
-      <div className="overflow-x-auto mt-3">
+      {items.length === 0 ? (
+        <p className="py-6 text-center text-xs text-slate-400">Nenhuma OS em processamento</p>
+      ) : <div className="overflow-x-auto mt-3">
         <table className="data-table">
           <thead>
             <tr>
@@ -97,7 +99,7 @@ export function ProcessingSummary({ items }: ProcessingSummaryProps) {
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
     </div>
   );
 }

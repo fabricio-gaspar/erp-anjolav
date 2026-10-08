@@ -10,7 +10,18 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+backup/
 *.local
+*.tsbuildinfo
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+!supabase/.env.example
+supabase/.env.production
+supabase/.temp/
+ops/release-evidence.json
 
 # Editor directories and files
 .vscode/*

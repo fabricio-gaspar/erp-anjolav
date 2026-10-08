@@ -125,7 +125,7 @@ const ForgotPassword = () => {
         </Card>
 
         <p className="text-center text-xs text-white/60 mt-6">
-          © 2024 AnjoLav. Todos os direitos reservados.
+            © {new Date().getFullYear()} AnjoLav. Todos os direitos reservados.
         </p>
       </div>
     </div>

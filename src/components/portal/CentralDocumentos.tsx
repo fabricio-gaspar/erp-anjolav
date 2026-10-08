@@ -19,6 +19,7 @@ import type { FaturaPortal } from "@/hooks/usePortalData";
 interface CentralDocumentosProps {
   faturas: FaturaPortal[];
   isLoading: boolean;
+  accessCode: string;
   clienteNome?: string;
   empresaNome?: string;
   logoUrl?: string;
@@ -40,6 +41,7 @@ function getStatusFatura(status: string) {
 export function CentralDocumentos({ 
   faturas, 
   isLoading, 
+  accessCode,
   clienteNome = "",
   empresaNome,
   logoUrl 
@@ -260,6 +262,7 @@ export function CentralDocumentos({
           open={!!modalRelatorio}
           onOpenChange={() => setModalRelatorio(null)}
           fatura={modalRelatorio}
+          accessCode={accessCode}
           clienteNome={clienteNome}
           empresaNome={empresaNome}
           logoUrl={logoUrl}

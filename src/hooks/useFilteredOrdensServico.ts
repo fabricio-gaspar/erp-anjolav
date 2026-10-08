@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { OrdemServico } from "./useOrdensServico";
+import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 
 export const useFilteredOrdensServico = () => {
   const { activeArea } = useWorkspace();
@@ -19,19 +20,13 @@ export const useFilteredOrdensServico = () => {
         `)
         .order("created_at", { ascending: false });
 
-      // Filter based on workspace area and client classification
-      if (activeArea === "industrial") {
-        // Only industrial orders
-        query = query.eq("origem", "industrial");
-      } else if (activeArea === "residencial") {
-        // Only residential orders
-        query = query.eq("origem", "residencial");
-      }
+      const allowedOrigins = getAllowedOrderOrigins(activeArea);
+      if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
 
       const { data, error } = await query;
       if (error) throw error;
       
-      return data as any[];
+      return data as OrdemServico[];
     },
   });
 };

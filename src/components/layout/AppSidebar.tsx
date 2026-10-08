@@ -124,7 +124,11 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compac
   const toggle = () => {
     setIsOpen((prev) => {
       const next = !prev;
-      try { window.localStorage.setItem(storageKey, next ? "1" : "0"); } catch {}
+      try {
+        window.localStorage.setItem(storageKey, next ? "1" : "0");
+      } catch {
+        // Browsers may deny storage in private or embedded contexts.
+      }
       return next;
     });
   };

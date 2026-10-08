@@ -109,6 +109,7 @@ export type Database = {
           customer_name: string
           description: string
           due_date: string
+          external_reference: string | null
           id: string
           invoice_url: string | null
           paid_at: string | null
@@ -131,6 +132,7 @@ export type Database = {
           customer_name: string
           description: string
           due_date: string
+          external_reference?: string | null
           id?: string
           invoice_url?: string | null
           paid_at?: string | null
@@ -153,6 +155,7 @@ export type Database = {
           customer_name?: string
           description?: string
           due_date?: string
+          external_reference?: string | null
           id?: string
           invoice_url?: string | null
           paid_at?: string | null
@@ -191,25 +194,37 @@ export type Database = {
           charge_id: string | null
           event_type: string
           id: string
+          attempt_count: number
+          last_error: string | null
           payload: Json
           payment_id: string | null
-          processed_at: string
+          processed_at: string | null
+          processing_status: string
+          received_at: string
         }
         Insert: {
           charge_id?: string | null
           event_type: string
           id?: string
+          attempt_count?: number
+          last_error?: string | null
           payload: Json
           payment_id?: string | null
-          processed_at?: string
+          processed_at?: string | null
+          processing_status?: string
+          received_at?: string
         }
         Update: {
           charge_id?: string | null
           event_type?: string
           id?: string
+          attempt_count?: number
+          last_error?: string | null
           payload?: Json
           payment_id?: string | null
-          processed_at?: string
+          processed_at?: string | null
+          processing_status?: string
+          received_at?: string
         }
         Relationships: [
           {
@@ -292,9 +307,11 @@ export type Database = {
           cliente_id: string | null
           created_at: string
           descricao: string | null
+          evento_pagamento: string | null
           forma_pagamento: string | null
           id: string
           ordem_servico_id: string | null
+          pdv_pagamento_id: string | null
           tipo: string
           valor: number
         }
@@ -305,9 +322,11 @@ export type Database = {
           cliente_id?: string | null
           created_at?: string
           descricao?: string | null
+          evento_pagamento?: string | null
           forma_pagamento?: string | null
           id?: string
           ordem_servico_id?: string | null
+          pdv_pagamento_id?: string | null
           tipo: string
           valor: number
         }
@@ -318,9 +337,11 @@ export type Database = {
           cliente_id?: string | null
           created_at?: string
           descricao?: string | null
+          evento_pagamento?: string | null
           forma_pagamento?: string | null
           id?: string
           ordem_servico_id?: string | null
+          pdv_pagamento_id?: string | null
           tipo?: string
           valor?: number
         }
@@ -358,6 +379,13 @@ export type Database = {
             columns: ["ordem_servico_id"]
             isOneToOne: false
             referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caixa_movimentacoes_pdv_pagamento_id_fkey"
+            columns: ["pdv_pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "pdv_pagamentos"
             referencedColumns: ["id"]
           },
         ]
@@ -1326,6 +1354,68 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fidelidade_configuracoes: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          pontos_minimos_resgate: number
+          reais_por_ponto: number
+          tenant_id: string
+          updated_at: string
+          valor_minimo_acumulo: number
+          valor_por_ponto: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          pontos_minimos_resgate?: number
+          reais_por_ponto?: number
+          tenant_id: string
+          updated_at?: string
+          valor_minimo_acumulo?: number
+          valor_por_ponto?: number
+        }
+        Update: {
+          ativo?: boolean
+          pontos_minimos_resgate?: number
+          reais_por_ponto?: number
+          valor_minimo_acumulo?: number
+          valor_por_ponto?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fidelidade_lancamentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          criado_por: string | null
+          descricao: string
+          id: string
+          idempotency_key: string
+          ordem_servico_id: string | null
+          pontos: number
+          tenant_id: string
+          tipo: string
+          valor_referencia: number | null
+        }
+        Insert: {
+          cliente_id: string
+          criado_por?: string | null
+          descricao: string
+          id?: string
+          idempotency_key: string
+          ordem_servico_id?: string | null
+          pontos: number
+          tenant_id: string
+          tipo: string
+          valor_referencia?: number | null
+        }
+        Update: never
+        Relationships: []
       }
       folha_beneficios: {
         Row: {
@@ -2676,6 +2766,7 @@ export type Database = {
           observacoes: string | null
           origem: string
           pago_na_entrada: boolean | null
+          pdv_idempotency_key: string | null
           percentual_urgencia: number | null
           prioridade: string | null
           status: string
@@ -2701,6 +2792,7 @@ export type Database = {
           observacoes?: string | null
           origem?: string
           pago_na_entrada?: boolean | null
+          pdv_idempotency_key?: string | null
           percentual_urgencia?: number | null
           prioridade?: string | null
           status?: string
@@ -2726,6 +2818,7 @@ export type Database = {
           observacoes?: string | null
           origem?: string
           pago_na_entrada?: boolean | null
+          pdv_idempotency_key?: string | null
           percentual_urgencia?: number | null
           prioridade?: string | null
           status?: string
@@ -2840,6 +2933,119 @@ export type Database = {
             columns: ["rota_id"]
             isOneToOne: false
             referencedRelation: "rotas_entrega"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pdv_pagamentos: {
+        Row: {
+          asaas_charge_id: string | null
+          bandeira: string | null
+          caixa_id: string | null
+          cancelado_em: string | null
+          cliente_id: string
+          codigo_autorizacao: string | null
+          confirmado_em: string | null
+          created_at: string
+          criado_por: string | null
+          id: string
+          idempotency_key: string
+          metadata: Json
+          metodo: string
+          momento: string
+          nsu: string | null
+          ordem_servico_id: string
+          parcelas: number
+          provedor: string
+          provedor_pagamento_id: string | null
+          status: string
+          status_provedor: string | null
+          troco: number
+          updated_at: string
+          valor: number
+          valor_recebido: number | null
+        }
+        Insert: {
+          asaas_charge_id?: string | null
+          bandeira?: string | null
+          caixa_id?: string | null
+          cancelado_em?: string | null
+          cliente_id: string
+          codigo_autorizacao?: string | null
+          confirmado_em?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          idempotency_key: string
+          metadata?: Json
+          metodo: string
+          momento?: string
+          nsu?: string | null
+          ordem_servico_id: string
+          parcelas?: number
+          provedor: string
+          provedor_pagamento_id?: string | null
+          status?: string
+          status_provedor?: string | null
+          troco?: number
+          updated_at?: string
+          valor: number
+          valor_recebido?: number | null
+        }
+        Update: {
+          asaas_charge_id?: string | null
+          bandeira?: string | null
+          caixa_id?: string | null
+          cancelado_em?: string | null
+          cliente_id?: string
+          codigo_autorizacao?: string | null
+          confirmado_em?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          idempotency_key?: string
+          metadata?: Json
+          metodo?: string
+          momento?: string
+          nsu?: string | null
+          ordem_servico_id?: string
+          parcelas?: number
+          provedor?: string
+          provedor_pagamento_id?: string | null
+          status?: string
+          status_provedor?: string | null
+          troco?: number
+          updated_at?: string
+          valor?: number
+          valor_recebido?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdv_pagamentos_asaas_charge_id_fkey"
+            columns: ["asaas_charge_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_charges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdv_pagamentos_caixa_id_fkey"
+            columns: ["caixa_id"]
+            isOneToOne: false
+            referencedRelation: "caixas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdv_pagamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdv_pagamentos_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
             referencedColumns: ["id"]
           },
         ]
@@ -2998,6 +3204,7 @@ export type Database = {
           created_at: string
           email: string | null
           endereco: string | null
+          exibir_fidelidade: boolean
           exibir_logo: boolean | null
           fonte_principal: string | null
           id: string
@@ -3029,6 +3236,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           endereco?: string | null
+          exibir_fidelidade?: boolean
           exibir_logo?: boolean | null
           fonte_principal?: string | null
           id?: string
@@ -3060,6 +3268,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           endereco?: string | null
+          exibir_fidelidade?: boolean
           exibir_logo?: boolean | null
           fonte_principal?: string | null
           id?: string
@@ -3274,6 +3483,43 @@ export type Database = {
       }
     }
     Functions: {
+      avancar_etapa_producao: {
+        Args: {
+          _dados_formulario: Json
+          _etapa_esperada: string
+          _funcionario_id: string | null
+          _itens?: Json
+          _observacoes: string | null
+          _ordem_servico_id: string
+          _proxima_etapa: string
+        }
+        Returns: Json
+      }
+      cancelar_ordem_servico: {
+        Args: { _motivo: string; _ordem_servico_id: string }
+        Returns: Json
+      }
+      cancelar_intencao_pagamento_pdv: {
+        Args: { _pagamento_id: string; _status_provedor: string }
+        Returns: Json
+      }
+      criar_venda_pdv: {
+        Args: {
+          _caixa_id: string
+          _cliente_id: string
+          _criado_por: string
+          _data_previsao_entrega: string
+          _idempotency_key: string
+          _itens: Json
+          _motorista_id: string | null
+          _pagamento: Json | null
+          _percentual_urgencia: number
+          _urgente: boolean
+          _valor_desconto: number
+          _veiculo_id: string | null
+        }
+        Returns: Json
+      }
       get_employee_email_by_login: {
         Args: { p_login: string }
         Returns: {
@@ -3282,6 +3528,14 @@ export type Database = {
         }[]
       }
       get_funcionario_for_user: { Args: { _user_id: string }; Returns: string }
+      get_fiscal_configs_for_operations: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      get_my_tenant_context: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       has_area_access: {
         Args: { _area: string; _user_id: string }
         Returns: boolean
@@ -3292,6 +3546,49 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      reconciliar_pagamento_pdv: {
+        Args: {
+          _asaas_charge_id: string
+          _confirmado_em: string | null
+          _evento: string
+          _status_provedor: string
+        }
+        Returns: Json
+      }
+      registrar_intencao_pix_pdv: {
+        Args: {
+          _asaas_charge_id: string
+          _caixa_id: string
+          _criado_por: string
+          _idempotency_key: string
+          _momento: string
+          _ordem_servico_id: string
+          _provedor_pagamento_id: string
+          _status_provedor: string
+        }
+        Returns: Json
+      }
+      registrar_pagamento_pdv: {
+        Args: {
+          _bandeira: string | null
+          _caixa_id: string
+          _codigo_autorizacao: string | null
+          _criado_por: string
+          _idempotency_key: string
+          _metodo: string
+          _momento: string
+          _nsu: string | null
+          _ordem_servico_id: string
+          _parcelas: number
+          _valor: number
+          _valor_recebido: number | null
+        }
+        Returns: Json
+      }
+      switch_active_tenant: {
+        Args: { _tenant_id: string }
+        Returns: Json
       }
     }
     Enums: {

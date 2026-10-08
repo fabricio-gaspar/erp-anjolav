@@ -65,6 +65,7 @@ interface LocalROLConfig {
   assinaturaCliente: boolean;
   tipoPreco: boolean;
   linhaDesconto: boolean;
+  exibirFidelidade: boolean;
   textoRodape: string;
 }
 
@@ -94,6 +95,7 @@ const defaultConfig: LocalROLConfig = {
   assinaturaCliente: true,
   tipoPreco: true,
   linhaDesconto: true,
+  exibirFidelidade: true,
   textoRodape: "",
 };
 
@@ -137,6 +139,7 @@ export function ConfiguracoesROL() {
         assinaturaCliente: dbConfig.assinatura_cliente ?? defaultConfig.assinaturaCliente,
         tipoPreco: dbConfig.tipo_preco ?? defaultConfig.tipoPreco,
         linhaDesconto: dbConfig.linha_desconto ?? defaultConfig.linhaDesconto,
+        exibirFidelidade: dbConfig.exibir_fidelidade ?? defaultConfig.exibirFidelidade,
         textoRodape: dbConfig.texto_rodape || defaultConfig.textoRodape,
       });
     }
@@ -178,6 +181,7 @@ export function ConfiguracoesROL() {
         assinatura_cliente: config.assinaturaCliente,
         tipo_preco: config.tipoPreco,
         linha_desconto: config.linhaDesconto,
+        exibir_fidelidade: config.exibirFidelidade,
         texto_rodape: config.textoRodape,
       }
     });
@@ -386,7 +390,7 @@ export function ConfiguracoesROL() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Exibir logo no ROL</Label>
-              <Switch 
+              <Switch
                 checked={config.exibirLogo}
                 onCheckedChange={(checked) => updateLocalConfig("exibirLogo", checked)}
               />
@@ -470,6 +474,7 @@ export function ConfiguracoesROL() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                      <SelectItem value="epson_tm_t20x">Epson TM-T20X (térmica 80 mm)</SelectItem>
                     <SelectItem value="termica">Térmica (Bobina)</SelectItem>
                     <SelectItem value="matricial">Matricial</SelectItem>
                     <SelectItem value="jato">Jato de Tinta</SelectItem>
@@ -477,6 +482,12 @@ export function ConfiguracoesROL() {
                 </Select>
               </div>
             </div>
+
+              {config.tipoImpressora === "epson_tm_t20x" && (
+                <p className="rounded-md border border-primary/30 bg-primary/5 p-2 text-xs text-muted-foreground">
+                  Use bobina de 80 mm. Ao imprimir o ROL, selecione “EPSON TM-T20X” na janela de impressão do Windows e mantenha a escala em 100%.
+                </p>
+              )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -571,7 +582,7 @@ export function ConfiguracoesROL() {
           <div className="grid grid-cols-3 gap-x-8 gap-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm text-amber-600">Previsão de Entrega</Label>
-              <Switch 
+              <Switch
                 checked={config.previsaoEntrega}
                 onCheckedChange={(checked) => updateLocalConfig("previsaoEntrega", checked)}
               />
@@ -610,6 +621,16 @@ export function ConfiguracoesROL() {
               <Switch 
                 checked={config.linhaDesconto}
                 onCheckedChange={(checked) => updateLocalConfig("linhaDesconto", checked)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm text-primary">Informativo de fidelidade</Label>
+                <p className="text-xs text-muted-foreground">Mostra pontos ganhos e saldo no ROL quando o programa estiver ativo.</p>
+              </div>
+              <Switch
+                checked={config.exibirFidelidade}
+                onCheckedChange={(checked) => updateLocalConfig("exibirFidelidade", checked)}
               />
             </div>
           </div>

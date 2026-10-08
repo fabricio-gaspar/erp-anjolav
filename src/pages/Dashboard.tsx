@@ -1,57 +1,58 @@
-import { AppLayout } from "@/components/layout/AppLayout";
-import { KPICard } from "@/components/dashboard/KPICard";
-import { FinanceCard } from "@/components/dashboard/FinanceCard";
-import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
-import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
-import { DailySchedule } from "@/components/dashboard/DailySchedule";
-import { useRotasEntregaMutations } from "@/hooks/useRotasEntrega";
-import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
-import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
-import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
-import { ContratosVencendoCard } from "@/components/dashboard/ContratosVencendoCard";
-import { InadimplenciaCard } from "@/components/dashboard/InadimplenciaCard";
-import { NFsPendentesCard } from "@/components/dashboard/NFsPendentesCard";
-import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
-import { RolsLojaCard } from "@/components/dashboard/RolsLojaCard";
-import { EventosDoDiaCard } from "@/components/dashboard/EventosDoDiaCard";
-import { FeriasProximasCard } from "@/components/dashboard/FeriasProximasCard";
-import { OperationalCosts } from "@/components/dashboard/OperationalCosts";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  FileText,
-  AlertCircle, 
-  Users, 
-  Shirt, 
-  TrendingUp, 
-  TrendingDown, 
-  Loader2,
-  ShoppingCart,
-  ArrowDownCircle,
+  AlertCircle,
+  CircleAlert,
   DollarSign,
-  Truck,
+  FileText,
+  Loader2,
   Package,
-  Calendar,
-  ShieldCheck,
-  Settings,
-  Factory,
-  CreditCard,
+  RefreshCw,
+  Shirt,
+  ShoppingCart,
+  Truck,
+  Users,
+  type LucideIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { useMetricasProducao, useAgendaDia, useResumoProcessamento } from "@/hooks/useHistoricoProducao";
-import { useMetricasProducaoAvancadas } from "@/hooks/useHistoricoProducaoResumo";
-import { useContasPagar } from "@/hooks/useContasPagar";
-import { useCaixaAberto } from "@/hooks/useCaixa";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
-import { useMetricasFinanceirasResumo } from "@/hooks/useMetricasFinanceiras";
-import { useFaturas } from "@/hooks/useFaturas";
-import { format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
+import {
+  endOfMonth,
+  format,
+  formatDistanceToNow,
+  isBefore,
+  isValid,
+  parseISO,
+  startOfDay,
+  startOfMonth,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+
+import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
+import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
+import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
+import { DailySchedule } from "@/components/dashboard/DailySchedule";
+import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
+import { EventosDoDiaCard } from "@/components/dashboard/EventosDoDiaCard";
+import { FinanceCard, type FinanceItem } from "@/components/dashboard/FinanceCard";
+import { InadimplenciaCard } from "@/components/dashboard/InadimplenciaCard";
+import { KPICard } from "@/components/dashboard/KPICard";
+import { NFsPendentesCard } from "@/components/dashboard/NFsPendentesCard";
+import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
+import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
+import { RolsLojaCard } from "@/components/dashboard/RolsLojaCard";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Button } from "@/components/ui/button";
+import { useWorkspace, type WorkspaceArea } from "@/contexts/WorkspaceContext";
+import { useCaixaAberto } from "@/hooks/useCaixa";
+import { useContasPagar } from "@/hooks/useContasPagar";
+import { useFaturas } from "@/hooks/useFaturas";
+import {
+  useAgendaDia,
+  useMetricasProducao,
+  useResumoProcessamento,
+} from "@/hooks/useHistoricoProducao";
+import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { cn } from "@/lib/utils";
 
 const etapaLabels: Record<string, string> = {
   retirada: "Retirado",
@@ -60,23 +61,89 @@ const etapaLabels: Record<string, string> = {
   secagem: "Secagem",
   passadoria: "Passadoria",
   embalagem: "Embalagem",
-  expedicao: "Pronto Entrega",
+  expedicao: "Pronto para entrega",
   entregue: "Entregue",
 };
 
+const areaLabels: Record<WorkspaceArea, { title: string; subtitle: string }> = {
+  central: {
+    title: "Painel Central",
+    subtitle: "Visão consolidada das operações autorizadas.",
+  },
+  industrial: {
+    title: "Painel Industrial",
+    subtitle: "Indicadores restritos à operação industrial.",
+  },
+  residencial: {
+    title: "Painel Residencial",
+    subtitle: "Indicadores restritos à operação residencial e loja.",
+  },
+};
+
+interface DashboardKpi {
+  title: string;
+  value: string | number;
+  icon: LucideIcon;
+  iconColor: "primary" | "success" | "warning" | "destructive" | "info";
+  subtitle: string;
+}
+
+interface ProcessingOrder {
+  numero?: string | null;
+  status?: string | null;
+  data_previsao_entrega?: string | null;
+  data_retirada?: string | null;
+  cliente?: { razao_social?: string | null } | null;
+  historico?: Array<{
+    created_at?: string | null;
+    dados_formulario?: unknown;
+  }> | null;
+  itens?: Array<{
+    quantidade?: number | string | null;
+    produto?: {
+      peso_medio_kg?: number | string | null;
+      tempo_processo_min?: number | string | null;
+    } | null;
+  }> | null;
+}
+
+interface AgendaRecord {
+  id: string;
+  horario?: string | null;
+  status?: string | null;
+  pronto_entrega?: boolean | null;
+  os_numero?: string | null;
+  cliente?: { razao_social?: string | null } | null;
+}
+
+function asFiniteNumber(value: unknown): number {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function readNumericField(value: unknown, field: string): number {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return 0;
+  return asFiniteNumber((value as Record<string, unknown>)[field]);
+}
+
+function parseDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const parsed = parseISO(value);
+  return isValid(parsed) ? parsed : null;
+}
+
+function getScheduleStatus(status: string | null | undefined) {
+  if (status === "realizado") return "completed" as const;
+  if (status === "confirmado" || status === "em_andamento") return "in_progress" as const;
+  return "pending" as const;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
-  const { data: metricasFin } = useMetricasFinanceirasResumo();
-  const { metricas, isLoading: isLoadingMetricas } = useMetricasProducao();
-  const { retiradas, entregas, isLoading: isLoadingAgenda } = useAgendaDia();
-  const { osEmProcessamento, isLoading: isLoadingResumo } = useResumoProcessamento();
-  const { data: metricasAvancadas } = useMetricasProducaoAvancadas();
-  const { contas: contasPagar } = useContasPagar();
-  const { data: caixaAberto } = useCaixaAberto();
-  const { faturas } = useFaturas();
-  const { createRota, addParada } = useRotasEntregaMutations();
-  const [isGeneratingRoute, setIsGeneratingRoute] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(() => new Date());
 
   const temFinanceiro = useTemPermissaoModulo("faturamento");
   const temContasPagar = useTemPermissaoModulo("contas_pagar");
@@ -87,590 +154,459 @@ const Dashboard = () => {
   const temProdutos = useTemPermissaoModulo("produtos");
   const temCaixa = useTemPermissaoModulo("caixa");
 
-  const isLoading = isLoadingMetricas || isLoadingAgenda || isLoadingResumo;
+  const metricasEnabled = temOrdens || temAgenda || temClientes || temProducao;
+  const contasEnabled = activeArea === "central" && temContasPagar;
+  const caixaEnabled = activeArea !== "industrial" && temCaixa;
 
-  const handleGenerateRoute = async (tipo: "retirada" | "entrega") => {
-    const hoje = new Date().toISOString().split("T")[0];
-    const agendamentos = tipo === "retirada" ? retiradas : entregas;
-    
-    if (!agendamentos || agendamentos.length === 0) {
-      toast.error("Nenhum agendamento para gerar rota");
-      return;
-    }
+  const {
+    metricas,
+    isLoading: isLoadingMetricas,
+    error: metricasError,
+  } = useMetricasProducao(metricasEnabled);
+  const {
+    retiradas,
+    entregas,
+    isLoading: isLoadingAgenda,
+    error: agendaError,
+  } = useAgendaDia(temAgenda);
+  const {
+    osEmProcessamento,
+    isLoading: isLoadingResumo,
+    error: resumoError,
+  } = useResumoProcessamento(temOrdens || temProducao);
+  const {
+    contas: contasPagar,
+    isLoading: isLoadingContas,
+    error: contasError,
+  } = useContasPagar(contasEnabled);
+  const {
+    data: caixaAberto,
+    isLoading: isLoadingCaixa,
+    error: caixaError,
+  } = useCaixaAberto(caixaEnabled);
+  const {
+    faturas,
+    isLoading: isLoadingFaturas,
+    error: faturasError,
+  } = useFaturas(undefined, undefined, temFinanceiro);
 
-    setIsGeneratingRoute(true);
-    try {
-      // Get motorista from first agendamento that has one
-      const motoristaId = (agendamentos.find((a: any) => (a as any).motorista_id) as any)?.motorista_id || null;
+  const isLoading =
+    isLoadingMetricas ||
+    isLoadingAgenda ||
+    isLoadingResumo ||
+    isLoadingContas ||
+    isLoadingCaixa ||
+    isLoadingFaturas;
 
-      // Create the route
-      const rota = await createRota.mutateAsync({
-        data: hoje,
-        motorista_id: motoristaId,
-        status: "planejada",
-        observacoes: `Rota gerada automaticamente - ${tipo === "retirada" ? "Retiradas" : "Entregas"} do dia`,
-      });
+  const failedSources = [
+    metricasError && "indicadores operacionais",
+    agendaError && "agenda",
+    resumoError && "produção",
+    contasError && "contas a pagar",
+    caixaError && "caixa",
+    faturasError && "faturamento",
+  ].filter((source): source is string => Boolean(source));
 
-      // Create stops for each agendamento
-      for (let i = 0; i < agendamentos.length; i++) {
-        const ag = agendamentos[i] as any;
-        await addParada.mutateAsync({
-          rota_id: rota.id,
-          ordem: i + 1,
-          tipo: tipo,
-          cliente_id: ag.cliente_id,
-          agendamento_id: ag.id,
-          observacoes: ag.observacoes || null,
-        });
-      }
+  const hoje = startOfDay(new Date());
+  const inicioMes = format(startOfMonth(hoje), "yyyy-MM-dd");
+  const fimMes = format(endOfMonth(hoje), "yyyy-MM-dd");
 
-      toast.success(`Rota de ${tipo === "retirada" ? "retiradas" : "entregas"} criada com ${agendamentos.length} parada(s)!`);
-      navigate("/agenda");
-    } catch (error: any) {
-      toast.error("Erro ao gerar rota: " + error.message);
-    } finally {
-      setIsGeneratingRoute(false);
-    }
-  };
+  const faturasValidas = faturas.filter((fatura) => String(fatura.status) !== "cancelado");
+  const faturasDoMes = faturasValidas.filter(
+    (fatura) => fatura.periodo_inicio <= fimMes && fatura.periodo_fim >= inicioMes,
+  );
+  const totalFaturadoMes = faturasDoMes.reduce(
+    (total, fatura) => total + asFiniteNumber(fatura.valor_total),
+    0,
+  );
 
-  const formatCurrency = (v: number) =>
-    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const faturasPendentes = faturasValidas.filter((fatura) => fatura.status !== "pago");
+  const totalContasReceber = faturasPendentes.reduce(
+    (total, fatura) => total + asFiniteNumber(fatura.valor_total),
+    0,
+  );
+  const receberItems: FinanceItem[] = faturasPendentes.map((fatura) => {
+    const vencimento = parseDate(fatura.data_vencimento ?? fatura.periodo_fim);
+    return {
+      id: fatura.id,
+      status: vencimento && isBefore(startOfDay(vencimento), hoje) ? "vencida" : "a_vencer",
+      clientName: fatura.cliente?.razao_social || "Cliente sem nome",
+      value: asFiniteNumber(fatura.valor_total),
+      dueDate: vencimento ? format(vencimento, "dd/MM/yyyy") : "Sem vencimento",
+    };
+  });
 
-  const contasPendentes = contasPagar.filter((c) => c.status === "pendente");
-  const totalContasPagar = contasPendentes.reduce((acc, c) => acc + Number(c.valor), 0);
+  const contasPendentes = contasPagar.filter((conta) =>
+    ["pendente", "parcial", "vencido"].includes(conta.status),
+  );
+  const totalContasPagar = contasPendentes.reduce(
+    (total, conta) =>
+      total + Math.max(0, asFiniteNumber(conta.valor) - asFiniteNumber(conta.valor_pago)),
+    0,
+  );
+  const pagarItems: FinanceItem[] = contasPendentes.map((conta) => {
+    const vencimento = parseDate(conta.vencimento);
+    return {
+      id: conta.id,
+      status:
+        conta.status === "vencido" || (vencimento && isBefore(startOfDay(vencimento), hoje))
+          ? "vencida"
+          : "a_vencer",
+      clientName: conta.fornecedor || conta.descricao,
+      value: Math.max(0, asFiniteNumber(conta.valor) - asFiniteNumber(conta.valor_pago)),
+      dueDate: vencimento ? format(vencimento, "dd/MM/yyyy") : "Sem vencimento",
+    };
+  });
 
-  const faturasPendentes = (faturas || []).filter((f) => f.status === "pendente" || f.status === "nota_emitida" || f.status === "enviado");
-  const totalContasReceber = faturasPendentes.reduce((acc, f) => acc + Number(f.valor_total), 0);
-
-  const kpis = [
-    ...(temOrdens ? [{
-      title: "OS em Aberto",
-      value: metricas?.osEmAberto || 0,
-      icon: FileText,
-      iconColor: "primary" as const,
-    }] : []),
-    ...(temAgenda ? [{
-      title: "Entregas Atrasadas",
-      value: metricas?.entregasAtrasadas || 0,
-      icon: AlertCircle,
-      iconColor: "destructive" as const,
-    }] : []),
-    ...(temClientes ? [{
-      title: "Clientes Ativos",
-      value: metricas?.clientesAtivos || 0,
-      icon: Users,
-      iconColor: "info" as const,
-    }] : []),
-    ...(temProducao ? [{
-      title: "Peças Processadas Hoje",
-      value: metricas?.pecasProcessadasHoje || 0,
-      icon: Shirt,
-      iconColor: "success" as const,
-    }] : []),
-    ...(temCaixa ? [{
-      title: "Caixa",
-      value: caixaAberto ? "Aberto" : "Fechado",
-      icon: ShoppingCart,
-      iconColor: caixaAberto ? "success" as const : "warning" as const,
-    }] : []),
-    ...(temCaixa && caixaAberto ? [{
-      title: "Vendas Hoje",
-      value: formatCurrency(caixaAberto.valor_vendas || 0),
-      icon: TrendingUp,
-      iconColor: "success" as const,
-    }] : []),
-    ...(temCaixa && caixaAberto ? [{
-      title: "Sangrias",
-      value: formatCurrency(caixaAberto.valor_sangrias || 0),
-      icon: ArrowDownCircle,
-      iconColor: "destructive" as const,
-    }] : []),
-    ...(temCaixa && caixaAberto ? [{
-      title: "Saldo Esperado",
-      value: formatCurrency(caixaAberto.valor_esperado || 0),
-      icon: DollarSign,
-      iconColor: "info" as const,
-    }] : []),
+  const kpis: DashboardKpi[] = [
+    ...(temFinanceiro && !faturasError
+      ? [{
+          title: "Faturas do mês",
+          value: totalFaturadoMes.toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+          }),
+          icon: DollarSign,
+          iconColor: "success" as const,
+          subtitle: "Períodos que abrangem o mês atual",
+        }]
+      : []),
+    ...(temOrdens && !metricasError
+      ? [{
+          title: "OS em aberto",
+          value: metricas?.osEmAberto ?? 0,
+          icon: FileText,
+          iconColor: "primary" as const,
+          subtitle: "Sem entregues e canceladas",
+        }]
+      : []),
+    ...(temAgenda && !metricasError
+      ? [{
+          title: "Entregas atrasadas",
+          value: metricas?.entregasAtrasadas ?? 0,
+          icon: AlertCircle,
+          iconColor: "destructive" as const,
+          subtitle: "Prazo anterior a hoje",
+        }]
+      : []),
+    ...(temClientes && !metricasError
+      ? [{
+          title: "Clientes ativos",
+          value: metricas?.clientesAtivos ?? 0,
+          icon: Users,
+          iconColor: "info" as const,
+          subtitle: "Com OS nos últimos 30 dias",
+        }]
+      : []),
+    ...(temProducao && !metricasError
+      ? [{
+          title: "Peças registradas hoje",
+          value: metricas?.pecasProcessadasHoje ?? 0,
+          icon: Shirt,
+          iconColor: "success" as const,
+          subtitle: "Quantidade inserida em itens de OS",
+        }]
+      : []),
+    ...(temAgenda && !agendaError
+      ? [
+          {
+            title: "Retiradas do dia",
+            value: retiradas.length,
+            icon: Truck,
+            iconColor: "primary" as const,
+            subtitle: "Agendamentos no escopo atual",
+          },
+          {
+            title: "Entregas do dia",
+            value: entregas.length,
+            icon: Package,
+            iconColor: "warning" as const,
+            subtitle: "Agendadas ou prontas para entrega",
+          },
+        ]
+      : []),
+    ...(caixaEnabled && !caixaError
+      ? [{
+          title: "Caixa da loja",
+          value: caixaAberto ? "Aberto" : "Fechado",
+          icon: ShoppingCart,
+          iconColor: caixaAberto ? ("success" as const) : ("warning" as const),
+          subtitle: caixaAberto ? "Sessão de caixa em andamento" : "Nenhuma sessão aberta",
+        }]
+      : []),
   ];
 
-  const gargalos = metricas?.gargalos || {};
-  const totalGargalos = Object.values(gargalos).reduce((a, b) => a + b, 0);
+  const gargalos = metricas?.gargalos ?? {};
+  const totalGargalos = Object.values(gargalos).reduce((total, count) => total + count, 0);
   const bottleneckItems = Object.entries(gargalos)
     .filter(([, count]) => count > 0)
     .map(([stage, count]) => ({
       stage: etapaLabels[stage] || stage,
       osCount: count,
       piecesCount: 0,
-      avgTime: metricasAvancadas?.mediaTempoPorEtapa?.[stage] || "-",
+      avgTime: "N/D",
       percentage: totalGargalos > 0 ? Math.round((count / totalGargalos) * 100) : 0,
     }))
     .sort((a, b) => b.osCount - a.osCount);
 
-  const processingItems: ProcessingItem[] = osEmProcessamento.slice(0, 5).map((os: any) => {
-    const ultimoHistorico = os.historico?.[os.historico.length - 1];
-    const tempoNaEtapa = ultimoHistorico
-      ? formatDistanceToNow(new Date(ultimoHistorico.created_at), { locale: ptBR })
-      : "-";
+  const processingItems: ProcessingItem[] = (osEmProcessamento as unknown as ProcessingOrder[])
+    .slice(0, 5)
+    .map((ordem) => {
+      const historico = ordem.historico ?? [];
+      const ultimoHistorico = historico.reduce<(typeof historico)[number] | null>(
+        (latest, entry) => {
+          if (!latest) return entry;
+          return String(entry.created_at) > String(latest.created_at) ? entry : latest;
+        },
+        null,
+      );
+      const inicioEtapa = parseDate(ultimoHistorico?.created_at);
+      const tempoNaEtapa = inicioEtapa
+        ? formatDistanceToNow(inicioEtapa, { locale: ptBR })
+        : "Não registrado";
 
-    let quantidadePecasHistorico = 0;
-    (os.historico || []).forEach((h: any) => {
-      const dados = h.dados_formulario || {};
-      if (dados.quantidade_pecas) quantidadePecasHistorico = dados.quantidade_pecas;
-    });
+      const quantidadeHistorico = historico.reduce(
+        (quantity, entry) =>
+          readNumericField(entry.dados_formulario, "quantidade_pecas") || quantity,
+        0,
+      );
+      const itens = ordem.itens ?? [];
+      const quantidadeItens = itens.reduce(
+        (total, item) => total + asFiniteNumber(item.quantidade),
+        0,
+      );
+      const pesoEstimado = itens.reduce(
+        (total, item) =>
+          total + asFiniteNumber(item.quantidade) * asFiniteNumber(item.produto?.peso_medio_kg),
+        0,
+      );
+      const tempoProcessoMin = itens.reduce(
+        (total, item) =>
+          total + asFiniteNumber(item.quantidade) * asFiniteNumber(item.produto?.tempo_processo_min),
+        0,
+      );
 
-    let pecasItens = 0;
-    let pesoEstimado = 0;
-    let tempoTotalProcessoMin = 0;
-    
-    (os.itens || []).forEach((item: any) => {
-      const qtd = Number(item.quantidade) || 0;
-      pecasItens += qtd;
-      if (item.produto?.peso_medio_kg) pesoEstimado += qtd * Number(item.produto.peso_medio_kg);
-      if (item.produto?.tempo_processo_min) tempoTotalProcessoMin += qtd * Number(item.produto.tempo_processo_min);
-    });
-
-    const pecasFinal = quantidadePecasHistorico || pecasItens;
-
-    let previsaoTexto: string | undefined;
-    let dataPrevisaoCalc: Date | null = null;
-    
-    if (os.data_previsao_entrega) {
-      dataPrevisaoCalc = new Date(os.data_previsao_entrega);
-      previsaoTexto = format(dataPrevisaoCalc, "dd/MM", { locale: ptBR });
-    } else if (os.data_retirada && tempoTotalProcessoMin > 0) {
-      const dataRetirada = new Date(os.data_retirada);
-      const horasProcesso = Math.ceil(tempoTotalProcessoMin / 60);
-      const diasProcesso = Math.max(1, Math.ceil(horasProcesso / 8));
-      dataPrevisaoCalc = new Date(dataRetirada);
-      dataPrevisaoCalc.setDate(dataPrevisaoCalc.getDate() + diasProcesso);
-      previsaoTexto = format(dataPrevisaoCalc, "dd/MM", { locale: ptBR }) + " (est.)";
-    }
-
-    let status: "on_time" | "delayed" | "at_risk" = "on_time";
-    if (dataPrevisaoCalc) {
-      const hoje = startOfDay(new Date());
-      if (isBefore(dataPrevisaoCalc, hoje)) {
-        status = "delayed";
-      } else {
-        const diffDias = Math.ceil((dataPrevisaoCalc.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDias <= 1) status = "at_risk";
+      let previsao = parseDate(ordem.data_previsao_entrega);
+      let previsaoEstimada = false;
+      if (!previsao && ordem.data_retirada && tempoProcessoMin > 0) {
+        const retirada = parseDate(ordem.data_retirada);
+        if (retirada) {
+          previsao = new Date(retirada);
+          previsao.setDate(previsao.getDate() + Math.max(1, Math.ceil(tempoProcessoMin / 480)));
+          previsaoEstimada = true;
+        }
       }
-    }
 
-    return {
-      clientName: os.cliente?.razao_social || "Cliente",
-      osNumero: os.numero,
-      currentStage: etapaLabels[os.status] || os.status,
-      timeInStage: tempoNaEtapa,
-      expectedDate: previsaoTexto,
-      status,
-      quantidadePecas: pecasFinal || undefined,
-      pesoKg: pesoEstimado > 0 ? Math.round(pesoEstimado * 10) / 10 : undefined,
-    };
-  });
+      let status: ProcessingItem["status"] = "on_time";
+      if (previsao) {
+        const diasRestantes = Math.ceil(
+          (startOfDay(previsao).getTime() - hoje.getTime()) / (24 * 60 * 60 * 1000),
+        );
+        if (diasRestantes < 0) status = "delayed";
+        else if (diasRestantes <= 1) status = "at_risk";
+      }
 
-  const retiradasAgenda = retiradas.map((r: any) => ({
-    id: r.id,
-    clientName: r.cliente?.razao_social || "Cliente",
-    time: r.horario || undefined,
-    status: r.status === "confirmado" ? ("completed" as const) : ("pending" as const),
+      return {
+        clientName: ordem.cliente?.razao_social || "Cliente sem nome",
+        osNumero: ordem.numero || undefined,
+        currentStage: etapaLabels[String(ordem.status)] || String(ordem.status || "Não informado"),
+        timeInStage: tempoNaEtapa,
+        expectedDate: previsao
+          ? `${format(previsao, "dd/MM")}${previsaoEstimada ? " (estimada)" : ""}`
+          : undefined,
+        status,
+        quantidadePecas: quantidadeHistorico || quantidadeItens || undefined,
+        pesoKg: pesoEstimado > 0 ? Math.round(pesoEstimado * 10) / 10 : undefined,
+      };
+    });
+
+  const retiradasAgenda = (retiradas as unknown as AgendaRecord[]).map((retirada) => ({
+    id: retirada.id,
+    clientName: retirada.cliente?.razao_social || "Cliente sem nome",
+    time: retirada.horario || undefined,
+    status: getScheduleStatus(retirada.status),
   }));
 
-  const entregasAgenda = entregas.map((e: any) => ({
-    id: e.id,
-    clientName: e.cliente?.razao_social || "Cliente",
-    time: e.horario || undefined,
-    status: e.pronto_entrega ? ("in_progress" as const) : ("pending" as const),
-    prontoEntrega: e.pronto_entrega || false,
-    osNumero: e.os_numero || null,
+  const entregasAgenda = (entregas as unknown as AgendaRecord[]).map((entrega) => ({
+    id: entrega.id,
+    clientName: entrega.cliente?.razao_social || "Cliente sem nome",
+    time: entrega.horario || undefined,
+    status: entrega.pronto_entrega ? ("in_progress" as const) : getScheduleStatus(entrega.status),
+    prontoEntrega: Boolean(entrega.pronto_entrega),
+    osNumero: entrega.os_numero || null,
   }));
 
   const maiorGargalo = bottleneckItems[0];
   const recommendation = maiorGargalo
-    ? `A etapa "${maiorGargalo.stage}" está com ${maiorGargalo.osCount} OS. Considere realocar recursos ou priorizar esta fase.`
-    : "Produção fluindo normalmente.";
+    ? `A etapa “${maiorGargalo.stage}” concentra ${maiorGargalo.osCount} OS abertas.`
+    : "Nenhuma OS aberta foi identificada no escopo atual.";
+
+  const financePath = `/${activeArea}/financeiro`;
+  const ordersPath = activeArea === "central" ? null : `/${activeArea}/ordens`;
+  const agendaPath =
+    activeArea === "central" ? "/central/agenda-eventos" : `/${activeArea}/agenda`;
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries();
+      setLastUpdated(new Date());
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (isLoading) {
     return (
-      <AppLayout title="Dashboard" subtitle="Visão consolidada">
-        <div className="flex items-center justify-center py-12">
+      <AppLayout title={areaLabels[activeArea].title} subtitle={areaLabels[activeArea].subtitle}>
+        <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <span className="ml-2 text-muted-foreground">Carregando dashboard...</span>
+          <span className="ml-2 text-muted-foreground">Carregando dados autorizados…</span>
         </div>
       </AppLayout>
     );
   }
 
   return (
-    <AppLayout title="Dashboard" subtitle="Visão consolidada e auditável das operações industrial e residencial.">
-      <div className="space-y-4 sm:space-y-8">
-        {/* Top Section with Main Title and Refresh */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-slate-100">
+    <AppLayout title={areaLabels[activeArea].title} subtitle={areaLabels[activeArea].subtitle}>
+      <div className="space-y-5 sm:space-y-8">
+        <section className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-3 px-1">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-[#10b981] shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" />
-              <span className="text-[11px] font-black uppercase tracking-[0.25em] text-[#10b981]">DADOS AO VIVO</span>
-              <span className="text-[10px] font-black text-slate-400/70 tracking-widest ml-1">ATUALIZADO ÀS {format(new Date(), "HH:mm")}</span>
-            </div>
-            <h1 className="text-[54px] font-black text-[#0f172a] tracking-tightest leading-[0.85] uppercase px-1">Painel Central</h1>
-          </div>
-
-          <div className="flex items-center gap-2 mb-1">
-            <div className="flex p-1 bg-slate-100/80 rounded-xl border border-slate-200/50">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className={cn(
-                  "h-8 text-[11px] font-black uppercase tracking-wider px-5 rounded-lg transition-all",
-                  activeArea === 'central' ? "bg-white text-[#0f172a] shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-                onClick={() => navigate('/central')}
-              >
-                Central
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className={cn(
-                  "h-8 text-[11px] font-black uppercase tracking-wider px-5 rounded-lg transition-all",
-                  activeArea === 'industrial' ? "bg-white text-[#0f172a] shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-                onClick={() => navigate('/industrial')}
-              >
-                Industrial
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className={cn(
-                  "h-8 text-[11px] font-black uppercase tracking-wider px-5 rounded-lg transition-all",
-                  activeArea === 'residencial' ? "bg-white text-[#0f172a] shadow-sm" : "text-slate-500 hover:text-slate-700"
-                )}
-                onClick={() => navigate('/residencial')}
-              >
-                Residencial
-              </Button>
-            </div>
-            <Button variant="outline" size="sm" className="h-10 px-5 gap-2 bg-white border-slate-200 shadow-sm hover:bg-slate-50 transition-colors" onClick={() => window.location.reload()}>
-              <Loader2 className={cn("w-4 h-4 text-slate-400", isLoading && "animate-spin")} />
-              <span className="font-black text-[11px] uppercase tracking-wider text-slate-700">Sincronizar</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Main KPIs Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4">
-          {temFinanceiro && (
-            <KPICard
-              title="FATURAMENTO DO MÊS"
-              value={formatCurrency(metricasFin?.receitas || 0)}
-              icon={DollarSign}
-              iconColor="success"
-              subtitle="FATURAS DO PERÍODO, SEM CANCELADAS"
-            />
-          )}
-          {temOrdens && (
-            <KPICard
-              title="OPERAÇÕES EM ANDAMENTO"
-              value={metricas?.osEmAberto || 0}
-              icon={Shirt}
-              iconColor="info"
-              subtitle="0 INDUSTRIAL · 1 RESIDENCIAL"
-            />
-          )}
-          {temAgenda && (
-            <KPICard
-              title="COLETAS DO DIA"
-              value={retiradas.length}
-              icon={Truck}
-              iconColor="primary"
-              subtitle="AGENDAMENTOS DE RETIRADA DE HOJE"
-            />
-          )}
-          {temAgenda && (
-            <KPICard
-              title="ENTREGAS PENDENTES"
-              value={entregas.length}
-              icon={Package}
-              iconColor="warning"
-              subtitle="EXPEDIÇÃO OU PRAZO VENCIDO"
-            />
-          )}
-          {temClientes && (
-            <KPICard
-              title="CLIENTES ATIVOS"
-              value={metricas?.clientesAtivos || 0}
-              icon={Users}
-              iconColor="primary"
-              subtitle="0 INDUSTRIAL · 1 RESIDENCIAL"
-            />
-          )}
-          {temProducao && (
-            <KPICard
-              title="EFICIÊNCIA OPERACIONAL"
-              value="—"
-              icon={TrendingUp}
-              iconColor="success"
-              subtitle="SEM ENTREGAS CONCLUÍDAS NO MÊS"
-            />
-          )}
-        </div>
-
-        {/* Workspace Operations Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5">
-          {/* Industrial Quick View */}
-          <div className="bg-white p-7 border border-slate-200/60 rounded-[24px] shadow-sm transition-all hover:shadow-md">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 className="text-2xl font-black text-[#0f172a] tracking-tight uppercase">Industrial</h3>
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-1">Visão da operação industrial</p>
-              </div>
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-2 font-black py-1.5 px-4 rounded-lg shadow-sm">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Operação estável
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-4 gap-6 mb-10">
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">OS HOJE</p>
-                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">EM ANDAMENTO</p>
-                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">COLETAS HOJE</p>
-                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">{retiradas.filter((r:any) => r.origem === 'industrial').length}</p>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">FATURAMENTO MÊS</p>
-                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">R$ 0,00</p>
-              </div>
-            </div>
-
-            <div className="h-32 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex items-center justify-center">
-              <p className="text-sm text-slate-400">Sem novas operações nos últimos 7 dias</p>
-            </div>
-
-            <Button 
-              variant="link" 
-              className="mt-4 p-0 h-auto text-primary font-black gap-1 text-sm ml-auto block"
-              onClick={() => navigate('/industrial')}
-            >
-              Abrir painel industrial →
-            </Button>
-          </div>
-
-          {/* Residencial Quick View */}
-          <div className="bg-white p-7 border border-slate-200/60 rounded-[24px] shadow-sm transition-all hover:shadow-md">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 className="text-2xl font-black text-[#0f172a] tracking-tight uppercase">Residencial</h3>
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-1">Visão da operação residencial</p>
-              </div>
-              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-2 font-black py-1.5 px-4 rounded-lg shadow-sm">
-                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                Requer atenção
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-4 gap-6 mb-10">
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">PEDIDOS HOJE</p>
-                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">0</p>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">EM ANDAMENTO</p>
-                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">1</p>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">COLETAS HOJE</p>
-                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">{retiradas.filter((r:any) => r.origem === 'residencial').length}</p>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">FATURAMENTO MÊS</p>
-                <p className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-none">R$ 0,00</p>
-              </div>
-            </div>
-
-            <div className="h-32 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex items-center justify-center">
-              <p className="text-sm text-slate-400">Sem novas operações nos últimos 7 dias</p>
-            </div>
-
-            <Button 
-              variant="link" 
-              className="mt-4 p-0 h-auto text-primary font-black gap-1 text-sm ml-auto block"
-              onClick={() => navigate('/residencial')}
-            >
-              Abrir painel residencial →
-            </Button>
-          </div>
-        </div>
-
-        {/* Riscos Operacionais */}
-        <div className="card-base p-6 shadow-md border-slate-200/60">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Riscos operacionais industriais</h3>
-            <Button variant="link" className="p-0 h-auto text-primary font-black text-sm" onClick={() => navigate('/industrial')}>
-              Abrir gestão industrial →
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <Factory className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-[10.5px] font-extrabold text-emerald-700/60 uppercase tracking-[0.08em]">Disponibilidade</p>
-                <p className="text-2xl font-black text-emerald-700 tracking-tighter">98.4%</p>
-              </div>
-            </div>
-
-            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex items-center gap-4">
-              <div className="w-12 h-12 bg-slate-500 rounded-xl flex items-center justify-center shadow-lg shadow-slate-500/10">
-                <Settings className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-[10.5px] font-extrabold text-slate-600/60 uppercase tracking-[0.08em]">Manutenção</p>
-                <p className="text-2xl font-black text-slate-700 tracking-tighter">2 Ativas</p>
-              </div>
-            </div>
-
-            <div className="p-5 bg-sky-50 rounded-2xl border border-sky-100 flex items-center gap-4">
-              <div className="w-12 h-12 bg-sky-500 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/20">
-                <ShieldCheck className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-[10.5px] font-extrabold text-sky-700/60 uppercase tracking-[0.08em]">Qualidade</p>
-                <p className="text-2xl font-black text-sky-700 tracking-tighter">99.2%</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Novas operações por dia (Gráfico) */}
-        <div className="card-base p-6 shadow-md border-slate-200/60">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Novas operações por dia</h3>
-          </div>
-          <div className="h-64 flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-            <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-sm">
-              <TrendingUp className="w-8 h-8 text-slate-300" />
-            </div>
-            <p className="text-sm font-black text-slate-700">Sem novas operações nos últimos 7 dias</p>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm text-center px-6">
-              O gráfico será preenchido automaticamente quando novas OS e pedidos forem registrados.
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              Dados persistidos · última atualização {format(lastUpdated, "HH:mm")}
             </p>
+            <h1 className="px-1 text-3xl font-black uppercase leading-none tracking-tight text-slate-900 sm:text-5xl">
+              {areaLabels[activeArea].title}
+            </h1>
           </div>
-        </div>
 
-        {/* Resumo consolidado de operações recentes */}
-        <div className="card-base p-6 shadow-md border-slate-200/60">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Resumo consolidado de operações recentes</h3>
+          <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1">
+            <div className="flex shrink-0 rounded-xl border border-slate-200/50 bg-slate-100/80 p-1">
+              {(["central", "industrial", "residencial"] as const).map((area) => (
+                <Button
+                  key={area}
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-8 rounded-lg px-3 text-[11px] font-black uppercase tracking-wider transition-all sm:px-5",
+                    activeArea === area
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700",
+                  )}
+                  onClick={() => navigate(`/${area}`)}
+                  aria-current={activeArea === area ? "page" : undefined}
+                >
+                  {area === "central" ? "Central" : area === "industrial" ? "Industrial" : "Residencial"}
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 shrink-0 gap-2 bg-white px-4"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              <span className="text-[11px] font-black uppercase tracking-wider">
+                {isRefreshing ? "Atualizando" : "Atualizar"}
+              </span>
+            </Button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Código</th>
-                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Cliente</th>
-                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Unidade</th>
-                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Status</th>
-                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Previsão</th>
-                  <th className="pb-4 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-[0.08em]">Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-slate-50/50 hover:bg-slate-50/50 transition-colors">
-                  <td className="py-4 text-sm font-black text-slate-700">2026-000001</td>
-                  <td className="py-4 text-sm font-medium text-slate-600">SILVANA MORAES - AIRBNB</td>
-                  <td className="py-4 text-sm font-medium text-slate-600">Residencial</td>
-                  <td className="py-4">
-                    <Badge className="bg-sky-100 text-sky-700 border-none font-black text-[10px] px-2 py-0.5">Recebido</Badge>
-                  </td>
-                  <td className="py-4 text-sm font-medium text-slate-600">20/07/2026</td>
-                  <td className="py-4 text-sm font-black text-slate-900">R$ 24,00</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </section>
 
-        {/* Bottom Section: Alerts, Agenda, Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="card-base p-6 shadow-md border-slate-200/60">
-            <h3 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Alertas e pendências</h3>
-            <div className="space-y-4">
-              <div className="flex items-start gap-4 p-4 bg-rose-50 rounded-2xl border border-rose-100 shadow-sm">
-                <div className="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-rose-500/20">
-                  <AlertCircle className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-extrabold text-slate-900">Pedidos residenciais com prazo vencido</p>
-                  <p className="text-[11px] font-black text-rose-600 mt-0.5">1 operação exige acompanhamento</p>
-                </div>
+        {failedSources.length > 0 && (
+          <div
+            className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
+            role="alert"
+          >
+            <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+            <div>
+              <p className="font-semibold text-destructive">Algumas fontes não puderam ser atualizadas.</p>
+              <p className="mt-1 text-muted-foreground">
+                Dados indisponíveis: {failedSources.join(", ")}. Os indicadores afetados foram ocultados para não exibir zero como resultado real.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {kpis.length > 0 ? (
+          <section aria-label="Indicadores principais" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {kpis.map((kpi) => (
+              <KPICard key={kpi.title} {...kpi} />
+            ))}
+          </section>
+        ) : (
+          <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+            Nenhum indicador adicional está disponível para as permissões deste usuário.
+          </div>
+        )}
+
+        {(temFinanceiro || contasEnabled) && (
+          <section aria-label="Resumo financeiro" className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {temFinanceiro && !faturasError && (
+              <FinanceCard
+                title="Contas a receber"
+                subtitle="Faturas não pagas no escopo atual"
+                total={totalContasReceber}
+                icon={DollarSign}
+                variant="receivable"
+                items={receberItems}
+                onViewAll={() => navigate(financePath)}
+              />
+            )}
+            {contasEnabled && !contasError && (
+              <FinanceCard
+                title="Contas a pagar"
+                subtitle="Saldo pendente de títulos"
+                total={totalContasPagar}
+                icon={ShoppingCart}
+                variant="payable"
+                items={pagarItems}
+                onViewAll={() => navigate("/central/contas")}
+              />
+            )}
+          </section>
+        )}
+
+        {(temOrdens || temProducao) && !resumoError && (
+          <section aria-label="Produção" className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {!metricasError && (
+              <ProductionBottleneck items={bottleneckItems} recommendation={recommendation} />
+            )}
+            <ProcessingSummary items={processingItems} />
+            {ordersPath && (
+              <div className="flex justify-end xl:col-span-2">
+                <Button variant="link" onClick={() => navigate(ordersPath)}>
+                  Abrir ordens no escopo atual →
+                </Button>
               </div>
-              <div className="flex items-start gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
-                <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
-                  <AlertCircle className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-extrabold text-slate-900">Contas a pagar vencidas</p>
-                  <p className="text-[11px] font-black text-amber-600 mt-0.5">{contasPendentes.length > 0 ? `${contasPendentes.length} títulos financeiros estão vencidos` : 'Nenhum título vencido'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+            )}
+          </section>
+        )}
 
-          <div className="card-base p-6 shadow-md border-slate-200/60">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Agenda do dia</h3>
-              <Button variant="link" className="p-0 h-auto text-primary font-black text-sm" onClick={() => navigate('/central/agenda-eventos')}>
-                Agenda →
+        {temAgenda && !agendaError && (
+          <section aria-label="Agenda do dia" className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
+            <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
+            <div className="flex justify-end xl:col-span-2">
+              <Button variant="link" onClick={() => navigate(agendaPath)}>
+                Abrir agenda →
               </Button>
             </div>
-            <div className="h-40 flex flex-col items-center justify-center">
-               <div className="w-16 h-16 bg-slate-50 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
-                 <Calendar className="w-8 h-8 text-slate-300" />
-               </div>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sem eventos hoje</p>
-            </div>
-          </div>
+          </section>
+        )}
 
-          <div className="card-base p-6 shadow-md border-slate-200/60">
-            <h3 className="text-xl font-extrabold text-slate-900 mb-8 tracking-tight">Ações rápidas</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/industrial/ordens')}>
-                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary transition-colors">
-                  <FileText className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
-                </div>
-                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">OS Industrial</span>
-              </Button>
-              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/residencial/ordens')}>
-                <div className="w-10 h-10 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500 transition-colors">
-                  <ShoppingCart className="w-5 h-5 text-purple-500 group-hover:text-white transition-colors" />
-                </div>
-                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Pedido Residencial</span>
-              </Button>
-              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/industrial/agenda')}>
-                <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center group-hover:bg-emerald-500 transition-colors">
-                  <Truck className="w-5 h-5 text-emerald-500 group-hover:text-white transition-colors" />
-                </div>
-                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Coleta Industrial</span>
-              </Button>
-              <Button variant="outline" className="h-24 flex-col gap-3 bg-slate-50/50 border-slate-200 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all group rounded-2xl" onClick={() => navigate('/residencial/caixa')}>
-                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center group-hover:bg-amber-500 transition-colors">
-                  <CreditCard className="w-5 h-5 text-amber-500 group-hover:text-white transition-colors" />
-                </div>
-                <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Abrir caixa</span>
-              </Button>
-            </div>
-          </div>
-        </div>
+        <section aria-label="Acompanhamentos" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {activeArea === "central" && temFinanceiro && <BillingClosuresCard />}
+          {activeArea === "central" && temContasPagar && <ContasVencendoCard />}
+          {activeArea === "central" && temAgenda && <EventosDoDiaCard />}
+          {activeArea === "industrial" && temProdutos && <EstoqueBaixoCard />}
+          {temFinanceiro && <InadimplenciaCard />}
+          {temFinanceiro && <NFsPendentesCard />}
+          {activeArea === "residencial" && temCaixa && <CaixaResumoCard />}
+          {activeArea === "residencial" && temOrdens && <RolsLojaCard />}
+        </section>
       </div>
     </AppLayout>
   );

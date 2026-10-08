@@ -11,11 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePortalRelatorio } from "@/hooks/usePortalData";
 import type { FaturaPortal } from "@/hooks/usePortalData";
+import { openPrintClone } from "@/lib/safePrint";
 
 interface VisualizarRelatorioModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fatura: FaturaPortal;
+  accessCode: string;
   clienteNome: string;
   empresaNome?: string;
   logoUrl?: string;
@@ -25,11 +27,15 @@ export function VisualizarRelatorioModal({
   open,
   onOpenChange,
   fatura,
+  accessCode,
   clienteNome,
   empresaNome,
   logoUrl,
 }: VisualizarRelatorioModalProps) {
-  const { data: lancamentos, isLoading } = usePortalRelatorio(open ? fatura.id : null);
+  const { data: lancamentos, isLoading } = usePortalRelatorio(
+    accessCode,
+    open ? fatura.id : null,
+  );
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString("pt-BR", {
@@ -46,33 +52,23 @@ export function VisualizarRelatorioModal({
     const printContent = document.getElementById("relatorio-print-content");
     if (!printContent) return;
 
-    const printWindow = window.open("", "_blank");
+    const printWindow = openPrintClone(
+      printContent,
+      `Relatório - ${clienteNome}`,
+      `
+        body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+        th { background-color: #f5f5f5; font-weight: bold; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header img { max-height: 60px; }
+        .total-row { font-weight: bold; background-color: #f0f0f0; }
+        .text-right { text-align: right; }
+        .cliente-info { margin-bottom: 15px; padding: 10px; background: #f9f9f9; }
+        @media print { body { margin: 0; } }
+      `,
+    );
     if (!printWindow) return;
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Relatório - ${clienteNome}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-          th { background-color: #f5f5f5; font-weight: bold; }
-          .header { text-align: center; margin-bottom: 20px; }
-          .header img { max-height: 60px; }
-          .total-row { font-weight: bold; background-color: #f0f0f0; }
-          .text-right { text-align: right; }
-          .cliente-info { margin-bottom: 15px; padding: 10px; background: #f9f9f9; }
-          @media print { body { margin: 0; } }
-        </style>
-      </head>
-      <body>
-        ${printContent.innerHTML}
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
     printWindow.print();
   };
 

@@ -1,11 +1,10 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -19,15 +18,12 @@ import {
   Plus,
   Trash2,
   Pencil,
-  Upload,
   Shield,
   FileText,
   Info,
   Loader2,
   CheckCircle2,
   AlertTriangle,
-  FileKey,
-  X,
   Calendar,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -36,8 +32,7 @@ import {
   useDescricoesServicosFiscais,
   type ConfiguracaoFiscalInsert,
 } from "@/hooks/useConfiguracoesFiscais";
-import { useCertificadoUpload } from "@/hooks/useCertificadoUpload";
-import { MUNICIPIOS_SP, TEMPLATES_API_NFSE } from "@/lib/validacoesFiscais";
+import { MUNICIPIOS_SP } from "@/lib/validacoesFiscais";
 import type { Json } from "@/integrations/supabase/types";
 
 // Interface para formulário (camelCase)
@@ -58,7 +53,6 @@ interface FormData {
   ambiente: "producao" | "homologacao";
   ativo: boolean;
   certificadoNome: string;
-  senhaCertificado: string;
   validadeCertificado: string;
   urlHomologacao: string;
   urlProducao: string;
@@ -68,7 +62,6 @@ interface FormData {
   serieNfe: string;
   proximoNfe: string;
   idCsc: string;
-  tokenCsc: string;
   regimeTributario: string;
   // Novos campos para integração NFS-e
   codigoMunicipioIbge: string;
@@ -93,7 +86,6 @@ const defaultFormData: FormData = {
   ambiente: "homologacao",
   ativo: true,
   certificadoNome: "",
-  senhaCertificado: "",
   validadeCertificado: "",
   urlHomologacao: "",
   urlProducao: "",
@@ -103,7 +95,6 @@ const defaultFormData: FormData = {
   serieNfe: "1",
   proximoNfe: "1",
   idCsc: "1",
-  tokenCsc: "",
   regimeTributario: "simples-nacional",
   // Novos campos
   codigoMunicipioIbge: "",
@@ -156,7 +147,6 @@ function databaseToForm(config: {
     ambiente: (config.ambiente as "producao" | "homologacao") || "homologacao",
     ativo: config.ativo,
     certificadoNome: config.certificado_url || "",
-    senhaCertificado: "",
     validadeCertificado: config.validade_certificado || "",
     urlHomologacao: urls.homologacao || "",
     urlProducao: urls.producao || "",
@@ -166,7 +156,6 @@ function databaseToForm(config: {
     serieNfe: series.serie_nfe || "1",
     proximoNfe: series.proximo_nfe || "1",
     idCsc: csc.id_csc || "1",
-    tokenCsc: csc.token_csc || "",
     regimeTributario: config.regime_tributario || "simples-nacional",
     // Novos campos
     codigoMunicipioIbge: config.codigo_municipio_ibge || "",
@@ -210,13 +199,13 @@ function formToDatabase(form: FormData): ConfiguracaoFiscalInsert {
     },
     csc_dados: {
       id_csc: form.idCsc,
-      token_csc: form.tokenCsc,
+      token_managed_server_side: true,
     },
     regime_tributario: form.regimeTributario || null,
     // Novos campos para integração NFS-e
     codigo_municipio_ibge: form.codigoMunicipioIbge || null,
     url_api_nfse: form.urlApiNfse || null,
-    senha_certificado_encrypted: null, // Será setado pelo upload do certificado
+    senha_certificado_encrypted: null, // Segredo deve ser gerenciado exclusivamente pelo backend.
     modo_emissao: form.modoEmissao,
   };
 }
@@ -242,16 +231,11 @@ export function ConfiguracoesFiscal() {
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Upload de certificado
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const { uploadCertificado, removerCertificado, isUploading, uploadProgress } = useCertificadoUpload();
-
   const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
 
-      // Auto-preencher código IBGE e URL da API ao digitar cidade
+      // Auto-preencher apenas o código IBGE quando o município for reconhecido.
       if (field === "cidade" && typeof value === "string") {
         const normalizado = value.trim().toLowerCase();
         const municipio = MUNICIPIOS_SP.find(
@@ -259,13 +243,6 @@ export function ConfiguracoesFiscal() {
         );
         if (municipio) {
           updated.codigoMunicipioIbge = municipio.codigo;
-          // Se for São Roque, preencher URL da API automaticamente
-          const template = TEMPLATES_API_NFSE.find((t) =>
-            t.prefeitura.toLowerCase().includes(municipio.nome.toLowerCase())
-          );
-          if (template) {
-            updated.urlApiNfse = template.urlBase;
-          }
         }
       }
 
@@ -273,76 +250,20 @@ export function ConfiguracoesFiscal() {
     });
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const nomeArquivo = file.name.toLowerCase();
-      if (!nomeArquivo.endsWith('.pfx') && !nomeArquivo.endsWith('.p12')) {
-        toast({
-          title: "Arquivo inválido",
-          description: "Selecione um arquivo .pfx ou .p12",
-          variant: "destructive",
-        });
-        return;
-      }
-      setSelectedFile(file);
-      handleInputChange("certificadoNome", file.name);
-    }
-  };
-
-  const handleUploadCertificado = async () => {
-    if (!selectedFile || !editingConfigId) {
-      toast({
-        title: "Erro",
-        description: "Selecione um arquivo e esteja editando uma configuração",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.senhaCertificado) {
-      toast({
-        title: "Senha obrigatória",
-        description: "Informe a senha do certificado digital",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      await uploadCertificado.mutateAsync({
-        file: selectedFile,
-        senha: formData.senhaCertificado,
-        cnpj: formData.cnpj,
-        configId: editingConfigId,
-      });
-      setSelectedFile(null);
-    } catch (error) {
-      // Erro já tratado pelo hook
-    }
-  };
-
-  const handleRemoverCertificado = async () => {
-    if (!editingConfigId) return;
-    
-    const config = configuracoes.find(c => c.id === editingConfigId);
-    if (!config?.certificado_url) return;
-
-    if (confirm("Tem certeza que deseja remover o certificado digital?")) {
-      await removerCertificado.mutateAsync({
-        configId: editingConfigId,
-        certificadoUrl: config.certificado_url,
-      });
-      handleInputChange("certificadoNome", "");
-      handleInputChange("validadeCertificado", "");
-    }
-  };
-
   const handleSaveConfig = async () => {
     if (!formData.nome || !formData.cnpj) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha o nome da configuração e o CNPJ.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.ambiente === "producao" || formData.modoEmissao === "producao") {
+      toast({
+        title: "Produção fiscal bloqueada",
+        description: "Homologue primeiro o provedor municipal e o cofre de certificados no backend.",
         variant: "destructive",
       });
       return;
@@ -618,7 +539,7 @@ export function ConfiguracoesFiscal() {
         {/* Configurações de NFS-e */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-foreground mb-4">Configurações de NFS-e</h3>
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-4">
             <div>
               <Label className="text-xs text-muted-foreground">Alíquota ISS (%)</Label>
               <Input
@@ -646,18 +567,18 @@ export function ConfiguracoesFiscal() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="homologacao">Homologação (Testes)</SelectItem>
-                  <SelectItem value="producao">Produção</SelectItem>
+                  <SelectItem value="producao" disabled>Produção (aguarda homologação)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           
           {/* Novos campos para integração NFS-e */}
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-4">
             <div>
               <Label className="text-xs text-muted-foreground">Código IBGE do Município</Label>
               <Input
-                placeholder="Ex: 3550605 (São Roque)"
+                      placeholder="Ex: 3550308"
                 value={formData.codigoMunicipioIbge}
                 onChange={(e) => handleInputChange("codigoMunicipioIbge", e.target.value)}
               />
@@ -668,7 +589,7 @@ export function ConfiguracoesFiscal() {
             <div>
               <Label className="text-xs text-muted-foreground">URL Base API NFS-e</Label>
               <Input
-                placeholder="https://webapp1-saoroque.cidade360.cloud/Nfse.Api/NotaNacional"
+                      placeholder="https://api.seu-provedor.com/nfse"
                 value={formData.urlApiNfse}
                 onChange={(e) => handleInputChange("urlApiNfse", e.target.value)}
               />
@@ -698,18 +619,18 @@ export function ConfiguracoesFiscal() {
                       Homologação (Testes)
                     </div>
                   </SelectItem>
-                  <SelectItem value="producao">
+                  <SelectItem value="producao" disabled>
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                      Produção (Real)
+                      Produção (aguarda homologação)
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
                 {formData.modoEmissao === "simulacao" && "Apenas gera prévia, sem envio"}
-                {formData.modoEmissao === "homologacao" && "Testa envio para prefeitura"}
-                {formData.modoEmissao === "producao" && "Emite notas fiscais reais"}
+                {formData.modoEmissao === "homologacao" && "Mantém a configuração para futura homologação; ainda não envia"}
+                {formData.modoEmissao === "producao" && "Bloqueado até a integração municipal ser homologada"}
               </p>
             </div>
           </div>
@@ -732,181 +653,37 @@ export function ConfiguracoesFiscal() {
           <div className="flex items-center gap-2 mb-4">
             <Shield className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">
-              Certificado Digital A1 <span className="text-muted-foreground font-normal">(.pfx ou .p12)</span>
+              Certificado Digital A1
             </h3>
           </div>
-
-          {/* Input file oculto */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept=".pfx,.p12"
-            onChange={handleFileSelect}
-          />
-
-          {/* Área de Upload */}
-          {formData.certificadoNome ? (
-            <div className="border-2 border-green-500 bg-green-50 dark:bg-green-950/30 rounded-lg p-4 mb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                    <FileKey className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-green-800 dark:text-green-200">{formData.certificadoNome}</p>
-                    <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
-                      <Calendar className="w-3 h-3" />
-                      <span>
-                        Validade: {formData.validadeCertificado 
-                          ? new Date(formData.validadeCertificado).toLocaleDateString("pt-BR") 
-                          : "Não informada"}
-                      </span>
-                      {formData.validadeCertificado && new Date(formData.validadeCertificado) < new Date() && (
-                        <Badge variant="destructive" className="text-xs">Expirado</Badge>
-                      )}
-                      {formData.validadeCertificado && 
-                        new Date(formData.validadeCertificado) > new Date() && 
-                        new Date(formData.validadeCertificado) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) && (
-                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-500">
-                          Expira em breve
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                  >
-                    Substituir
-                  </Button>
-                  {editingConfigId && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-destructive hover:text-destructive"
-                      onClick={handleRemoverCertificado}
-                      disabled={isUploading}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div 
-              className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/30 hover:border-primary transition-colors mb-4"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Clique para selecionar o certificado digital
-              </span>
-              <p className="text-xs text-muted-foreground mt-1">
-                Arquivos aceitos: .pfx ou .p12 (máx. 5MB)
-              </p>
-            </div>
-          )}
-
-          {/* Progress bar durante upload */}
-          {isUploading && (
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground">Enviando certificado...</span>
-              </div>
-              <Progress value={uploadProgress} className="h-2" />
-            </div>
-          )}
-
-          {/* Arquivo selecionado mas não enviado */}
-          {selectedFile && !formData.certificadoNome && (
-            <div className="border border-primary/50 bg-primary/5 rounded-lg p-3 mb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileKey className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">{selectedFile.name}</span>
-                  <Badge variant="outline" className="text-xs">
-                    {(selectedFile.size / 1024).toFixed(1)} KB
-                  </Badge>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSelectedFile(null)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
-            <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
-            <p className="text-xs text-blue-700 dark:text-blue-300">
-              O certificado digital será armazenado de forma segura. A senha é necessária apenas durante o upload.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-xs text-muted-foreground">
-                Senha do Certificado <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                type="password"
-                placeholder="Senha do certificado digital"
-                value={formData.senhaCertificado}
-                onChange={(e) => handleInputChange("senhaCertificado", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Validade do Certificado</Label>
-              <Input
-                type="date"
-                placeholder="dd/mm/aaaa"
-                value={formData.validadeCertificado}
-                onChange={(e) => handleInputChange("validadeCertificado", e.target.value)}
-                className={formData.validadeCertificado && new Date(formData.validadeCertificado) < new Date() 
-                  ? "border-destructive" 
-                  : ""}
-              />
-            </div>
-          </div>
-
-          {/* Botão de upload */}
-          {selectedFile && editingConfigId && (
-            <div className="mt-4">
-              <Button
-                onClick={handleUploadCertificado}
-                disabled={isUploading || !formData.senhaCertificado}
-                className="gap-2"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    Enviar Certificado
-                  </>
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="space-y-2 text-sm">
+                <p className="font-semibold">Upload pelo navegador desativado por segurança</p>
+                <p>
+                  Certificados A1 e suas senhas devem ser instalados por um serviço de backend com cofre de segredos,
+                  criptografia e trilha de auditoria. A interface não envia nem armazena esses dados.
+                </p>
+                {formData.certificadoNome && (
+                  <p className="flex items-center gap-2 text-xs">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Existe uma referência antiga cadastrada
+                    {formData.validadeCertificado
+                      ? `, com validade informada até ${new Date(formData.validadeCertificado).toLocaleDateString("pt-BR")}`
+                      : ""}.
+                    Ela deve ser revisada e rotacionada antes do go-live.
+                  </p>
                 )}
-              </Button>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* URLs de WebService */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-foreground mb-4">URLs de WebService</h3>
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-4">
             <div>
               <Label className="text-xs text-amber-600">URL Homologação</Label>
               <Input
@@ -940,7 +717,7 @@ export function ConfiguracoesFiscal() {
         {/* Série e Numeração */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-foreground mb-4">Série e Numeração</h3>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div>
               <Label className="text-xs text-amber-600">Série NFS-e</Label>
               <Input
@@ -979,23 +756,13 @@ export function ConfiguracoesFiscal() {
         {/* CSC e Regime Tributário */}
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-amber-600 mb-4">CSC e Regime Tributário</h3>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <Label className="text-xs text-muted-foreground">ID do CSC</Label>
               <Input
                 placeholder="1"
                 value={formData.idCsc}
                 onChange={(e) => handleInputChange("idCsc", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">
-                Token <span className="text-amber-600">CSC</span>
-              </Label>
-              <Input
-                placeholder="Token para NFC-e"
-                value={formData.tokenCsc}
-                onChange={(e) => handleInputChange("tokenCsc", e.target.value)}
               />
             </div>
             <div>
@@ -1016,6 +783,9 @@ export function ConfiguracoesFiscal() {
               </Select>
             </div>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            O token CSC deve ser configurado somente no cofre de segredos do backend; ele não é aceito nesta tela.
+          </p>
         </div>
 
         <Button onClick={handleSaveConfig} className="bg-primary hover:bg-primary/90" disabled={isSaving}>

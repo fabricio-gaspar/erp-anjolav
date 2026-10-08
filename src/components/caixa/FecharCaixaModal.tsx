@@ -29,6 +29,12 @@ interface ValoresEsperados {
   CARTAO_DEBITO: number;
 }
 
+const parseValue = (value: string) => parseCurrencyToNumber(value);
+
+const calcularDiferenca = (contado: string, esperado: number) => {
+  return parseValue(contado) - esperado;
+};
+
 export function FecharCaixaModal({
   open,
   onOpenChange,
@@ -76,17 +82,11 @@ export function FecharCaixaModal({
     }
   }, [open, valoresEsperados]);
 
-  const parseValue = (value: string) => parseCurrencyToNumber(value);
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
     }).format(value);
-  };
-
-  const calcularDiferenca = (contado: string, esperado: number) => {
-    return parseValue(contado) - esperado;
   };
 
   const diferencas = useMemo(() => {

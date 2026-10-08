@@ -25,14 +25,12 @@ export function ConfiguracoesWhatsApp() {
   const { data: mensagens } = useMensagensLog();
 
   const [apiUrl, setApiUrl] = useState("");
-  const [apiKey, setApiKey] = useState("");
   const [nomeInstancia, setNomeInstancia] = useState("loja1");
   const [webhookN8n, setWebhookN8n] = useState("");
 
   useEffect(() => {
     if (instancia) {
       setApiUrl(instancia.api_url || "");
-      setApiKey(instancia.api_key_encrypted || "");
       setNomeInstancia(instancia.nome_instancia || "loja1");
       setWebhookN8n(instancia.webhook_n8n_url || "");
     }
@@ -41,7 +39,6 @@ export function ConfiguracoesWhatsApp() {
   const handleSalvar = () => {
     salvarConfig.mutate({
       api_url: apiUrl,
-      api_key_encrypted: apiKey,
       nome_instancia: nomeInstancia,
       webhook_n8n_url: webhookN8n,
     });
@@ -153,17 +150,17 @@ export function ConfiguracoesWhatsApp() {
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">URL base da sua instância Evolution API</p>
+              <p className="text-xs text-muted-foreground">
+                Use HTTPS e inclua o host no secret EVOLUTION_ALLOWED_HOSTS.
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <Label>API Key</Label>
-              <Input
-                type="password"
-                placeholder="Sua API Key da Evolution"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-              />
+            <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
+              <Label>Credencial da Evolution API</Label>
+              <p className="text-xs text-muted-foreground">
+                A chave não é armazenada nem exibida no navegador. Configure-a no Supabase como
+                secret <code className="font-mono">EVOLUTION_API_KEY</code>.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -209,7 +206,7 @@ export function ConfiguracoesWhatsApp() {
             </p>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto">
-              {mensagens.slice(0, 20).map((msg: any) => (
+              {mensagens.slice(0, 20).map((msg) => (
                 <div key={msg.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

@@ -53,10 +53,12 @@ export interface MovimentacaoData {
   valor: number;
   descricao?: string;
   forma_pagamento?: "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO";
+  cliente_id?: string;
+  ordem_servico_id?: string;
 }
 
 // Get open cash register
-export const useCaixaAberto = () => {
+export const useCaixaAberto = (enabled = true) => {
   return useQuery({
     queryKey: ["caixa-aberto"],
     queryFn: async () => {
@@ -71,6 +73,7 @@ export const useCaixaAberto = () => {
       if (error) throw error;
       return data as Caixa | null;
     },
+    enabled,
   });
 };
 
@@ -239,8 +242,11 @@ export const useFecharCaixa = () => {
 
       movimentacoes?.forEach((mov) => {
         const formaPagamento = mov.forma_pagamento || "DINHEIRO";
-        if (mov.tipo === "VENDA") {
-          esperadoPorFormaPagamento[formaPagamento as keyof typeof esperadoPorFormaPagamento] += Number(mov.valor);
+        const chave = formaPagamento as keyof typeof esperadoPorFormaPagamento;
+        if (mov.tipo === "VENDA" && chave in esperadoPorFormaPagamento) {
+          esperadoPorFormaPagamento[chave] += Number(mov.valor);
+        } else if (mov.tipo === "ESTORNO" && chave in esperadoPorFormaPagamento) {
+          esperadoPorFormaPagamento[chave] -= Number(mov.valor);
         } else if (mov.tipo === "SANGRIA") {
           esperadoPorFormaPagamento.DINHEIRO -= Number(mov.valor);
         } else if (mov.tipo === "REFORCO") {
@@ -305,6 +311,8 @@ export const useAddMovimentacao = () => {
           valor: data.valor,
           descricao: data.descricao,
           forma_pagamento: data.forma_pagamento,
+          cliente_id: data.cliente_id,
+          ordem_servico_id: data.ordem_servico_id,
         })
         .select()
         .single();
@@ -312,30 +320,46 @@ export const useAddMovimentacao = () => {
       if (error) throw error;
 
       // Update caixa totals
-      const { data: caixa } = await supabase
+      const { data: caixa, error: caixaError } = await supabase
         .from("caixas")
         .select("*")
         .eq("id", data.caixa_id)
         .single();
 
-      if (caixa) {
-        let updates: Partial<Caixa> = {};
-        
-        if (data.tipo === "VENDA") {
-          updates.valor_vendas = Number(caixa.valor_vendas) + data.valor;
-          updates.valor_esperado = Number(caixa.valor_esperado) + data.valor;
-        } else if (data.tipo === "SANGRIA") {
-          updates.valor_sangrias = Number(caixa.valor_sangrias) + data.valor;
-          updates.valor_esperado = Number(caixa.valor_esperado) - data.valor;
-        } else if (data.tipo === "REFORCO") {
-          updates.valor_reforcos = Number(caixa.valor_reforcos) + data.valor;
-          updates.valor_esperado = Number(caixa.valor_esperado) + data.valor;
-        }
+      if (caixaError || !caixa) {
+        const { error: rollbackError } = await supabase
+          .from("caixa_movimentacoes")
+          .delete()
+          .eq("id", movimentacao.id);
+        if (rollbackError) console.error("Falha ao compensar movimentação sem caixa", rollbackError);
+        throw caixaError ?? new Error("Caixa não encontrado");
+      }
 
-        await supabase
-          .from("caixas")
-          .update(updates)
-          .eq("id", data.caixa_id);
+      const updates: Partial<Caixa> = {};
+        
+      if (data.tipo === "VENDA") {
+        updates.valor_vendas = Number(caixa.valor_vendas) + data.valor;
+        updates.valor_esperado = Number(caixa.valor_esperado) + data.valor;
+      } else if (data.tipo === "SANGRIA") {
+        updates.valor_sangrias = Number(caixa.valor_sangrias) + data.valor;
+        updates.valor_esperado = Number(caixa.valor_esperado) - data.valor;
+      } else if (data.tipo === "REFORCO") {
+        updates.valor_reforcos = Number(caixa.valor_reforcos) + data.valor;
+        updates.valor_esperado = Number(caixa.valor_esperado) + data.valor;
+      }
+
+      const { error: updateError } = await supabase
+        .from("caixas")
+        .update(updates)
+        .eq("id", data.caixa_id);
+
+      if (updateError) {
+        const { error: rollbackError } = await supabase
+          .from("caixa_movimentacoes")
+          .delete()
+          .eq("id", movimentacao.id);
+        if (rollbackError) console.error("Falha ao compensar movimentação do caixa", rollbackError);
+        throw updateError;
       }
 
       return movimentacao;

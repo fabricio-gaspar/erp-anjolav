@@ -73,7 +73,7 @@ export function calcularProximasDatas(
           // Para quinzenal, inclui semanas alternadas (0, 2, 4...)
           incluir = semanaAtual % 2 === 0;
           break;
-        case "mensal":
+        case "mensal": {
           // Para mensal, inclui apenas a primeira ocorrência do dia no mês
           const primeiraOcorrencia = encontrarPrimeiraOcorrenciaNoMes(
             dataAtual,
@@ -81,6 +81,7 @@ export function calcularProximasDatas(
           );
           incluir = dataAtual.getTime() === primeiraOcorrencia.getTime();
           break;
+        }
       }
 
       if (incluir) {

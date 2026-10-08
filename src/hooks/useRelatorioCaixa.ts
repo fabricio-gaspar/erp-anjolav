@@ -331,7 +331,7 @@ export const useTotaisPeriodo = (startDate: Date, endDate: Date) => {
 
       if (movError) throw movError;
 
-      let porFormaPagamento = {
+      const porFormaPagamento = {
         dinheiro: 0,
         pix: 0,
         cartao_credito: 0,

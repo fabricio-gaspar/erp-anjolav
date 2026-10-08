@@ -26,7 +26,7 @@ export type ContaPagarInsert = Omit<ContaPagar, "id" | "created_at" | "updated_a
 
 export type ContaPagarUpdate = Partial<ContaPagarInsert>;
 
-export function useContasPagar() {
+export function useContasPagar(enabled = true) {
   const queryClient = useQueryClient();
 
   const { data: contas = [], isLoading, error } = useQuery({
@@ -39,6 +39,7 @@ export function useContasPagar() {
       if (error) throw error;
       return (data || []) as unknown as ContaPagar[];
     },
+    enabled,
   });
 
   const createConta = useMutation({

@@ -26,6 +26,7 @@ interface NovaCobrancaModalProps {
 }
 
 export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps) {
+  const [idempotencyKey, setIdempotencyKey] = useState(() => `manual:${crypto.randomUUID()}`);
   const [formData, setFormData] = useState({
     customer_name: "",
     customer_email: "",
@@ -33,7 +34,7 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
     description: "",
     value: "",
     due_date: "",
-    billing_type: (BOLETO_ENABLED ? "BOLETO_PIX" : "PIX") as "BOLETO" | "PIX" | "BOLETO_PIX",
+    billing_type: (BOLETO_ENABLED ? "BOLETO" : "PIX") as "BOLETO" | "PIX",
   });
 
   const createCharge = useCreateAsaasCharge();
@@ -49,6 +50,7 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
       value: parseFloat(formData.value),
       due_date: formData.due_date,
       billing_type: formData.billing_type,
+      idempotency_key: idempotencyKey,
     });
 
     setFormData({
@@ -58,8 +60,9 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
       description: "",
       value: "",
       due_date: "",
-      billing_type: BOLETO_ENABLED ? "BOLETO_PIX" : "PIX",
+      billing_type: BOLETO_ENABLED ? "BOLETO" : "PIX",
     });
+    setIdempotencyKey(`manual:${crypto.randomUUID()}`);
     onOpenChange(false);
   };
 
@@ -153,7 +156,7 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
               <Label>Forma de Pagamento *</Label>
               <Select
                 value={formData.billing_type}
-                onValueChange={(value: "BOLETO" | "PIX" | "BOLETO_PIX") =>
+                onValueChange={(value: "BOLETO" | "PIX") =>
                   setFormData({ ...formData, billing_type: value })
                 }
               >
@@ -161,7 +164,6 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {BOLETO_ENABLED && <SelectItem value="BOLETO_PIX">Boleto + PIX</SelectItem>}
                   {BOLETO_ENABLED && <SelectItem value="BOLETO">Apenas Boleto</SelectItem>}
                   <SelectItem value="PIX">Apenas PIX</SelectItem>
                 </SelectContent>

@@ -24,6 +24,7 @@ import { useFaturas, calcularVencimento } from "@/hooks/useFaturas";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/faturamentoUtils";
 import { BOLETO_ENABLED } from "@/lib/featureFlags";
+import { safeHttpsUrl } from "@/lib/safePrint";
 import type { DadosFaturamento } from "./FaturamentoModal";
 import { ConfigBadge } from "./ConfigBadge";
 
@@ -82,12 +83,15 @@ export function EtapaPagamento({
         due_date: format(dataVencimento, "yyyy-MM-dd"),
         description: `Faturamento - ${dados.clienteNome}`,
         billing_type: "BOLETO",
+        idempotency_key: `fatura:${faturaId}:boleto`,
+        cliente_id: dados.clienteId,
       });
 
-      if (result?.bankSlipUrl) {
+      const bankSlipUrl = safeHttpsUrl(result?.bankSlipUrl);
+      if (bankSlipUrl && result.identificationField) {
         setBoletoData({
-          url: result.bankSlipUrl,
-          linhaDigitavel: result.nossoNumero || "",
+          url: bankSlipUrl,
+          linhaDigitavel: result.identificationField,
         });
 
         await updateFatura.mutateAsync({
@@ -95,16 +99,18 @@ export function EtapaPagamento({
           asaas_charge_id: result.id,
           forma_pagamento: "boleto",
           data_vencimento: format(dataVencimento, "yyyy-MM-dd"),
-          boleto_url: result.bankSlipUrl,
-          boleto_linha_digitavel: result.nossoNumero || null,
+          boleto_url: bankSlipUrl,
+          boleto_linha_digitavel: result.identificationField,
         });
 
         onPaymentConfigured("boleto", {
-          url: result.bankSlipUrl,
-          linhaDigitavel: result.nossoNumero,
+          url: bankSlipUrl,
+          linhaDigitavel: result.identificationField,
           asaasId: result.asaasId,
           dataVencimento: format(dataVencimento, "yyyy-MM-dd"),
         });
+      } else {
+        throw new Error("O Asaas não retornou um boleto válido");
       }
     } catch (error) {
       console.error("Erro ao gerar boleto:", error);
@@ -129,6 +135,8 @@ export function EtapaPagamento({
         due_date: format(dueDate, "yyyy-MM-dd"),
         description: `Faturamento - ${dados.clienteNome}`,
         billing_type: "PIX",
+        idempotency_key: `fatura:${faturaId}:pix`,
+        cliente_id: dados.clienteId,
       });
 
       if (result?.pixQrCode || result?.pixCopyPaste) {

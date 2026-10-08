@@ -22,6 +22,15 @@ interface ClienteEnderecoProps {
   cnpjData?: BrasilApiCnpjResponse | null;
 }
 
+interface GeocodeAddressData {
+  logradouro?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  cep?: string;
+}
+
 export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: ClienteEnderecoProps) => {
   const { endereco, isLoading, upsertEndereco } = useEnderecoCliente(clienteId);
   const { configuracao } = useConfiguracoesGerais();
@@ -46,6 +55,31 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
   const empresaLatitude = configuracao?.endereco_latitude ?? null;
   const empresaLongitude = configuracao?.endereco_longitude ?? null;
   const hasEmpresaCoordinates = empresaLatitude !== null && empresaLongitude !== null;
+
+  const geocodeAddress = useCallback(async (data: GeocodeAddressData) => {
+    const enderecoCompleto = montarEnderecoCompleto(data);
+
+    if (!enderecoCompleto || enderecoCompleto === "Brasil") {
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const result = await geocodeEndereco(enderecoCompleto);
+      if (result) {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: result.latitude,
+          longitude: result.longitude,
+        }));
+        toast.success("Localização encontrada no mapa!");
+      }
+    } catch (error) {
+      console.error("Erro ao geocodificar:", error);
+    } finally {
+      setIsGeocoding(false);
+    }
+  }, []);
 
   // Calcular distância
   const distancia = formData.latitude && formData.longitude && hasEmpresaCoordinates
@@ -91,7 +125,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
       
       // Auto-geocodificar endereço do CNPJ
       if (cnpjData.logradouro && cnpjData.municipio) {
-        handleGeocode({
+        void geocodeAddress({
           logradouro: cnpjData.logradouro,
           numero: cnpjData.numero,
           bairro: cnpjData.bairro,
@@ -101,7 +135,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
         });
       }
     }
-  }, [cnpjData, endereco]);
+  }, [cnpjData, endereco, geocodeAddress]);
 
   // Reset when clienteId changes to null
   useEffect(() => {
@@ -132,7 +166,14 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
       }
       
       debounceRef.current = setTimeout(() => {
-        handleGeocode();
+        void geocodeAddress({
+          logradouro: formData.logradouro,
+          numero: formData.numero,
+          bairro: formData.bairro,
+          cidade: formData.cidade,
+          uf: formData.uf,
+          cep: formData.cep,
+        });
       }, 1500);
     }
     
@@ -141,52 +182,11 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
         clearTimeout(debounceRef.current);
       }
     };
-  }, [formData.logradouro, formData.cidade, formData.uf, formData.numero]);
+  }, [formData, geocodeAddress]);
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
-
-  // Geocodificar endereço
-  const handleGeocode = useCallback(async (addressData?: {
-    logradouro?: string;
-    numero?: string;
-    bairro?: string;
-    cidade?: string;
-    uf?: string;
-    cep?: string;
-  }) => {
-    const data = addressData || formData;
-    const enderecoCompleto = montarEnderecoCompleto({
-      logradouro: data.logradouro,
-      numero: data.numero,
-      bairro: data.bairro,
-      cidade: data.cidade,
-      uf: data.uf,
-      cep: data.cep,
-    });
-
-    if (!enderecoCompleto || enderecoCompleto === "Brasil") {
-      return;
-    }
-
-    setIsGeocoding(true);
-    try {
-      const result = await geocodeEndereco(enderecoCompleto);
-      if (result) {
-        setFormData((prev) => ({
-          ...prev,
-          latitude: result.latitude,
-          longitude: result.longitude,
-        }));
-        toast.success("Localização encontrada no mapa!");
-      }
-    } catch (error) {
-      console.error("Erro ao geocodificar:", error);
-    } finally {
-      setIsGeocoding(false);
-    }
-  }, [formData]);
 
   const handleCepSearch = async () => {
     const cepLimpo = formData.cep.replace(/\D/g, "");
@@ -216,7 +216,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
       toast.success("Endereço encontrado!");
 
       // Auto-geocodificar após buscar CEP
-      await handleGeocode({
+      await geocodeAddress({
         logradouro: data.logradouro,
         numero: formData.numero,
         bairro: data.bairro,
@@ -379,7 +379,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
             type="button"
             variant="outline"
             className="w-full gap-2"
-            onClick={() => handleGeocode()}
+            onClick={() => void geocodeAddress(formData)}
             disabled={isGeocoding || !hasAddress}
           >
             {isGeocoding ? (

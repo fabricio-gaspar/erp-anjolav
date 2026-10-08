@@ -41,10 +41,6 @@ interface Props {
 }
 
 const TIPOS_CONTRATO = ["CLT", "PJ", "Estágio", "Temporário", "Autônomo", "PRO-LABORE"];
-const EMPREGADORES = [
-  { cnpj: "23.227.029/0001-06", nome: "LAVANDERIA SAO ROQUE LTDA" },
-  { cnpj: "08.350.030/0001-97", nome: "ANJOLAV" },
-];
 const REGIMES = ["mensalista", "horista", "comissionado"];
 const ESTADO_CIVIL = ["Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)", "União Estável"];
 const ESCOLARIDADE = [
@@ -102,7 +98,7 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Tabs defaultValue="pessoal">
-            <TabsList className="grid grid-cols-7 w-full">
+            <TabsList className="grid h-auto w-full grid-cols-3 sm:grid-cols-4 lg:grid-cols-7">
               <TabsTrigger value="pessoal">Pessoal</TabsTrigger>
               <TabsTrigger value="documentos">Docs</TabsTrigger>
               <TabsTrigger value="endereco">Endereço</TabsTrigger>
@@ -114,7 +110,7 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
 
             {/* PESSOAL */}
             <TabsContent value="pessoal" className="space-y-3 pt-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><Label>Nome</Label><Input value={form.nome || ""} onChange={(e) => set("nome", e.target.value)} /></div>
                 <div><Label>CPF</Label><Input value={form.cpf || ""} onChange={(e) => set("cpf", e.target.value)} /></div>
                 <div><Label>Data de Nascimento</Label><Input type="date" value={form.data_nascimento || ""} onChange={(e) => set("data_nascimento", e.target.value)} /></div>
@@ -160,7 +156,7 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
 
             {/* DOCUMENTOS */}
             <TabsContent value="documentos" className="space-y-3 pt-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><Label>RG</Label><Input value={form.rg || ""} onChange={(e) => set("rg", e.target.value)} /></div>
                 <div><Label>Órgão Emissor</Label><Input value={form.rg_orgao_emissor || ""} onChange={(e) => set("rg_orgao_emissor", e.target.value)} /></div>
                 <div><Label>PIS / NIS</Label><Input value={form.pis || ""} onChange={(e) => set("pis", e.target.value)} /></div>
@@ -190,7 +186,7 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
 
             {/* CONTRATO */}
             <TabsContent value="contrato" className="space-y-3 pt-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><Label>Cargo</Label><Input value={form.cargo || ""} onChange={(e) => set("cargo", e.target.value)} /></div>
                 <div><Label>Departamento</Label><Input value={form.departamento || ""} onChange={(e) => set("departamento", e.target.value)} /></div>
                 <div><Label>Tipo de Contrato</Label>
@@ -212,22 +208,9 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
 
               <div className="border-t pt-3 mt-3">
                 <h4 className="font-semibold text-sm mb-2">Empregador (CNPJ)</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Empresa Empregadora</Label>
-                    <Select
-                      value={form.empregador_cnpj || ""}
-                      onValueChange={(v) => {
-                        const emp = EMPREGADORES.find(x => x.cnpj === v);
-                        set("empregador_cnpj", v);
-                        if (emp) set("empregador_nome", emp.nome);
-                      }}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        {EMPREGADORES.map(e => <SelectItem key={e.cnpj} value={e.cnpj}>{e.nome} — {e.cnpj}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div><Label>Razão Social do Empregador</Label><Input value={form.empregador_nome || ""} onChange={(e) => set("empregador_nome", e.target.value)} /></div>
+                  <div><Label>CNPJ do Empregador</Label><Input value={form.empregador_cnpj || ""} onChange={(e) => set("empregador_cnpj", e.target.value)} placeholder="00.000.000/0000-00" maxLength={18} /></div>
                   <div><Label>Código Externo</Label><Input value={form.codigo_externo || ""} onChange={(e) => set("codigo_externo", e.target.value)} /></div>
                   <div><Label>CBO</Label><Input value={form.cbo || ""} onChange={(e) => set("cbo", e.target.value)} /></div>
                   <div><Label>Matrícula INSS</Label><Input value={form.matricula_inss || ""} onChange={(e) => set("matricula_inss", e.target.value)} /></div>
@@ -239,7 +222,7 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
 
             {/* REMUNERAÇÃO */}
             <TabsContent value="remuneracao" className="space-y-3 pt-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><Label>Salário Base</Label><CurrencyInput value={moneyVal(form.salario_base)} onChange={(e) => setMoney("salario_base", e.target.value)} /></div>
                 <div><Label>Valor Hora</Label><CurrencyInput value={moneyVal(form.valor_hora)} onChange={(e) => setMoney("valor_hora", e.target.value)} /></div>
                 <div><Label>Vale Transporte</Label><CurrencyInput value={moneyVal(form.vale_transporte)} onChange={(e) => setMoney("vale_transporte", e.target.value)} /></div>
@@ -268,7 +251,7 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
 
             {/* BANCO */}
             <TabsContent value="banco" className="space-y-3 pt-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><Label>Banco</Label><Input value={form.banco_nome || ""} onChange={(e) => set("banco_nome", e.target.value)} /></div>
                 <div><Label>Tipo de Conta</Label>
                   <Select value={form.banco_tipo_conta || ""} onValueChange={(v) => set("banco_tipo_conta", v)}>

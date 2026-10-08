@@ -20,6 +20,9 @@ import { ptBR } from "date-fns/locale";
 import { useFaturas, useValidateLancamentosForFatura } from "@/hooks/useFaturas";
 import { useLinkLancamentosToFatura } from "@/hooks/useLancamentos";
 import { gerarSnapshotItens, formatCurrency } from "@/lib/faturamentoUtils";
+import { escapeHtml, openPrintDocument } from "@/lib/safePrint";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { DadosFaturamento } from "./FaturamentoModal";
 import { ConfigBadge } from "./ConfigBadge";
 
@@ -50,7 +53,7 @@ export function EtapaRelatorio({
 
   const { createFatura } = useFaturas();
   const linkLancamentos = useLinkLancamentosToFatura();
-  const validateLancamentos = useValidateLancamentosForFatura();
+  const { mutateAsync: validateLancamentos } = useValidateLancamentosForFatura();
 
   // Validar ROLs duplicados ao montar
   useEffect(() => {
@@ -59,7 +62,7 @@ export function EtapaRelatorio({
 
       setIsValidating(true);
       try {
-        const result = await validateLancamentos.mutateAsync(dados.lancamentoIds);
+        const result = await validateLancamentos(dados.lancamentoIds);
         if (!result.valid) {
           setValidationError(result.message);
         } else {
@@ -73,7 +76,7 @@ export function EtapaRelatorio({
     };
 
     validar();
-  }, [dados.lancamentoIds]);
+  }, [dados.lancamentoIds, validateLancamentos]);
 
   const handleGenerateReport = async () => {
     const reportHTML = `
@@ -94,10 +97,10 @@ export function EtapaRelatorio({
       <body>
         <h1>Relatório de Faturamento</h1>
         <div class="info">
-          <p><strong>Cliente:</strong> ${dados.clienteNome}</p>
-          <p><strong>Documento:</strong> ${dados.clienteDocumento || "Não informado"}</p>
+          <p><strong>Cliente:</strong> ${escapeHtml(dados.clienteNome)}</p>
+          <p><strong>Documento:</strong> ${escapeHtml(dados.clienteDocumento || "Não informado")}</p>
           <p><strong>Período:</strong> ${format(new Date(dados.periodoInicio), "dd/MM/yyyy", { locale: ptBR })} a ${format(new Date(dados.periodoFim), "dd/MM/yyyy", { locale: ptBR })}</p>
-          <p><strong>Tipo:</strong> ${tipoRelatorio}</p>
+          <p><strong>Tipo:</strong> ${escapeHtml(tipoRelatorio)}</p>
         </div>
         <table>
           <thead>
@@ -114,9 +117,9 @@ export function EtapaRelatorio({
               .map(
                 (item) => `
               <tr>
-                <td>${item.produto}</td>
-                <td>${item.quantidade}</td>
-                <td>${item.unidade}</td>
+                <td>${escapeHtml(item.produto)}</td>
+                <td>${escapeHtml(item.quantidade)}</td>
+                <td>${escapeHtml(item.unidade)}</td>
                 <td>${formatCurrency(item.valorUnitario)}</td>
                 <td>${formatCurrency(item.valorTotal)}</td>
               </tr>
@@ -130,10 +133,8 @@ export function EtapaRelatorio({
       </html>
     `;
 
-    const printWindow = window.open("", "_blank");
+    const printWindow = openPrintDocument(reportHTML);
     if (printWindow) {
-      printWindow.document.write(reportHTML);
-      printWindow.document.close();
       printWindow.print();
     }
   };
@@ -141,7 +142,7 @@ export function EtapaRelatorio({
   const handleNext = async () => {
     // Validar novamente antes de prosseguir
     if (dados.lancamentoIds && dados.lancamentoIds.length > 0) {
-      const validation = await validateLancamentos.mutateAsync(dados.lancamentoIds);
+      const validation = await validateLancamentos(dados.lancamentoIds);
       if (!validation.valid) {
         setValidationError(validation.message);
         return;
@@ -149,6 +150,7 @@ export function EtapaRelatorio({
     }
 
     setIsGenerating(true);
+    let createdFaturaId: string | null = null;
     try {
       // Gerar snapshot dos itens
       const itensSnapshot = gerarSnapshotItens(dados);
@@ -167,6 +169,7 @@ export function EtapaRelatorio({
         itens_snapshot: itensSnapshot,
         observacao_fatura: observacaoFatura || null,
       });
+      createdFaturaId = result.id;
 
       // Link lancamentos to fatura if we have lancamentoIds
       if (dados.lancamentoIds && dados.lancamentoIds.length > 0) {
@@ -175,6 +178,8 @@ export function EtapaRelatorio({
           faturaId: result.id,
         });
       }
+
+      toast.success("Fatura criada e lançamentos vinculados com sucesso!");
 
       // Primeiro seta o faturaId, depois avança
       onFaturaCreated(result.id);
@@ -185,6 +190,18 @@ export function EtapaRelatorio({
       }, 100);
     } catch (error) {
       console.error("Erro ao criar fatura:", error);
+      if (createdFaturaId) {
+        const { error: cleanupError } = await supabase
+          .from("faturas")
+          .delete()
+          .eq("id", createdFaturaId);
+        if (cleanupError) {
+          console.error("Falha ao remover fatura incompleta:", cleanupError);
+          toast.error("A fatura ficou incompleta e precisa de revisão administrativa.");
+          return;
+        }
+      }
+      toast.error("Não foi possível concluir a criação da fatura.");
     } finally {
       setIsGenerating(false);
     }
