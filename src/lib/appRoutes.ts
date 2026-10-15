@@ -302,7 +302,8 @@ const SIDEBAR_GROUP_DEFINITIONS: Readonly<Record<WorkspaceArea, readonly Sidebar
 
 export interface LegacyRouteRedirect {
   from: string;
-  to: string;
+  to: AppRoutePath;
+  search?: string;
 }
 
 export const LEGACY_ROUTE_REDIRECTS: readonly LegacyRouteRedirect[] = [
@@ -325,11 +326,11 @@ export const LEGACY_ROUTE_REDIRECTS: readonly LegacyRouteRedirect[] = [
   { from: "/agenda-eventos", to: "/central/agenda-eventos" },
   { from: "/relatorios/quilometragem", to: "/central/relatorios/quilometragem" },
   { from: "/relatorios/mensal", to: "/central/relatorios/mensal" },
-  { from: "/faturamento", to: "/lancamentos?tab=faturas" },
-  { from: "/receber", to: "/contas?tab=receber" },
-  { from: "/pagar", to: "/contas?tab=pagar" },
-  { from: "/asaas", to: "/contas?tab=receber" },
-  { from: "/relatorios/financeiro", to: "/financeiro" },
+  { from: "/faturamento", to: "/industrial/lancamentos", search: "?tab=faturas" },
+  { from: "/receber", to: "/central/contas", search: "?tab=receber" },
+  { from: "/pagar", to: "/central/contas", search: "?tab=pagar" },
+  { from: "/asaas", to: "/central/contas", search: "?tab=receber" },
+  { from: "/relatorios/financeiro", to: "/central/financeiro" },
 ];
 
 export function normalizeAppPath(route: string): string {
@@ -358,10 +359,6 @@ export function getSidebarNavigationGroups(area: WorkspaceArea): readonly Sideba
 
 export type AccessibleWorkspaceMap = Partial<Record<WorkspaceArea, boolean>>;
 
-export function getFirstAuthorizedWorkspace(areas: AccessibleWorkspaceMap): WorkspaceArea | null {
-  return WORKSPACE_DEFAULT_ORDER.find((area) => areas[area] === true) ?? null;
-}
-
 export type SearchResultType = "cliente" | "produto" | "fornecedor" | "ordem" | "lancamento";
 
 export function getSearchWorkspace(
@@ -369,6 +366,7 @@ export function getSearchWorkspace(
   fallback: WorkspaceArea = "industrial",
 ): WorkspaceArea {
   const normalized = recordArea?.trim().toLowerCase();
+  if (normalized === "central") return "central";
   if (["residencial", "loja", "id2"].includes(normalized ?? "")) return "residencial";
   if (["industrial", "id1"].includes(normalized ?? "")) return "industrial";
   return fallback;
@@ -380,6 +378,7 @@ export function getSearchResultRoute(
   fallback: WorkspaceArea = "industrial",
 ): AppRoutePath | null {
   const area = getSearchWorkspace(recordArea, fallback);
+  if (area === "central") return null;
 
   const pathByType: Record<SearchResultType, string | null> = {
     cliente: `/${area}/clientes`,

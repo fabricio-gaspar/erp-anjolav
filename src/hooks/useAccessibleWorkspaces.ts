@@ -3,7 +3,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
   WORKSPACE_AREAS,
-  getFirstAuthorizedWorkspace,
   type AccessibleWorkspaceMap,
 } from "@/lib/appRoutes";
 
@@ -46,6 +45,5 @@ export function useAccessibleWorkspaces() {
   return {
     ...query,
     areas,
-    defaultWorkspace: getFirstAuthorizedWorkspace(areas),
   };
 }

@@ -1,8 +1,12 @@
 import {
+  APP_ROUTES,
   getAppRoute,
+  getWorkspaceRoute,
   normalizeAppPath,
+  WORKSPACE_DEFAULT_ORDER,
   type AccessibleWorkspaceMap,
   type AppRouteDefinition,
+  type LegacyRouteRedirect,
 } from "./appRoutes.ts";
 
 export const MODULE_PERMISSION_KEYS = [
@@ -52,4 +56,57 @@ export function isRouteAccessible(
   if (!route || accessibleAreas[route.area] !== true) return false;
   if (route.adminOnly && !isAdmin) return false;
   return isAdmin || hasAnyModulePermission(modulePermissions, route.requiredModules);
+}
+
+function getFirstAccessibleRouteInArea(
+  area: AppRouteDefinition["area"],
+  access: RouteAccessContext,
+): AppRouteDefinition | null {
+  return APP_ROUTES.find(
+    (route) => route.area === area && isRouteAccessible(route, access),
+  ) ?? null;
+}
+
+function getFirstAccessibleRoute(access: RouteAccessContext): AppRouteDefinition | null {
+  for (const area of WORKSPACE_DEFAULT_ORDER) {
+    const route = getFirstAccessibleRouteInArea(area, access);
+    if (route) return route;
+  }
+
+  return null;
+}
+
+function resolvePreferredAccessibleRoute(
+  preferredRoute: AppRouteDefinition | null | undefined,
+  access: RouteAccessContext,
+): AppRouteDefinition | null {
+  if (isRouteAccessible(preferredRoute, access)) return preferredRoute;
+
+  if (preferredRoute) {
+    const areaFallback = getFirstAccessibleRouteInArea(preferredRoute.area, access);
+    if (areaFallback) return areaFallback;
+  }
+
+  return getFirstAccessibleRoute(access);
+}
+
+export function resolveDefaultAccessibleRoute(
+  access: RouteAccessContext,
+): AppRouteDefinition | null {
+  return resolvePreferredAccessibleRoute(
+    getWorkspaceRoute(WORKSPACE_DEFAULT_ORDER[0]),
+    access,
+  );
+}
+
+export function resolveLegacyRouteRedirect(
+  redirect: LegacyRouteRedirect,
+  access: RouteAccessContext,
+): string | null {
+  const destination = resolvePreferredAccessibleRoute(getAppRoute(redirect.to), access);
+  if (!destination) return null;
+
+  return destination.path === redirect.to && redirect.search
+    ? `${destination.path}${redirect.search}`
+    : destination.path;
 }

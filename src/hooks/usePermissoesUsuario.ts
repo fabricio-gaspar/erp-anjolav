@@ -5,10 +5,16 @@ import {
   getRoutePermissionRequirement,
   hasAnyModulePermission,
   isRouteAccessible,
+  resolveDefaultAccessibleRoute,
+  resolveLegacyRouteRedirect,
   type ModulePermissionKey,
   type RoutePermissionRequirement,
 } from "@/lib/authorization";
-import { getAppRoute, type AppRouteDefinition } from "@/lib/appRoutes";
+import {
+  getAppRoute,
+  type AppRouteDefinition,
+  type LegacyRouteRedirect,
+} from "@/lib/appRoutes";
 import { useAccessibleWorkspaces } from "@/hooks/useAccessibleWorkspaces";
 
 export const usePermissoesUsuario = () => {
@@ -124,6 +130,8 @@ export const useTemPermissaoModulo = (moduleKey: ModulePermissionKey): boolean =
 
 export interface NavigationAccessState {
   canAccessRoute: (route: string | AppRouteDefinition) => boolean;
+  resolveDefaultRoute: () => string | null;
+  resolveLegacyRoute: (redirect: LegacyRouteRedirect) => string | null;
   isError: boolean;
   isLoading: boolean;
 }
@@ -142,16 +150,33 @@ export const useNavigationAccess = (): NavigationAccessState => {
     || permissionsQuery.isError
     || adminQuery.isError
   );
+  const access = {
+    accessibleAreas: accessibleWorkspaces.areas,
+    modulePermissions: permissionsQuery.data,
+    isAdmin: adminQuery.data === true,
+  };
 
   const canAccessRoute = (route: string | AppRouteDefinition): boolean => {
     if (isLoading || isError) return false;
     const definition = typeof route === "string" ? getAppRoute(route) : route;
-    return isRouteAccessible(definition, {
-      accessibleAreas: accessibleWorkspaces.areas,
-      modulePermissions: permissionsQuery.data,
-      isAdmin: adminQuery.data === true,
-    });
+    return isRouteAccessible(definition, access);
   };
 
-  return { canAccessRoute, isError, isLoading };
+  const resolveDefaultRoute = (): string | null => {
+    if (isLoading || isError) return null;
+    return resolveDefaultAccessibleRoute(access)?.path ?? null;
+  };
+
+  const resolveLegacyRoute = (redirect: LegacyRouteRedirect): string | null => {
+    if (isLoading || isError) return null;
+    return resolveLegacyRouteRedirect(redirect, access);
+  };
+
+  return {
+    canAccessRoute,
+    resolveDefaultRoute,
+    resolveLegacyRoute,
+    isError,
+    isLoading,
+  };
 };

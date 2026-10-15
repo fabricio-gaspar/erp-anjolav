@@ -11,8 +11,13 @@ import { SidebarProvider } from "@/contexts/SidebarContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { useAccessibleWorkspaces } from "@/hooks/useAccessibleWorkspaces";
-import { APP_ROUTES, LEGACY_ROUTE_REDIRECTS, type AppRoutePath } from "@/lib/appRoutes";
+import { useNavigationAccess } from "@/hooks/usePermissoesUsuario";
+import {
+  APP_ROUTES,
+  LEGACY_ROUTE_REDIRECTS,
+  type AppRoutePath,
+  type LegacyRouteRedirect,
+} from "@/lib/appRoutes";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clientes = lazy(() => import("./pages/Clientes"));
@@ -88,8 +93,13 @@ const ROUTE_COMPONENTS = {
   "/residencial/relatorios/caixa": HistoricoCaixas,
 } as const satisfies Record<AppRoutePath, LazyExoticComponent<ComponentType>>;
 
-function WorkspaceRootRedirect() {
-  const { defaultWorkspace, isError, isLoading } = useAccessibleWorkspaces();
+function AuthorizedRouteRedirect({ redirect }: { redirect?: LegacyRouteRedirect }) {
+  const {
+    isError,
+    isLoading,
+    resolveDefaultRoute,
+    resolveLegacyRoute,
+  } = useNavigationAccess();
 
   if (isLoading) {
     return (
@@ -107,7 +117,9 @@ function WorkspaceRootRedirect() {
     );
   }
 
-  if (!defaultWorkspace) {
+  const destination = redirect ? resolveLegacyRoute(redirect) : resolveDefaultRoute();
+
+  if (!destination) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4" role="alert">
         Sua conta não possui acesso a um ambiente de trabalho.
@@ -115,7 +127,15 @@ function WorkspaceRootRedirect() {
     );
   }
 
-  return <Navigate to={`/${defaultWorkspace}`} replace />;
+  return <Navigate to={destination} replace />;
+}
+
+function WorkspaceRootRedirect() {
+  return <AuthorizedRouteRedirect />;
+}
+
+function LegacyRouteRedirect({ redirect }: { redirect: LegacyRouteRedirect }) {
+  return <AuthorizedRouteRedirect redirect={redirect} />;
 }
 
 const App = () => (
@@ -167,7 +187,11 @@ const App = () => (
                 <Route
                   key={redirect.from}
                   path={redirect.from}
-                  element={<Navigate to={redirect.to} replace />}
+                  element={(
+                    <ProtectedRoute>
+                      <LegacyRouteRedirect redirect={redirect} />
+                    </ProtectedRoute>
+                  )}
                 />
               ))}
 

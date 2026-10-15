@@ -58,19 +58,31 @@ function normalizeAuditAction(action: AuditEventFilters["action"]): AuditEventAc
   return action === "INSERT" || action === "UPDATE" || action === "DELETE" ? action : null;
 }
 
-function toUtcDateStart(value: string | undefined): string | null {
+function toLocalDateStart(value: string | undefined): string | null {
   if (!value || !DATE_PATTERN.test(value)) return null;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime())
+    || date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
     ? null
     : date.toISOString();
 }
 
-function toUtcDateAfter(value: string | undefined): string | null {
-  const start = toUtcDateStart(value);
-  if (!start) return null;
-  const date = new Date(start);
-  date.setUTCDate(date.getUTCDate() + 1);
+function toLocalDateAfter(value: string | undefined): string | null {
+  if (!value || !DATE_PATTERN.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(date.getTime())
+    || date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) {
+    return null;
+  }
+  date.setDate(date.getDate() + 1);
   return date.toISOString();
 }
 
@@ -120,8 +132,8 @@ export function buildAuditEventsQueryPlan(options: AuditEventsOptions = {}): Aud
     filters: {
       action: normalizeAuditAction(options.filters?.action),
       entity: normalizeAuditEntity(options.filters?.entity),
-      occurredAtFrom: toUtcDateStart(options.filters?.from),
-      occurredAtBefore: toUtcDateAfter(options.filters?.to),
+      occurredAtFrom: toLocalDateStart(options.filters?.from),
+      occurredAtBefore: toLocalDateAfter(options.filters?.to),
     },
   };
 }

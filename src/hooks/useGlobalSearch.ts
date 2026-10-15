@@ -32,7 +32,8 @@ function sanitizeSearchTerm(term: string): string {
 
 function hasExplicitSearchArea(recordArea: string | null | undefined): boolean {
   const normalized = recordArea?.trim().toLowerCase();
-  return normalized === "industrial" || normalized === "id1"
+  return normalized === "central"
+    || normalized === "industrial" || normalized === "id1"
     || normalized === "residencial" || normalized === "loja" || normalized === "id2";
 }
 
