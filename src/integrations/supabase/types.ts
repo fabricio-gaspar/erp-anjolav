@@ -3503,6 +3503,10 @@ export type Database = {
         Args: { _pagamento_id: string; _status_provedor: string }
         Returns: Json
       }
+      consultar_dashboard_financeiro: {
+        Args: { _fim: string; _inicio: string; _setor: string }
+        Returns: Json
+      }
       criar_venda_pdv: {
         Args: {
           _caixa_id: string
