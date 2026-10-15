@@ -35,6 +35,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Commercial release contract
+        run: node --test test/commercial-readiness-contract.test.ts
+
       - name: Lint
         run: npm run lint
 

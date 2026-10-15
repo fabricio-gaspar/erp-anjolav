@@ -14,6 +14,7 @@ export const REQUIRED_RELEASE_GATES = [
   "observability",
   "securityReview",
   "legalCommercial",
+  "releaseProvenance",
 ];
 
 const PLACEHOLDER_PATTERN = /(^|[-_\s])(?:seu|sua|substitua|preencha|placeholder|change[-_ ]?me|example|exemplo|seudominio|yourdomain|todo|tbd)(?:$|[-_\s])|^<.+>$|^__.+__$/i;
@@ -118,6 +119,18 @@ function validateEvidence(errors, evidence, projectId) {
   }
   if (typeof evidence.releaseCommit !== "string" || !/^[0-9a-f]{40}$/i.test(evidence.releaseCommit)) {
     errors.push("releaseCommit deve ser o SHA completo de 40 caracteres do commit que será liberado.");
+  }
+  for (const field of ["migrationVersion", "edgeFunctionCommit", "frontendCommit"]) {
+    if (typeof evidence[field] !== "string" || !/^[0-9a-f]{40}$/i.test(evidence[field])) {
+      errors.push(`${field} deve ser o SHA completo de 40 caracteres da superfície publicada.`);
+    } else if (evidence[field] !== evidence.releaseCommit) {
+      errors.push(`${field} deve corresponder ao releaseCommit para liberar uma única versão.`);
+    }
+  }
+  for (const field of ["e2eCriticalFlows", "performanceBudget"]) {
+    if (!isConfigured(evidence[field])) {
+      errors.push(`${field} deve registrar uma evidência de release não vazia.`);
+    }
   }
   if (!isConfigured(evidence.approvedBy)) {
     errors.push("approvedBy deve identificar quem aprovou a liberação.");

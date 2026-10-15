@@ -10,6 +10,11 @@ function validEvidence() {
     environment: "production",
     projectRef: projectId,
     releaseCommit: "a".repeat(40),
+    migrationVersion: "a".repeat(40),
+    edgeFunctionCommit: "a".repeat(40),
+    frontendCommit: "a".repeat(40),
+    e2eCriticalFlows: "Relatório E2E crítico aprovado",
+    performanceBudget: "Orçamento de performance aprovado",
     approvedBy: "Responsável de release",
     approvedAt: "2026-09-14T12:00:00-03:00",
     gates: Object.fromEntries(
@@ -79,6 +84,48 @@ test("bloqueia evidência de release incompleta", () => {
   assert.equal(result.ready, false);
   assert.match(result.errors.join("\n"), /Gate de release pendente: tenantRls/);
   assert.match(result.errors.join("\n"), /approvedBy deve identificar/);
+});
+
+test("bloqueia evidências sem a proveniência completa de cada superfície publicada", () => {
+  const evidence = validEvidence();
+  delete evidence.migrationVersion;
+  delete evidence.edgeFunctionCommit;
+  delete evidence.frontendCommit;
+  delete evidence.e2eCriticalFlows;
+  delete evidence.performanceBudget;
+  delete evidence.gates.releaseProvenance;
+
+  const result = validateProductionConfig({
+    frontend: validFrontend(),
+    functions: validFunctions(),
+    evidence,
+    projectId,
+  });
+
+  assert.equal(result.ready, false);
+  assert.match(result.errors.join("\n"), /migrationVersion/);
+  assert.match(result.errors.join("\n"), /edgeFunctionCommit/);
+  assert.match(result.errors.join("\n"), /frontendCommit/);
+  assert.match(result.errors.join("\n"), /e2eCriticalFlows/);
+  assert.match(result.errors.join("\n"), /performanceBudget/);
+  assert.match(result.errors.join("\n"), /releaseProvenance/);
+});
+
+test("bloqueia toda superfície publicada a partir de SHA diferente da release", () => {
+  for (const field of ["migrationVersion", "edgeFunctionCommit", "frontendCommit"]) {
+    const evidence = validEvidence();
+    evidence[field] = "b".repeat(40);
+
+    const result = validateProductionConfig({
+      frontend: validFrontend(),
+      functions: validFunctions(),
+      evidence,
+      projectId,
+    });
+
+    assert.equal(result.ready, false, `${field} deve bloquear a release`);
+    assert.match(result.errors.join("\n"), new RegExp(`${field} deve corresponder ao releaseCommit`));
+  }
 });
 
 test("preserva valores com sinal de igual ao ler dotenv", () => {
