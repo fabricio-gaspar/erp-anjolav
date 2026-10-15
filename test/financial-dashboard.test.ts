@@ -23,6 +23,14 @@ async function requireFinanceiroDashboardState() {
   return state;
 }
 
+async function requireDashboardQueryDefaults() {
+  try {
+    return await import(new URL("../src/lib/queryDefaults.ts", import.meta.url).href);
+  } catch {
+    assert.fail("src/lib/queryDefaults.ts deve existir");
+  }
+}
+
 test("RPC financeira falha fechada para tenant, área e intervalo inválidos", () => {
   const migration = readProjectFile("supabase/migrations/20261015110000_financial_dashboard_aggregates.sql");
 
@@ -152,4 +160,55 @@ test("expõe retry somente para uma falha financeira já carregada", async () =>
     financeiro.resolverEstadoWidgetFinanceiro({ hasError: true, isLoading: false, isRetrying: true }),
     { kind: "retrying", ariaBusy: true, showRetry: true, retryDisabled: true },
   );
+});
+
+test("o cliente global usa defaults de cache e recuperação sem refetch incondicional no mount", async () => {
+  const app = readProjectFile("src/App.tsx");
+
+  assert.doesNotMatch(app, /refetchOnMount:\s*["']always["']/i);
+  assert.match(app, /queries:\s*dashboardQueryDefaults/);
+
+  const { dashboardQueryDefaults } = await requireDashboardQueryDefaults();
+  const cache = new QueryClient({ defaultOptions: { queries: dashboardQueryDefaults } });
+  const defaults = cache.getDefaultOptions().queries;
+
+  assert.equal(defaults?.staleTime, 60_000);
+  assert.equal(defaults?.retry, 2);
+  assert.equal(defaults?.refetchOnMount, true);
+  assert.equal(defaults?.refetchOnReconnect, true);
+  assert.equal(typeof defaults?.retryDelay, "function");
+  assert.equal(defaults?.retryDelay?.(0, new Error("falha")), 1_000);
+  assert.equal(defaults?.retryDelay?.(5, new Error("falha")), 30_000);
+});
+
+test("a atualização do dashboard invalida apenas suas chaves e deriva a última atualização do cache", async () => {
+  const { dashboardQueryKeyPrefixes, getDashboardLastUpdatedAt, invalidateDashboardQueries } =
+    await requireDashboardQueryDefaults();
+  const cache = new QueryClient();
+  const updatedAt = Date.UTC(2026, 9, 15, 12, 0, 0);
+
+  for (const [index, queryKey] of dashboardQueryKeyPrefixes.entries()) {
+    cache.setQueryData([...queryKey, `escopo-${index}`], { index }, { updatedAt: updatedAt + index });
+  }
+  cache.setQueryData(["clientes", "central"], { preservada: true }, { updatedAt: updatedAt + 100 });
+
+  assert.equal(getDashboardLastUpdatedAt(cache), updatedAt + dashboardQueryKeyPrefixes.length - 1);
+
+  await invalidateDashboardQueries(cache);
+
+  for (const [index, queryKey] of dashboardQueryKeyPrefixes.entries()) {
+    assert.equal(cache.getQueryState([...queryKey, `escopo-${index}`])?.isInvalidated, true);
+  }
+  assert.equal(cache.getQueryState(["clientes", "central"])?.isInvalidated, false);
+});
+
+test("o dashboard não mantém polling de dados operacionais completos a cada 30 segundos", () => {
+  const dashboard = readProjectFile("src/pages/Dashboard.tsx");
+  const producao = readProjectFile("src/hooks/useHistoricoProducao.ts");
+
+  assert.doesNotMatch(dashboard, /invalidateQueries\(\s*\)/);
+  assert.match(dashboard, /invalidateDashboardQueries\(queryClient\)/);
+  assert.match(dashboard, /getDashboardLastUpdatedAt\(queryClient\)/);
+  assert.doesNotMatch(dashboard, /setLastUpdated/);
+  assert.doesNotMatch(producao, /refetchInterval:\s*enabled\s*\?\s*30_?000\s*:\s*false/);
 });

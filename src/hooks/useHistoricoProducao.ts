@@ -250,7 +250,6 @@ export function useMetricasProducao(enabled = true) {
       };
     },
     enabled,
-    refetchInterval: enabled ? 30000 : false,
   });
 
   return { metricas, isLoading, error };

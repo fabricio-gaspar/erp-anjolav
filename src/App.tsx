@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { dashboardQueryDefaults } from "@/lib/queryDefaults";
 import { aplicarTema, getTemaIdFromCorPrimaria } from "@/lib/themeUtils";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -38,9 +39,7 @@ const RelatorioMensal = lazy(() => import("./pages/RelatorioMensal"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      refetchOnMount: "always",
-    },
+    queries: dashboardQueryDefaults,
   },
 });
 
