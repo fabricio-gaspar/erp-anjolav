@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, ReactNode 
 import { Session, User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { limparCacheFinanceiroAgregado } from "@/lib/financeiroDashboardState";
 import { toast } from "sonner";
 
 interface Funcionario {
@@ -231,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextContext = normalizeTenantContext(data);
       if (nextContext.activeTenantId !== tenantId) throw new Error("A empresa ativa não foi confirmada");
 
+      limparCacheFinanceiroAgregado(queryClient);
       queryClient.clear();
       setTenantContext(nextContext);
       setFuncionario(await fetchFuncionario(session.user.id));

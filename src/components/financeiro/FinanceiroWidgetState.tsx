@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { resolverEstadoWidgetFinanceiro } from "@/lib/financeiroDashboardState";
 
 interface FinanceiroWidgetStateProps {
   children: ReactNode;
@@ -22,18 +23,24 @@ export function FinanceiroWidgetState({
   onRetry,
   title,
 }: FinanceiroWidgetStateProps) {
-  if (isLoading) {
+  const widgetState = resolverEstadoWidgetFinanceiro({
+    hasError: Boolean(error),
+    isLoading,
+    isRetrying,
+  });
+
+  if (widgetState.kind === "loading") {
     return (
-      <Card className="flex min-h-32 items-center justify-center gap-3 p-6" aria-busy="true" aria-live="polite">
+      <Card className="flex min-h-32 items-center justify-center gap-3 p-6" aria-busy={widgetState.ariaBusy} aria-live="polite">
         <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden="true" />
         <span className="text-sm text-muted-foreground">Carregando {title.toLowerCase()}…</span>
       </Card>
     );
   }
 
-  if (error) {
+  if (widgetState.showRetry) {
     return (
-      <Card className="border-destructive/40 p-5" role="alert" aria-busy={isRetrying}>
+      <Card className="border-destructive/40 p-5" role="alert" aria-busy={widgetState.ariaBusy}>
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
           <div className="min-w-0 flex-1 space-y-2">
@@ -46,8 +53,8 @@ export function FinanceiroWidgetState({
                 <p className="mt-2 text-xs text-muted-foreground">Código da ocorrência: {errorReference}</p>
               )}
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={onRetry} disabled={isRetrying}>
-              {isRetrying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />}
+            <Button type="button" variant="outline" size="sm" onClick={onRetry} disabled={widgetState.retryDisabled}>
+              {widgetState.kind === "retrying" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />}
               Tentar novamente
             </Button>
           </div>

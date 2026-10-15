@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  criarChaveConsultaFinanceira,
+  normalizarPeriodoFinanceiro,
+  type PeriodoFinanceiro,
+  type SetorFinanceiro,
+} from "@/lib/financeiroDashboardState";
 import { supabase } from "@/integrations/supabase/client";
 
-export type SetorFinanceiro = "todos" | "industrial" | "loja";
-
-export interface PeriodoFinanceiro {
-  inicio: string;
-  fim: string;
-}
+export type { PeriodoFinanceiro, SetorFinanceiro } from "@/lib/financeiroDashboardState";
 
 export interface MovimentacaoVencida {
   id: string;
@@ -126,12 +128,18 @@ export function normalizarFinanceiroAgregado(data: unknown): FinanceiroAgregado 
 }
 
 export function useFinanceiroAgregado(periodo: PeriodoFinanceiro, setor: SetorFinanceiro) {
+  const { activeTenant } = useAuth();
+  const tenantId = activeTenant?.id || null;
+  const periodoNormalizado = normalizarPeriodoFinanceiro(periodo);
+  const queryKey = criarChaveConsultaFinanceira(tenantId, periodoNormalizado, setor);
+
   return useQuery({
-    queryKey: ["financeiro-agregado", periodo.inicio, periodo.fim, setor] as const,
+    queryKey,
+    enabled: tenantId !== null,
     queryFn: async (): Promise<FinanceiroAgregado> => {
       const { data, error } = await supabase.rpc("consultar_dashboard_financeiro", {
-        _inicio: periodo.inicio,
-        _fim: periodo.fim,
+        _inicio: periodoNormalizado.inicio,
+        _fim: periodoNormalizado.fim,
         _setor: setor,
       });
 

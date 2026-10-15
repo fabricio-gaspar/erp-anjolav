@@ -1,11 +1,26 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
+import { QueryClient } from "@tanstack/react-query";
 
 function readProjectFile(relativePath: string) {
   const fileUrl = new URL(`../${relativePath}`, import.meta.url);
   assert.ok(existsSync(fileUrl), `${relativePath} deve existir`);
   return readFileSync(fileUrl, "utf8");
+}
+
+async function loadFinanceiroDashboardState() {
+  try {
+    return await import(new URL("../src/lib/financeiroDashboardState.ts", import.meta.url).href);
+  } catch {
+    return null;
+  }
+}
+
+async function requireFinanceiroDashboardState() {
+  const state = await loadFinanceiroDashboardState();
+  assert.ok(state, "src/lib/financeiroDashboardState.ts deve existir");
+  return state;
 }
 
 test("RPC financeira falha fechada para tenant, área e intervalo inválidos", () => {
@@ -55,8 +70,8 @@ test("dashboard consome uma RPC tipada em vez de baixar históricos financeiros"
   const generatedTypes = readProjectFile("src/integrations/supabase/types.ts");
 
   assert.match(aggregateHook, /supabase\.rpc\(\s*["']consultar_dashboard_financeiro["']/i);
-  assert.match(aggregateHook, /_inicio:\s*periodo\.inicio/i);
-  assert.match(aggregateHook, /_fim:\s*periodo\.fim/i);
+  assert.match(aggregateHook, /_inicio:\s*periodoNormalizado\.inicio/i);
+  assert.match(aggregateHook, /_fim:\s*periodoNormalizado\.fim/i);
   assert.match(aggregateHook, /_setor:\s*setor/i);
   assert.match(generatedTypes, /consultar_dashboard_financeiro:/i);
   assert.match(dashboardHook, /useFinanceiroAgregado\(/);
@@ -65,13 +80,76 @@ test("dashboard consome uma RPC tipada em vez de baixar históricos financeiros"
   assert.doesNotMatch(dashboardHook, /\.from\(\s*["'](?:faturas|contas_pagar|caixa_movimentacoes)["']\s*\)/);
 });
 
-test("tela financeira mantém os widgets recuperáveis quando a consulta agregada falha", () => {
-  const page = readProjectFile("src/pages/DashboardFinanceiro.tsx");
-  const widgetState = readProjectFile("src/components/financeiro/FinanceiroWidgetState.tsx");
+test("separa o cache financeiro por empresa e limpa somente o namespace financeiro na troca", async () => {
+  const financeiro = await requireFinanceiroDashboardState();
+  const periodo = { inicio: "2026-01-01", fim: "2026-12-31" };
+  const chaveEmpresaA = financeiro.criarChaveConsultaFinanceira("tenant-a", periodo, "todos");
+  const chaveEmpresaB = financeiro.criarChaveConsultaFinanceira("tenant-b", periodo, "todos");
+  const cache = new QueryClient();
 
-  assert.match(page, /FinanceiroWidgetState/);
-  assert.match(page, /onRetry=\{retry\}/);
-  assert.match(widgetState, /role=["']alert["']/);
-  assert.match(widgetState, /Tentar novamente/);
-  assert.match(widgetState, /aria-busy/);
+  assert.deepEqual(chaveEmpresaA, ["financeiro-agregado", "tenant-a", "2026-01-01", "2026-12-31", "todos"]);
+  assert.deepEqual(chaveEmpresaB, ["financeiro-agregado", "tenant-b", "2026-01-01", "2026-12-31", "todos"]);
+
+  cache.setQueryData(chaveEmpresaA, { receitasTotais: 125 });
+  cache.setQueryData(["outra-consulta", "tenant-a"], { preservada: true });
+
+  assert.equal(cache.getQueryData(chaveEmpresaB), undefined);
+
+  financeiro.limparCacheFinanceiroAgregado(cache);
+
+  assert.equal(cache.getQueryData(chaveEmpresaA), undefined);
+  assert.deepEqual(cache.getQueryData(["outra-consulta", "tenant-a"]), { preservada: true });
+});
+
+test("rejeita períodos financeiros inválidos antes de consultar a RPC", async () => {
+  const financeiro = await requireFinanceiroDashboardState();
+
+  assert.doesNotThrow(() => {
+    financeiro.criarChaveConsultaFinanceira(
+      "tenant-a",
+      { inicio: "2026-01-01", fim: "2027-01-02" },
+      "industrial",
+    );
+  });
+
+  assert.throws(() => {
+    financeiro.criarChaveConsultaFinanceira(
+      "tenant-a",
+      { inicio: "2026-01-01", fim: "2027-01-03" },
+      "industrial",
+    );
+  }, /366 dias/);
+
+  assert.throws(() => {
+    financeiro.criarChaveConsultaFinanceira(
+      "tenant-a",
+      { inicio: "2026-02-30", fim: "2026-03-01" },
+      "todos",
+    );
+  }, /Data inicial inválida/);
+
+  assert.throws(() => {
+    financeiro.criarChaveConsultaFinanceira(
+      "tenant-a",
+      { inicio: "2026-06-02", fim: "2026-06-01" },
+      "loja",
+    );
+  }, /Intervalo financeiro inválido/);
+});
+
+test("expõe retry somente para uma falha financeira já carregada", async () => {
+  const financeiro = await requireFinanceiroDashboardState();
+
+  assert.deepEqual(
+    financeiro.resolverEstadoWidgetFinanceiro({ hasError: false, isLoading: true, isRetrying: false }),
+    { kind: "loading", ariaBusy: true, showRetry: false, retryDisabled: true },
+  );
+  assert.deepEqual(
+    financeiro.resolverEstadoWidgetFinanceiro({ hasError: true, isLoading: false, isRetrying: false }),
+    { kind: "error", ariaBusy: false, showRetry: true, retryDisabled: false },
+  );
+  assert.deepEqual(
+    financeiro.resolverEstadoWidgetFinanceiro({ hasError: true, isLoading: false, isRetrying: true }),
+    { kind: "retrying", ariaBusy: true, showRetry: true, retryDisabled: true },
+  );
 });
