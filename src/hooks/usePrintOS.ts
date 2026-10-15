@@ -12,7 +12,7 @@ import {
   type PrintOSData,
   type EtiquetaData,
 } from "@/services/printService";
-import { openPrintDocument, reservePrintWindow } from "@/lib/safePrint";
+import { openPrintDocument, printDocumentWhenReady, reservePrintWindow } from "@/lib/safePrint";
 
 export function usePrintOS(ordemServicoId?: string) {
   const { toast } = useToast();
@@ -196,17 +196,7 @@ export function usePrintLancamento() {
 
       const html = generateROLHTMLWithData(config, osData);
       
-      const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
-      if (printWindow) {
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-          }, 250);
-        };
-      }
-
-      return true;
+      return printDocumentWhenReady(openPrintDocument(html, 'width=400,height=600,noopener,noreferrer'));
     } catch (error) {
       console.error("Print ROL error:", error);
       toast({ title: "Erro", description: "Erro ao imprimir ROL", variant: "destructive" });
@@ -252,10 +242,7 @@ export function usePrintLancamento() {
 
         const combinedHTML = `<!DOCTYPE html><html><head>${head}</head><body>${bodyContents}</body></html>`;
         
-        const printWindow = openPrintDocument(combinedHTML, 'width=400,height=600,noopener,noreferrer');
-        if (printWindow) {
-          printWindow.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); };
-        }
+        return printDocumentWhenReady(openPrintDocument(combinedHTML, 'width=400,height=600,noopener,noreferrer'));
       } else {
         const etiquetaData: EtiquetaData = {
           osNumero: tempNumero,
@@ -263,13 +250,8 @@ export function usePrintLancamento() {
           data: data.dataEmissao,
         };
         const singleLabel = generateEtiquetaHTMLWithData(config, etiquetaData);
-        const printWindow = openPrintDocument(singleLabel, 'width=400,height=600,noopener,noreferrer');
-        if (printWindow) {
-          printWindow.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); };
-        }
+        return printDocumentWhenReady(openPrintDocument(singleLabel, 'width=400,height=600,noopener,noreferrer'));
       }
-
-      return true;
     } catch (error) {
       console.error("Print Etiqueta error:", error);
       toast({ title: "Erro", description: "Erro ao imprimir etiqueta", variant: "destructive" });

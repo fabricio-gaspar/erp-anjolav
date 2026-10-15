@@ -51,14 +51,33 @@ export function writePrintDocument(printWindow: Window, html: string): void {
   printWindow.document.close();
 }
 
+export function printDocumentWhenReady(
+  printWindow: Window | null | undefined,
+  _options?: { autoClose?: false },
+): boolean {
+  if (!printWindow || printWindow.closed) return false;
+
+  const requestPrint = () => {
+    window.setTimeout(() => {
+      if (printWindow.closed) return;
+      printWindow.focus();
+      printWindow.print();
+    }, 120);
+  };
+
+  if (printWindow.document.readyState === "complete") {
+    requestPrint();
+  } else {
+    printWindow.addEventListener("load", requestPrint, { once: true });
+  }
+
+  // This only confirms that the browser print request was scheduled. Browser
+  // APIs do not report whether the user completed the native print job.
+  return true;
+}
+
 export function triggerPrint(printWindow: Window): void {
-  // Do not close immediately after print(): embedded browsers can return before
-  // the native dialog has sent the job to the Windows spooler.
-  window.setTimeout(() => {
-    if (printWindow.closed) return;
-    printWindow.focus();
-    printWindow.print();
-  }, 120);
+  printDocumentWhenReady(printWindow);
 }
 
 export function openPrintDocument(

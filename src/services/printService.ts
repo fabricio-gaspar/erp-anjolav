@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ROLPreviewConfig, getFontFamily } from "@/components/configuracoes/ROLPreview";
 import { generateCode128BPattern } from "@/lib/code128";
-import { escapeHtml, openPrintDocument, safeHttpsUrl, triggerPrint, writePrintDocument } from "@/lib/safePrint";
+import { escapeHtml, openPrintDocument, printDocumentWhenReady, reservePrintWindow, safeHttpsUrl, writePrintDocument } from "@/lib/safePrint";
 
 // ===== INTERFACES =====
 
@@ -463,40 +463,45 @@ function openPrintWindow(html: string, reservedWindow?: Window | null): boolean 
   const printWindow = reservedWindow ?? openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
   if (!printWindow) return false;
   if (reservedWindow) writePrintDocument(printWindow, html);
-  triggerPrint(printWindow);
-  return true;
+  return printDocumentWhenReady(printWindow);
 }
 
 export async function printROLFromOS(ordemServicoId: string, reservedWindow?: Window | null): Promise<boolean> {
+  const printWindow = reservedWindow ?? reservePrintWindow('width=400,height=600,noopener,noreferrer');
+  if (!printWindow) return false;
+
   const [config, osData] = await Promise.all([
     fetchROLConfig(),
     fetchOSPrintData(ordemServicoId),
   ]);
 
   if (!config || !osData) {
-    reservedWindow?.close();
+    printWindow.close();
     return false;
   }
 
   const html = generateROLHTMLWithData(config, osData);
-  return openPrintWindow(html, reservedWindow);
+  return openPrintWindow(html, printWindow);
 }
 
 export async function printEtiquetaFromOS(ordemServicoId: string, reservedWindow?: Window | null): Promise<boolean> {
+  const printWindow = reservedWindow ?? reservePrintWindow('width=400,height=600,noopener,noreferrer');
+  if (!printWindow) return false;
+
   const [config, osData] = await Promise.all([
     fetchEtiquetaConfig(),
     fetchOSPrintData(ordemServicoId),
   ]);
 
   if (!config || !osData) {
-    reservedWindow?.close();
+    printWindow.close();
     return false;
   }
 
   // Generate one label per item type
   if (osData.itens.length > 0) {
     const html = generateMultipleItemLabelsHTML(config, osData);
-    return openPrintWindow(html, reservedWindow);
+    return openPrintWindow(html, printWindow);
   } else {
     const etiquetaData: EtiquetaData = {
       osNumero: osData.numero,
@@ -506,25 +511,28 @@ export async function printEtiquetaFromOS(ordemServicoId: string, reservedWindow
       data: osData.dataEmissao,
     };
     const html = generateEtiquetaHTMLWithData(config, etiquetaData);
-    return openPrintWindow(html, reservedWindow);
+    return openPrintWindow(html, printWindow);
   }
 }
 
 export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade: number, reservedWindow?: Window | null): Promise<boolean> {
+  const printWindow = reservedWindow ?? reservePrintWindow('width=400,height=600,noopener,noreferrer');
+  if (!printWindow) return false;
+
   const [config, osData] = await Promise.all([
     fetchEtiquetaConfig(),
     fetchOSPrintData(ordemServicoId),
   ]);
 
   if (!config || !osData) {
-    reservedWindow?.close();
+    printWindow.close();
     return false;
   }
 
   // Generate one label per item type (ignoring manual quantidade, using actual items)
   if (osData.itens.length > 0) {
     const html = generateMultipleItemLabelsHTML(config, osData);
-    return openPrintWindow(html, reservedWindow);
+    return openPrintWindow(html, printWindow);
   } else {
     // Fallback: single generic label
     const etiquetaData: EtiquetaData = {
@@ -535,7 +543,7 @@ export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade
       data: osData.dataEmissao,
     };
     const html = generateEtiquetaHTMLWithData(config, etiquetaData);
-    return openPrintWindow(html, reservedWindow);
+    return openPrintWindow(html, printWindow);
   }
 }
 
