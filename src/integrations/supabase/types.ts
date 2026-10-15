@@ -95,6 +95,53 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          entity_id: string | null
+          entity_schema: string
+          entity_table: string
+          id: string
+          new_data: Json | null
+          occurred_at: string
+          old_data: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          entity_id?: string | null
+          entity_schema: string
+          entity_table: string
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          entity_id?: string | null
+          entity_schema?: string
+          entity_table?: string
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asaas_charges: {
         Row: {
           asaas_id: string | null

@@ -4,9 +4,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   getRoutePermissionRequirement,
   hasAnyModulePermission,
+  isRouteAccessible,
   type ModulePermissionKey,
   type RoutePermissionRequirement,
 } from "@/lib/authorization";
+import { getAppRoute, type AppRouteDefinition } from "@/lib/appRoutes";
+import { useAccessibleWorkspaces } from "@/hooks/useAccessibleWorkspaces";
 
 export const usePermissoesUsuario = () => {
   const { funcionario } = useAuth();
@@ -117,4 +120,38 @@ export const useTemPermissao = (route: string): boolean => {
 
 export const useTemPermissaoModulo = (moduleKey: ModulePermissionKey): boolean => {
   return usePermissaoModulo(moduleKey).allowed;
+};
+
+export interface NavigationAccessState {
+  canAccessRoute: (route: string | AppRouteDefinition) => boolean;
+  isError: boolean;
+  isLoading: boolean;
+}
+
+export const useNavigationAccess = (): NavigationAccessState => {
+  const accessibleWorkspaces = useAccessibleWorkspaces();
+  const permissionsQuery = usePermissoesUsuario();
+  const adminQuery = useIsAdmin();
+  const isLoading = (
+    accessibleWorkspaces.isLoading
+    || permissionsQuery.isLoading
+    || adminQuery.isLoading
+  );
+  const isError = (
+    accessibleWorkspaces.isError
+    || permissionsQuery.isError
+    || adminQuery.isError
+  );
+
+  const canAccessRoute = (route: string | AppRouteDefinition): boolean => {
+    if (isLoading || isError) return false;
+    const definition = typeof route === "string" ? getAppRoute(route) : route;
+    return isRouteAccessible(definition, {
+      accessibleAreas: accessibleWorkspaces.areas,
+      modulePermissions: permissionsQuery.data,
+      isAdmin: adminQuery.data === true,
+    });
+  };
+
+  return { canAccessRoute, isError, isLoading };
 };
