@@ -19,6 +19,20 @@ export const dashboardQueryKeyPrefixes = [
   ["rols_loja"],
 ] as const;
 
+const dashboardProductionAdvanceQueryKeyPrefixes = [
+  ["metricas_producao"],
+  ["resumo_processamento"],
+  ["agenda_entregas"],
+  ["rols_loja"],
+] as const;
+
+const cashRegisterCloseQueryKeyPrefixes = [
+  ["caixa-aberto"],
+  ["caixas"],
+  ["caixas-fechados"],
+  ["ultimo-caixa-fechado"],
+] as const;
+
 export function getQueryRetryDelay(attemptIndex: number): number {
   return Math.min(
     QUERY_RETRY_DELAY_BASE_MS * 2 ** attemptIndex,
@@ -35,19 +49,25 @@ export const dashboardQueryDefaults = {
   refetchOnWindowFocus: true,
 } satisfies NonNullable<DefaultOptions["queries"]>;
 
-export async function invalidateDashboardQueries(queryClient: QueryClient): Promise<void> {
+async function invalidateQueryKeyPrefixes(
+  queryClient: QueryClient,
+  queryKeyPrefixes: readonly (readonly string[])[],
+): Promise<void> {
   await Promise.all(
-    dashboardQueryKeyPrefixes.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+    queryKeyPrefixes.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
   );
 }
 
-export function getDashboardLastUpdatedAt(queryClient: QueryClient): number {
-  return dashboardQueryKeyPrefixes.reduce((latestUpdatedAt, queryKey) => {
-    const latestForPrefix = queryClient
-      .getQueryCache()
-      .findAll({ queryKey })
-      .reduce((latest, query) => Math.max(latest, query.state.dataUpdatedAt), 0);
+export function invalidateDashboardQueries(queryClient: QueryClient): Promise<void> {
+  return invalidateQueryKeyPrefixes(queryClient, dashboardQueryKeyPrefixes);
+}
 
-    return Math.max(latestUpdatedAt, latestForPrefix);
-  }, 0);
+export function invalidateDashboardQueriesAfterProductionAdvance(
+  queryClient: QueryClient,
+): Promise<void> {
+  return invalidateQueryKeyPrefixes(queryClient, dashboardProductionAdvanceQueryKeyPrefixes);
+}
+
+export function invalidateCashRegisterQueriesAfterClose(queryClient: QueryClient): Promise<void> {
+  return invalidateQueryKeyPrefixes(queryClient, cashRegisterCloseQueryKeyPrefixes);
 }

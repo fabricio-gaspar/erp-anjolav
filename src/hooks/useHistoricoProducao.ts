@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, startOfDay, subDays } from "date-fns";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { invalidateDashboardQueriesAfterProductionAdvance } from "@/lib/queryDefaults";
 import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -165,7 +166,7 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
       queryClient.invalidateQueries({ queryKey: ["historico_producao"] });
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
       queryClient.invalidateQueries({ queryKey: ["itens_ordem_servico"] });
-      queryClient.invalidateQueries({ queryKey: ["metricas_producao"] });
+      void invalidateDashboardQueriesAfterProductionAdvance(queryClient);
     },
     onError: (error) => {
       toast.error("Não foi possível avançar a etapa: " + error.message);

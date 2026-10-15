@@ -181,18 +181,14 @@ test("o cliente global usa defaults de cache e recuperação sem refetch incondi
   assert.equal(defaults?.retryDelay?.(5, new Error("falha")), 30_000);
 });
 
-test("a atualização do dashboard invalida apenas suas chaves e deriva a última atualização do cache", async () => {
-  const { dashboardQueryKeyPrefixes, getDashboardLastUpdatedAt, invalidateDashboardQueries } =
-    await requireDashboardQueryDefaults();
+test("a atualização manual do dashboard invalida apenas suas chaves", async () => {
+  const { dashboardQueryKeyPrefixes, invalidateDashboardQueries } = await requireDashboardQueryDefaults();
   const cache = new QueryClient();
-  const updatedAt = Date.UTC(2026, 9, 15, 12, 0, 0);
 
   for (const [index, queryKey] of dashboardQueryKeyPrefixes.entries()) {
-    cache.setQueryData([...queryKey, `escopo-${index}`], { index }, { updatedAt: updatedAt + index });
+    cache.setQueryData([...queryKey, `escopo-${index}`], { index });
   }
-  cache.setQueryData(["clientes", "central"], { preservada: true }, { updatedAt: updatedAt + 100 });
-
-  assert.equal(getDashboardLastUpdatedAt(cache), updatedAt + dashboardQueryKeyPrefixes.length - 1);
+  cache.setQueryData(["clientes", "central"], { preservada: true });
 
   await invalidateDashboardQueries(cache);
 
@@ -202,13 +198,82 @@ test("a atualização do dashboard invalida apenas suas chaves e deriva a últim
   assert.equal(cache.getQueryState(["clientes", "central"])?.isInvalidated, false);
 });
 
+test("avançar uma OS invalida todas as fontes operacionais que ela pode alterar no dashboard", async () => {
+  const { invalidateDashboardQueriesAfterProductionAdvance } = await requireDashboardQueryDefaults();
+  const cache = new QueryClient();
+  const dashboardSources = [
+    ["metricas_producao", "central"],
+    ["resumo_processamento", "residencial"],
+    ["agenda_entregas", "2026-10-15", "industrial"],
+    ["rols_loja"],
+  ] as const;
+
+  for (const [index, queryKey] of dashboardSources.entries()) {
+    cache.setQueryData(queryKey, { index });
+  }
+  cache.setQueryData(["clientes", "central"], { preservada: true });
+
+  await invalidateDashboardQueriesAfterProductionAdvance(cache);
+
+  for (const queryKey of dashboardSources) {
+    assert.equal(cache.getQueryState(queryKey)?.isInvalidated, true);
+  }
+  assert.equal(cache.getQueryState(["clientes", "central"])?.isInvalidated, false);
+
+  const producao = readProjectFile("src/hooks/useHistoricoProducao.ts");
+  const rols = readProjectFile("src/components/dashboard/RolsLojaCard.tsx");
+
+  assert.match(producao, /invalidateDashboardQueriesAfterProductionAdvance\(queryClient\)/);
+  assert.match(producao, /queryKey:\s*\["resumo_processamento", activeArea\]/);
+  assert.match(producao, /queryKey:\s*\["agenda_entregas", hoje, activeArea\]/);
+  assert.match(producao, /\.eq\("status", "expedicao"\)/);
+  assert.match(rols, /queryKey:\s*\["rols_loja"\]/);
+  assert.match(rols, /\.select\("id, numero, status,/);
+});
+
+test("fechar caixa invalida o cartão do último caixa fechado", async () => {
+  const { invalidateCashRegisterQueriesAfterClose } = await requireDashboardQueryDefaults();
+  const cache = new QueryClient();
+  const cashRegisterSources = [
+    ["caixa-aberto"],
+    ["caixas", "2026-10-15"],
+    ["caixas-fechados", "2026-10-15"],
+    ["ultimo-caixa-fechado"],
+  ] as const;
+
+  for (const [index, queryKey] of cashRegisterSources.entries()) {
+    cache.setQueryData(queryKey, { index });
+  }
+  cache.setQueryData(["clientes", "central"], { preservada: true });
+
+  await invalidateCashRegisterQueriesAfterClose(cache);
+
+  for (const queryKey of cashRegisterSources) {
+    assert.equal(cache.getQueryState(queryKey)?.isInvalidated, true);
+  }
+  assert.equal(cache.getQueryState(["clientes", "central"])?.isInvalidated, false);
+  assert.match(
+    readProjectFile("src/hooks/useCaixa.ts"),
+    /invalidateCashRegisterQueriesAfterClose\(queryClient\)/,
+  );
+});
+
+test("o dashboard não exibe uma data de atualização de outro cartão ou área", () => {
+  const dashboard = readProjectFile("src/pages/Dashboard.tsx");
+  const queryDefaults = readProjectFile("src/lib/queryDefaults.ts");
+
+  assert.doesNotMatch(dashboard, /getDashboardLastUpdatedAt/);
+  assert.doesNotMatch(dashboard, /última atualização/i);
+  assert.doesNotMatch(queryDefaults, /getDashboardLastUpdatedAt/);
+  assert.doesNotMatch(queryDefaults, /getQueryCache\(\)\s*\.findAll\(/);
+});
+
 test("o dashboard não mantém polling de dados operacionais completos a cada 30 segundos", () => {
   const dashboard = readProjectFile("src/pages/Dashboard.tsx");
   const producao = readProjectFile("src/hooks/useHistoricoProducao.ts");
 
   assert.doesNotMatch(dashboard, /invalidateQueries\(\s*\)/);
   assert.match(dashboard, /invalidateDashboardQueries\(queryClient\)/);
-  assert.match(dashboard, /getDashboardLastUpdatedAt\(queryClient\)/);
   assert.doesNotMatch(dashboard, /setLastUpdated/);
   assert.doesNotMatch(producao, /refetchInterval:\s*enabled\s*\?\s*30_?000\s*:\s*false/);
 });
