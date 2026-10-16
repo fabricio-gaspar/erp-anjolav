@@ -97,7 +97,7 @@ export async function reserveAndPrintPreparedDocument(
   );
   if (!printWindow) return false;
 
-  let printRequested = false;
+  let reservedWindowIsBlank = true;
 
   try {
     const html = await prepareHtml();
@@ -106,11 +106,13 @@ export async function reserveAndPrintPreparedDocument(
       return false;
     }
 
+    // A writer may throw after opening or partly writing the document. Mark
+    // the popup as non-blank before invoking it so failures never close it.
+    reservedWindowIsBlank = false;
     (options.writeDocument ?? writePrintDocument)(printWindow, html);
-    printRequested = (options.requestPrint ?? printDocumentWhenReady)(printWindow);
-    return printRequested;
+    return (options.requestPrint ?? printDocumentWhenReady)(printWindow);
   } catch (error) {
-    if (!printRequested && !printWindow.closed) printWindow.close();
+    if (reservedWindowIsBlank && !printWindow.closed) printWindow.close();
     throw error;
   }
 }
