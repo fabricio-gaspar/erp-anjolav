@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { REQUIRED_RELEASE_GATES, parseDotEnv, validateProductionConfig } from "../scripts/production-preflight.mjs";
@@ -147,4 +148,48 @@ test("bloqueia ativação de NFS-e sem provedor, município e cofre configurados
   assert.match(result.errors.join("\n"), /NFSE_PROVIDER/);
   assert.match(result.errors.join("\n"), /NFSE_MUNICIPALITY_IBGE/);
   assert.match(result.errors.join("\n"), /NFSE_CERTIFICATE_SECRET/);
+});
+
+test("template e documentação exigem evidência completa e publicação controlada", () => {
+  const evidence = JSON.parse(readFileSync(new URL("../ops/release-evidence.example.json", import.meta.url), "utf8"));
+  const deployment = readFileSync(new URL("../docs/DEPLOYMENT.md", import.meta.url), "utf8");
+  const checklist = readFileSync(new URL("../docs/GO_LIVE_CHECKLIST.md", import.meta.url), "utf8");
+  const security = readFileSync(new URL("../docs/SECURITY.md", import.meta.url), "utf8");
+
+  for (const field of [
+    "releaseCommit",
+    "migrationVersion",
+    "edgeFunctionCommit",
+    "frontendCommit",
+    "e2eCriticalFlows",
+    "performanceBudget",
+  ]) {
+    assert.ok(Object.hasOwn(evidence, field), `o template deve registrar ${field}`);
+  }
+  for (const gate of ["tenantRls", "databaseRecovery", "asaasWebhookQueue", "fiscalProvider", "releaseProvenance", "postDeploySmoke"]) {
+    assert.ok(Object.hasOwn(evidence.gates, gate), `o template deve conter o gate ${gate}`);
+  }
+  assert.ok(REQUIRED_RELEASE_GATES.includes("postDeploySmoke"));
+
+  const publicationSteps = [
+    "1. Commit e push do SHA de release",
+    "2. CI aprova o mesmo SHA",
+    "3. Migration em staging",
+    "4. Edge Functions em staging",
+    "5. Smoke tests autenticados em staging",
+    "6. Migration em produção",
+    "7. Edge Functions em produção",
+    "8. Publicação do frontend",
+    "9. Smoke tests pós-publicação",
+    "10. Janela de monitoramento reforçado",
+  ];
+  let previous = -1;
+  for (const step of publicationSteps) {
+    const position = deployment.indexOf(step);
+    assert.ok(position > previous, `a ordem de publicação deve conter: ${step}`);
+    previous = position;
+  }
+
+  assert.match(checklist, /Status padrão: indisponível até homologação independente/);
+  assert.match(security, /Não anuncie integração fiscal, pagamentos, e-mail, WhatsApp, n8n ou ponte de impressão como operacional/);
 });

@@ -15,6 +15,7 @@ export const REQUIRED_RELEASE_GATES = [
   "securityReview",
   "legalCommercial",
   "releaseProvenance",
+  "postDeploySmoke",
 ];
 
 const PLACEHOLDER_PATTERN = /(^|[-_\s])(?:seu|sua|substitua|preencha|placeholder|change[-_ ]?me|example|exemplo|seudominio|yourdomain|todo|tbd)(?:$|[-_\s])|^<.+>$|^__.+__$/i;
