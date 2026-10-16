@@ -18,6 +18,7 @@ export interface Cliente {
   inscricao_municipal: string | null;
   regime_tributario: string | null;
   observacoes: string | null;
+  tabela_preco_tipo: "padrao" | "personalizada";
   ativo: boolean;
   created_at: string;
   updated_at: string;

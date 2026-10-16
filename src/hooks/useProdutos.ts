@@ -12,6 +12,7 @@ export interface Produto {
   unidade: string | null;
   unidade_negocio: string | null;
   categoria: string | null;
+  porte: "pequeno" | "medio" | "grande" | null;
   status: string;
   codigo: string | null;
   peso_medio_kg: number | null;

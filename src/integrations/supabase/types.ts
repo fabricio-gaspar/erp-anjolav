@@ -577,6 +577,7 @@ export type Database = {
           observacoes: string | null
           razao_social: string
           regime_tributario: string | null
+          tabela_preco_tipo: string
           telefone: string | null
           telefone2: string | null
           tipo_pessoa: string
@@ -596,6 +597,7 @@ export type Database = {
           observacoes?: string | null
           razao_social: string
           regime_tributario?: string | null
+          tabela_preco_tipo?: string
           telefone?: string | null
           telefone2?: string | null
           tipo_pessoa?: string
@@ -615,6 +617,7 @@ export type Database = {
           observacoes?: string | null
           razao_social?: string
           regime_tributario?: string | null
+          tabela_preco_tipo?: string
           telefone?: string | null
           telefone2?: string | null
           tipo_pessoa?: string
@@ -3189,6 +3192,7 @@ export type Database = {
           id: string
           instrucoes_especiais: string | null
           nome: string
+          porte: string | null
           peso_medio_kg: number | null
           preco: number
           processo_lavagem: string | null
@@ -3210,6 +3214,7 @@ export type Database = {
           id?: string
           instrucoes_especiais?: string | null
           nome: string
+          porte?: string | null
           peso_medio_kg?: number | null
           preco?: number
           processo_lavagem?: string | null
@@ -3231,6 +3236,7 @@ export type Database = {
           id?: string
           instrucoes_especiais?: string | null
           nome?: string
+          porte?: string | null
           peso_medio_kg?: number | null
           preco?: number
           processo_lavagem?: string | null
