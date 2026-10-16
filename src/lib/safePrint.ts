@@ -76,6 +76,45 @@ export function printDocumentWhenReady(
   return true;
 }
 
+export interface PreparedPrintOptions {
+  features?: string;
+  reserveWindow?: (features: string) => Window | null;
+  writeDocument?: (printWindow: Window, html: string) => void;
+  requestPrint?: (printWindow: Window | null | undefined) => boolean;
+}
+
+/**
+ * Reserves a popup synchronously, then prepares its HTML asynchronously.
+ * A `true` result means a browser print request was scheduled; it does not
+ * report native print-job completion.
+ */
+export async function reserveAndPrintPreparedDocument(
+  prepareHtml: () => Promise<string | null>,
+  options: PreparedPrintOptions = {},
+): Promise<boolean> {
+  const printWindow = (options.reserveWindow ?? reservePrintWindow)(
+    options.features ?? "width=900,height=700,noopener,noreferrer",
+  );
+  if (!printWindow) return false;
+
+  let printRequested = false;
+
+  try {
+    const html = await prepareHtml();
+    if (html == null) {
+      if (!printWindow.closed) printWindow.close();
+      return false;
+    }
+
+    (options.writeDocument ?? writePrintDocument)(printWindow, html);
+    printRequested = (options.requestPrint ?? printDocumentWhenReady)(printWindow);
+    return printRequested;
+  } catch (error) {
+    if (!printRequested && !printWindow.closed) printWindow.close();
+    throw error;
+  }
+}
+
 export function triggerPrint(printWindow: Window): void {
   printDocumentWhenReady(printWindow);
 }

@@ -1,25 +1,38 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 
 import * as safePrint from "../src/lib/safePrint.ts";
 
 type PrintLifecycle = (printWindow: Window | null | undefined) => boolean;
-
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const browserPrintPaths = [
-  "src/hooks/usePrintOS.ts",
-  "src/components/configuracoes/ROLPreview.tsx",
-  "src/components/configuracoes/EtiquetaPreview.tsx",
-  "src/services/printService.ts",
-];
+type PreparedPrint = (
+  prepareHtml: () => Promise<string | null>,
+  options?: {
+    features?: string;
+    reserveWindow?: (features: string) => Window | null;
+    writeDocument?: (printWindow: Window, html: string) => void;
+    requestPrint?: (printWindow: Window | null | undefined) => boolean;
+  },
+) => Promise<boolean>;
 
 function lifecycle(): PrintLifecycle | undefined {
   return (safePrint as typeof safePrint & {
     printDocumentWhenReady?: PrintLifecycle;
   }).printDocumentWhenReady;
+}
+
+function preparedPrint(): PreparedPrint | undefined {
+  return (safePrint as typeof safePrint & {
+    reserveAndPrintPreparedDocument?: PreparedPrint;
+  }).reserveAndPrintPreparedDocument;
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {};
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+
+  return { promise, resolve };
 }
 
 test("reports a blocked popup instead of scheduling a print", () => {
@@ -71,32 +84,101 @@ test("waits for the document, then focuses and prints without closing the window
   }
 });
 
-test("all ROL and label browser paths delegate to the shared lifecycle without print-close pairs", async () => {
-  for (const path of browserPrintPaths) {
-    const source = await readFile(resolve(repoRoot, path), "utf8");
+test("reserves before asynchronous preparation, then prints without closing a successful window", async () => {
+  const reserveAndPrintPreparedDocument = preparedPrint();
+  assert.ok(reserveAndPrintPreparedDocument, "shared preparation helper must be exported");
 
-    assert.match(source, /printDocumentWhenReady/);
-    assert.doesNotMatch(source, /printWindow\.print\(\);?\s*printWindow\.close\(\)/);
-  }
+  const events: string[] = [];
+  const pendingHtml = deferred<string | null>();
+  const printWindow = {
+    closed: false,
+    close: () => events.push("window-close"),
+  } as unknown as Window;
+  let writtenWindow: Window | undefined;
+  let requestedWindow: Window | null | undefined;
+
+  const result = reserveAndPrintPreparedDocument(
+    async () => {
+      events.push("prepare");
+      return pendingHtml.promise;
+    },
+    {
+      reserveWindow: () => {
+        events.push("reserve");
+        return printWindow;
+      },
+      writeDocument: (window, html) => {
+        events.push(`write:${html}`);
+        writtenWindow = window;
+      },
+      requestPrint: (window) => {
+        events.push("request-print");
+        requestedWindow = window;
+        return true;
+      },
+    },
+  );
+
+  assert.deepEqual(events, ["reserve", "prepare"]);
+  pendingHtml.resolve("<html>ready</html>");
+
+  assert.equal(await result, true);
+  assert.deepEqual(events, ["reserve", "prepare", "write:<html>ready</html>", "request-print"]);
+  assert.equal(writtenWindow, printWindow);
+  assert.equal(requestedWindow, printWindow);
+  assert.equal(events.includes("window-close"), false);
 });
 
-test("OS print services reserve one popup before loading data and reuse it for printing", async () => {
-  const source = await readFile(resolve(repoRoot, "src/services/printService.ts"), "utf8");
-  const entryPoints = ["printROLFromOS", "printEtiquetaFromOS", "printMultipleEtiquetas"];
+test("closes only the reserved blank window when asynchronous preparation fails", async () => {
+  const reserveAndPrintPreparedDocument = preparedPrint();
+  assert.ok(reserveAndPrintPreparedDocument, "shared preparation helper must be exported");
 
-  for (const entryPoint of entryPoints) {
-    const start = source.indexOf(`export async function ${entryPoint}`);
-    const next = source.indexOf("\nexport async function", start + 1);
-    const implementation = source.slice(start, next === -1 ? source.length : next);
+  const events: string[] = [];
+  const pendingHtml = deferred<string | null>();
+  const printWindow = {
+    closed: false,
+    close: () => events.push("window-close"),
+  } as unknown as Window;
 
-    assert.notEqual(start, -1, `${entryPoint} must remain exported`);
-    assert.match(
-      implementation,
-      /const printWindow = reservedWindow \?\? reservePrintWindow\([\s\S]*?\);\s*if \(!printWindow\) return false;\s*const \[config, osData\] = await Promise\.all/,
-    );
-    assert.doesNotMatch(implementation, /reservePrintWindow\([\s\S]*reservePrintWindow\(/);
-    assert.match(implementation, /if \(!config \|\| !osData\) \{\s*printWindow\.close\(\);\s*return false;/);
-    assert.doesNotMatch(implementation, /reservedWindow\?\.close\(\)/);
-    assert.match(implementation, /openPrintWindow\(html, printWindow\)/);
-  }
+  const result = reserveAndPrintPreparedDocument(
+    async () => {
+      events.push("prepare");
+      return pendingHtml.promise;
+    },
+    {
+      reserveWindow: () => {
+        events.push("reserve");
+        return printWindow;
+      },
+      writeDocument: () => events.push("write"),
+      requestPrint: () => {
+        events.push("request-print");
+        return true;
+      },
+    },
+  );
+
+  assert.deepEqual(events, ["reserve", "prepare"]);
+  pendingHtml.resolve(null);
+
+  assert.equal(await result, false);
+  assert.deepEqual(events, ["reserve", "prepare", "window-close"]);
+});
+
+test("returns false for a blocked reservation without beginning preparation", async () => {
+  const reserveAndPrintPreparedDocument = preparedPrint();
+  assert.ok(reserveAndPrintPreparedDocument, "shared preparation helper must be exported");
+
+  let prepared = false;
+  assert.equal(
+    await reserveAndPrintPreparedDocument(
+      async () => {
+        prepared = true;
+        return "<html>unreachable</html>";
+      },
+      { reserveWindow: () => null },
+    ),
+    false,
+  );
+  assert.equal(prepared, false);
 });
