@@ -34,4 +34,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.platform-administration]
-verify_jwt = true
+# The function performs bearer-token and platform-admin validation itself so
+# anonymous CORS preflight requests can reach handlePreflight without granting
+# any access to the protected actions.
+verify_jwt = false

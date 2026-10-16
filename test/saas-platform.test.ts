@@ -6,6 +6,7 @@ const lifecycleUrl = new URL("../src/lib/saasPlatform.ts", import.meta.url);
 const migrationUrl = new URL("../supabase/migrations/20261015119000_platform_administration.sql", import.meta.url);
 const edgeFunctionUrl = new URL("../supabase/functions/platform-administration/index.ts", import.meta.url);
 const authHelperUrl = new URL("../supabase/functions/_shared/auth.ts", import.meta.url);
+const httpHelperUrl = new URL("../supabase/functions/_shared/http.ts", import.meta.url);
 const hookUrl = new URL("../src/hooks/useAdministracaoSaas.ts", import.meta.url);
 const componentUrl = new URL("../src/components/configuracoes/AdministracaoSaas.tsx", import.meta.url);
 const pageUrl = new URL("../src/pages/AdministracaoSaas.tsx", import.meta.url);
@@ -69,6 +70,7 @@ test("a migration mantém a administração de plataforma sem bootstrap automát
 test("a Edge Function exige administrador de plataforma e não contém integração de cobrança", () => {
   const edgeFunction = source(edgeFunctionUrl, "a Edge Function de administração da plataforma");
   const authHelper = source(authHelperUrl, "o helper de autorização da plataforma");
+  const httpHelper = source(httpHelperUrl, "o helper HTTP da plataforma");
   const config = source(configUrl, "a configuração de Edge Functions");
 
   assert.match(edgeFunction, /requirePlatformAdmin/);
@@ -82,7 +84,9 @@ test("a Edge Function exige administrador de plataforma e não contém integraç
   assert.match(edgeFunction, /platform_set_tenant_service_subscription/);
   assert.match(edgeFunction, /_actor_tenant_id: authorization\.tenantId/);
   assert.doesNotMatch(edgeFunction, /asaas|create-asaas-charge|\bpix\b|\bboleto\b/i);
-  assert.match(config, /\[functions\.platform-administration\]\s*\nverify_jwt = true/);
+  assert.match(config, /\[functions\.platform-administration\][\s\S]*verify_jwt = false/);
+  assert.match(edgeFunction, /requirePlatformAdmin/);
+  assert.match(httpHelper, /https:\/\/anjolav-erp\.fabriciogasparr\.chatgpt\.site/);
 });
 
 test("a rota é escondida para contas comuns e a interface confirma alterações de status", () => {
