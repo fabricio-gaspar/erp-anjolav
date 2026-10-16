@@ -23,6 +23,13 @@ Configure no host somente:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 
+Em hospedagens estáticas, essas variáveis precisam estar disponíveis no
+processo de build — não apenas como variáveis de runtime — porque o Vite
+incorpora a URL e a chave publicável no bundle do navegador. Execute o
+`preflight:production` com o mesmo arquivo de ambiente antes de empacotar o
+artefato. Nunca publique um bundle que contenha `undefined` nessas variáveis:
+o cliente Supabase falha antes de renderizar a tela de login.
+
 O host deve servir a SPA com fallback para `index.html`, HTTPS obrigatório, headers de segurança e domínio exato incluído em `ALLOWED_ORIGINS`. Não use segredo, service role ou chave de provedor em uma variável `VITE_*`.
 
 ## 3. Banco Supabase
