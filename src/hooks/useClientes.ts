@@ -72,7 +72,9 @@ export interface ConfiguracaoCliente {
   updated_at: string;
 }
 
-export type ClienteInsert = Omit<Cliente, "id" | "created_at" | "updated_at">;
+export type ClienteInsert = Omit<Cliente, "id" | "created_at" | "updated_at" | "tabela_preco_tipo"> & {
+  tabela_preco_tipo?: Cliente["tabela_preco_tipo"];
+};
 export type ClienteUpdate = Partial<ClienteInsert>;
 
 export function useClientes() {
