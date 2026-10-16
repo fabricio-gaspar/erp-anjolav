@@ -157,7 +157,7 @@ export function useFaturas(
     if (activeArea === "central") return;
     const { data, error } = await supabase
       .from("faturas")
-      .select("id, cliente:clientes!inner(classificacao)")
+      .select("id, cliente:clientes!faturas_cliente_id_fkey!inner(classificacao)")
       .eq("id", id)
       .eq("cliente.classificacao", activeArea)
       .maybeSingle();
@@ -172,7 +172,7 @@ export function useFaturas(
         .from("faturas")
         .select(`
           *,
-          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .order("created_at", { ascending: false });
 
@@ -214,7 +214,7 @@ export function useFaturas(
         .insert(fatura)
         .select(`
           *,
-          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .single();
       if (error) throw error;
@@ -237,7 +237,7 @@ export function useFaturas(
         .eq("id", id)
         .select(`
           *,
-          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .single();
       if (error) throw error;
@@ -306,7 +306,7 @@ export function useFaturaById(faturaId: string | null) {
         .from("faturas")
         .select(`
           *,
-          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .eq("id", faturaId);
       if (activeArea !== "central") query = query.eq("cliente.classificacao", activeArea);

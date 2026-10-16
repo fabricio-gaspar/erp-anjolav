@@ -81,3 +81,20 @@ test("as métricas independentes do Dashboard são consultadas em paralelo e com
   assert.match(dashboardSource, /useFaturas\(inicioMes, fimMes, temFinanceiro, true\)/);
   assert.match(readFileSync(new URL("../src/hooks/useFaturas.ts", import.meta.url), "utf8"), /incluirPeriodosSobrepostos/);
 });
+
+test("os joins do Dashboard desambiguam as FKs de tenant", () => {
+  const productionHook = readFileSync(
+    new URL("../src/hooks/useHistoricoProducao.ts", import.meta.url),
+    "utf8",
+  );
+  const invoicesHook = readFileSync(new URL("../src/hooks/useFaturas.ts", import.meta.url), "utf8");
+
+  assert.match(productionHook, /ordem:ordens_servico!historico_producao_ordem_servico_id_fkey/);
+  assert.match(productionHook, /ordem:ordens_servico!itens_ordem_servico_ordem_servico_id_fkey/);
+  assert.match(productionHook, /cliente:clientes!fk_agendamentos_cliente/);
+  assert.match(productionHook, /cliente:clientes!ordens_servico_cliente_id_fkey/);
+  assert.match(productionHook, /historico:historico_producao!historico_producao_ordem_servico_id_fkey/);
+  assert.match(productionHook, /itens:itens_ordem_servico!itens_ordem_servico_ordem_servico_id_fkey/);
+  assert.match(productionHook, /produto:produtos!itens_ordem_servico_produto_id_fkey/);
+  assert.match(invoicesHook, /cliente:clientes!faturas_cliente_id_fkey!inner/);
+});

@@ -71,7 +71,7 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
         .select(`
           *,
           funcionario:funcionarios(nome),
-          ordem:ordens_servico!inner(origem)
+          ordem:ordens_servico!historico_producao_ordem_servico_id_fkey!inner(origem)
         `)
         .eq("ordem_servico_id", ordemServicoId)
         .order("created_at", { ascending: true });
@@ -214,7 +214,7 @@ export function useMetricasProducao(enabled = true) {
       // Peças registradas hoje
       let itensHojeQuery = supabase
         .from("itens_ordem_servico")
-        .select("quantidade, ordem:ordens_servico!inner(origem)")
+        .select("quantidade, ordem:ordens_servico!itens_ordem_servico_ordem_servico_id_fkey!inner(origem)")
         .gte("created_at", inicioHoje);
       if (allowedOrigins) itensHojeQuery = itensHojeQuery.in("ordem.origem", [...allowedOrigins]);
 
@@ -281,7 +281,7 @@ export function useAgendaDia(enabled = true) {
         .from("agendamentos")
         .select(`
           id, horario, status,
-          cliente:clientes!inner(razao_social, classificacao)
+          cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao)
         `)
         .eq("tipo", "retirada")
         .eq("data", hoje)
@@ -302,7 +302,7 @@ export function useAgendaDia(enabled = true) {
         .from("agendamentos")
         .select(`
           id, horario, status,
-          cliente:clientes!inner(razao_social, classificacao)
+          cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao)
         `)
         .eq("tipo", "entrega")
         .eq("data", hoje)
@@ -315,7 +315,7 @@ export function useAgendaDia(enabled = true) {
         .from("ordens_servico")
         .select(`
           id, cliente_id, numero, data_previsao_entrega,
-          cliente:clientes(razao_social)
+          cliente:clientes!ordens_servico_cliente_id_fkey(razao_social)
         `)
         .eq("status", "expedicao")
         .order("created_at");
@@ -374,11 +374,11 @@ export function useResumoProcessamento(enabled = true) {
         .from("ordens_servico")
         .select(`
           numero, status, data_previsao_entrega, data_retirada, created_at,
-          cliente:clientes(razao_social),
-          historico:historico_producao(created_at, etapa_nova, dados_formulario),
-          itens:itens_ordem_servico(
+          cliente:clientes!ordens_servico_cliente_id_fkey(razao_social),
+          historico:historico_producao!historico_producao_ordem_servico_id_fkey(created_at, etapa_nova, dados_formulario),
+          itens:itens_ordem_servico!itens_ordem_servico_ordem_servico_id_fkey(
             quantidade,
-            produto:produtos(
+            produto:produtos!itens_ordem_servico_produto_id_fkey(
               nome,
               tempo_processo_min,
               peso_medio_kg
