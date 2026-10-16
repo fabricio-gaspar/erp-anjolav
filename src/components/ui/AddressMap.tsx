@@ -1,7 +1,20 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline, Popup, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+const DEFAULT_MAP_TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+const DEFAULT_MAP_TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+const configuredTileUrl = import.meta.env.VITE_MAP_TILE_URL?.trim();
+const configuredTileKey = import.meta.env.VITE_MAP_TILE_KEY?.trim();
+const mapTileUrl = configuredTileUrl || DEFAULT_MAP_TILE_URL;
+const mapTileAttribution =
+  import.meta.env.VITE_MAP_TILE_ATTRIBUTION?.trim() || DEFAULT_MAP_TILE_ATTRIBUTION;
+const mapTileUrlWithKey = configuredTileKey
+  ? `${mapTileUrl}${mapTileUrl.includes("?") ? "&" : "?"}key=${encodeURIComponent(configuredTileKey)}`
+  : mapTileUrl;
 
 // Fix for default marker icons in React-Leaflet
 const defaultIcon = L.icon({
@@ -175,6 +188,8 @@ export const AddressMap = ({
   // Centro padrão: Brasil
   const defaultCenter: [number, number] = [-15.7801, -47.9292];
   const defaultZoom = 4;
+  const [tileError, setTileError] = useState(false);
+  const [tileRetry, setTileRetry] = useState(0);
 
   const hasCoordinates = latitude !== null && longitude !== null;
   const hasCompanyCoordinates = companyLatitude !== null && companyLongitude !== null;
@@ -209,8 +224,13 @@ export const AddressMap = ({
         className="z-0"
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          key={tileRetry}
+          attribution={mapTileAttribution}
+          url={mapTileUrlWithKey}
+          eventHandlers={{
+            load: () => setTileError(false),
+            tileerror: () => setTileError(true),
+          }}
         />
         
         {/* Marcador da empresa (azul) - Acessível */}
@@ -296,6 +316,25 @@ export const AddressMap = ({
         
         {onPositionChange && <MapClickHandler onPositionChange={onPositionChange} />}
       </MapContainer>
+
+      {tileError && (
+        <div
+          className="absolute inset-x-3 top-3 z-[1000] flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-900 shadow"
+          role="alert"
+        >
+          <span>Não foi possível carregar a base cartográfica. A coordenada ainda pode ser ajustada manualmente.</span>
+          <button
+            type="button"
+            className="shrink-0 font-semibold underline underline-offset-2"
+            onClick={() => {
+              setTileError(false);
+              setTileRetry((current) => current + 1);
+            }}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
       
       {/* Legenda sobreposta no mapa */}
       {showBothMarkers && (

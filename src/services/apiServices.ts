@@ -8,6 +8,8 @@ export interface ViaCepResponse {
   localidade: string;
   uf: string;
   erro?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface BrasilApiCnpjResponse {
@@ -38,6 +40,20 @@ export interface BrasilApiCepResponse {
   city: string;
   neighborhood: string;
   street: string;
+}
+
+interface BrasilApiCepGeolocationResponse {
+  cep: string;
+  state: string;
+  city: string;
+  neighborhood: string;
+  street: string;
+  location?: {
+    coordinates?: {
+      latitude?: string | number;
+      longitude?: string | number;
+    };
+  };
 }
 
 export interface NominatimResponse {
@@ -110,8 +126,49 @@ export const buscarCepBrasilApi = async (cep: string): Promise<ViaCepResponse | 
   };
 };
 
+// BrasilAPI V2 - Busca de CEP com geolocalização aproximada do CEP
+export const buscarCepBrasilApiComGeolocalizacao = async (
+  cep: string,
+): Promise<ViaCepResponse | null> => {
+  const cepLimpo = limparNumeros(cep);
+  if (cepLimpo.length !== 8) {
+    throw new Error("CEP deve conter 8 dígitos");
+  }
+
+  const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cepLimpo}`, {
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) return null;
+    throw new Error("Erro ao buscar CEP com geolocalização na BrasilAPI");
+  }
+
+  const data: BrasilApiCepGeolocationResponse = await response.json();
+  const latitude = Number(data.location?.coordinates?.latitude);
+  const longitude = Number(data.location?.coordinates?.longitude);
+
+  return {
+    cep: data.cep,
+    logradouro: data.street || "",
+    complemento: "",
+    bairro: data.neighborhood || "",
+    localidade: data.city || "",
+    uf: data.state || "",
+    latitude: Number.isFinite(latitude) ? latitude : null,
+    longitude: Number.isFinite(longitude) ? longitude : null,
+  };
+};
+
 // Busca de CEP com fallback
 export const buscarCepComFallback = async (cep: string): Promise<ViaCepResponse | null> => {
+  try {
+    const resultadoComGeolocalizacao = await buscarCepBrasilApiComGeolocalizacao(cep);
+    if (resultadoComGeolocalizacao) return resultadoComGeolocalizacao;
+  } catch {
+    // Continua com os provedores de endereço sem coordenadas.
+  }
+
   try {
     const resultado = await buscarCep(cep);
     if (resultado) return resultado;
@@ -269,6 +326,10 @@ export const montarEnderecoCompleto = (dados: {
 
   if (dados.uf) {
     partes.push(dados.uf);
+  }
+
+  if (dados.cep) {
+    partes.push(dados.cep);
   }
 
   // Sempre adiciona Brasil para contexto

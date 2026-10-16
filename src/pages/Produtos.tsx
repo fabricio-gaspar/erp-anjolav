@@ -8,6 +8,7 @@ import { ProdutoFilters } from "@/components/produtos/ProdutoFilters";
 import { ProdutoCard } from "@/components/produtos/ProdutoCard";
 import { ProdutoForm, ProdutoFormData } from "@/components/produtos/ProdutoForm";
 import { ProdutoStats } from "@/components/produtos/ProdutoStats";
+import { useSearchParams } from "react-router-dom";
 
 const defaultFormData: ProdutoFormData = {
   codigo: "",
@@ -29,6 +30,7 @@ const defaultFormData: ProdutoFormData = {
 };
 
 const Produtos = () => {
+  const [searchParams] = useSearchParams();
   const { produtos, isLoading, createProduto, updateProduto, deleteProduto } = useProdutos();
   
   // Filters state
@@ -39,7 +41,7 @@ const Produtos = () => {
   const [selectedStatus, setSelectedStatus] = useState("todos");
   
   // Form state
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(searchParams.get("novo") === "1");
   const [editingProduto, setEditingProduto] = useState<Produto | null>(null);
   const [formData, setFormData] = useState<ProdutoFormData>(defaultFormData);
 

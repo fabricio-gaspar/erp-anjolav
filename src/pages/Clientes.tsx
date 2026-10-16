@@ -51,7 +51,12 @@ const Clientes = () => {
 
   const { activeArea } = useWorkspace();
   const { deleteCliente, updateCliente } = useClientes();
-  const { data: clientes = [], isLoading } = useFilteredClientes();
+  const {
+    data: clientes = [],
+    isLoading,
+    error: clientesError,
+    refetch,
+  } = useFilteredClientes();
   const { data: selectedCliente } = useClienteById(selectedClienteId);
 
   const filteredClientes = clientes.filter((cliente) => {
@@ -101,7 +106,9 @@ const Clientes = () => {
     return classificacao === "industrial" ? "ID1" : "ID2";
   };
 
-  const pageTitle = "Clientes Industrial";
+  const areaLabel = activeArea === "residencial" ? "Residencial" : "Industrial";
+  const operationLabel = activeArea === "residencial" ? "OPERAÇÃO RESIDENCIAL" : "OPERAÇÃO INDUSTRIAL";
+  const pageTitle = `Clientes ${areaLabel}`;
   const pageSubtitle = "AnjoLav";
 
   return (
@@ -111,13 +118,13 @@ const Clientes = () => {
         <div className="flex flex-col gap-2 px-1">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">OPERAÇÃO INDUSTRIAL</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">{operationLabel}</span>
           </div>
           <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
             {pageTitle}
           </h1>
           <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
-            Cadastros exclusivos da operação industrial
+            Cadastros exclusivos da operação {areaLabel.toLowerCase()}
           </p>
         </div>
 
@@ -193,7 +200,7 @@ const Clientes = () => {
               <div className="flex items-center gap-2">
                 <Button variant="outline" className="gap-2 shrink-0 border-slate-200 text-slate-700 bg-slate-50/50 hover:bg-slate-100">
                   <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Somente Industrial</span>
+                  <span className="hidden sm:inline">Somente {areaLabel}</span>
                 </Button>
                 <Button className="gap-2 shrink-0 bg-[#009ee3] hover:bg-[#008dcb] text-white border-none font-black text-[11px] uppercase tracking-[0.1em] shadow-sm" onClick={handleNovoCliente}>
                   <Plus className="w-4 h-4" />
@@ -207,6 +214,13 @@ const Clientes = () => {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   <span className="ml-2 text-muted-foreground">Carregando clientes...</span>
+                </div>
+              ) : clientesError ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-12 text-destructive" role="alert">
+                  <p>Não foi possível carregar os clientes.</p>
+                  <Button variant="outline" onClick={() => void refetch()}>
+                    Tentar novamente
+                  </Button>
                 </div>
               ) : filteredClientes.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">

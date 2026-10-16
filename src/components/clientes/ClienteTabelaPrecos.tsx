@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -29,6 +30,7 @@ import {
 import { Copy, Plus, Trash2, Loader2, ChevronsUpDown, Check, Search } from "lucide-react";
 import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 
 interface ClienteTabelaPrecosProps {
@@ -47,6 +49,8 @@ interface PrecoEspecialLocal {
 }
 
 export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => {
+  const navigate = useNavigate();
+  const { activeArea } = useWorkspace();
   const { produtos, isLoading: isLoadingProdutos } = useProdutos();
   const { clientes } = useClientes();
   const {
@@ -62,6 +66,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   const [produtoSelecionado, setProdutoSelecionado] = useState("");
   const [produtoSearchOpen, setProdutoSearchOpen] = useState(false);
   const [novoPreco, setNovoPreco] = useState("");
+  const produtoRoute = activeArea === "residencial" ? "/residencial/produtos" : "/industrial/produtos";
 
   // Sincronizar preços do banco com estado local
   useEffect(() => {
@@ -129,7 +134,11 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleAdicionarProduto = () => {
-    if (!produtoSelecionado || !clienteId) return;
+    if (!clienteId) return;
+    if (!produtoSelecionado) {
+      navigate(`${produtoRoute}?novo=1`);
+      return;
+    }
 
     const produto = produtos.find((p) => p.id === produtoSelecionado);
     if (!produto) return;
@@ -285,7 +294,9 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
           <Button 
             size="icon" 
             onClick={handleAdicionarProduto} 
-            disabled={!produtoSelecionado || upsertPrecoEspecial.isPending}
+            disabled={upsertPrecoEspecial.isPending}
+            aria-label={produtoSelecionado ? "Adicionar produto à tabela de preços" : "Cadastrar novo produto"}
+            title={produtoSelecionado ? "Adicionar produto à tabela de preços" : "Cadastrar novo produto"}
           >
             {upsertPrecoEspecial.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
