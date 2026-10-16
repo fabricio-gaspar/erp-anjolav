@@ -97,4 +97,7 @@ test("os joins do Dashboard desambiguam as FKs de tenant", () => {
   assert.match(productionHook, /itens:itens_ordem_servico!itens_ordem_servico_ordem_servico_id_fkey/);
   assert.match(productionHook, /produto:produtos!itens_ordem_servico_produto_id_fkey/);
   assert.match(invoicesHook, /cliente:clientes!faturas_cliente_id_fkey!inner/);
+  assert.doesNotMatch(productionHook, /ordem:ordens_servico!inner/);
+  assert.doesNotMatch(productionHook, /cliente:clientes!inner/);
+  assert.doesNotMatch(invoicesHook, /cliente:clientes!inner/);
 });
