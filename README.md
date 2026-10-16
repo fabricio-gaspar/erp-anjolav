@@ -35,6 +35,10 @@ npm run build
 
 O comando `npm run check` executa toda a sequência. A integração contínua repete essas verificações em pushes e pull requests.
 
+Para uma publicação estática, as variáveis públicas `VITE_SUPABASE_URL` e
+`VITE_SUPABASE_PUBLISHABLE_KEY` precisam estar disponíveis no processo de build;
+o Vite incorpora esses valores no bundle e não os lê depois da publicação.
+
 ## Painéis e acesso
 
 - `/central/*`: administração e visão consolidada
