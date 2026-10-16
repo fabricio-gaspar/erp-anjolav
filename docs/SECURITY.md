@@ -47,6 +47,10 @@ O receptor Asaas valida o token, grava o evento com ID determinístico antes da 
 
 ## Controles de produção ainda necessários
 
+Não anuncie integração fiscal, pagamentos, e-mail, WhatsApp, n8n ou ponte de impressão como operacional enquanto faltar homologação independente, evidência de release e responsável técnico. A presença de uma tela, variável de ambiente, credencial no cofre ou endpoint de saúde não substitui teste controlado no ambiente alvo.
+
+Para NFS-e, mantenha `NFSE_ENABLED=false` até que município, provedor/adaptador, allowlist HTTPS, cofre de credenciais/certificado e callbacks estejam homologados. O adaptador atual falha fechado e retorna indisponibilidade explícita; ele não deve repassar dados fiscais a um destino genérico.
+
 - Rate limiting/WAF para login, portal e webhooks públicos.
 - MFA para administradores e política de sessão.
 - SMTP transacional e proteção contra enumeração/abuso.

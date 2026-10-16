@@ -49,6 +49,18 @@ O sistema só pode receber a aprovação comercial quando todos os itens obrigat
 - [ ] SMTP e recuperação de senha funcionam no domínio final.
 - [ ] O escopo comercial informa que não há central de notificações persistentes, ou o módulo foi implementado e homologado.
 
+### Estado das integrações antes da homologação
+
+**Status padrão: indisponível até homologação independente.** Uma configuração salva, um teste de conexão ou um botão visível não tornam uma integração comercialmente operacional.
+
+| Integração | Estado atual permitido | Evidência obrigatória antes de anunciar |
+| --- | --- | --- |
+| NFS-e | `NFSE_ENABLED=false` ou resposta `NFSE_NOT_READY` | Município, provedor/adaptador específico, certificado/cofre, emissão, consulta, rejeição, cancelamento e DANFSE homologados. |
+| Asaas / PIX / boleto | Não anunciado como pagamento em produção | Cobrança, webhook assinado, conciliação, duplicidade, estorno e fila de retry homologados. |
+| E-mail transacional | `mailto:` é somente operação manual | Domínio, entrega, bounce, retry e auditoria do provedor homologados. |
+| Evolution / WhatsApp e n8n | Não anunciado como automação ativa | Host allowlisted, token/assinatura, callback, idempotência e retry homologados. |
+| Ponte de impressão local | Navegador apenas; nenhuma ponte local é instalada | Impressora, driver, navegador e ROL testados no equipamento real, com procedimento de suporte. |
+
 ## Operação de produção
 
 - [ ] Staging é equivalente à produção e UAT foi assinado.
@@ -58,6 +70,7 @@ O sistema só pode receber a aprovação comercial quando todos os itens obrigat
 - [ ] Domínio, HTTPS, DNS, CORS, CSP e redirects de autenticação foram validados.
 - [ ] Responsáveis técnico, operacional e comercial assinaram o go-live.
 - [ ] `ops/release-evidence.json` contém evidências dos gates e `npm run preflight:production` aprova o commit de release.
+- [ ] Smoke pós-publicação autenticado, isolamento entre tenants e janela de monitoramento reforçado foram registrados na evidência de release.
 - [ ] Projeto Supabase próprio `uomhckyqghkcnctbdwvp` está ativo; nenhuma configuração aponta para o project ref antigo.
 - [ ] Integração GitHub App do Lovable foi revogada nas configurações da conta/organização.
 

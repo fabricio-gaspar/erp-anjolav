@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "react-router-dom";
+import type { WorkspaceArea as AppWorkspaceArea } from "@/lib/appRoutes";
 
-export type WorkspaceArea = "central" | "industrial" | "residencial";
+export type WorkspaceArea = AppWorkspaceArea;
 
 interface WorkspaceContextType {
   activeArea: WorkspaceArea;

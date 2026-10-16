@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, ReactNode 
 import { Session, User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { limparCacheFinanceiroAgregado } from "@/lib/financeiroDashboardState";
 import { toast } from "sonner";
 
 interface Funcionario {
@@ -24,6 +25,7 @@ export interface TenantSummary {
 interface TenantContext {
   activeTenantId: string | null;
   tenants: TenantSummary[];
+  isPlatformAdmin: boolean;
 }
 
 interface AuthContextType {
@@ -32,6 +34,7 @@ interface AuthContextType {
   funcionario: Funcionario | null;
   activeTenant: TenantSummary | null;
   tenants: TenantSummary[];
+  isPlatformAdmin: boolean;
   loading: boolean;
   signIn: (login: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -47,7 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [funcionario, setFuncionario] = useState<Funcionario | null>(null);
-  const [tenantContext, setTenantContext] = useState<TenantContext>({ activeTenantId: null, tenants: [] });
+  const [tenantContext, setTenantContext] = useState<TenantContext>({
+    activeTenantId: null,
+    tenants: [],
+    isPlatformAdmin: false,
+  });
   const [loading, setLoading] = useState(true);
 
   // Fetch funcionario data linked to user
@@ -74,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const normalizeTenantContext = useCallback((value: unknown): TenantContext => {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
-      return { activeTenantId: null, tenants: [] };
+      return { activeTenantId: null, tenants: [], isPlatformAdmin: false };
     }
     const source = value as Record<string, unknown>;
     const tenants = Array.isArray(source.tenants)
@@ -88,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       activeTenantId: typeof source.activeTenantId === "string" ? source.activeTenantId : null,
       tenants,
+      isPlatformAdmin: source.platformAdmin === true,
     };
   }, []);
 
@@ -126,14 +134,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } catch (error) {
               console.error("Não foi possível carregar o contexto da empresa", error);
               setFuncionario(null);
-              setTenantContext({ activeTenantId: null, tenants: [] });
+              setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
             } finally {
               setLoading(false);
             }
           }, 0);
         } else {
           setFuncionario(null);
-          setTenantContext({ activeTenantId: null, tenants: [] });
+          setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
           setLoading(false);
         }
       }
@@ -151,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await loadUserContext(existingSession.user.id);
         } else {
           setFuncionario(null);
-          setTenantContext({ activeTenantId: null, tenants: [] });
+          setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
         }
       })
       .catch(() => {
@@ -159,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setUser(null);
         setFuncionario(null);
-        setTenantContext({ activeTenantId: null, tenants: [] });
+        setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
       })
       .finally(() => setLoading(false));
 
@@ -183,6 +191,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: null };
       }
 
+      // A função permite login por nome de usuário, mas instalações novas podem
+      // ainda não ter a Edge Function publicada. Para e-mails, o Supabase Auth
+      // oferece o mesmo fluxo de forma nativa e mantém o sistema utilizável.
       if (login.includes("@")) {
         const { error: passwordError } = await supabase.auth.signInWithPassword({
           email: login,
@@ -212,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       queryClient.clear();
       setFuncionario(null);
-      setTenantContext({ activeTenantId: null, tenants: [] });
+      setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
       toast.success("Logout realizado com sucesso!");
     } catch (err) {
       console.error("Error signing out:", err);
@@ -228,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextContext = normalizeTenantContext(data);
       if (nextContext.activeTenantId !== tenantId) throw new Error("A empresa ativa não foi confirmada");
 
+      limparCacheFinanceiroAgregado(queryClient);
       queryClient.clear();
       setTenantContext(nextContext);
       setFuncionario(await fetchFuncionario(session.user.id));
@@ -297,6 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         funcionario,
         activeTenant,
         tenants: tenantContext.tenants,
+        isPlatformAdmin: tenantContext.isPlatformAdmin,
         loading,
         signIn,
         signOut,

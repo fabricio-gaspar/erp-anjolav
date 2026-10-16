@@ -1,4 +1,4 @@
-import { escapeHtml, openPrintDocument, safeHttpsUrl } from "@/lib/safePrint";
+import { escapeHtml, openPrintDocument, printDocumentWhenReady, safeHttpsUrl } from "@/lib/safePrint";
 
 export interface ROLPreviewConfig {
   nomeCurto: string;
@@ -314,17 +314,7 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
 
 export const printROL = (config: ROLPreviewConfig) => {
   const html = generateROLHTML(config);
-  const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
-  
-  if (printWindow) {
-    // Wait for images to load before printing
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
-    };
-  }
+  return printDocumentWhenReady(openPrintDocument(html, 'width=400,height=600,noopener,noreferrer'));
 };
 
 export function ROLPreview({ config }: ROLPreviewProps) {

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { invalidateCashRegisterQueriesAfterClose } from "@/lib/queryDefaults";
 import { toast } from "sonner";
 
 export interface Caixa {
@@ -286,9 +287,7 @@ export const useFecharCaixa = () => {
       return { caixa: updatedCaixa, esperadoPorFormaPagamento };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["caixa-aberto"] });
-      queryClient.invalidateQueries({ queryKey: ["caixas"] });
-      queryClient.invalidateQueries({ queryKey: ["caixas-fechados"] });
+      void invalidateCashRegisterQueriesAfterClose(queryClient);
       toast.success("Caixa fechado com sucesso!");
     },
     onError: (error: Error) => {

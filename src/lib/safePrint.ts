@@ -51,14 +51,74 @@ export function writePrintDocument(printWindow: Window, html: string): void {
   printWindow.document.close();
 }
 
+export function printDocumentWhenReady(
+  printWindow: Window | null | undefined,
+  _options?: { autoClose?: false },
+): boolean {
+  if (!printWindow || printWindow.closed) return false;
+
+  const requestPrint = () => {
+    window.setTimeout(() => {
+      if (printWindow.closed) return;
+      printWindow.focus();
+      printWindow.print();
+    }, 120);
+  };
+
+  if (printWindow.document.readyState === "complete") {
+    requestPrint();
+  } else {
+    printWindow.addEventListener("load", requestPrint, { once: true });
+  }
+
+  // This only confirms that the browser print request was scheduled. Browser
+  // APIs do not report whether the user completed the native print job.
+  return true;
+}
+
+export interface PreparedPrintOptions {
+  features?: string;
+  reserveWindow?: (features: string) => Window | null;
+  writeDocument?: (printWindow: Window, html: string) => void;
+  requestPrint?: (printWindow: Window | null | undefined) => boolean;
+}
+
+/**
+ * Reserves a popup synchronously, then prepares its HTML asynchronously.
+ * A `true` result means a browser print request was scheduled; it does not
+ * report native print-job completion.
+ */
+export async function reserveAndPrintPreparedDocument(
+  prepareHtml: () => Promise<string | null>,
+  options: PreparedPrintOptions = {},
+): Promise<boolean> {
+  const printWindow = (options.reserveWindow ?? reservePrintWindow)(
+    options.features ?? "width=900,height=700,noopener,noreferrer",
+  );
+  if (!printWindow) return false;
+
+  let reservedWindowIsBlank = true;
+
+  try {
+    const html = await prepareHtml();
+    if (html == null) {
+      if (!printWindow.closed) printWindow.close();
+      return false;
+    }
+
+    // A writer may throw after opening or partly writing the document. Mark
+    // the popup as non-blank before invoking it so failures never close it.
+    reservedWindowIsBlank = false;
+    (options.writeDocument ?? writePrintDocument)(printWindow, html);
+    return (options.requestPrint ?? printDocumentWhenReady)(printWindow);
+  } catch (error) {
+    if (reservedWindowIsBlank && !printWindow.closed) printWindow.close();
+    throw error;
+  }
+}
+
 export function triggerPrint(printWindow: Window): void {
-  // Do not close immediately after print(): embedded browsers can return before
-  // the native dialog has sent the job to the Windows spooler.
-  window.setTimeout(() => {
-    if (printWindow.closed) return;
-    printWindow.focus();
-    printWindow.print();
-  }, 120);
+  printDocumentWhenReady(printWindow);
 }
 
 export function openPrintDocument(

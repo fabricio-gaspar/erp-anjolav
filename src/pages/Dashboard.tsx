@@ -52,6 +52,7 @@ import {
   useResumoProcessamento,
 } from "@/hooks/useHistoricoProducao";
 import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { invalidateDashboardQueries } from "@/lib/queryDefaults";
 import { cn } from "@/lib/utils";
 
 const etapaLabels: Record<string, string> = {
@@ -143,7 +144,6 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(() => new Date());
 
   const temFinanceiro = useTemPermissaoModulo("faturamento");
   const temContasPagar = useTemPermissaoModulo("contas_pagar");
@@ -449,8 +449,7 @@ const Dashboard = () => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await queryClient.invalidateQueries();
-      setLastUpdated(new Date());
+      await invalidateDashboardQueries(queryClient);
     } finally {
       setIsRefreshing(false);
     }
@@ -472,9 +471,6 @@ const Dashboard = () => {
       <div className="space-y-5 sm:space-y-8">
         <section className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
-              Dados persistidos · última atualização {format(lastUpdated, "HH:mm")}
-            </p>
             <h1 className="px-1 text-3xl font-black uppercase leading-none tracking-tight text-slate-900 sm:text-5xl">
               {areaLabels[activeArea].title}
             </h1>

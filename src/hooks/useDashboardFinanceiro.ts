@@ -1,194 +1,87 @@
 import { useMemo } from "react";
-import { useContasPagar } from "./useContasPagar";
-import { useFaturas } from "./useFaturas";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { startOfDay, endOfDay, addDays, isBefore, isEqual, isAfter, parseISO } from "date-fns";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { format, subDays } from "date-fns";
+import { useWorkspace, type WorkspaceArea } from "@/contexts/WorkspaceContext";
+import {
+  useFinanceiroAgregado,
+  type FinanceiroAgregado,
+  type PeriodoFinanceiro,
+  type SetorFinanceiro,
+} from "./useFinanceiroAgregado";
 
-export type SetorFinanceiro = "todos" | "industrial" | "loja";
+export type { SetorFinanceiro } from "./useFinanceiroAgregado";
 
-interface MovimentacaoVencida {
-  id: string;
-  tipo: "fatura" | "despesa";
-  descricao: string;
-  cliente: string;
-  dataVencimento: string;
-  valor: number;
+export interface DashboardFinanceiroData extends FinanceiroAgregado {
+  error: Error | null;
+  errorReference: string | null;
+  isLoading: boolean;
+  isRetrying: boolean;
+  retry: () => void;
+  setorEfetivo: SetorFinanceiro;
 }
 
-interface DashboardFinanceiroData {
-  resultadoRegistrado: number;
-  receitasTotais: number;
-  receitasCount: number;
-  despesasTotais: number;
-  despesasCount: number;
-  margemOperacionalRegistrada: number;
-  aReceberVencido: number;
-  aReceberHoje: number;
-  aReceberProximos7Dias: number;
-  aPagarVencido: number;
-  aPagarHoje: number;
-  aPagarProximos7Dias: number;
-  vencidasTotal: number;
-  vencidasCount: number;
-  vencemHoje: number;
-  vencemHojeCount: number;
-  proximos7Dias: number;
-  proximos7DiasCount: number;
-  movimentacoesVencidas: MovimentacaoVencida[];
-  // Loja-specific
-  receitasLoja: number;
-  receitasLojaCount: number;
-  isLoading: boolean;
-  error: Error | null;
+const DASHBOARD_WINDOW_DAYS = 365;
+
+const EMPTY_FINANCEIRO: FinanceiroAgregado = {
+  resultadoRegistrado: 0,
+  receitasTotais: 0,
+  receitasCount: 0,
+  despesasTotais: 0,
+  despesasCount: 0,
+  margemOperacionalRegistrada: 0,
+  aReceberVencido: 0,
+  aReceberHoje: 0,
+  aReceberProximos7Dias: 0,
+  aPagarVencido: 0,
+  aPagarHoje: 0,
+  aPagarProximos7Dias: 0,
+  vencidasTotal: 0,
+  vencidasCount: 0,
+  vencemHoje: 0,
+  vencemHojeCount: 0,
+  proximos7Dias: 0,
+  proximos7DiasCount: 0,
+  receitasLoja: 0,
+  receitasLojaCount: 0,
+  movimentacoesVencidas: [],
+};
+
+function resolveSetorFinanceiro(area: WorkspaceArea, setorSolicitado: SetorFinanceiro): SetorFinanceiro {
+  if (area === "industrial") return "industrial";
+  if (area === "residencial") return "loja";
+  return setorSolicitado;
+}
+
+function createDefaultPeriod(): PeriodoFinanceiro {
+  const fim = new Date();
+  const inicio = subDays(fim, DASHBOARD_WINDOW_DAYS);
+
+  return {
+    inicio: format(inicio, "yyyy-MM-dd"),
+    fim: format(fim, "yyyy-MM-dd"),
+  };
+}
+
+function createErrorReference(errorUpdatedAt: number): string | null {
+  if (errorUpdatedAt <= 0) return null;
+  return `FIN-${errorUpdatedAt.toString(36).toUpperCase()}`;
 }
 
 export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): DashboardFinanceiroData {
   const { activeArea } = useWorkspace();
-  const { contas, isLoading: isLoadingContas, error: contasError } = useContasPagar();
-  const { faturas, isLoading: isLoadingFaturas, error: faturasError } = useFaturas();
-
-  // Fetch caixa sales (Loja revenue)
-  const { data: vendasCaixa = [], isLoading: isLoadingCaixa, error: caixaError } = useQuery({
-    queryKey: ["dashboard-vendas-caixa"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("caixa_movimentacoes")
-        .select("id, valor, created_at, caixa_id")
-        .eq("tipo", "VENDA");
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: setor === "todos" || setor === "loja",
-  });
-
-  const data = useMemo(() => {
-    const hoje = startOfDay(new Date());
-    const proximos7 = addDays(hoje, 7);
-
-    // === Despesas (Contas a Pagar) — always shared ===
-    const despesasComPagamento = contas.filter(c =>
-      (c.status === "pago" || c.status === "parcial") && Number(c.valor_pago || 0) > 0
-    );
-    const despesasPendentes = contas.filter(c => c.status === "pendente" || c.status === "parcial");
-    const despesasTotais = despesasComPagamento.reduce((sum, c) => sum + Number(c.valor_pago || 0), 0);
-
-    const despesasVencidas = despesasPendentes.filter(c => isBefore(parseISO(c.vencimento), hoje));
-    const aPagarVencido = despesasVencidas.reduce((sum, c) => sum + Number(c.valor), 0);
-
-    const despesasHoje = despesasPendentes.filter(c => isEqual(startOfDay(parseISO(c.vencimento)), hoje));
-    const aPagarHoje = despesasHoje.reduce((sum, c) => sum + Number(c.valor), 0);
-
-    const despesasProximos = despesasPendentes.filter(c => {
-      const venc = startOfDay(parseISO(c.vencimento));
-      return isAfter(venc, hoje) && (isBefore(venc, proximos7) || isEqual(venc, proximos7));
-    });
-    const aPagarProximos7Dias = despesasProximos.reduce((sum, c) => sum + Number(c.valor), 0);
-
-    // === Filter faturas by sector and workspace ===
-    const effectiveSetor = activeArea === "residencial" ? "loja" : activeArea === "industrial" ? "industrial" : setor;
-
-    const faturasDoSetor = effectiveSetor === "loja"
-      ? [] // Loja doesn't use faturas
-      : effectiveSetor === "industrial"
-        ? faturas.filter(f => f.cliente?.classificacao === "industrial")
-        : faturas; // todos
-
-    const faturasPagas = faturasDoSetor.filter(f => f.status === "pago");
-    const faturasPendentes = faturasDoSetor.filter(f => f.status !== "pago");
-    const receitasFaturas = faturasPagas.reduce((sum, f) => sum + Number(f.valor_total), 0);
-
-    // === Loja revenue (caixa sales) ===
-    const incluirLoja = effectiveSetor === "todos" || effectiveSetor === "loja";
-    const receitasLoja = incluirLoja
-      ? vendasCaixa.reduce((sum, v) => sum + Number(v.valor), 0)
-      : 0;
-    const receitasLojaCount = incluirLoja ? vendasCaixa.length : 0;
-
-    const receitasTotais = receitasFaturas + receitasLoja;
-    const receitasCount = faturasPagas.length + receitasLojaCount;
-
-    // Faturas vencidas
-    const faturasVencidas = faturasPendentes.filter(f => {
-      if (!f.data_vencimento) return false;
-      return isBefore(parseISO(f.data_vencimento), hoje);
-    });
-    const aReceberVencido = faturasVencidas.reduce((sum, f) => sum + Number(f.valor_total), 0);
-
-    const faturasHoje = faturasPendentes.filter(f => {
-      if (!f.data_vencimento) return false;
-      return isEqual(startOfDay(parseISO(f.data_vencimento)), hoje);
-    });
-    const aReceberHoje = faturasHoje.reduce((sum, f) => sum + Number(f.valor_total), 0);
-
-    const faturasProximos = faturasPendentes.filter(f => {
-      if (!f.data_vencimento) return false;
-      const venc = startOfDay(parseISO(f.data_vencimento));
-      return isAfter(venc, hoje) && (isBefore(venc, proximos7) || isEqual(venc, proximos7));
-    });
-    const aReceberProximos7Dias = faturasProximos.reduce((sum, f) => sum + Number(f.valor_total), 0);
-
-    // === Totals ===
-    const resultadoRegistrado = receitasTotais - despesasTotais;
-    const margemOperacionalRegistrada = receitasTotais > 0
-      ? Math.round((resultadoRegistrado / receitasTotais) * 100)
-      : 0;
-
-    const vencidasTotal = aReceberVencido + aPagarVencido;
-    const vencidasCount = faturasVencidas.length + despesasVencidas.length;
-    const vencemHoje = aReceberHoje + aPagarHoje;
-    const vencemHojeCount = faturasHoje.length + despesasHoje.length;
-    const proximos7DiasTotal = aReceberProximos7Dias + aPagarProximos7Dias;
-    const proximos7DiasCount = faturasProximos.length + despesasProximos.length;
-
-    const movimentacoesVencidas: MovimentacaoVencida[] = [
-      ...faturasVencidas.map(f => ({
-        id: f.id,
-        tipo: "fatura" as const,
-        descricao: `Fatura ${f.numero_nf || f.id.slice(0, 8)} - ${f.cliente?.razao_social || "Cliente"}`,
-        cliente: f.cliente?.razao_social || "Cliente",
-        dataVencimento: f.data_vencimento || "",
-        valor: Number(f.valor_total),
-      })),
-      ...despesasVencidas.map(c => ({
-        id: c.id,
-        tipo: "despesa" as const,
-        descricao: c.descricao,
-        cliente: c.fornecedor || "Fornecedor",
-        dataVencimento: c.vencimento,
-        valor: Number(c.valor),
-      })),
-    ].sort((a, b) => parseISO(a.dataVencimento).getTime() - parseISO(b.dataVencimento).getTime());
-
-    return {
-      resultadoRegistrado,
-      receitasTotais,
-      receitasCount,
-      despesasTotais,
-      despesasCount: despesasComPagamento.length,
-      margemOperacionalRegistrada,
-      aReceberVencido,
-      aReceberHoje,
-      aReceberProximos7Dias,
-      aPagarVencido,
-      aPagarHoje,
-      aPagarProximos7Dias,
-      vencidasTotal,
-      vencidasCount,
-      vencemHoje,
-      vencemHojeCount,
-      proximos7Dias: proximos7DiasTotal,
-      proximos7DiasCount,
-      movimentacoesVencidas,
-      receitasLoja,
-      receitasLojaCount,
-    };
-  }, [activeArea, contas, faturas, vendasCaixa, setor]);
+  const periodo = useMemo(createDefaultPeriod, []);
+  const setorEfetivo = resolveSetorFinanceiro(activeArea, setor);
+  const consulta = useFinanceiroAgregado(periodo, setorEfetivo);
+  const retry = () => {
+    void consulta.refetch();
+  };
 
   return {
-    ...data,
-    isLoading: isLoadingContas || isLoadingFaturas || isLoadingCaixa,
-    error: (contasError || faturasError || caixaError) as Error | null,
+    ...(consulta.data ?? EMPTY_FINANCEIRO),
+    error: consulta.error,
+    errorReference: consulta.error ? createErrorReference(consulta.errorUpdatedAt) : null,
+    isLoading: consulta.isLoading,
+    isRetrying: consulta.isRefetching,
+    retry,
+    setorEfetivo,
   };
 }

@@ -95,6 +95,53 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          entity_id: string | null
+          entity_schema: string
+          entity_table: string
+          id: string
+          new_data: Json | null
+          occurred_at: string
+          old_data: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          entity_id?: string | null
+          entity_schema: string
+          entity_table: string
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          entity_id?: string | null
+          entity_schema?: string
+          entity_table?: string
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asaas_charges: {
         Row: {
           asaas_id: string | null
@@ -1360,6 +1407,7 @@ export type Database = {
           ativo: boolean
           created_at: string
           id: string
+          portal_exibir_fidelidade: boolean
           pontos_minimos_resgate: number
           reais_por_ponto: number
           tenant_id: string
@@ -1371,6 +1419,7 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           id?: string
+          portal_exibir_fidelidade?: boolean
           pontos_minimos_resgate?: number
           reais_por_ponto?: number
           tenant_id: string
@@ -1380,6 +1429,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          portal_exibir_fidelidade?: boolean
           pontos_minimos_resgate?: number
           reais_por_ponto?: number
           valor_minimo_acumulo?: number
@@ -3501,6 +3551,10 @@ export type Database = {
       }
       cancelar_intencao_pagamento_pdv: {
         Args: { _pagamento_id: string; _status_provedor: string }
+        Returns: Json
+      }
+      consultar_dashboard_financeiro: {
+        Args: { _fim: string; _inicio: string; _setor: string }
         Returns: Json
       }
       criar_venda_pdv: {
