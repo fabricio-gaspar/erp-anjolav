@@ -166,6 +166,7 @@ function toTenant(tenant: RawTenant): SaasTenant {
 }
 
 async function platformRequest<T>(body: Record<string, unknown>): Promise<T> {
+  // A autorização continua no servidor; a interface apenas encaminha a sessão atual.
   const { data, error } = await supabase.functions.invoke<PlatformEnvelope<T>>(
     "platform-administration",
     { body },
