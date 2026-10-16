@@ -35,7 +35,7 @@ export function useProdutos() {
   const { activeArea } = useWorkspace();
   const allowedBusinessUnits = getAllowedProductUnits(activeArea);
 
-  const { data: produtos = [], isLoading, error } = useQuery({
+  const { data: produtos = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["produtos", activeArea],
     queryFn: async () => {
       let query = supabase
@@ -121,7 +121,9 @@ export function useProdutos() {
   return {
     produtos,
     isLoading,
+    isError,
     error,
+    refetch,
     createProduto,
     updateProduto,
     deleteProduto,
@@ -143,6 +145,7 @@ export interface PrecoEspecialComProduto extends PrecoEspecial {
   produto: {
     nome: string;
     unidade: string | null;
+    preco: number;
   } | null;
 }
 
@@ -165,7 +168,7 @@ export function usePrecosEspeciais(clienteId: string | null) {
         .from("precos_especiais")
         .select(`
           *,
-          produto:produtos!fk_precos_especiais_produto(nome, unidade)
+          produto:produtos!fk_precos_especiais_produto(nome, unidade, preco)
         `)
         .eq("cliente_id", clienteId);
       if (error) throw error;

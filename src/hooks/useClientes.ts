@@ -81,7 +81,7 @@ export function useClientes() {
   const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
 
-  const { data: clientes = [], isLoading, error } = useQuery({
+  const { data: clientes = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["clientes", activeArea],
     queryFn: async () => {
       let query = supabase
@@ -180,7 +180,9 @@ export function useClientes() {
   return {
     clientes,
     isLoading,
+    isError,
     error,
+    refetch,
     createCliente,
     updateCliente,
     deleteCliente,

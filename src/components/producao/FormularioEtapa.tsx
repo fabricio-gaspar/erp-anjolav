@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, Info, CheckCircle, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,9 @@ import { useHistoricoProducao } from "@/hooks/useHistoricoProducao";
 import { useFuncionarios } from "@/hooks/useFuncionarios";
 import { useMotoristas } from "@/hooks/useMotoristas";
 import { useVeiculos } from "@/hooks/useVeiculos";
-import { usePrecosEspeciais } from "@/hooks/useProdutos";
+import { useClientes } from "@/hooks/useClientes";
+import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
+import { buildClientPriceCatalog } from "@/lib/clientPricing";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { dispararNotificacao } from "@/services/notificacaoService";
@@ -131,7 +133,19 @@ export function FormularioEtapa({
   const clienteId = osAtual?.cliente_id || null;
 
   // Buscar produtos do cliente (preços especiais)
+  const { clientes } = useClientes();
+  const { produtos, isLoading: isLoadingProdutos } = useProdutos();
   const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(clienteId);
+  const clienteAtual = clientes.find((cliente) => cliente.id === clienteId);
+  const produtosDaTabela = useMemo(
+    () => buildClientPriceCatalog(
+      produtos,
+      precosEspeciais,
+      clienteAtual?.tabela_preco_tipo ?? "padrao",
+      "industrial",
+    ),
+    [clienteAtual?.tabela_preco_tipo, precosEspeciais, produtos],
+  );
 
   // Funções para gerenciar itens da separação
   const handleAdicionarItem = () => {
@@ -140,20 +154,19 @@ export function FormularioEtapa({
       return;
     }
 
-    const precoItem = precosEspeciais.find((p) => p.produto_id === produtoSelecionado);
+    const precoItem = produtosDaTabela.find((p) => p.id === produtoSelecionado);
     if (!precoItem) return;
 
     const quantidade = Number(quantidadeItem);
-    const preco = precoItem.preco_especial;
 
     setItensSeparacao(prev => [
       ...prev,
       {
         produto_id: produtoSelecionado,
-        produto_nome: precoItem.produto?.nome || "Produto",
+        produto_nome: precoItem.nome,
         quantidade,
-        preco_unitario: preco,
-        subtotal: quantidade * preco,
+        preco_unitario: precoItem.precoAplicado,
+        subtotal: quantidade * precoItem.precoAplicado,
       }
     ]);
 
@@ -317,20 +330,22 @@ export function FormularioEtapa({
             <div className="space-y-2">
               <Label>Produto do Cliente *</Label>
               <Select value={produtoSelecionado} onValueChange={setProdutoSelecionado}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isLoadingPrecos ? "Carregando..." : "Selecione um produto"} />
+              <SelectTrigger>
+                  <SelectValue placeholder={isLoadingPrecos || isLoadingProdutos ? "Carregando..." : "Selecione um produto"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {precosEspeciais.map((preco) => (
-                    <SelectItem key={preco.produto_id} value={preco.produto_id}>
-                      {preco.produto?.nome} - R$ {preco.preco_especial.toFixed(2)}
+                  {produtosDaTabela.map((produto) => (
+                    <SelectItem key={produto.id} value={produto.id}>
+                      {produto.nome} - R$ {produto.precoAplicado.toFixed(2)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {precosEspeciais.length === 0 && !isLoadingPrecos && (
+              {produtosDaTabela.length === 0 && !isLoadingPrecos && !isLoadingProdutos && (
                 <p className="text-xs text-muted-foreground">
-                  Nenhum produto cadastrado para este cliente. Configure a tabela de preços no cadastro do cliente.
+                  {clienteAtual?.tabela_preco_tipo === "personalizada"
+                    ? "Nenhum produto cadastrado na tabela personalizada deste cliente."
+                    : "Nenhum produto padrão disponível para este cliente."}
                 </p>
               )}
             </div>

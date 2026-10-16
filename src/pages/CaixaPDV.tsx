@@ -171,7 +171,7 @@ const CaixaPDV = () => {
 
   // Get price for product (special price or default)
   const getPrecoForProduto = useCallback((produto: Produto): number => {
-    if (selectedClientId && precosEspeciais.length > 0) {
+    if (selectedClient?.tabela_preco_tipo === "personalizada" && precosEspeciais.length > 0) {
       const precoEspecial = precosEspeciais.find(
         (pe) => pe.produto_id === produto.id
       );
@@ -180,7 +180,7 @@ const CaixaPDV = () => {
       }
     }
     return produto.preco;
-  }, [precosEspeciais, selectedClientId]);
+  }, [precosEspeciais, selectedClient]);
 
   const filteredProdutos = useMemo(() => {
     return produtosAtivos.filter((produto) => {

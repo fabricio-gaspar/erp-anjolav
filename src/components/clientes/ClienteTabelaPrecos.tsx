@@ -51,8 +51,19 @@ interface PrecoEspecialLocal {
 export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => {
   const navigate = useNavigate();
   const { activeArea } = useWorkspace();
-  const { produtos, isLoading: isLoadingProdutos } = useProdutos();
-  const { clientes, updateCliente } = useClientes();
+  const {
+    produtos,
+    isLoading: isLoadingProdutos,
+    isError: isProdutosError,
+    refetch: refetchProdutos,
+  } = useProdutos();
+  const {
+    clientes,
+    isLoading: isLoadingClientes,
+    isError: isClientesError,
+    refetch: refetchClientes,
+    updateCliente,
+  } = useClientes();
   const {
     precos: precosEspeciais,
     isLoading: isLoadingPrecos,
@@ -197,7 +208,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
     updateCliente.mutate({ id: clienteId, tabela_preco_tipo: value });
   };
 
-  const isLoading = isLoadingProdutos || (isTabelaPersonalizada && isLoadingPrecos);
+  const isLoading = isLoadingClientes || isLoadingProdutos || (isTabelaPersonalizada && isLoadingPrecos);
 
   if (!clienteId) {
     return (
@@ -212,6 +223,21 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
         <span className="ml-2 text-muted-foreground">Carregando produtos...</span>
+      </div>
+    );
+  }
+
+  if (isClientesError || isProdutosError) {
+    return (
+      <div role="alert" className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <p className="font-medium">Não foi possível carregar os dados da tabela de preços.</p>
+        <p className="text-sm text-muted-foreground">Verifique a conexão e tente novamente.</p>
+        <Button
+          variant="outline"
+          onClick={() => void Promise.all([refetchClientes(), refetchProdutos()])}
+        >
+          Tentar novamente
+        </Button>
       </div>
     );
   }

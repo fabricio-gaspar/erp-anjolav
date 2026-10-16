@@ -40,8 +40,9 @@ import {
 import { format } from "date-fns";
 import { usePrintLancamento, type LancamentosPrintData } from "@/hooks/usePrintOS";
 import { useClientes } from "@/hooks/useClientes";
-import { usePrecosEspeciais } from "@/hooks/useProdutos";
+import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useLancamentos, useCreateItemLancamento } from "@/hooks/useLancamentos";
+import { buildClientPriceCatalog } from "@/lib/clientPricing";
 import { toast } from "sonner";
 
 interface LancamentoItem {
@@ -75,7 +76,8 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
   const [isFinalizando, setIsFinalizando] = useState(false);
 
   const { clientes, isLoading: isLoadingClientes } = useClientes();
-  const { precos: precosEspeciais } = usePrecosEspeciais(selectedClienteId);
+  const { produtos, error: produtosError } = useProdutos();
+  const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(selectedClienteId);
   const { printROLFromData, printEtiquetaFromData, isLoading: isPrinting } = usePrintLancamento();
   const { createLancamento } = useLancamentos();
   const createItemLancamento = useCreateItemLancamento();
@@ -88,6 +90,11 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
     if (!cliente) return null;
     return { nome: cliente.razao_social, documento: cliente.cpf_cnpj || "", telefone: cliente.telefone || "" };
   }, [selectedClienteId, clientes]);
+
+  const clienteAtual = useMemo(
+    () => clientes.find((cliente) => cliente.id === selectedClienteId) ?? null,
+    [clientes, selectedClienteId],
+  );
 
   const clientesIndustriais = useMemo(() => {
     return clientes.filter((c) => c.classificacao?.trim().toLowerCase() === "industrial");
@@ -105,15 +112,20 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
   }, [clientesIndustriais, clienteSearch]);
 
   const produtosDoCliente = useMemo(() => {
-    return precosEspeciais.map((pe: any) => ({
-      id: pe.produto_id,
-      nome: pe.produto?.nome || "Produto",
-      unidade: pe.produto?.unidade || "un",
-      precoEspecial: pe.preco_especial,
-      precoPadrao: pe.produto?.preco || 0,
-      tipo: pe.tipo,
+    return buildClientPriceCatalog(
+      produtos,
+      precosEspeciais,
+      clienteAtual?.tabela_preco_tipo ?? "padrao",
+      "industrial",
+    ).map((produto) => ({
+      id: produto.id,
+      nome: produto.nome,
+      unidade: produto.unidade || "un",
+      precoEspecial: produto.precoAplicado,
+      precoPadrao: produto.preco,
+      tipo: produto.override?.tipo || "normal",
     }));
-  }, [precosEspeciais]);
+  }, [clienteAtual?.tabela_preco_tipo, precosEspeciais, produtos]);
 
   const produtoSelecionado = useMemo(() => {
     if (!selectedProdutoId) return null;
@@ -269,6 +281,14 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
             {!selectedClienteId ? (
               <div className="flex items-center gap-2 mt-1.5 p-3 bg-muted/50 rounded-md text-sm text-muted-foreground">
                 <AlertCircle className="h-4 w-4" />Selecione um cliente primeiro
+              </div>
+            ) : produtosError ? (
+              <div role="alert" className="flex items-center gap-2 mt-1.5 p-3 bg-destructive/10 rounded-md text-sm text-destructive">
+                <AlertCircle className="h-4 w-4" />Não foi possível carregar os produtos.
+              </div>
+            ) : isLoadingPrecos ? (
+              <div className="flex items-center gap-2 mt-1.5 p-3 bg-muted/50 rounded-md text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />Carregando tabela de preços...
               </div>
             ) : produtosDoCliente.length === 0 ? (
               <div className="flex items-center gap-2 mt-1.5 p-3 bg-muted/50 rounded-md text-sm text-muted-foreground">
