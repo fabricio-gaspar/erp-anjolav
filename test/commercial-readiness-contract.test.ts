@@ -52,6 +52,16 @@ test("CI executa os gates visuais e de desempenho depois do build", () => {
   assert.match(playwrightConfig, /npm run preview/);
 });
 
+test("plugins exclusivos do compilador CSS não entram no runtime de produção", () => {
+  const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+
+  assert.equal(packageJson.dependencies?.["tailwindcss-animate"], undefined);
+  assert.ok(packageJson.devDependencies?.["tailwindcss-animate"]);
+});
+
 test("gate de desempenho bloqueia um entrypoint compactado acima do orçamento", (t) => {
   const script = new URL("../scripts/check-performance-budget.mjs", import.meta.url);
   assert.ok(existsSync(script), "o verificador de orçamento de desempenho deve existir");
