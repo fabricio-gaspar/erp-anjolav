@@ -191,22 +191,18 @@ export function useMetricasProducao(enabled = true) {
       // OS em aberto
       let osEmAbertoQuery = supabase
         .from("ordens_servico")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .not("status", "in", '("entregue","cancelada")');
       if (allowedOrigins) osEmAbertoQuery = osEmAbertoQuery.in("origem", [...allowedOrigins]);
-      const { count: osEmAberto, error: osEmAbertoError } = await osEmAbertoQuery;
-      if (osEmAbertoError) throw osEmAbertoError;
 
       // Entregas atrasadas
       let entregasAtrasadasQuery = supabase
         .from("ordens_servico")
-        .select("*", { count: "exact", head: true })
+        .select("id", { count: "exact", head: true })
         .lt("data_previsao_entrega", hoje)
         .not("status", "eq", "entregue")
         .not("status", "eq", "cancelada");
       if (allowedOrigins) entregasAtrasadasQuery = entregasAtrasadasQuery.in("origem", [...allowedOrigins]);
-      const { count: entregasAtrasadas, error: entregasAtrasadasError } = await entregasAtrasadasQuery;
-      if (entregasAtrasadasError) throw entregasAtrasadasError;
 
       // Clientes ativos (últimos 30 dias)
       let clientesAtivosQuery = supabase
@@ -214,9 +210,6 @@ export function useMetricasProducao(enabled = true) {
         .select("cliente_id")
         .gte("created_at", trintaDiasAtras);
       if (allowedOrigins) clientesAtivosQuery = clientesAtivosQuery.in("origem", [...allowedOrigins]);
-      const { data: clientesAtivosData, error: clientesAtivosError } = await clientesAtivosQuery;
-      if (clientesAtivosError) throw clientesAtivosError;
-      const clientesAtivos = new Set(clientesAtivosData?.map(o => o.cliente_id)).size;
 
       // Peças registradas hoje
       let itensHojeQuery = supabase
@@ -224,9 +217,6 @@ export function useMetricasProducao(enabled = true) {
         .select("quantidade, ordem:ordens_servico!inner(origem)")
         .gte("created_at", inicioHoje);
       if (allowedOrigins) itensHojeQuery = itensHojeQuery.in("ordem.origem", [...allowedOrigins]);
-      const { data: itensHoje, error: itensHojeError } = await itensHojeQuery;
-      if (itensHojeError) throw itensHojeError;
-      const pecasProcessadasHoje = itensHoje?.reduce((acc, item) => acc + Number(item.quantidade), 0) || 0;
 
       // OS por etapa (para gargalos)
       let osPorEtapaQuery = supabase
@@ -234,8 +224,30 @@ export function useMetricasProducao(enabled = true) {
         .select("status")
         .not("status", "in", '("entregue","cancelada")');
       if (allowedOrigins) osPorEtapaQuery = osPorEtapaQuery.in("origem", [...allowedOrigins]);
-      const { data: osPorEtapa, error: osPorEtapaError } = await osPorEtapaQuery;
-      if (osPorEtapaError) throw osPorEtapaError;
+      const [
+        { count: osEmAberto, error: osEmAbertoError },
+        { count: entregasAtrasadas, error: entregasAtrasadasError },
+        { data: clientesAtivosData, error: clientesAtivosError },
+        { data: itensHoje, error: itensHojeError },
+        { data: osPorEtapa, error: osPorEtapaError },
+      ] = await Promise.all([
+        osEmAbertoQuery,
+        entregasAtrasadasQuery,
+        clientesAtivosQuery,
+        itensHojeQuery,
+        osPorEtapaQuery,
+      ]);
+      const firstError = [
+        osEmAbertoError,
+        entregasAtrasadasError,
+        clientesAtivosError,
+        itensHojeError,
+        osPorEtapaError,
+      ].find(Boolean);
+      if (firstError) throw firstError;
+
+      const clientesAtivos = new Set(clientesAtivosData?.map(o => o.cliente_id)).size;
+      const pecasProcessadasHoje = itensHoje?.reduce((acc, item) => acc + Number(item.quantidade), 0) || 0;
       
       const gargalos = osPorEtapa?.reduce((acc, os) => {
         acc[os.status] = (acc[os.status] || 0) + 1;
@@ -268,7 +280,7 @@ export function useAgendaDia(enabled = true) {
       let query = supabase
         .from("agendamentos")
         .select(`
-          *,
+          id, horario, status,
           cliente:clientes!inner(razao_social, classificacao)
         `)
         .eq("tipo", "retirada")
@@ -289,7 +301,7 @@ export function useAgendaDia(enabled = true) {
       let agendamentosQuery = supabase
         .from("agendamentos")
         .select(`
-          *,
+          id, horario, status,
           cliente:clientes!inner(razao_social, classificacao)
         `)
         .eq("tipo", "entrega")
@@ -297,20 +309,22 @@ export function useAgendaDia(enabled = true) {
         .neq("status", "realizado")
         .order("horario");
       if (activeArea !== "central") agendamentosQuery = agendamentosQuery.eq("cliente.classificacao", activeArea);
-      const { data: agendamentosEntrega, error: errAgend } = await agendamentosQuery;
-      if (errAgend) throw errAgend;
 
       // 2. Buscar OS prontas para entrega (status: expedicao)
       let osProntasQuery = supabase
         .from("ordens_servico")
         .select(`
-          *,
+          id, cliente_id, numero, data_previsao_entrega,
           cliente:clientes(razao_social)
         `)
         .eq("status", "expedicao")
         .order("created_at");
       if (allowedOrigins) osProntasQuery = osProntasQuery.in("origem", [...allowedOrigins]);
-      const { data: osProntasEntrega, error: errOS } = await osProntasQuery;
+      const [
+        { data: agendamentosEntrega, error: errAgend },
+        { data: osProntasEntrega, error: errOS },
+      ] = await Promise.all([agendamentosQuery, osProntasQuery]);
+      if (errAgend) throw errAgend;
       if (errOS) throw errOS;
 
       // 3. Formatar agendamentos
@@ -359,7 +373,7 @@ export function useResumoProcessamento(enabled = true) {
       let query = supabase
         .from("ordens_servico")
         .select(`
-          *,
+          numero, status, data_previsao_entrega, data_retirada, created_at,
           cliente:clientes(razao_social),
           historico:historico_producao(created_at, etapa_nova, dados_formulario),
           itens:itens_ordem_servico(

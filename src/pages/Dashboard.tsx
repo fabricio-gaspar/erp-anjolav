@@ -52,6 +52,7 @@ import {
   useResumoProcessamento,
 } from "@/hooks/useHistoricoProducao";
 import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { resolverEstadoDashboard } from "@/lib/dashboardState";
 import { invalidateDashboardQueries } from "@/lib/queryDefaults";
 import { cn } from "@/lib/utils";
 
@@ -157,6 +158,9 @@ const Dashboard = () => {
   const metricasEnabled = temOrdens || temAgenda || temClientes || temProducao;
   const contasEnabled = activeArea === "central" && temContasPagar;
   const caixaEnabled = activeArea !== "industrial" && temCaixa;
+  const hoje = startOfDay(new Date());
+  const inicioMes = format(startOfMonth(hoje), "yyyy-MM-dd");
+  const fimMes = format(endOfMonth(hoje), "yyyy-MM-dd");
 
   const {
     metricas,
@@ -188,28 +192,46 @@ const Dashboard = () => {
     faturas,
     isLoading: isLoadingFaturas,
     error: faturasError,
-  } = useFaturas(undefined, undefined, temFinanceiro);
+  } = useFaturas(inicioMes, fimMes, temFinanceiro, true);
 
-  const isLoading =
-    isLoadingMetricas ||
-    isLoadingAgenda ||
-    isLoadingResumo ||
-    isLoadingContas ||
-    isLoadingCaixa ||
-    isLoadingFaturas;
-
-  const failedSources = [
-    metricasError && "indicadores operacionais",
-    agendaError && "agenda",
-    resumoError && "produção",
-    contasError && "contas a pagar",
-    caixaError && "caixa",
-    faturasError && "faturamento",
-  ].filter((source): source is string => Boolean(source));
-
-  const hoje = startOfDay(new Date());
-  const inicioMes = format(startOfMonth(hoje), "yyyy-MM-dd");
-  const fimMes = format(endOfMonth(hoje), "yyyy-MM-dd");
+  const { loadingSources, failedSources } = resolverEstadoDashboard([
+    {
+      label: "indicadores operacionais",
+      enabled: metricasEnabled,
+      isLoading: isLoadingMetricas,
+      hasError: Boolean(metricasError),
+    },
+    {
+      label: "agenda",
+      enabled: temAgenda,
+      isLoading: isLoadingAgenda,
+      hasError: Boolean(agendaError),
+    },
+    {
+      label: "produção",
+      enabled: temOrdens || temProducao,
+      isLoading: isLoadingResumo,
+      hasError: Boolean(resumoError),
+    },
+    {
+      label: "contas a pagar",
+      enabled: contasEnabled,
+      isLoading: isLoadingContas,
+      hasError: Boolean(contasError),
+    },
+    {
+      label: "caixa",
+      enabled: caixaEnabled,
+      isLoading: isLoadingCaixa,
+      hasError: Boolean(caixaError),
+    },
+    {
+      label: "faturamento",
+      enabled: temFinanceiro,
+      isLoading: isLoadingFaturas,
+      hasError: Boolean(faturasError),
+    },
+  ]);
 
   const faturasValidas = faturas.filter((fatura) => String(fatura.status) !== "cancelado");
   const faturasDoMes = faturasValidas.filter(
@@ -259,7 +281,7 @@ const Dashboard = () => {
   });
 
   const kpis: DashboardKpi[] = [
-    ...(temFinanceiro && !faturasError
+    ...(temFinanceiro && !faturasError && !isLoadingFaturas
       ? [{
           title: "Faturas do mês",
           value: totalFaturadoMes.toLocaleString("pt-BR", {
@@ -271,7 +293,7 @@ const Dashboard = () => {
           subtitle: "Períodos que abrangem o mês atual",
         }]
       : []),
-    ...(temOrdens && !metricasError
+    ...(temOrdens && !metricasError && !isLoadingMetricas
       ? [{
           title: "OS em aberto",
           value: metricas?.osEmAberto ?? 0,
@@ -280,7 +302,7 @@ const Dashboard = () => {
           subtitle: "Sem entregues e canceladas",
         }]
       : []),
-    ...(temAgenda && !metricasError
+    ...(temAgenda && !metricasError && !isLoadingMetricas
       ? [{
           title: "Entregas atrasadas",
           value: metricas?.entregasAtrasadas ?? 0,
@@ -289,7 +311,7 @@ const Dashboard = () => {
           subtitle: "Prazo anterior a hoje",
         }]
       : []),
-    ...(temClientes && !metricasError
+    ...(temClientes && !metricasError && !isLoadingMetricas
       ? [{
           title: "Clientes ativos",
           value: metricas?.clientesAtivos ?? 0,
@@ -298,7 +320,7 @@ const Dashboard = () => {
           subtitle: "Com OS nos últimos 30 dias",
         }]
       : []),
-    ...(temProducao && !metricasError
+    ...(temProducao && !metricasError && !isLoadingMetricas
       ? [{
           title: "Peças registradas hoje",
           value: metricas?.pecasProcessadasHoje ?? 0,
@@ -307,7 +329,7 @@ const Dashboard = () => {
           subtitle: "Quantidade inserida em itens de OS",
         }]
       : []),
-    ...(temAgenda && !agendaError
+    ...(temAgenda && !agendaError && !isLoadingAgenda
       ? [
           {
             title: "Retiradas do dia",
@@ -325,7 +347,7 @@ const Dashboard = () => {
           },
         ]
       : []),
-    ...(caixaEnabled && !caixaError
+    ...(caixaEnabled && !caixaError && !isLoadingCaixa
       ? [{
           title: "Caixa da loja",
           value: caixaAberto ? "Aberto" : "Fechado",
@@ -455,17 +477,6 @@ const Dashboard = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <AppLayout title={areaLabels[activeArea].title} subtitle={areaLabels[activeArea].subtitle}>
-        <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <span className="ml-2 text-muted-foreground">Carregando dados autorizados…</span>
-        </div>
-      </AppLayout>
-    );
-  }
-
   return (
     <AppLayout title={areaLabels[activeArea].title} subtitle={areaLabels[activeArea].subtitle}>
       <div className="space-y-5 sm:space-y-8">
@@ -511,18 +522,48 @@ const Dashboard = () => {
           </div>
         </section>
 
-        {failedSources.length > 0 && (
+        {(loadingSources.length > 0 || failedSources.length > 0) && (
           <div
-            className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
-            role="alert"
+            className={cn(
+              "flex items-start gap-3 rounded-xl border p-4 text-sm",
+              failedSources.length > 0
+                ? "border-destructive/30 bg-destructive/5"
+                : "border-primary/20 bg-primary/5",
+            )}
+            role={failedSources.length > 0 ? "alert" : "status"}
+            aria-live="polite"
           >
-            <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-            <div>
-              <p className="font-semibold text-destructive">Algumas fontes não puderam ser atualizadas.</p>
-              <p className="mt-1 text-muted-foreground">
-                Dados indisponíveis: {failedSources.join(", ")}. Os indicadores afetados foram ocultados para não exibir zero como resultado real.
-              </p>
+            {failedSources.length > 0 ? (
+              <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+            ) : (
+              <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-primary" />
+            )}
+            <div className="min-w-0 flex-1">
+              {failedSources.length > 0 ? (
+                <>
+                  <p className="font-semibold text-destructive">Algumas fontes não puderam ser atualizadas.</p>
+                  <p className="mt-1 text-muted-foreground">
+                    Dados indisponíveis: {failedSources.join(", ")}. Os indicadores afetados foram ocultados para não exibir zero como resultado real.
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  Atualizando: {loadingSources.join(", ")}. Os demais dados continuam disponíveis.
+                </p>
+              )}
             </div>
+            {failedSources.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => void handleRefresh()}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
+                Tentar novamente
+              </Button>
+            )}
           </div>
         )}
 
@@ -540,7 +581,7 @@ const Dashboard = () => {
 
         {(temFinanceiro || contasEnabled) && (
           <section aria-label="Resumo financeiro" className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            {temFinanceiro && !faturasError && (
+            {temFinanceiro && !faturasError && !isLoadingFaturas && (
               <FinanceCard
                 title="Contas a receber"
                 subtitle="Faturas não pagas no escopo atual"
@@ -551,7 +592,7 @@ const Dashboard = () => {
                 onViewAll={() => navigate(financePath)}
               />
             )}
-            {contasEnabled && !contasError && (
+            {contasEnabled && !contasError && !isLoadingContas && (
               <FinanceCard
                 title="Contas a pagar"
                 subtitle="Saldo pendente de títulos"
@@ -565,9 +606,9 @@ const Dashboard = () => {
           </section>
         )}
 
-        {(temOrdens || temProducao) && !resumoError && (
+        {(temOrdens || temProducao) && !resumoError && !isLoadingResumo && (
           <section aria-label="Produção" className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            {!metricasError && (
+            {!metricasError && !isLoadingMetricas && (
               <ProductionBottleneck items={bottleneckItems} recommendation={recommendation} />
             )}
             <ProcessingSummary items={processingItems} />
@@ -581,7 +622,7 @@ const Dashboard = () => {
           </section>
         )}
 
-        {temAgenda && !agendaError && (
+        {temAgenda && !agendaError && !isLoadingAgenda && (
           <section aria-label="Agenda do dia" className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
             <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
