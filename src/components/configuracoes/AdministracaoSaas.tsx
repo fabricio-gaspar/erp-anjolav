@@ -171,6 +171,10 @@ export function AdministracaoSaas() {
   const planRows = plans.data ?? EMPTY_PLAN_ROWS;
   const loading = plans.isLoading || tenants.isLoading;
   const failed = plans.isError || tenants.isError;
+  const requestError = plans.error ?? tenants.error;
+  const errorMessage = requestError instanceof Error
+    ? requestError.message
+    : "Verifique a autorização da conta e tente novamente.";
   const stats = useMemo(() => ({
     total: tenants.data?.total ?? tenantRows.length,
     active: tenantRows.filter((tenant) => tenant.status === "active").length,
@@ -262,7 +266,7 @@ export function AdministracaoSaas() {
           <XCircle className="h-7 w-7 text-destructive" aria-hidden="true" />
           <div>
             <h2 className="font-semibold">Não foi possível carregar a administração SaaS</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Verifique a autorização da conta e tente novamente.</p>
+            <p className="mt-1 text-sm text-muted-foreground">{errorMessage}</p>
           </div>
           <Button type="button" variant="outline" onClick={() => void refresh()}>
             <RefreshCw className="h-4 w-4" aria-hidden="true" />

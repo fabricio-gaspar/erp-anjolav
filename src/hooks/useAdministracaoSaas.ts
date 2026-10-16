@@ -109,6 +109,12 @@ interface UseAdministracaoSaasOptions {
   tenantPage?: number;
 }
 
+function isMissingPlatformFunction(error: unknown): boolean {
+  const candidate = error as { context?: { status?: unknown }; message?: unknown } | null;
+  const message = typeof candidate?.message === "string" ? candidate.message : "";
+  return candidate?.context?.status === 404 || /\b404\b|not found|does not exist/i.test(message);
+}
+
 function toPlan(plan: RawPlan): SaasPlan {
   return {
     id: plan.id,
@@ -165,6 +171,9 @@ async function platformRequest<T>(body: Record<string, unknown>): Promise<T> {
     { body },
   );
   if (error || data?.data === undefined) {
+    if (isMissingPlatformFunction(error) || /\b404\b|not found|does not exist/i.test(data?.error ?? "")) {
+      throw new Error("A administração SaaS não está publicada neste ambiente.");
+    }
     throw new Error(data?.error || "Não foi possível concluir a administração SaaS");
   }
   return data.data;
