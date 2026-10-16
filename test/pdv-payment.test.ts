@@ -17,8 +17,11 @@ test("calcula troco em centavos sem expor arredondamento binário", () => {
 test("gera chaves de idempotência distintas e compatíveis com o backend", () => {
   const first = createPdvIdempotencyKey("sale");
   const second = createPdvIdempotencyKey("sale");
+  const loyalty = createPdvIdempotencyKey("loyalty");
   assert.match(first, /^pdv:sale:[0-9a-f-]{36}$/);
+  assert.match(loyalty, /^pdv:loyalty:[0-9a-f-]{36}$/);
   assert.notEqual(first, second);
+  assert.notEqual(first, loyalty);
 });
 
 test("somente confirmação interna encerra o PIX como pago", () => {

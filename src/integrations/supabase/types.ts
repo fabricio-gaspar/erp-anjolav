@@ -1407,6 +1407,7 @@ export type Database = {
           ativo: boolean
           created_at: string
           id: string
+          portal_exibir_fidelidade: boolean
           pontos_minimos_resgate: number
           reais_por_ponto: number
           tenant_id: string
@@ -1418,6 +1419,7 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           id?: string
+          portal_exibir_fidelidade?: boolean
           pontos_minimos_resgate?: number
           reais_por_ponto?: number
           tenant_id: string
@@ -1427,6 +1429,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          portal_exibir_fidelidade?: boolean
           pontos_minimos_resgate?: number
           reais_por_ponto?: number
           valor_minimo_acumulo?: number

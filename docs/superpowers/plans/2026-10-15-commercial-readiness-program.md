@@ -291,7 +291,10 @@ git commit -m "fix: preserve browser print jobs before window close"
 ## Task 6: Complete loyalty visibility in the Portal without weakening access control
 
 **Files:**
+- Create: `supabase/migrations/20261015111500_portal_loyalty_visibility.sql`
 - Modify: `supabase/functions/portal-customer/index.ts`
+- Modify: `src/integrations/supabase/types.ts`
+- Modify: `src/components/configuracoes/ConfiguracoesFidelidade.tsx`
 - Modify: `src/hooks/usePortalData.ts`
 - Create: `src/components/portal/FidelidadeClienteCard.tsx`
 - Modify: `src/pages/PortalCliente.tsx`
@@ -299,12 +302,12 @@ git commit -m "fix: preserve browser print jobs before window close"
 - Modify: `test/pdv-payment.test.ts`
 
 **Interfaces:**
-- Consumes: `fidelidade_configuracoes`, `fidelidade_lancamentos`, resolved `PortalContext`, and the existing ROL/POS loyalty rules.
+- Consumes: `fidelidade_configuracoes.portal_exibir_fidelidade`, `fidelidade_lancamentos`, resolved `PortalContext`, and the existing ROL/POS loyalty rules.
 - Produces: `PortalBootstrap.loyalty: { active: boolean; visible: boolean; balancePoints: number; balanceValue: number; minimumRedemptionPoints: number; recentEntries: LoyaltyEntry[] }`.
 
 - [ ] **Step 1: Write failing Portal loyalty tests**
 
-Assert the Portal bootstrap scopes loyalty queries to `context.config.tenant_id` and `context.cliente.id`; inactive/hidden programs return no balance; history is capped at 10 sanitized entries; the frontend does not render the card when `visible` is false.
+Assert that the additive migration creates the dedicated, default-false `portal_exibir_fidelidade` tenant setting without reusing the ROL-print flag; the Portal bootstrap scopes loyalty queries to `context.config.tenant_id` and `context.cliente.id`; inactive/hidden programs return no balance; history is capped at 10 sanitized entries; the frontend does not render the card when `visible` is false.
 
 - [ ] **Step 2: Run focused tests to verify failure**
 
@@ -314,11 +317,11 @@ Expected: FAIL because `PortalBootstrap.loyalty` is absent.
 
 - [ ] **Step 3: Extend Portal bootstrap server response**
 
-Add scoped config and ledger reads to the existing Portal bootstrap `Promise.all`. Derive balance server-side, expose only description, points, type, and timestamp for the newest ten ledger entries, and never return ids or metadata from another client.
+Add the additive, default-false Portal-visibility setting, update the generated local types, and expose it only in the tenant-administrator loyalty configuration UI. Then add scoped config and ledger reads to the existing Portal bootstrap `Promise.all`. Derive balance server-side only when `ativo && portal_exibir_fidelidade`, expose only description, points, type, and timestamp for the newest ten ledger entries, and never return ids or metadata from another client.
 
 - [ ] **Step 4: Add typed UI and accessible empty states**
 
-Extend `usePortalData.ts` types, render `FidelidadeClienteCard` after Portal statistics, and explain inactive or unavailable loyalty without revealing internal configuration.
+Extend `usePortalData.ts` types, render `FidelidadeClienteCard` after Portal statistics, and keep it absent when unavailable so the public Portal does not reveal whether the program is inactive or merely hidden. Add an explicit administrator-only configuration control with clear helper text.
 
 - [ ] **Step 5: Verify the task**
 
@@ -329,7 +332,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/functions/portal-customer/index.ts src/hooks/usePortalData.ts src/components/portal/FidelidadeClienteCard.tsx src/pages/PortalCliente.tsx test/portal-loyalty.test.ts test/pdv-payment.test.ts
+git add supabase/migrations/20261015111500_portal_loyalty_visibility.sql supabase/functions/portal-customer/index.ts src/integrations/supabase/types.ts src/components/configuracoes/ConfiguracoesFidelidade.tsx src/hooks/usePortalData.ts src/components/portal/FidelidadeClienteCard.tsx src/pages/PortalCliente.tsx test/portal-loyalty.test.ts test/pdv-payment.test.ts
 git commit -m "feat: show scoped loyalty details in customer portal"
 ```
 

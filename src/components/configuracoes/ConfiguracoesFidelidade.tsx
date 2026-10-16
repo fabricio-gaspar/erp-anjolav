@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULTS = {
   ativo: false,
+  portal_exibir_fidelidade: false,
   valor_minimo_acumulo: 50,
   reais_por_ponto: 1,
   valor_por_ponto: 0.1,
@@ -29,12 +30,13 @@ export function ConfiguracoesFidelidade() {
       setLoading(true);
       const { data, error } = await supabase
         .from("fidelidade_configuracoes")
-        .select("ativo, valor_minimo_acumulo, reais_por_ponto, valor_por_ponto, pontos_minimos_resgate")
+        .select("ativo, portal_exibir_fidelidade, valor_minimo_acumulo, reais_por_ponto, valor_por_ponto, pontos_minimos_resgate")
         .eq("tenant_id", activeTenant.id)
         .maybeSingle();
       if (error) toast.error("Não foi possível carregar as regras de fidelidade");
       if (data) setConfig({
         ativo: data.ativo,
+        portal_exibir_fidelidade: data.portal_exibir_fidelidade,
         valor_minimo_acumulo: Number(data.valor_minimo_acumulo),
         reais_por_ponto: Number(data.reais_por_ponto),
         valor_por_ponto: Number(data.valor_por_ponto),
@@ -45,7 +47,7 @@ export function ConfiguracoesFidelidade() {
     })();
   }, [activeTenant]);
 
-  const setNumber = (field: keyof Omit<typeof DEFAULTS, "ativo">, raw: string) => {
+  const setNumber = (field: keyof Omit<typeof DEFAULTS, "ativo" | "portal_exibir_fidelidade">, raw: string) => {
     const value = Number(raw);
     setConfig((current) => ({ ...current, [field]: Number.isFinite(value) ? value : 0 }));
   };
@@ -80,6 +82,18 @@ export function ConfiguracoesFidelidade() {
       <div className="flex items-center justify-between rounded-lg border p-4">
         <div><Label>Ativar programa</Label><p className="text-xs text-muted-foreground">Permanece desativado até você habilitar esta opção.</p></div>
         <Switch checked={config.ativo} onCheckedChange={(ativo) => setConfig((current) => ({ ...current, ativo }))} />
+      </div>
+      <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+        <div>
+          <Label htmlFor="loyalty-portal-visibility">Exibir saldo no Portal do Cliente</Label>
+          <p id="loyalty-portal-visibility-help" className="text-xs text-muted-foreground">Permite que clientes com um link de Portal válido consultem apenas o próprio saldo e histórico. Esta opção não altera a impressão da ROL.</p>
+        </div>
+        <Switch
+          id="loyalty-portal-visibility"
+          aria-describedby="loyalty-portal-visibility-help"
+          checked={config.portal_exibir_fidelidade}
+          onCheckedChange={(portal_exibir_fidelidade) => setConfig((current) => ({ ...current, portal_exibir_fidelidade }))}
+        />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div><Label htmlFor="loyalty-minimum">Compra mínima para pontuar (R$)</Label><Input id="loyalty-minimum" className="mt-1" type="number" min="0" step="0.01" value={config.valor_minimo_acumulo} onChange={(event) => setNumber("valor_minimo_acumulo", event.target.value)} /></div>
