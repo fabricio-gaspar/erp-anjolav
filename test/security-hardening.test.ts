@@ -14,6 +14,7 @@ const loyaltyMigrationPath = new URL(
   "../supabase/migrations/20261008110000_customer_loyalty_program.sql",
   import.meta.url,
 );
+const productionControlsPath = new URL("../ops/production-controls.md", import.meta.url);
 
 function readRequired(path: URL, label: string): string {
   assert.equal(existsSync(path), true, `${label} must exist`);
@@ -43,6 +44,13 @@ function assertPolicyIsRecreated(source: string, policyName: string, tableName: 
     `${policyName} must be dropped before it is recreated`,
   );
   return policyBlock(source, policyName);
+}
+
+function markdownSection(source: string, heading: string): string {
+  const start = source.indexOf(heading);
+  assert.notEqual(start, -1, `missing ${heading}`);
+  const nextHeading = source.indexOf("\n## ", start + heading.length);
+  return source.slice(start, nextHeading === -1 ? undefined : nextHeading);
 }
 
 test("adds the phase-A local hardening migration", () => {
@@ -178,4 +186,39 @@ test("adds neither speculative indexes nor a new privileged database function", 
   assert.doesNotMatch(migration, /\bCREATE\s+(?:UNIQUE\s+)?INDEX\b/i);
   assert.doesNotMatch(migration, /\bCREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\b/i);
   assert.doesNotMatch(migration, /\bSECURITY\s+DEFINER\b/i);
+});
+
+test("documents the phase-B production controls as manual, evidence-backed verification", () => {
+  const runbook = readRequired(productionControlsPath, "production controls runbook");
+  const controls = [
+    "## Leaked-password protection",
+    "## GraphQL exposure",
+    "## MFA and session review",
+    "## Backup/PITR restore exercise",
+    "## Host CSP and Permissions-Policy",
+    "## Portal rate limits",
+  ];
+
+  for (const heading of controls) {
+    const section = markdownSection(runbook, heading);
+    assert.match(section, /Manual controlled production verification/i, `${heading} must be manual`);
+    assert.match(section, /authorized live access/i, `${heading} must require authorized live access`);
+    assert.match(section, /real evidence/i, `${heading} must require real evidence`);
+  }
+
+  const evidenceTemplate = markdownSection(runbook, "## Shared evidence record template");
+  for (const field of [
+    "Date/time",
+    "Approved operator role",
+    "Project/environment label",
+    "Result",
+    "Evidence location",
+    "Follow-up owner",
+  ]) {
+    assert.match(evidenceTemplate, new RegExp(`\\b${field}\\b`, "i"), `missing ${field} field`);
+  }
+
+  assert.doesNotMatch(runbook, /\b(?:authorization|auth)\s*:\s*(?:bearer|basic)\b/i);
+  assert.doesNotMatch(runbook, /\bpostgres(?:ql)?:\/\/\S+/i);
+  assert.doesNotMatch(runbook, /\b(?:token|password|secret|api[_ -]?key)\s*=\s*\S+/i);
 });
