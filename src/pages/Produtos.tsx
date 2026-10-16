@@ -17,6 +17,7 @@ const defaultFormData: ProdutoFormData = {
   preco: 0,
   unidade: "peca",
   unidade_negocio: "ambos",
+  porte: "",
   status: "ativo",
   descricao: "",
   peso_medio_kg: 0,
@@ -67,6 +68,7 @@ const Produtos = () => {
       preco: formData.preco,
       unidade: formData.unidade,
       unidade_negocio: formData.unidade_negocio,
+      porte: formData.porte || null,
       status: formData.status,
       descricao: formData.descricao || null,
       categoria: formData.categoria || null,
@@ -99,6 +101,7 @@ const Produtos = () => {
       preco: produto.preco,
       unidade: produto.unidade || "peca",
       unidade_negocio: produto.unidade_negocio || "ambos",
+      porte: produto.porte || "",
       status: produto.status || "ativo",
       descricao: produto.descricao || "",
       peso_medio_kg: produto.peso_medio_kg || 0,
@@ -122,6 +125,7 @@ const Produtos = () => {
       preco: produto.preco,
       unidade: produto.unidade || "peca",
       unidade_negocio: produto.unidade_negocio || "ambos",
+      porte: produto.porte || "",
       status: "ativo",
       descricao: produto.descricao || "",
       peso_medio_kg: produto.peso_medio_kg || 0,
@@ -149,7 +153,7 @@ const Produtos = () => {
       return;
     }
 
-    const headers = ["Código", "Nome", "Categoria", "Preço", "Unidade", "Un. Negócio", "Status", "Peso Médio", "Processo", "Temperatura"];
+    const headers = ["Código", "Nome", "Categoria", "Preço", "Unidade", "Un. Negócio", "Porte", "Status", "Peso Médio", "Processo", "Temperatura"];
     const rows = produtos.map(p => [
       p.codigo || "",
       p.nome,
@@ -157,6 +161,7 @@ const Produtos = () => {
       p.preco.toFixed(2),
       p.unidade || "",
       p.unidade_negocio || "",
+      p.porte || "",
       p.status,
       p.peso_medio_kg || "",
       p.processo_lavagem || "",

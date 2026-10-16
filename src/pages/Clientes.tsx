@@ -252,7 +252,14 @@ const Clientes = () => {
                         </TableCell>
                         <TableCell className="py-3 px-3">
                           <div className="flex flex-col">
-                            <span className="font-black text-slate-900 text-[13px] uppercase tracking-tight">{cliente.razao_social}</span>
+                            <button
+                              type="button"
+                              className="w-fit text-left font-black text-slate-900 text-[13px] uppercase tracking-tight hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+                              onClick={() => handleEditCliente(cliente.id)}
+                              aria-label={`Abrir cliente ${cliente.razao_social}`}
+                            >
+                              {cliente.razao_social}
+                            </button>
                             {cliente.nome_fantasia && (
                               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
                                 {cliente.nome_fantasia}

@@ -21,6 +21,7 @@ export interface ProdutoFormData {
   preco: number;
   unidade: string;
   unidade_negocio: string;
+  porte: "" | "pequeno" | "medio" | "grande";
   status: string;
   descricao: string;
   peso_medio_kg: number;
@@ -121,6 +122,26 @@ export function ProdutoForm({
                 <SelectItem value="ambos">Ambos (ID1+ID2)</SelectItem>
                 <SelectItem value="ID1">Industrial (ID1)</SelectItem>
                 <SelectItem value="ID2">Residencial (ID2)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs text-muted-foreground">Porte</Label>
+            <Select
+              value={formData.porte || "nao_informado"}
+              onValueChange={(v) => onChange({
+                porte: v === "pequeno" || v === "medio" || v === "grande" ? v : "",
+              })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nao_informado">Não informado</SelectItem>
+                <SelectItem value="pequeno">Pequeno</SelectItem>
+                <SelectItem value="medio">Médio</SelectItem>
+                <SelectItem value="grande">Grande</SelectItem>
               </SelectContent>
             </Select>
           </div>

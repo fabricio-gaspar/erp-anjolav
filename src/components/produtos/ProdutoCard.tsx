@@ -20,6 +20,15 @@ export function ProdutoCard({ produto, onEdit, onDelete, onDuplicate }: ProdutoC
     }
   };
 
+  const getPorteLabel = (porte: Produto["porte"]) => {
+    switch (porte) {
+      case "pequeno": return "Pequeno";
+      case "medio": return "Médio";
+      case "grande": return "Grande";
+      default: return null;
+    }
+  };
+
   return (
     <div className="bg-card border rounded-md p-2 hover:shadow-sm transition-shadow group relative">
       {/* Name + Status */}
@@ -39,6 +48,12 @@ export function ProdutoCard({ produto, onEdit, onDelete, onDuplicate }: ProdutoC
           /{getUnidadeLabel(produto.unidade)}
         </span>
       </div>
+
+      {getPorteLabel(produto.porte) && (
+        <span className="text-[10px] text-muted-foreground">
+          Porte: {getPorteLabel(produto.porte)}
+        </span>
+      )}
 
       {/* Hover actions */}
       <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5 bg-background/90 rounded p-0.5">

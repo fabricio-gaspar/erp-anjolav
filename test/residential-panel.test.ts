@@ -63,3 +63,20 @@ test("tabela de preços separa modo padrão e personalizada e trata falha recupe
   assert.match(prices, /isError/);
   assert.match(prices, /Tentar novamente/);
 });
+
+test("clientes abre os dados ao clicar no nome e produtos persistem a classificação de porte", () => {
+  const clients = source("../src/pages/Clientes.tsx");
+  const productForm = source("../src/components/produtos/ProdutoForm.tsx");
+  const products = source("../src/pages/Produtos.tsx");
+  const productCard = source("../src/components/produtos/ProdutoCard.tsx");
+
+  assert.match(clients, /onClick=\{\(\) => handleEditCliente\(cliente\.id\)\}/);
+  assert.match(clients, /aria-label=\{`Abrir cliente/);
+  assert.match(productForm, /porte:.*pequeno.*medio.*grande/);
+  assert.match(productForm, /Pequeno/);
+  assert.match(productForm, /Médio/);
+  assert.match(productForm, /Grande/);
+  assert.match(products, /porte: formData\.porte \|\| null/);
+  assert.match(products, /porte: produto\.porte \|\| ""/);
+  assert.match(productCard, /produto\.porte/);
+});
