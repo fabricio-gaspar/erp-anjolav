@@ -47,6 +47,40 @@ function sourceImplementation(source: string, startMarker: string, endMarker: st
   return source.slice(start, end === -1 ? source.length : end);
 }
 
+function assertDirectServicePopupContract(implementation: string, entryPoint: string): void {
+  const reservationExpression = "const printWindow = reservedWindow ?? reservePrintWindow(";
+  const reservation = implementation.indexOf(reservationExpression);
+  const dataAwait = implementation.indexOf("await Promise.all");
+  const openPrintWindowCalls = [...implementation.matchAll(/openPrintWindow\(([^)]*)\)/g)];
+
+  assert.ok(reservation >= 0, `${entryPoint} must reserve when no window is supplied`);
+  assert.equal(
+    (implementation.match(/const printWindow = reservedWindow \?\? reservePrintWindow\(/g) ?? []).length,
+    1,
+    `${entryPoint} must contain exactly one local popup reservation`,
+  );
+  assert.equal(
+    (implementation.match(/reservePrintWindow\(/g) ?? []).length,
+    1,
+    `${entryPoint} must reserve exactly one popup`,
+  );
+  assert.equal(
+    /\bawait\b/.test(implementation.slice(0, reservation)),
+    false,
+    `${entryPoint} must reserve before any await`,
+  );
+  assert.ok(dataAwait >= 0, `${entryPoint} must load data asynchronously`);
+  assert.ok(reservation < dataAwait, `${entryPoint} must reserve before loading data`);
+  assert.ok(openPrintWindowCalls.length > 0, `${entryPoint} must open the reserved popup`);
+
+  for (const [, argumentsText] of openPrintWindowCalls) {
+    const argumentsList = argumentsText.split(",");
+    if (argumentsList.length !== 2 || argumentsList[1].trim() !== "printWindow") {
+      throw new Error(`${entryPoint} must pass printWindow to every openPrintWindow call`);
+    }
+  }
+}
+
 test("reports a blocked popup instead of scheduling a print", () => {
   const printDocumentWhenReady = lifecycle();
 
@@ -317,6 +351,34 @@ test("lancamento print callbacks wire the shared reservation helper before confi
   }
 });
 
+test("direct-service wiring guard rejects an await before reservation and unreserved print branches", () => {
+  const awaitBeforeReservation = `
+    export async function synthetic(reservedWindow?: Window | null) {
+      await loadSomething();
+      const printWindow = reservedWindow ?? reservePrintWindow("width=400,height=600");
+      const [config, osData] = await Promise.all([loadConfig(), loadData()]);
+      return openPrintWindow(html, printWindow);
+    }
+  `;
+  const unreservedPrintBranch = `
+    export async function synthetic(reservedWindow?: Window | null) {
+      const printWindow = reservedWindow ?? reservePrintWindow("width=400,height=600");
+      const [config, osData] = await Promise.all([loadConfig(), loadData()]);
+      if (osData.items.length > 0) return openPrintWindow(html, printWindow);
+      return openPrintWindow(html);
+    }
+  `;
+
+  assert.throws(
+    () => assertDirectServicePopupContract(awaitBeforeReservation, "synthetic"),
+    /must reserve before any await/,
+  );
+  assert.throws(
+    () => assertDirectServicePopupContract(unreservedPrintBranch, "synthetic"),
+    /must pass printWindow to every openPrintWindow call/,
+  );
+});
+
 test("OS print services reserve and reuse one popup before asynchronous data acquisition", async () => {
   const source = await readFile(resolve(repoRoot, "src/services/printService.ts"), "utf8");
   const entryPoints = ["printROLFromOS", "printEtiquetaFromOS", "printMultipleEtiquetas"];
@@ -327,13 +389,6 @@ test("OS print services reserve and reuse one popup before asynchronous data acq
       `export async function ${entryPoint}`,
       "\nexport async function",
     );
-    const reserve = implementation.indexOf("const printWindow = reservedWindow ?? reservePrintWindow(");
-    const dataAwait = implementation.indexOf("await Promise.all");
-
-    assert.ok(reserve >= 0, `${entryPoint} must reserve when no window is supplied`);
-    assert.ok(dataAwait >= 0, `${entryPoint} must load data asynchronously`);
-    assert.ok(reserve < dataAwait, `${entryPoint} must reserve before loading data`);
-    assert.equal((implementation.match(/reservePrintWindow\(/g) ?? []).length, 1);
-    assert.match(implementation, /openPrintWindow\(html, printWindow\)/);
+    assertDirectServicePopupContract(implementation, entryPoint);
   }
 });
