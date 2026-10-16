@@ -53,3 +53,13 @@ test("botão de adicionar preço abre o cadastro compartilhado de produtos quand
   assert.match(products, /useSearchParams/);
   assert.match(products, /searchParams\.get\("novo"\) === "1"/);
 });
+
+test("tabela de preços separa modo padrão e personalizada e trata falha recuperável", () => {
+  const prices = source("../src/components/clientes/ClienteTabelaPrecos.tsx");
+
+  assert.match(prices, /tabela_preco_tipo/);
+  assert.match(prices, /personalizada/);
+  assert.match(prices, /produto\.preco/);
+  assert.match(prices, /isError/);
+  assert.match(prices, /Tentar novamente/);
+});
