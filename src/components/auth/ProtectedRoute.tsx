@@ -12,6 +12,7 @@ interface ProtectedRouteProps {
   requiredArea?: "central" | "industrial" | "residencial";
   requiredModule?: ModulePermissionKey | RoutePermissionRequirement;
   adminOnly?: boolean;
+  platformAdminOnly?: boolean;
 }
 
 export function ProtectedRoute({
@@ -19,8 +20,9 @@ export function ProtectedRoute({
   requiredArea,
   requiredModule,
   adminOnly = false,
+  platformAdminOnly = false,
 }: ProtectedRouteProps) {
-  const { session, funcionario, loading, signOut } = useAuth();
+  const { session, funcionario, isPlatformAdmin, loading, signOut } = useAuth();
   const location = useLocation();
   const {
     data: hasAreaAccess,
@@ -57,7 +59,8 @@ export function ProtectedRoute({
     !funcionario ||
     (requiredArea && hasAreaAccess !== true) ||
     (requiredModule && !modulePermission.allowed) ||
-    (adminOnly && adminPermission.data !== true);
+    (adminOnly && adminPermission.data !== true) ||
+    (platformAdminOnly && !isPlatformAdmin);
 
   if (accessCheckFailed || accessDenied) {
     return (
@@ -72,6 +75,8 @@ export function ProtectedRoute({
               ? "Tente novamente. Se o problema continuar, contate o administrador."
               : !funcionario
                 ? "Sua conta não possui um vínculo ativo com um funcionário."
+                : platformAdminOnly
+                ? "Esta área é exclusiva para administradores da plataforma."
                 : adminOnly
                 ? "Esta área é exclusiva para administradores."
                 : "Seu usuário não possui permissão para acessar esta área ou módulo."}

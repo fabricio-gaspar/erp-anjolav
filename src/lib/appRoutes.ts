@@ -26,6 +26,7 @@ export interface AppRouteDefinition {
   area: WorkspaceArea;
   requiredModules: RoutePermissionRequirement;
   adminOnly: boolean;
+  platformAdminOnly?: boolean;
   label: string;
   navigationGroup: NavigationGroup;
 }
@@ -93,6 +94,15 @@ export const APP_ROUTES = [
     requiredModules: ["configuracoes"],
     adminOnly: true,
     label: "Auditoria",
+    navigationGroup: "central-admin",
+  },
+  {
+    path: "/central/administracao-saas",
+    area: "central",
+    requiredModules: ["configuracoes"],
+    adminOnly: true,
+    platformAdminOnly: true,
+    label: "Administração SaaS",
     navigationGroup: "central-admin",
   },
   {

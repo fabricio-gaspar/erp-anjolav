@@ -31,12 +31,33 @@ test("migration comercial cobre todas as tabelas de negócio existentes", () => 
     }
   }
 
-  const infrastructure = new Set(["audit_events", "portal_rate_limits", "tenant_memberships", "tenants"]);
+  const platformInfrastructure = new Set([
+    "platform_administrators",
+    "saas_plan_catalog",
+    "tenant_service_subscriptions",
+  ]);
+  const infrastructure = new Set([
+    "audit_events",
+    "portal_rate_limits",
+    "tenant_memberships",
+    "tenants",
+    ...platformInfrastructure,
+  ]);
   // Tabelas introduzidas após o hardening criam tenant_id e RLS na própria
   // migração; incluí-las na migração histórica faria o bootstrap falhar.
   const laterTenantAware = new Set(["fidelidade_configuracoes", "fidelidade_lancamentos"]);
   const missing = [...created].filter((table) => !listed.has(table) && !infrastructure.has(table) && !laterTenantAware.has(table)).sort();
   assert.deepEqual(missing, []);
+
+  const platformMigration = readFileSync(
+    new URL("../supabase/migrations/20261015119000_platform_administration.sql", import.meta.url),
+    "utf8",
+  );
+  for (const table of platformInfrastructure) {
+    assert.match(platformMigration, new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY`));
+  }
+  assert.match(platformMigration, /REVOKE ALL ON TABLE public\.saas_plan_catalog, public\.tenant_service_subscriptions\s*\nFROM PUBLIC, anon, authenticated/);
+  assert.match(platformMigration, /GRANT ALL ON TABLE public\.saas_plan_catalog, public\.tenant_service_subscriptions TO service_role/);
 });
 
 test("fidelidade nasce isolada por empresa e com RLS", () => {

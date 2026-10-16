@@ -137,6 +137,7 @@ export interface NavigationAccessState {
 }
 
 export const useNavigationAccess = (): NavigationAccessState => {
+  const { isPlatformAdmin } = useAuth();
   const accessibleWorkspaces = useAccessibleWorkspaces();
   const permissionsQuery = usePermissoesUsuario();
   const adminQuery = useIsAdmin();
@@ -154,6 +155,7 @@ export const useNavigationAccess = (): NavigationAccessState => {
     accessibleAreas: accessibleWorkspaces.areas,
     modulePermissions: permissionsQuery.data,
     isAdmin: adminQuery.data === true,
+    isPlatformAdmin,
   };
 
   const canAccessRoute = (route: string | AppRouteDefinition): boolean => {

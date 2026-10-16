@@ -47,13 +47,15 @@ export interface RouteAccessContext {
   accessibleAreas: AccessibleWorkspaceMap;
   modulePermissions: Readonly<Record<string, boolean>> | null | undefined;
   isAdmin: boolean;
+  isPlatformAdmin?: boolean;
 }
 
 export function isRouteAccessible(
   route: AppRouteDefinition | null | undefined,
-  { accessibleAreas, modulePermissions, isAdmin }: RouteAccessContext,
+  { accessibleAreas, modulePermissions, isAdmin, isPlatformAdmin = false }: RouteAccessContext,
 ): boolean {
   if (!route || accessibleAreas[route.area] !== true) return false;
+  if (route.platformAdminOnly && !isPlatformAdmin) return false;
   if (route.adminOnly && !isAdmin) return false;
   return isAdmin || hasAnyModulePermission(modulePermissions, route.requiredModules);
 }

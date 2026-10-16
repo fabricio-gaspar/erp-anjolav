@@ -15,6 +15,7 @@ import { useNavigationAccess } from "@/hooks/usePermissoesUsuario";
 import {
   APP_ROUTES,
   LEGACY_ROUTE_REDIRECTS,
+  type AppRouteDefinition,
   type AppRoutePath,
   type LegacyRouteRedirect,
 } from "@/lib/appRoutes";
@@ -44,6 +45,7 @@ const AgendaEventos = lazy(() => import("./pages/AgendaEventos"));
 const RelatorioKilometragem = lazy(() => import("./pages/RelatorioKilometragem"));
 const RelatorioMensal = lazy(() => import("./pages/RelatorioMensal"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
+const AdministracaoSaas = lazy(() => import("./pages/AdministracaoSaas"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +72,7 @@ const ROUTE_COMPONENTS = {
   "/central/relatorios/mensal": RelatorioMensal,
   "/central/configuracoes": Configuracoes,
   "/central/auditoria": Auditoria,
+  "/central/administracao-saas": AdministracaoSaas,
   "/industrial": Dashboard,
   "/industrial/clientes": Clientes,
   "/industrial/produtos": Produtos,
@@ -92,6 +95,10 @@ const ROUTE_COMPONENTS = {
   "/residencial/produtos": Produtos,
   "/residencial/relatorios/caixa": HistoricoCaixas,
 } as const satisfies Record<AppRoutePath, LazyExoticComponent<ComponentType>>;
+
+function requiresPlatformAdmin(route: AppRouteDefinition): boolean {
+  return route.platformAdminOnly === true;
+}
 
 function AuthorizedRouteRedirect({ redirect }: { redirect?: LegacyRouteRedirect }) {
   const {
@@ -173,6 +180,7 @@ const App = () => (
                         requiredArea={route.area}
                         requiredModule={route.requiredModules}
                         adminOnly={route.adminOnly}
+                        platformAdminOnly={requiresPlatformAdmin(route)}
                       >
                         <Page />
                       </ProtectedRoute>
