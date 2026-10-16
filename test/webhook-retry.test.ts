@@ -4,6 +4,10 @@ import test from "node:test";
 
 const helperUrl = new URL("../supabase/functions/_shared/asaas-webhook-retry.ts", import.meta.url);
 const migrationUrl = new URL("../supabase/migrations/20261015116000_webhook_retry.sql", import.meta.url);
+const processingUrl = new URL("../supabase/functions/_shared/asaas-webhook-processing.ts", import.meta.url);
+const primaryWebhookUrl = new URL("../supabase/functions/asaas-webhook/index.ts", import.meta.url);
+const retryWebhookUrl = new URL("../supabase/functions/retry-asaas-webhook/index.ts", import.meta.url);
+const configUrl = new URL("../supabase/config.toml", import.meta.url);
 
 async function loadRetryStateMachine() {
   assert.ok(existsSync(helperUrl), "a state machine de retentativa deve existir");
@@ -71,6 +75,18 @@ test("calcula backoff limitado e envia a quinta falha para dead letter", async (
   });
 });
 
+test("só permite processamento de um evento efetivamente reivindicado e trata duplicatas sem retrabalho", async () => {
+  const { shouldProcessWebhookEvent, webhookDuplicateOutcome } = await loadRetryStateMachine();
+
+  assert.equal(shouldProcessWebhookEvent("processing"), true);
+  assert.equal(shouldProcessWebhookEvent("processed"), false);
+  assert.equal(shouldProcessWebhookEvent("dead_letter"), false);
+  assert.equal(webhookDuplicateOutcome("processed"), "duplicate");
+  assert.equal(webhookDuplicateOutcome("dead_letter"), "duplicate");
+  assert.equal(webhookDuplicateOutcome("failed"), "queued");
+  assert.equal(webhookDuplicateOutcome("processing"), "queued");
+});
+
 test("a migration cria um claim atômico, limitado e restrito ao service role", () => {
   assert.ok(existsSync(migrationUrl), "a migration da fila de retentativa deve existir");
   const migration = readFileSync(migrationUrl, "utf8").replace(/\r\n/g, "\n");
@@ -84,6 +100,36 @@ test("a migration cria um claim atômico, limitado e restrito ao service role", 
   assert.match(migration, /SECURITY DEFINER\s*\nSET search_path = ''/);
   assert.match(migration, /FOR UPDATE SKIP LOCKED/);
   assert.match(migration, /attempt_count < 5/);
+  assert.match(migration, /last_error = 'RETRY_SCHEDULED'[\s\S]*last_error_code = 'RETRY_SCHEDULED'/);
+  assert.match(
+    migration,
+    /SET processing_status = 'dead_letter'[\s\S]*processing_status = 'processing'[\s\S]*attempt_count >= 5/,
+  );
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.claim_asaas_webhook_events[\s\S]*FROM PUBLIC, anon, authenticated/);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.claim_asaas_webhook_events[\s\S]*TO service_role/);
+});
+
+test("centraliza processamento e protege o worker por escopo e token de serviço", () => {
+  assert.ok(existsSync(processingUrl), "o processamento reutilizável deve existir");
+  assert.ok(existsSync(retryWebhookUrl), "a função de retentativa deve existir");
+
+  const processing = readFileSync(processingUrl, "utf8");
+  const primary = readFileSync(primaryWebhookUrl, "utf8");
+  const retry = readFileSync(retryWebhookUrl, "utf8");
+  const config = readFileSync(configUrl, "utf8");
+
+  assert.match(processing, /export async function processAsaasWebhookEvent/);
+  assert.match(processing, /reconciliar_pagamento_pdv/);
+  assert.match(processing, /last_error_code/);
+  assert.doesNotMatch(processing, /error\.message/);
+  assert.doesNotMatch(processing, /status: response\.status, path/);
+  assert.doesNotMatch(primary, /message\.slice/);
+  assert.match(primary, /webhookDuplicateOutcome/);
+  assert.match(primary, /processAsaasWebhookEvent/);
+  assert.match(retry, /requireAdmin/);
+  assert.match(retry, /ASAAS_RETRY_TOKEN/);
+  assert.match(retry, /claim_asaas_webhook_events/);
+  assert.match(retry, /tenantId/);
+  assert.match(retry, /shouldProcessWebhookEvent/);
+  assert.match(config, /\[functions\.retry-asaas-webhook\]\s*\nverify_jwt = false/);
 });

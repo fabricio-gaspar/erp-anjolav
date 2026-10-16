@@ -9,6 +9,9 @@ verify_jwt = true
 [functions.asaas-webhook]
 verify_jwt = false
 
+[functions.retry-asaas-webhook]
+verify_jwt = false
+
 [functions.manage-employee]
 verify_jwt = true
 

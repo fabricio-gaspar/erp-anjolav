@@ -18,7 +18,9 @@ ALTER TABLE public.asaas_webhook_events
   CHECK (last_error_code IS NULL OR last_error_code ~ '^[A-Z][A-Z0-9_]{1,79}$');
 
 UPDATE public.asaas_webhook_events
-SET next_attempt_at = coalesce(next_attempt_at, received_at, now())
+SET next_attempt_at = coalesce(next_attempt_at, received_at, now()),
+    last_error = 'RETRY_SCHEDULED',
+    last_error_code = 'RETRY_SCHEDULED'
 WHERE processing_status = 'failed'
   AND attempt_count < 5;
 
@@ -31,7 +33,8 @@ SET processing_status = 'dead_letter',
     next_attempt_at = NULL,
     locked_at = NULL,
     dead_lettered_at = coalesce(dead_lettered_at, now()),
-    last_error_code = coalesce(last_error_code, 'RETRY_LIMIT_REACHED')
+    last_error = 'RETRY_LIMIT_REACHED',
+    last_error_code = 'RETRY_LIMIT_REACHED'
 WHERE processing_status = 'failed'
   AND attempt_count >= 5;
 
@@ -60,6 +63,20 @@ AS $$
 DECLARE
   v_limit integer := least(greatest(coalesce(_limit, 10), 1), 25);
 BEGIN
+  UPDATE public.asaas_webhook_events AS event
+  SET processing_status = 'dead_letter',
+      next_attempt_at = NULL,
+      locked_at = NULL,
+      dead_lettered_at = coalesce(event.dead_lettered_at, now()),
+      last_error = 'RETRY_LIMIT_REACHED',
+      last_error_code = 'RETRY_LIMIT_REACHED'
+  WHERE (_event_id IS NULL OR event.id = _event_id)
+    AND (_tenant_id IS NULL OR event.tenant_id = _tenant_id)
+    AND event.processing_status = 'processing'
+    AND event.attempt_count >= 5
+    AND event.locked_at IS NOT NULL
+    AND event.locked_at <= now() - interval '10 minutes';
+
   RETURN QUERY
   WITH candidates AS (
     SELECT event.id

@@ -23,6 +23,8 @@ export interface WebhookFailureState {
   deadLetteredAt: string | null;
 }
 
+export type WebhookDuplicateOutcome = "duplicate" | "queued";
+
 function timestamp(value: string | null | undefined): number | null {
   if (!value) return null;
   const parsed = Date.parse(value);
@@ -60,6 +62,14 @@ export function isWebhookEventEligibleForClaim(
   }
 
   return false;
+}
+
+export function shouldProcessWebhookEvent(status: WebhookProcessingStatus): boolean {
+  return status === "processing";
+}
+
+export function webhookDuplicateOutcome(status: WebhookProcessingStatus): WebhookDuplicateOutcome {
+  return status === "processed" || status === "dead_letter" ? "duplicate" : "queued";
 }
 
 export function nextWebhookFailureState(attemptCount: number, now = new Date()): WebhookFailureState {
