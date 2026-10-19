@@ -82,6 +82,7 @@ function useInvalidatePdv() {
     queryClient.invalidateQueries({ queryKey: ["caixa-movimentacoes"] });
     queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
     queryClient.invalidateQueries({ queryKey: ["consulta-os"] });
+    queryClient.invalidateQueries({ queryKey: ["pdv-customer-loyalty"] });
   };
 }
 
