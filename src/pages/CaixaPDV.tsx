@@ -26,6 +26,8 @@ import {
   Clock,
   BarChart3,
   Settings2,
+  ChevronDown,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
@@ -145,6 +147,7 @@ const CaixaPDV = () => {
   // Novos estados para funcionalidades profissionais
   const [showHistoricoVendas, setShowHistoricoVendas] = useState(false);
   const [showAjudaAtalhos, setShowAjudaAtalhos] = useState(false);
+  const [showOperations, setShowOperations] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -624,6 +627,7 @@ const CaixaPDV = () => {
       if (showConsultarOSModal) setShowConsultarOSModal(false);
       if (showHistoricoVendas) setShowHistoricoVendas(false);
       if (showAjudaAtalhos) setShowAjudaAtalhos(false);
+      if (showOperations) setShowOperations(false);
     }
   }, [
     caixaAberto,
@@ -635,6 +639,7 @@ const CaixaPDV = () => {
     showConsultarOSModal,
     showHistoricoVendas,
     showPagamentoModal,
+    showOperations,
     toggleFullscreen,
     updateQuantity,
   ]);
@@ -655,6 +660,7 @@ const CaixaPDV = () => {
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantidade, 0);
   const totalValue = cart.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
+  const currentItem = cart[cart.length - 1] ?? null;
 
   const today = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -670,20 +676,23 @@ const CaixaPDV = () => {
   };
 
   return (
-    <AppLayout title="Dashboard">
+    <AppLayout title="Caixa PDV">
       <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-120px)] gap-4">
         {/* Left Panel - Products */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* PDV Header */}
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 space-y-3">
+          <div className="bg-card border border-primary/20 rounded-xl p-3 mb-4 space-y-3 shadow-sm">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                  <span className="text-primary-foreground font-black text-sm">A</span>
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-sm">
+                  <ShoppingCart className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-primary">Caixa PDV</h2>
-                  <p className="text-xs text-muted-foreground capitalize">{today}</p>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-semibold text-primary">Caixa PDV</h2>
+                    <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Venda rápida</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground capitalize">{today} · selecione o cliente e os serviços</p>
                 </div>
               </div>
 
@@ -714,67 +723,61 @@ const CaixaPDV = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {caixaAberto ? (
-                <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1"
-                    onClick={() => setShowConsultarOSModal(true)}
-                  >
-                    <FileSearch className="w-4 h-4" />
-                    <span className="hidden sm:inline">Consultar OS (F5)</span>
-                    <span className="sm:hidden">OS</span>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                {!caixaAberto && (
+                  <Button size="sm" className="gap-1" onClick={() => setShowAbrirCaixaModal(true)}>
+                    <DoorOpen className="w-4 h-4" />
+                    Abrir Caixa
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1 text-warning border-warning"
-                    onClick={() => setShowSangriaModal(true)}
-                  >
-                    <ArrowDownCircle className="w-4 h-4" />
-                    <span className="hidden sm:inline">Sangria</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1 text-success border-success"
-                    onClick={() => setShowSuprimentoModal(true)}
-                  >
-                    <ArrowUpCircle className="w-4 h-4" />
-                    <span className="hidden sm:inline">Suprimento</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1 text-destructive border-destructive"
-                    onClick={() => setShowFecharCaixaModal(true)}
-                  >
-                    <Lock className="w-4 h-4" />
-                    <span className="hidden sm:inline">Fechar Caixa</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1"
-                    onClick={() => navigate("/relatorios/caixa")}
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    <span className="hidden sm:inline">Relatórios</span>
-                  </Button>
-                </>
-              ) : (
-                <Button 
-                  size="sm" 
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   className="gap-1"
-                  onClick={() => setShowAbrirCaixaModal(true)}
+                  onClick={() => setShowOperations((open) => !open)}
+                  aria-expanded={showOperations}
                 >
-                  <DoorOpen className="w-4 h-4" />
-                  Abrir Caixa
+                  <Settings2 className="w-4 h-4" />
+                  Operações
+                  <ChevronDown className={cn("w-4 h-4 transition-transform", showOperations && "rotate-180")} />
                 </Button>
-              )}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button type="button" variant="ghost" size="sm" className="gap-1" onClick={() => setShowHistoricoVendas(true)} disabled={!caixaAberto}>
+                  <History className="w-4 h-4" />
+                  <span className="hidden sm:inline">Histórico</span>
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="gap-1" onClick={() => setShowAjudaAtalhos(true)}>
+                  <Keyboard className="w-4 h-4" />
+                  <span className="hidden sm:inline">Atalhos</span>
+                </Button>
+                <Button type="button" variant="ghost" size="icon" onClick={toggleFullscreen} title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}>
+                  {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                </Button>
+              </div>
             </div>
+
+            {showOperations && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-1 border-t border-border/70">
+                <Button variant="outline" size="sm" className="justify-start gap-1" onClick={() => setShowConsultarOSModal(true)} disabled={!caixaAberto}>
+                  <FileSearch className="w-4 h-4" /> Consultar OS <span className="text-[10px] text-muted-foreground">F5</span>
+                </Button>
+                <Button variant="outline" size="sm" className="justify-start gap-1 text-warning border-warning" onClick={() => setShowSangriaModal(true)} disabled={!caixaAberto}>
+                  <ArrowDownCircle className="w-4 h-4" /> Sangria
+                </Button>
+                <Button variant="outline" size="sm" className="justify-start gap-1 text-success border-success" onClick={() => setShowSuprimentoModal(true)} disabled={!caixaAberto}>
+                  <ArrowUpCircle className="w-4 h-4" /> Suprimento
+                </Button>
+                <Button variant="outline" size="sm" className="justify-start gap-1 text-destructive border-destructive" onClick={() => setShowFecharCaixaModal(true)} disabled={!caixaAberto}>
+                  <Lock className="w-4 h-4" /> Fechar caixa
+                </Button>
+                <Button variant="outline" size="sm" className="justify-start gap-1" onClick={() => navigate("/relatorios/caixa")} disabled={!caixaAberto}>
+                  <BarChart3 className="w-4 h-4" /> Relatórios
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Aviso de caixa fechado */}
@@ -794,10 +797,33 @@ const CaixaPDV = () => {
             </div>
           )}
 
+          {/* Item em destaque: mantém o foco do operador no último item lançado. */}
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 mb-4 min-h-[76px] flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">Item atual</p>
+              <p className="text-lg font-bold truncate">
+                {currentItem?.nome || "Selecione um produto ou serviço"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {currentItem ? `${currentItem.quantidade} ${currentItem.unidade} · ${formatCurrency(currentItem.preco)} cada` : "Clique em um card para adicionar à venda"}
+              </p>
+            </div>
+            <ShoppingCart className="w-7 h-7 text-primary/50 shrink-0" />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div>
+              <h3 className="font-semibold text-foreground">Produtos e serviços</h3>
+              <p className="text-xs text-muted-foreground">Busque por nome ou código e clique para lançar</p>
+            </div>
+            <Badge variant="outline">{filteredProdutos.length} disponíveis</Badge>
+          </div>
+
           {/* Search */}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
+              ref={searchInputRef}
               placeholder="Buscar produto por nome ou código..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -880,9 +906,21 @@ const CaixaPDV = () => {
         </div>
 
         {/* Right Panel - Cart */}
-        <div className="w-full lg:w-96 flex flex-col bg-card border rounded-lg overflow-hidden lg:max-h-full max-h-[50vh]">
+        <div className="w-full lg:w-96 flex flex-col bg-card border rounded-xl overflow-hidden lg:max-h-full max-h-[50vh] shadow-sm">
           {/* Client Search */}
           <div className="p-4 border-b relative">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <UserRound className="w-4 h-4 text-primary" />
+                <div>
+                  <p className="font-semibold text-sm">Cliente da venda</p>
+                  <p className="text-[11px] text-muted-foreground">Obrigatório para concluir o pagamento</p>
+                </div>
+              </div>
+              <Badge variant={selectedClient ? "default" : "outline"} className="text-[10px]">
+                {selectedClient ? "Selecionado" : "Pendente"}
+              </Badge>
+            </div>
             {selectedClient ? (
               <div className="flex items-center justify-between bg-primary/10 rounded-lg p-2">
                 <div className="min-w-0">
@@ -916,6 +954,7 @@ const CaixaPDV = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
+                  ref={clientSearchRef}
                   placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
                   value={clientSearch}
                   onChange={(e) => {
@@ -1084,10 +1123,10 @@ const CaixaPDV = () => {
               </span>
             </div>
 
-            <div className="flex gap-3 justify-center">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
-                className="flex-1 max-w-[45%] text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                className="w-full text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
                 disabled={cart.length === 0}
                 onClick={clearCart}
               >
@@ -1095,7 +1134,7 @@ const CaixaPDV = () => {
                 Cancelar (F8)
               </Button>
               <Button
-                className="flex-1 max-w-[45%] bg-primary hover:bg-primary/90"
+                className="w-full bg-primary hover:bg-primary/90"
                 disabled={cart.length === 0 || !caixaAberto}
                 onClick={handleOpenPagamento}
               >
