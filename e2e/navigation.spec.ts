@@ -75,7 +75,7 @@ test("usuário somente Residencial não descobre nem acessa outras áreas", asyn
   await expect(page.getByRole("heading", { name: "Acesso não autorizado" })).toBeVisible();
 });
 
-test("usuário Industrial e usuário com permissões parciais ficam limitados ao escopo concedido", async ({ page }) => {
+test("usuário Industrial e usuário com permissões parciais ficam limitados ao escopo concedido", async ({ page }, testInfo) => {
   await prepareAuthenticatedWorkspace(page, {
     accessibleAreas: { central: false, industrial: true, residencial: false },
     isAdmin: false,
@@ -87,7 +87,11 @@ test("usuário Industrial e usuário com permissões parciais ficam limitados ao
   await expect(page.getByRole("menuitem", { name: "Painel Industrial" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Painel Central" })).toHaveCount(0);
   await expect(page.getByRole("menuitem", { name: "Painel Residencial" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Clientes" })).toBeVisible();
+  if (testInfo.project.name === "mobile-chromium") {
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Abrir menu" }).click();
+  }
+  await expect(page.getByText("Clientes", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Financeiro Industrial" })).toHaveCount(0);
 });
 
