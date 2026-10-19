@@ -482,7 +482,7 @@ const Dashboard = () => {
       <div className="space-y-5 sm:space-y-8">
         <section className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="px-1 text-3xl font-black uppercase leading-none tracking-tight text-slate-900 sm:text-5xl">
+            <h1 className="page-title px-1">
               {areaLabels[activeArea].title}
             </h1>
           </div>

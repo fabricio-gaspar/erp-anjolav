@@ -72,8 +72,8 @@ const NavItem = ({ route, icon: Icon, compact = false }: NavItemProps) => {
         "group flex items-center gap-3 rounded-lg font-black transition-all duration-200 relative mx-3",
         compact ? "px-2 py-1.5 text-[10px] gap-1.5" : "px-3 py-2.5 text-[13px]",
         isActive
-          ? "bg-sky-500/10 text-sky-400 font-black shadow-sm"
-          : "text-slate-400 hover:bg-white/5 hover:text-white",
+          ? "bg-primary/10 text-primary font-semibold shadow-sm"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground",
         isCollapsed && "justify-center mx-1 px-2"
       )}
     >
@@ -152,8 +152,8 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compac
           "flex items-center gap-3 w-full rounded-lg font-black transition-all duration-200",
           compact ? "px-2 py-1.5 mx-1.5 text-[10px] gap-1.5" : "px-3 py-2.5 mx-2 text-[12px]",
           (isOpen || hasActiveChild)
-            ? "bg-slate-800/50 text-white"
-            : "text-slate-500 hover:bg-slate-800/50 hover:text-white"
+            ? "bg-accent text-foreground"
+            : "text-muted-foreground hover:bg-accent hover:text-foreground"
         )}
         style={{ width: 'calc(100% - 16px)' }}
       >
@@ -216,7 +216,7 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
 
   const userButton = (
     <button className={cn(
-      "flex items-center w-full rounded-lg hover:bg-slate-800/50 transition-colors text-white",
+      "flex items-center w-full rounded-lg hover:bg-accent transition-colors text-foreground",
       compact ? "gap-2 p-1.5" : "gap-3 p-2",
       isCollapsed && "justify-center p-2"
     )}>
@@ -238,12 +238,12 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
       </div>
       {!isCollapsed && (
         <div className="flex-1 min-w-0 text-left">
-          <p className={cn("font-medium text-slate-200 truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
-          <p className={cn("text-slate-500 truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
+          <p className={cn("font-medium text-foreground truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
+          <p className={cn("text-muted-foreground truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
         </div>
       )}
       {!isCollapsed && (
-        <Settings className="w-4 h-4 text-slate-400 hover:text-slate-600 transition-colors" />
+        <Settings className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
       )}
     </button>
   );
@@ -351,8 +351,8 @@ const CollapseButton = () => {
     <button
       onClick={toggleSidebar}
       className={cn(
-        "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-[#0b1f33] text-white shadow-xl hover:scale-110 transition-all duration-200 z-50",
-        "border border-white/10"
+      "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground shadow-md hover:scale-110 transition-all duration-200 z-50",
+        "border border-background"
       )}
     >
       {isCollapsed ? (
@@ -391,28 +391,28 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   return (
     <TooltipProvider>
       <aside className={cn(
-        "h-screen bg-[#0b1f33] border-r border-white/5 flex flex-col transition-all duration-300",
+        "h-screen bg-card border-r border-border flex flex-col transition-all duration-300",
         isMobile ? "w-full" : "fixed left-0 top-0 z-40",
-        !isMobile && (effectiveCollapsed ? "w-16" : "w-60")
+        !isMobile && (effectiveCollapsed ? "w-16" : "w-56")
       )}>
         {!isMobile && <CollapseButton />}
 
         {/* Logo */}
         <div className={cn(
-          "flex items-center justify-center transition-all border-b border-slate-800/30",
+          "flex items-center justify-center transition-all border-b border-border",
           effectiveCollapsed ? "h-16 px-2" : "h-20 px-4"
         )}>
           <div className="flex items-center gap-3">
             <span className={cn(
-              "flex items-center justify-center rounded-lg bg-sky-500 shadow-lg shadow-sky-500/20 shrink-0",
+              "flex items-center justify-center rounded-lg bg-primary shadow-md shadow-primary/20 shrink-0",
               effectiveCollapsed ? "h-9 w-9" : "h-10 w-10"
             )}>
-              <Droplets className={cn("text-white", effectiveCollapsed ? "h-5 w-5" : "h-6 w-6")} />
+              <Droplets className={cn("text-primary-foreground", effectiveCollapsed ? "h-5 w-5" : "h-6 w-6")} />
             </span>
             {!effectiveCollapsed && (
               <div className="min-w-0">
-                <p className="text-sm font-bold tracking-tight text-white truncate">AnjoLav ERP</p>
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-cyan-300/80 truncate">Gestão Integrada</p>
+                <p className="text-sm font-bold tracking-tight text-foreground truncate">AnjoLav ERP</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-primary truncate">Gestão Integrada</p>
               </div>
             )}
           </div>
@@ -449,7 +449,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
         </nav>
 
         {/* User Section */}
-        <div className={cn("border-t border-white/5", compact ? "p-2" : "p-3")}>
+        <div className={cn("border-t border-border", compact ? "p-2" : "p-3")}>
           <UserSection compact={compact} />
         </div>
       </aside>

@@ -43,26 +43,26 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
 
   return (
     <header className={cn(
-      "h-[82px] shadow-none flex items-center justify-between px-6 sticky top-0 z-30 transition-colors border-b border-slate-200 shrink-0",
-      activeArea === "central" ? "bg-[#0b1f33]" : "bg-white/95"
+      "h-16 shadow-none flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 transition-colors border-b border-border bg-background/95 backdrop-blur shrink-0",
+      activeArea === "central" ? "bg-background/95" : "bg-card/95"
     )}>
       <div className="flex items-center gap-4 w-full">
         {showMenuButton && (
-          <Button variant="ghost" size="icon" onClick={onMenuClick} aria-label="Abrir menu" className="shrink-0 text-white/70 hover:text-white hover:bg-white/10">
+          <Button variant="ghost" size="icon" onClick={onMenuClick} aria-label="Abrir menu" className="shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent">
             <Menu className="w-5 h-5" />
           </Button>
         )}
         
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
-          <div className={cn("w-[1px] h-8 shrink-0", activeArea === "central" ? "bg-white/10" : "bg-slate-200")} />
+          <div className="w-px h-7 shrink-0 bg-border" />
 
           <div className="flex min-w-0 flex-1 flex-col justify-center">
             <div className="flex items-center gap-2">
-              <h1 className={cn("text-xl font-black tracking-tight truncate", activeArea === "central" ? "text-white" : "text-slate-900")}>
+              <h1 className="text-base sm:text-lg font-semibold tracking-tight truncate text-foreground">
                 {title || getAppRoute(location.pathname)?.label || "AnjoLav"}
               </h1>
             </div>
-            <p className={cn("text-[11px] font-bold uppercase tracking-widest truncate", activeArea === "central" ? "text-white/50" : "text-slate-400")}>
+            <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground truncate">
               {subtitle || "AnjoLav ERP"}
             </p>
           </div>
@@ -77,8 +77,7 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "max-w-48 gap-2",
-                  activeArea === "central" ? "text-white hover:bg-white/10" : "text-slate-700",
+                  "max-w-48 gap-2 text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
                 aria-label={`Empresa ativa: ${activeTenant.name}`}
               >
@@ -111,15 +110,14 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
               size="sm"
               aria-label={`Trocar painel. Painel atual: ${activeWorkspace?.label ?? "AnjoLav"}`}
               className={cn(
-                "max-w-[12rem] gap-2 rounded-xl px-2 sm:px-3",
-                activeArea === "central" ? "text-white hover:bg-white/10" : "text-slate-900 hover:bg-slate-100",
+                "max-w-[12rem] gap-2 rounded-lg px-2 sm:px-3 text-foreground hover:bg-accent",
               )}
             >
-              <LayoutGrid className={cn("h-5 w-5 shrink-0", activeArea === "central" ? "text-sky-400" : "text-blue-600")} />
+              <LayoutGrid className="h-5 w-5 shrink-0 text-primary" />
               <span className="hidden truncate font-black text-[13px] uppercase tracking-wider sm:inline">
                 {activeWorkspace?.label ?? "AnjoLav"}
               </span>
-              <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 rotate-90", activeArea === "central" ? "text-white/40" : "text-slate-400")} />
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 rotate-90 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl">

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Users, Package, Building2, ClipboardList, Receipt } from "lucide-react";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +34,6 @@ export function GlobalSearch() {
   const [term, setTerm] = useState("");
   const { data: results = [], isFetching } = useGlobalSearch(term);
   const navigate = useNavigate();
-  const { activeArea } = useWorkspace();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -67,14 +65,14 @@ export function GlobalSearch() {
         onClick={() => setOpen(true)}
         className={cn(
           "hidden md:flex gap-2 transition-colors hover:bg-opacity-10",
-          activeArea === "central" ? "text-white/70 hover:text-white hover:bg-white" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+          "text-muted-foreground hover:text-foreground hover:bg-accent"
         )}
       >
         <Search className="w-4 h-4" />
         <span className="text-sm">Buscar...</span>
         <kbd className={cn(
           "hidden lg:inline-flex h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium",
-          activeArea === "central" ? "border-white/20 bg-white/10 text-white/60" : "border-slate-200 bg-slate-100 text-slate-500"
+          "border-border bg-muted text-muted-foreground"
         )}>
           ⌘K
         </kbd>
