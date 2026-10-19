@@ -30,6 +30,7 @@ import {
   CalendarIcon,
   Calculator,
   Gift,
+  Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDays, format, isWeekend, nextMonday } from "date-fns";
@@ -39,6 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CARD_BRANDS } from "@/lib/pdvPayment";
 import { validarCpfCnpj } from "@/lib/validacoesFiscais";
 import type { PdvLoyaltySummary } from "@/hooks/usePdvPayments";
+import type { ConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 
 interface CartItem {
   id: string;
@@ -70,6 +72,8 @@ interface PagamentoModalProps {
   totalItems: number;
   loyalty: PdvLoyaltySummary | null;
   loyaltyLoading?: boolean;
+  configuracaoPagamento?: ConfiguracaoPagamentoCliente | null;
+  onEditConfiguracaoPagamento?: () => void;
   onConfirm: (dados: DadosPagamento) => Promise<void>;
   isLoading?: boolean;
 }
@@ -98,6 +102,24 @@ export interface DadosPagamento {
 
 type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE";
 
+function getFormaPagamentoClienteLabel(formaPagamento: string | null | undefined) {
+  switch (formaPagamento) {
+    case "pix":
+      return "PIX";
+    case "transferencia":
+      return "Transferência";
+    case "boleto":
+      return "Boleto";
+    default:
+      return "Não definida";
+  }
+}
+
+function getFechamentoClienteLabel(diaFechamento: number | null | undefined) {
+  if (diaFechamento === null || diaFechamento === undefined) return "Avulso";
+  return diaFechamento === 16 ? "Quinzenal (dia 16)" : "Mensal (dia 1)";
+}
+
 const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; icon: React.ReactNode }[] = [
   { value: "DINHEIRO", label: "Dinheiro", icon: <Banknote className="w-5 h-5" /> },
   { value: "PIX", label: "PIX", icon: <Smartphone className="w-5 h-5" /> },
@@ -120,6 +142,8 @@ export function PagamentoModal({
   totalItems,
   loyalty,
   loyaltyLoading = false,
+  configuracaoPagamento = null,
+  onEditConfiguracaoPagamento,
   onConfirm,
   isLoading = false,
 }: PagamentoModalProps) {
@@ -338,6 +362,30 @@ export function PagamentoModal({
                 <p className="text-sm text-muted-foreground">{totalItems} peças</p>
                 <p className="text-lg font-bold text-primary">{formatCurrency(totalOriginal)}</p>
               </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">Configuração de pagamento do cliente</p>
+                {configuracaoPagamento ? (
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>Forma: <strong className="text-foreground">{getFormaPagamentoClienteLabel(configuracaoPagamento.forma_pagamento)}</strong></span>
+                    <span>Fechamento: <strong className="text-foreground">{getFechamentoClienteLabel(configuracaoPagamento.dia_fechamento)}</strong></span>
+                    <span>Vencimento: <strong className="text-foreground">Dia {configuracaoPagamento.dia_vencimento ?? "-"}</strong></span>
+                    <span>Faturamento: <strong className="text-foreground">{configuracaoPagamento.tipo_faturamento || "Mensal"}</strong></span>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">Ainda não configurada para este cliente.</p>
+                )}
+              </div>
+              {onEditConfiguracaoPagamento && (
+                <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1" onClick={onEditConfiguracaoPagamento}>
+                  <Settings2 className="h-3.5 w-3.5" />
+                  {configuracaoPagamento ? "Editar" : "Configurar"}
+                </Button>
+              )}
             </div>
           </div>
 

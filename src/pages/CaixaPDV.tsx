@@ -25,11 +25,12 @@ import {
   Keyboard,
   Clock,
   BarChart3,
+  Settings2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
-import { useClientes } from "@/hooks/useClientes";
+import { useClientes, useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { useCaixaAberto } from "@/hooks/useCaixa";
 import { ItemDetalhesModal } from "@/components/caixa/ItemDetalhesModal";
 import { PagamentoModal, DadosPagamento } from "@/components/caixa/PagamentoModal";
@@ -43,6 +44,7 @@ import { ReceberPagamentoModal, type PixRecebimentoRequest } from "@/components/
 import { PixPagamentoModal } from "@/components/caixa/PixPagamentoModal";
 import { HistoricoVendasModal } from "@/components/caixa/HistoricoVendasModal";
 import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
+import { ClientePagamentoDialog } from "@/components/caixa/ClientePagamentoDialog";
 import { OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -124,6 +126,7 @@ const CaixaPDV = () => {
   
   // Estados para modais de pagamento e impressão
   const [showPagamentoModal, setShowPagamentoModal] = useState(false);
+  const [showClientePagamentoDialog, setShowClientePagamentoDialog] = useState(false);
   const [showImpressaoModal, setShowImpressaoModal] = useState(false);
   const [osRecemCriada, setOsRecemCriada] = useState<OSRecemCriada | null>(null);
   const [isProcessingVenda, setIsProcessingVenda] = useState(false);
@@ -155,6 +158,7 @@ const CaixaPDV = () => {
   const selectedClient = useMemo(() => {
     return clientes.find(c => c.id === selectedClientId);
   }, [clientes, selectedClientId]);
+  const { configuracao: configuracaoPagamento } = useConfiguracaoPagamentoCliente(selectedClientId);
   const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(selectedClientId);
 
   // Filter only active products with ID2 (Residencial) or ambos
@@ -323,6 +327,19 @@ const CaixaPDV = () => {
     saleIdempotencyRef.current = createPdvIdempotencyKey("sale");
     setShowPagamentoModal(true);
   }, [caixaAberto, cart.length, selectedClientId]);
+
+  const handleOpenClientePagamento = useCallback(() => {
+    if (!selectedClientId) {
+      toast.error("Selecione um cliente para configurar o pagamento");
+      return;
+    }
+    setShowClientePagamentoDialog(true);
+  }, [selectedClientId]);
+
+  const handleEditClientePagamento = useCallback(() => {
+    setShowPagamentoModal(false);
+    handleOpenClientePagamento();
+  }, [handleOpenClientePagamento]);
 
   // Função para finalizar venda
   const handleFinalizarVenda = async (dados: DadosPagamento) => {
@@ -880,6 +897,16 @@ const CaixaPDV = () => {
                       {customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}
                     </p>
                   ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 h-7 gap-1 text-xs"
+                    onClick={handleOpenClientePagamento}
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    {configuracaoPagamento ? "Editar pagamento" : "Configurar pagamento"}
+                  </Button>
                 </div>
                 <Button variant="ghost" size="sm" onClick={clearClient}>
                   <Trash2 className="w-4 h-4" />
@@ -1113,8 +1140,16 @@ const CaixaPDV = () => {
         totalItems={totalItems}
         loyalty={customerLoyalty ?? null}
         loyaltyLoading={isLoadingCustomerLoyalty}
+        configuracaoPagamento={configuracaoPagamento ?? null}
+        onEditConfiguracaoPagamento={handleEditClientePagamento}
         onConfirm={handleFinalizarVenda}
         isLoading={isProcessingVenda}
+      />
+
+      <ClientePagamentoDialog
+        open={showClientePagamentoDialog}
+        onOpenChange={setShowClientePagamentoDialog}
+        clienteId={selectedClientId}
       />
 
       {/* Modal de Impressão Pós-Venda */}
