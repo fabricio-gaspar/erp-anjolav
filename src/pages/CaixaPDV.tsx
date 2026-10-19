@@ -895,24 +895,21 @@ const CaixaPDV = () => {
               </div>
             </div>
 
-            <div className="pdv-entry-card rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
+            <div className="pdv-entry-card rounded-xl border border-strong bg-card p-2.5 shadow-sm sm:p-3">
               <div className="mb-3 flex items-center gap-2 text-base font-bold">
                 <Keyboard className="h-5 w-5 text-primary" /> Ações rápidas
               </div>
-              <div className="pdv-shortcuts-grid grid grid-cols-3 gap-2">
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
+              <div className="pdv-shortcuts-grid grid grid-cols-3 gap-1.5">
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
                   <span className="flex flex-col items-center justify-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowConsultarOSModal(true)}>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowConsultarOSModal(true)}>
                   <span className="flex flex-col items-center justify-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
                   <span className="flex flex-col items-center justify-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
                 </Button>
-                <Button type="button" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={handleOpenPagamento}>
-                  <span className="flex flex-col items-center justify-center gap-1"><CreditCard className="h-5 w-5" />Pagamento<span>F4</span></span>
-                </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => {
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => {
                   if (!currentItem) {
                     toast.info("Adicione ou selecione um item para editar os detalhes");
                     return;
@@ -921,7 +918,7 @@ const CaixaPDV = () => {
                 }}>
                   <span className="flex flex-col items-center justify-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight text-destructive" onClick={() => {
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight text-destructive" onClick={() => {
                   if (cart.length === 0) {
                     toast.info("Não há itens para cancelar");
                     return;
@@ -930,25 +927,7 @@ const CaixaPDV = () => {
                 }}>
                   <span className="flex flex-col items-center justify-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight text-warning" onClick={() => {
-                  if (!caixaAberto) {
-                    toast.error("Abra o caixa para registrar uma sangria");
-                    return;
-                  }
-                  setShowSangriaModal(true);
-                }}>
-                  <span className="flex flex-col items-center justify-center gap-1"><ArrowDownCircle className="h-5 w-5" />Sangria<span>F7</span></span>
-                </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight text-success" onClick={() => {
-                  if (!caixaAberto) {
-                    toast.error("Abra o caixa para registrar um suprimento");
-                    return;
-                  }
-                  setShowSuprimentoModal(true);
-                }}>
-                  <span className="flex flex-col items-center justify-center gap-1"><ArrowUpCircle className="h-5 w-5" />Suprimento<span>Caixa</span></span>
-                </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
                   <span className="flex flex-col items-center justify-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
                 </Button>
               </div>
@@ -961,6 +940,20 @@ const CaixaPDV = () => {
                     }
                     setShowFecharCaixaModal(true);
                   }}><Lock className="h-4 w-4" /> Fechar caixa</Button>
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2 text-warning" onClick={() => {
+                    if (!caixaAberto) {
+                      toast.error("Abra o caixa para registrar uma sangria");
+                      return;
+                    }
+                    setShowSangriaModal(true);
+                  }}><ArrowDownCircle className="h-4 w-4" /> Sangria (F7)</Button>
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2 text-success" onClick={() => {
+                    if (!caixaAberto) {
+                      toast.error("Abra o caixa para registrar um suprimento");
+                      return;
+                    }
+                    setShowSuprimentoModal(true);
+                  }}><ArrowUpCircle className="h-4 w-4" /> Suprimento de caixa</Button>
                   <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate("/relatorios/caixa")}><BarChart3 className="h-4 w-4" /> Relatórios</Button>
                   <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => setShowAjudaAtalhos(true)}><Keyboard className="h-4 w-4" /> Atalhos</Button>
                   <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/clientes?novo=1")}><UserPlus className="h-4 w-4" /> Novo cliente</Button>
