@@ -166,11 +166,19 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
     }
 
     type LoyaltyResponse = PrintOSData["fidelidade"];
-    const typedRpc = supabase.rpc as unknown as (
-      fn: string,
-      args: Record<string, unknown>,
-    ) => Promise<{ data: LoyaltyResponse | null; error: unknown }>;
-    const { data: fidelidade } = await typedRpc("consultar_fidelidade_rol", { _ordem_servico_id: ordemServicoId });
+    let fidelidade: LoyaltyResponse | null = null;
+    try {
+      const typedRpc = supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: LoyaltyResponse | null; error: unknown }>;
+      const loyaltyResult = await typedRpc("consultar_fidelidade_rol", { _ordem_servico_id: ordemServicoId });
+      fidelidade = loyaltyResult.data;
+    } catch (error) {
+      // Loyalty is optional for the ROL. A missing/temporarily unavailable RPC
+      // must not prevent printing the OS, customer and item data already loaded.
+      console.warn("Loyalty data unavailable for ROL:", error);
+    }
 
     return {
       numero: ordem.numero,

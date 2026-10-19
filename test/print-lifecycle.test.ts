@@ -407,3 +407,20 @@ test("ROL busca OS, cliente, itens e produtos sem embeds ambíguos", async () =>
   assert.match(implementation, /from\("produtos"\)[\s\S]*?\.in\("id", produtoIds\)/);
   assert.doesNotMatch(implementation, /clientes!ordens_servico_cliente_id_fkey|produtos!itens_ordem_servico_produto_id_fkey/);
 });
+
+test("falha opcional da fidelidade não impede o ROL", async () => {
+  const source = await readFile(resolve(repoRoot, "src/services/printService.ts"), "utf8");
+  const implementation = sourceImplementation(
+    source,
+    "export async function fetchOSPrintData",
+    "\n// ===== FETCH CONFIGS =====",
+  );
+
+  const loyaltyCall = implementation.indexOf('typedRpc("consultar_fidelidade_rol"');
+  assert.ok(loyaltyCall >= 0, "fetchOSPrintData must keep the loyalty lookup");
+  assert.match(
+    implementation.slice(Math.max(0, loyaltyCall - 240), loyaltyCall + 300),
+    /try[\s\S]*typedRpc\("consultar_fidelidade_rol"[\s\S]*catch/,
+  );
+  assert.match(implementation, /fidelidade: fidelidade \?\? undefined/);
+});
