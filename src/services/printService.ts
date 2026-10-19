@@ -89,31 +89,58 @@ export function generateBarcodeSVG(text: string, height: number = 50): string {
 
 export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSData | null> {
   try {
-    // Fetch OS with client
+    // Fetch the records independently. The schema keeps both a direct FK and
+    // a tenant-scoped composite FK for these relations; PostgREST embeds can
+    // therefore fail with HTTP 300 even when an explicit FK hint is present.
     const { data: ordem, error: osError } = await supabase
       .from("ordens_servico")
-      .select(`
-        *,
-        cliente:clientes!ordens_servico_cliente_id_fkey(razao_social, telefone, email)
-      `)
+      .select("*")
       .eq("id", ordemServicoId)
       .single();
 
-    if (osError || !ordem) return null;
+    if (osError || !ordem) {
+      console.error("Error fetching OS for ROL:", osError);
+      return null;
+    }
 
-    // Fetch items
-    const { data: itens, error: itensError } = await supabase
-      .from("itens_ordem_servico")
-      .select(`
-        *,
-        produto:produtos!itens_ordem_servico_produto_id_fkey(nome, unidade)
-      `)
-      .eq("ordem_servico_id", ordemServicoId);
+    const [clienteResult, itensResult] = await Promise.all([
+      ordem.cliente_id
+        ? supabase
+            .from("clientes")
+            .select("razao_social, telefone, email")
+            .eq("id", ordem.cliente_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from("itens_ordem_servico")
+        .select("*")
+        .eq("ordem_servico_id", ordemServicoId),
+    ]);
 
-    if (itensError) return null;
+    const { data: cliente, error: clienteError } = clienteResult;
+    const { data: itens, error: itensError } = itensResult;
+    if (clienteError || itensError) {
+      console.error("Error fetching ROL relations:", { clienteError, itensError });
+      return null;
+    }
+
+    const produtoIds = [...new Set((itens || []).map(item => item.produto_id).filter(Boolean))];
+    const { data: produtos, error: produtosError } = produtoIds.length > 0
+      ? await supabase
+          .from("produtos")
+          .select("id, nome, unidade")
+          .in("id", produtoIds)
+      : { data: [], error: null };
+
+    if (produtosError) {
+      console.error("Error fetching ROL products:", produtosError);
+      return null;
+    }
+
+    const produtoById = new Map((produtos || []).map(produto => [produto.id, produto]));
 
     const itensFormatted = (itens || []).map(item => ({
-      nome: item.produto?.nome || "Produto",
+      nome: produtoById.get(item.produto_id)?.nome || "Produto",
       quantidade: Number(item.quantidade),
       precoUnitario: Number(item.preco_unitario),
       subtotal: Number(item.subtotal),
@@ -147,9 +174,9 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
 
     return {
       numero: ordem.numero,
-      clienteNome: ordem.cliente?.razao_social || "Cliente",
-      clienteTelefone: ordem.cliente?.telefone || undefined,
-      clienteEmail: ordem.cliente?.email || undefined,
+      clienteNome: cliente?.razao_social || "Cliente",
+      clienteTelefone: cliente?.telefone || undefined,
+      clienteEmail: cliente?.email || undefined,
       itens: itensFormatted,
       valorTotal,
       dataEmissao: new Date(ordem.created_at),

@@ -392,3 +392,18 @@ test("OS print services reserve and reuse one popup before asynchronous data acq
     assertDirectServicePopupContract(implementation, entryPoint);
   }
 });
+
+test("ROL busca OS, cliente, itens e produtos sem embeds ambíguos", async () => {
+  const source = await readFile(resolve(repoRoot, "src/services/printService.ts"), "utf8");
+  const implementation = sourceImplementation(
+    source,
+    "export async function fetchOSPrintData",
+    "\n// ===== FETCH CONFIGS =====",
+  );
+
+  assert.match(implementation, /from\("ordens_servico"\)[\s\S]*?select\("\*"\)/);
+  assert.match(implementation, /from\("clientes"\)/);
+  assert.match(implementation, /from\("itens_ordem_servico"\)[\s\S]*?select\("\*"\)/);
+  assert.match(implementation, /from\("produtos"\)[\s\S]*?\.in\("id", produtoIds\)/);
+  assert.doesNotMatch(implementation, /clientes!ordens_servico_cliente_id_fkey|produtos!itens_ordem_servico_produto_id_fkey/);
+});
