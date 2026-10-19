@@ -5,7 +5,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,8 +45,10 @@ import {
   Pencil,
   Check,
   X,
+  Undo2,
 } from "lucide-react";
 import { useConsultaOS, getStatusConfig, OrdemServicoConsulta } from "@/hooks/useConsultaOS";
+import { usePdvPaymentsForOrder, useReversePdvPayment, type PdvPaymentSummary } from "@/hooks/usePdvPayments";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -56,6 +69,144 @@ interface EditingPosition {
   corredor: string;
   secao: string;
   prateleira: string;
+}
+
+const paymentMethodLabels: Record<string, string> = {
+  DINHEIRO: "Dinheiro",
+  PIX: "PIX",
+  CARTAO_CREDITO: "Cartão de crédito",
+  CARTAO_DEBITO: "Cartão de débito",
+  FIDELIDADE: "Fidelidade",
+  OUTRO: "Outro",
+};
+
+const paymentStatusLabels: Record<string, string> = {
+  CONFIRMADO: "Confirmado",
+  EM_REVISAO: "Em revisão",
+  ESTORNADO: "Estornado",
+  CANCELADO: "Cancelado",
+  PENDENTE: "Pendente",
+  PROCESSANDO: "Processando",
+  FALHOU: "Falhou",
+};
+
+function PaymentHistory({ orderId }: { orderId: string }) {
+  const [paymentToReverse, setPaymentToReverse] = useState<PdvPaymentSummary | null>(null);
+  const [reason, setReason] = useState("");
+  const { data: payments = [], isLoading, isError, refetch } = usePdvPaymentsForOrder(orderId, true);
+  const reversePayment = useReversePdvPayment();
+
+  const formatPaymentCurrency = (value: number) => new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value) || 0);
+
+  const openReverseDialog = (payment: PdvPaymentSummary) => {
+    setPaymentToReverse(payment);
+    setReason("");
+  };
+
+  const handleReverse = async () => {
+    if (!paymentToReverse || reason.trim().length < 5) return;
+    try {
+      await reversePayment.mutateAsync({ paymentId: paymentToReverse.id, reason: reason.trim() });
+      toast.success("Pagamento estornado e saldo da OS recalculado.");
+      setPaymentToReverse(null);
+      setReason("");
+      await refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível estornar o pagamento.");
+    }
+  };
+
+  return (
+    <>
+      <Separator />
+      <div className="p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h4 className="font-medium flex items-center gap-2">
+            <CreditCard className="w-4 h-4" />
+            Histórico de pagamentos
+          </h4>
+          {isError && (
+            <Button variant="ghost" size="sm" onClick={() => void refetch()}>
+              Tentar novamente
+            </Button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" /> Consultando pagamentos...
+          </div>
+        ) : isError ? (
+          <p className="text-sm text-destructive">Não foi possível carregar o histórico de pagamentos.</p>
+        ) : payments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum pagamento registrado nesta OS.</p>
+        ) : (
+          <div className="space-y-2">
+            {payments.map((payment) => (
+              <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{paymentMethodLabels[payment.metodo] || payment.metodo}</span>
+                    <Badge variant={payment.status === "ESTORNADO" ? "destructive" : payment.status === "CONFIRMADO" || payment.status === "EM_REVISAO" ? "default" : "secondary"}>
+                      {paymentStatusLabels[payment.status] || payment.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {payment.momento === "ENTRADA" ? "Na entrada" : "Na retirada"} · {payment.provedor} · {format(new Date(payment.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  </p>
+                  {payment.reversalUnavailableReason && payment.status !== "ESTORNADO" && (
+                    <p className="text-xs text-muted-foreground mt-1">{payment.reversalUnavailableReason}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{formatPaymentCurrency(payment.valor)}</span>
+                  {payment.canReverse && (
+                    <Button variant="outline" size="sm" className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => openReverseDialog(payment)}>
+                      <Undo2 className="w-3.5 h-3.5" />
+                      Estornar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <AlertDialog open={!!paymentToReverse} onOpenChange={(open) => !open && setPaymentToReverse(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Estornar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O pagamento original será mantido no histórico, uma movimentação inversa será registrada e o saldo da OS será recalculado. Esta ação não pode ser desfeita automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="payment-reversal-reason" className="text-sm font-medium">Motivo do estorno *</label>
+            <Textarea
+              id="payment-reversal-reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Ex.: baixa registrada na OS incorreta"
+              maxLength={1000}
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">Informe pelo menos 5 caracteres.</p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reversePayment.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(event) => { event.preventDefault(); void handleReverse(); }} disabled={reason.trim().length < 5 || reversePayment.isPending}>
+              {reversePayment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar estorno
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
 }
 
 export function ConsultarOSModal({
@@ -437,6 +588,8 @@ export function ConsultarOSModal({
                             })}
                           </div>
                         </div>
+
+                        <PaymentHistory orderId={ordem.id} />
 
                         {/* Payment Info (if pending) */}
                         {isPendente && (

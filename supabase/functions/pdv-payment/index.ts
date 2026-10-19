@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
-import { requireModule } from "../_shared/auth.ts";
+import { requireAdmin, requireModule } from "../_shared/auth.ts";
 import { isValidCpfCnpj } from "../_shared/br-document.ts";
 import { handlePreflight, jsonResponse, readJsonBody, requireJsonPost } from "../_shared/http.ts";
 
@@ -73,6 +73,7 @@ const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9:._-]{8,200}$/;
 const PROVIDER_ID_PATTERN = /^[A-Za-z0-9_-]{3,200}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CARD_BRANDS = new Set(["VISA", "MASTERCARD", "ELO", "AMEX", "HIPERCARD", "OUTRA"]);
+const PAYMENT_STATUS_FOR_REVERSAL = new Set(["CONFIRMADO", "EM_REVISAO"]);
 
 function boundedText(value: unknown, maxLength: number): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -92,6 +93,14 @@ function requireIdempotencyKey(value: unknown): string {
     throw new RequestError("Chave de idempotência inválida");
   }
   return value;
+}
+
+function requireReason(value: unknown): string {
+  const reason = boundedText(value, 1000);
+  if (!reason || reason.length < 5) {
+    throw new RequestError("Informe um motivo de estorno com ao menos 5 caracteres");
+  }
+  return reason;
 }
 
 function money(value: unknown, field: string, allowZero = false): number {
@@ -703,6 +712,60 @@ Deno.serve(async (req) => {
       const paymentId = requireUuid(raw.paymentId, "Pagamento");
       const payment = await reconcilePix(supabase, paymentId, authorization.tenantId);
       return jsonResponse(req, { success: true, payment });
+    }
+
+    if (action === "list_payments") {
+      const orderId = requireUuid(raw.orderId, "OS");
+      const { data: order, error: orderError } = await supabase
+        .from("ordens_servico")
+        .select("id, origem")
+        .eq("tenant_id", authorization.tenantId)
+        .eq("id", orderId)
+        .maybeSingle();
+      if (orderError) throw orderError;
+      if (!order || !["residencial", "loja"].includes(order.origem)) {
+        throw new RequestError("OS fora da empresa ativa", 404);
+      }
+
+      const { data: payments, error: paymentsError } = await supabase
+        .from("pdv_pagamentos")
+        .select("id, metodo, provedor, momento, status, status_provedor, valor, valor_recebido, troco, parcelas, bandeira, nsu, codigo_autorizacao, confirmado_em, cancelado_em, created_at, metadata")
+        .eq("tenant_id", authorization.tenantId)
+        .eq("ordem_servico_id", orderId)
+        .order("created_at", { ascending: false });
+      if (paymentsError) throw paymentsError;
+
+      return jsonResponse(req, {
+        success: true,
+        payments: (payments ?? []).map((payment) => ({
+          ...payment,
+          canReverse: PAYMENT_STATUS_FOR_REVERSAL.has(payment.status) &&
+            ["MANUAL", "LEGACY"].includes(payment.provedor) &&
+            payment.metodo !== "FIDELIDADE",
+          reversalUnavailableReason: payment.status === "ESTORNADO"
+            ? "Pagamento já estornado"
+            : payment.provedor === "ASAAS" || payment.provedor === "TERMINAL_EXTERNO"
+              ? "Exige estorno no provedor externo"
+              : payment.metodo === "FIDELIDADE"
+                ? "Exige reversão específica dos pontos"
+                : undefined,
+        })),
+      });
+    }
+
+    if (action === "reverse_payment") {
+      const adminAuthorization = await requireAdmin(req, supabase);
+      if (!adminAuthorization.ok) return adminAuthorization.response;
+      const paymentId = requireUuid(raw.paymentId, "Pagamento");
+      const reason = requireReason(raw.reason);
+      const { data, error } = await supabase.rpc("estornar_pagamento_pdv", {
+        _tenant_id: adminAuthorization.tenantId,
+        _pagamento_id: paymentId,
+        _motivo: reason,
+        _estornado_por: adminAuthorization.user.id,
+      });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, payment: data });
     }
 
     if (action === "record_payment") {

@@ -55,6 +55,28 @@ export interface PdvLoyaltySummary {
   valorPorPonto: number;
 }
 
+export interface PdvPaymentSummary {
+  id: string;
+  metodo: string;
+  provedor: string;
+  momento: string;
+  status: string;
+  status_provedor: string | null;
+  valor: number;
+  valor_recebido: number | null;
+  troco: number;
+  parcelas: number;
+  bandeira: string | null;
+  nsu: string | null;
+  codigo_autorizacao: string | null;
+  confirmado_em: string | null;
+  cancelado_em: string | null;
+  created_at: string;
+  metadata: Record<string, unknown>;
+  canReverse: boolean;
+  reversalUnavailableReason?: string;
+}
+
 async function edgeError(error: unknown): Promise<Error> {
   if (error instanceof FunctionsHttpError) {
     try {
@@ -83,6 +105,8 @@ function useInvalidatePdv() {
     queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
     queryClient.invalidateQueries({ queryKey: ["consulta-os"] });
     queryClient.invalidateQueries({ queryKey: ["pdv-customer-loyalty"] });
+    queryClient.invalidateQueries({ queryKey: ["pdv-payments"] });
+    queryClient.invalidateQueries({ queryKey: ["vendas-do-dia"] });
   };
 }
 
@@ -140,6 +164,36 @@ export function useCancelPdvPix() {
       const result = await invoke<{ success: true; payment: Record<string, unknown> }>({
         action: "cancel_pix",
         paymentId,
+      });
+      return result.payment;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function usePdvPaymentsForOrder(orderId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["pdv-payments", orderId],
+    enabled: Boolean(orderId) && enabled,
+    queryFn: async () => {
+      if (!orderId) return [] as PdvPaymentSummary[];
+      const result = await invoke<{ success: true; payments: PdvPaymentSummary[] }>({
+        action: "list_payments",
+        orderId,
+      });
+      return result.payments;
+    },
+  });
+}
+
+export function useReversePdvPayment() {
+  const invalidate = useInvalidatePdv();
+  return useMutation({
+    mutationFn: async ({ paymentId, reason }: { paymentId: string; reason: string }) => {
+      const result = await invoke<{ success: true; payment: Record<string, unknown> }>({
+        action: "reverse_payment",
+        paymentId,
+        reason,
       });
       return result.payment;
     },
