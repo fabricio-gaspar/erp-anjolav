@@ -419,8 +419,8 @@ test("falha opcional da fidelidade não impede o ROL", async () => {
   const loyaltyCall = implementation.indexOf('typedRpc("consultar_fidelidade_rol"');
   assert.ok(loyaltyCall >= 0, "fetchOSPrintData must keep the loyalty lookup");
   assert.match(
-    implementation.slice(Math.max(0, loyaltyCall - 240), loyaltyCall + 300),
-    /try[\s\S]*typedRpc\("consultar_fidelidade_rol"[\s\S]*catch/,
+    implementation,
+    /try[\s\S]*supabase\.rpc\.bind\(supabase\)[\s\S]*typedRpc\("consultar_fidelidade_rol"[\s\S]*catch/,
   );
   assert.match(implementation, /fidelidade: fidelidade \?\? undefined/);
 });

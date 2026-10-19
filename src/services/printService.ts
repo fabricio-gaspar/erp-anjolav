@@ -168,7 +168,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
     type LoyaltyResponse = PrintOSData["fidelidade"];
     let fidelidade: LoyaltyResponse | null = null;
     try {
-      const typedRpc = supabase.rpc as unknown as (
+      const typedRpc = supabase.rpc.bind(supabase) as unknown as (
         fn: string,
         args: Record<string, unknown>,
       ) => Promise<{ data: LoyaltyResponse | null; error: unknown }>;
