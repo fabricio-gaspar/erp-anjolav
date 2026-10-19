@@ -552,11 +552,6 @@ const CaixaPDV = () => {
       e.preventDefault();
       setShowAjudaAtalhos(true);
     }
-    // F2 - Foco no cliente
-    if (e.key === "F2") {
-      e.preventDefault();
-      clientSearchRef.current?.focus();
-    }
     // F3 - Foco na busca de produtos
     if (e.key === "F3") {
       e.preventDefault();
@@ -822,7 +817,6 @@ const CaixaPDV = () => {
                 <label htmlFor="pdv-client-search" className="flex items-center gap-1 text-sm font-bold">
                   <UserRound className="h-4 w-4 text-primary" /> Cliente
                 </label>
-                <span className="text-[10px] text-muted-foreground">F2</span>
               </div>
               {selectedClient ? (
                 <div className="border bg-primary/5 p-2.5">
