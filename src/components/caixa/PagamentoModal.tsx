@@ -38,6 +38,7 @@ import { LogisticaSection } from "@/components/delivery/LogisticaSection";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CARD_BRANDS } from "@/lib/pdvPayment";
 import { validarCpfCnpj } from "@/lib/validacoesFiscais";
+import type { PdvLoyaltySummary } from "@/hooks/usePdvPayments";
 
 interface CartItem {
   id: string;
@@ -67,6 +68,8 @@ interface PagamentoModalProps {
   cliente: Cliente | null;
   totalOriginal: number;
   totalItems: number;
+  loyalty: PdvLoyaltySummary | null;
+  loyaltyLoading?: boolean;
   onConfirm: (dados: DadosPagamento) => Promise<void>;
   isLoading?: boolean;
 }
@@ -115,6 +118,8 @@ export function PagamentoModal({
   cliente,
   totalOriginal,
   totalItems,
+  loyalty,
+  loyaltyLoading = false,
   onConfirm,
   isLoading = false,
 }: PagamentoModalProps) {
@@ -247,7 +252,13 @@ export function PagamentoModal({
     if (pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO")) {
       if (!bandeira || (!nsu.trim() && !codigoAutorizacao.trim())) return false;
     }
-    if (pagoAgora && formaPagamento === "FIDELIDADE" && (!Number.isInteger(Number(pontosResgate)) || Number(pontosResgate) < 1)) return false;
+    if (pagoAgora && formaPagamento === "FIDELIDADE") {
+      const pontos = Number(pontosResgate);
+      const valorResgate = pontos * Number(loyalty?.valorPorPonto ?? 0);
+      if (loyaltyLoading || !loyalty?.programaAtivo) return false;
+      if (!Number.isInteger(pontos) || pontos < loyalty.pontosMinimosResgate || pontos > loyalty.saldoPontos) return false;
+      if (valorResgate <= 0 || valorResgate > calculos.valorTotal + 0.009) return false;
+    }
     return true;
   }, [
     pagoAgora,
@@ -264,6 +275,8 @@ export function PagamentoModal({
     motoristaId,
     veiculoId,
     pontosResgate,
+    loyalty,
+    loyaltyLoading,
   ]);
 
   const handleSubmit = async () => {
@@ -313,6 +326,13 @@ export function PagamentoModal({
                 {cliente?.cpf_cnpj && (
                   <p className="text-xs text-muted-foreground">{cliente.cpf_cnpj}</p>
                 )}
+                {loyaltyLoading ? (
+                  <p className="mt-1 text-xs text-muted-foreground">Consultando fidelidade...</p>
+                ) : loyalty?.programaAtivo ? (
+                  <p className="mt-1 text-xs text-primary">
+                    Fidelidade: {loyalty.saldoPontos} pontos ({formatCurrency(loyalty.valorSaldo)})
+                  </p>
+                ) : null}
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">{totalItems} peças</p>
@@ -584,8 +604,24 @@ export function PagamentoModal({
           {pagoAgora && formaPagamento === "FIDELIDADE" && (
             <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
               <Label htmlFor="sale-loyalty-points" className="flex items-center gap-2"><Gift className="h-4 w-4" /> Pontos para resgatar</Label>
-              <Input id="sale-loyalty-points" type="number" min={1} step={1} value={pontosResgate} onChange={(event) => setPontosResgate(event.target.value)} placeholder="Ex.: 100" />
-              <p className="text-xs text-muted-foreground">O saldo, o mínimo e o valor do desconto serão validados com segurança ao criar a OS. Se o resgate não quitar tudo, o restante ficará pendente para outro pagamento.</p>
+              {loyaltyLoading ? (
+                <p className="text-sm text-muted-foreground">Consultando saldo de pontos...</p>
+              ) : !loyalty?.programaAtivo ? (
+                <p className="text-sm text-muted-foreground">O programa de fidelidade está desativado para esta empresa.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Saldo disponível: <strong>{loyalty.saldoPontos} pontos</strong> ({formatCurrency(loyalty.valorSaldo)}). Mínimo: {loyalty.pontosMinimosResgate} pontos.
+                  </p>
+                  <Input id="sale-loyalty-points" type="number" min={loyalty.pontosMinimosResgate} max={loyalty.saldoPontos} step={1} value={pontosResgate} onChange={(event) => setPontosResgate(event.target.value)} placeholder={`Ex.: ${loyalty.pontosMinimosResgate}`} />
+                  {pontosResgate && Number(pontosResgate) > 0 && (
+                    <p className={cn("text-xs", canSubmit ? "text-muted-foreground" : "text-destructive")}>
+                      Desconto estimado: {formatCurrency(Number(pontosResgate) * loyalty.valorPorPonto)}. O valor não pode ultrapassar o total da venda nem o saldo disponível.
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">Se o resgate não quitar tudo, o restante ficará pendente para outro pagamento.</p>
+                </>
+              )}
             </div>
           )}
 

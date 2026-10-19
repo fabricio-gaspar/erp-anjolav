@@ -48,7 +48,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePrintOS } from "@/hooks/usePrintOS";
-import { useCreatePdvSale, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
+import { useCreatePdvSale, usePdvCustomerLoyaltySummary, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
 import { createPdvIdempotencyKey, type PdvPixPayment } from "@/lib/pdvPayment";
 
 interface CartItem {
@@ -155,6 +155,7 @@ const CaixaPDV = () => {
   const selectedClient = useMemo(() => {
     return clientes.find(c => c.id === selectedClientId);
   }, [clientes, selectedClientId]);
+  const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(selectedClientId);
 
   // Filter only active products with ID2 (Residencial) or ambos
   const produtosAtivos = useMemo(() => {
@@ -872,6 +873,13 @@ const CaixaPDV = () => {
                     {selectedClient.nome_fantasia || selectedClient.razao_social}
                   </p>
                   <p className="text-xs text-muted-foreground">{selectedClient.cpf_cnpj}</p>
+                  {isLoadingCustomerLoyalty ? (
+                    <p className="text-xs text-muted-foreground">Consultando pontos...</p>
+                  ) : customerLoyalty?.programaAtivo ? (
+                    <p className="text-xs text-primary">
+                      {customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}
+                    </p>
+                  ) : null}
                 </div>
                 <Button variant="ghost" size="sm" onClick={clearClient}>
                   <Trash2 className="w-4 h-4" />
@@ -1103,6 +1111,8 @@ const CaixaPDV = () => {
         } : null}
         totalOriginal={totalValue}
         totalItems={totalItems}
+        loyalty={customerLoyalty ?? null}
+        loyaltyLoading={isLoadingCustomerLoyalty}
         onConfirm={handleFinalizarVenda}
         isLoading={isProcessingVenda}
       />

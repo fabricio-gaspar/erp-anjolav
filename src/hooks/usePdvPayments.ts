@@ -160,6 +160,20 @@ export function usePdvLoyaltySummary(orderId: string | null, enabled = true) {
   });
 }
 
+export function usePdvCustomerLoyaltySummary(clientId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["pdv-customer-loyalty", clientId],
+    enabled: Boolean(clientId) && enabled,
+    queryFn: async () => {
+      const result = await invoke<{ success: true; loyalty: PdvLoyaltySummary }>({
+        action: "loyalty_customer_summary",
+        clientId,
+      });
+      return result.loyalty;
+    },
+  });
+}
+
 export function useRedeemPdvLoyalty() {
   const invalidate = useInvalidatePdv();
   return useMutation({

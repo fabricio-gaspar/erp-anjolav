@@ -207,6 +207,42 @@ function loyaltyPoints(value: unknown): number {
   return points;
 }
 
+async function getCustomerLoyaltySummary(
+  supabase: SupabaseClient,
+  tenantId: string,
+  clientId: string,
+) {
+  const [{ data: config, error: configError }, { data: entries, error: entriesError }] = await Promise.all([
+    supabase
+      .from("fidelidade_configuracoes")
+      .select("ativo, valor_por_ponto, pontos_minimos_resgate")
+      .eq("tenant_id", tenantId)
+      .maybeSingle(),
+    supabase
+      .from("fidelidade_lancamentos")
+      .select("pontos")
+      .eq("tenant_id", tenantId)
+      .eq("cliente_id", clientId),
+  ]);
+
+  if (configError || entriesError) throw configError ?? entriesError;
+
+  const saldoPontos = Math.max(
+    0,
+    (entries ?? []).reduce((total, entry) => total + Number(entry.pontos ?? 0), 0),
+  );
+  const valorPorPonto = Number(config?.valor_por_ponto ?? 0);
+
+  return {
+    programaAtivo: config?.ativo === true,
+    saldoPontos,
+    valorSaldo: Math.round(saldoPontos * valorPorPonto * 100) / 100,
+    pontosGanhosNestaOrdem: 0,
+    pontosMinimosResgate: Number(config?.pontos_minimos_resgate ?? 0),
+    valorPorPonto,
+  };
+}
+
 async function assertScopedOrderAndCash(
   supabase: SupabaseClient,
   tenantId: string,
@@ -726,6 +762,21 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase.rpc("consultar_fidelidade_pdv", { _ordem_servico_id: orderId });
       if (error) throw error;
       return jsonResponse(req, { success: true, loyalty: data });
+    }
+
+    if (action === "loyalty_customer_summary") {
+      const clientId = requireUuid(raw.clientId, "Cliente");
+      const { data: client, error: clientError } = await supabase
+        .from("clientes")
+        .select("id")
+        .eq("tenant_id", authorization.tenantId)
+        .eq("id", clientId)
+        .maybeSingle();
+      if (clientError) throw clientError;
+      if (!client) throw new RequestError("Cliente fora da empresa ativa", 403);
+
+      const loyalty = await getCustomerLoyaltySummary(supabase, authorization.tenantId, clientId);
+      return jsonResponse(req, { success: true, loyalty });
     }
 
     if (action === "cancel_pix") {
