@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ type ViewType = "semanal" | "quinzenal" | "mensal";
 const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export default function Agenda() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeArea } = useWorkspace();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>("semanal");
@@ -39,6 +41,14 @@ export default function Agenda() {
   const [observacaoModalOpen, setObservacaoModalOpen] = useState(false);
   const [reagendarModalOpen, setReagendarModalOpen] = useState(false);
   const [selectedAgendamento, setSelectedAgendamento] = useState<Agendamento | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("novo") !== "1") return;
+    setNovoModalOpen(true);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("novo");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const getWeeksToShow = () => {
     switch (viewType) {

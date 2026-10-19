@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const Clientes = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("lista");
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
@@ -71,6 +73,14 @@ const Clientes = () => {
     setCnpjData(null);
     setActiveTab("dados");
   };
+
+  useEffect(() => {
+    if (searchParams.get("novo") !== "1") return;
+    handleNovoCliente();
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("novo");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleEditCliente = (clienteId: string) => {
     setSelectedClienteId(clienteId);

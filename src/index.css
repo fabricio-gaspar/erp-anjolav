@@ -10,8 +10,8 @@
 /* AnjoLav Design System */
 @layer base {
   :root {
-    --background: 40 33% 99%;
-    --foreground: 221 32% 14%;
+    --background: 210 25% 97%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 221 32% 14%;
     --popover: 0 0% 100%;
@@ -20,13 +20,14 @@
     --primary-foreground: 0 0% 100%;
     --secondary: 247 46% 96%;
     --secondary-foreground: 247 44% 30%;
-    --muted: 240 25% 97%;
-    --muted-foreground: 228 13% 43%;
-    --accent: 247 46% 96%;
+    --muted: 214 24% 93%;
+    --muted-foreground: 215 16% 35%;
+    --accent: 214 24% 91%;
     --accent-foreground: 247 44% 30%;
-    --border: 240 20% 92%;
-    --input: 240 16% 84%;
+    --border: 214 22% 82%;
+    --input: 214 24% 68%;
     --ring: 246 86% 66%;
+    --strong-border: 214 24% 68%;
     --radius: 0.75rem;
 
     /* Semantic Colors */
@@ -53,7 +54,7 @@
   html[data-workspace="residencial"] { --workspace-accent: 270 77% 61%; }
 
   .dark {
-    --background: 221 32% 14%;
+    --background: 222 47% 8%;
     --foreground: 210 40% 98%;
 
     --card: 221 27% 19%;
@@ -68,8 +69,8 @@
     --secondary: 212 26% 83%;
     --secondary-foreground: 228 84% 4%;
 
-    --muted: 215 16% 46%;
-    --muted-foreground: 210 40% 98%;
+    --muted: 215 24% 20%;
+    --muted-foreground: 215 20% 78%;
 
     --accent: 228 84% 4%;
     --accent-foreground: 215 20% 65%;
@@ -90,9 +91,10 @@
     --info-foreground: 0 0% 100%;
     --info-light: 199 40% 20%;
 
-    --border: 215 19% 34%;
-    --input: 215 19% 34%;
+    --border: 215 19% 38%;
+    --input: 215 19% 48%;
     --ring: 198 93% 59%;
+    --strong-border: 215 20% 52%;
 
     /* Sidebar - Purple Theme (Dark) */
     --sidebar-background: 262 83% 45%;
@@ -408,6 +410,23 @@
     box-shadow: 0 1px 3px rgba(23, 30, 46, 0.04);
   }
 
+  .border-strong {
+    border-color: hsl(var(--strong-border));
+  }
+
+  .pdv-shortcuts-grid > button {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .pdv-shortcut-button > span {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.15;
+  }
+
   .surface-panel {
     @apply bg-card border border-border rounded-xl;
     box-shadow: 0 1px 3px rgba(23, 30, 46, 0.04);
@@ -419,6 +438,24 @@
 
   .page-subtitle {
     @apply text-sm text-muted-foreground;
+  }
+}
+
+/* Compatibilidade visual para telas antigas e modo noturno. */
+@layer base {
+  .dark .bg-white { background-color: hsl(var(--card)) !important; }
+  .dark .bg-slate-50, .dark .bg-slate-50\/50 { background-color: hsl(var(--muted)) !important; }
+  .dark .text-slate-900, .dark .text-slate-800 { color: hsl(var(--foreground)) !important; }
+  .dark .text-slate-500, .dark .text-slate-400 { color: hsl(var(--muted-foreground)) !important; }
+  .dark .border-slate-100, .dark .border-slate-200, .dark .border-slate-300 { border-color: hsl(var(--border)) !important; }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 3px solid hsl(var(--ring) / 0.55);
+    outline-offset: 2px;
   }
 }
 

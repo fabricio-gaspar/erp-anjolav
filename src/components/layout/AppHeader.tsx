@@ -1,4 +1,4 @@
-import { Building2, ChevronRight, Menu, LayoutGrid } from "lucide-react";
+import { Building2, ChevronRight, Menu, LayoutGrid, Moon, Sun } from "lucide-react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigationAccess } from "@/hooks/usePermissoesUsuario";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { useThemeMode } from "@/contexts/ThemeModeContext";
 
 interface AppHeaderProps {
   title?: string;
@@ -32,6 +33,7 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
   const { resolveWorkspaceRoute } = useNavigationAccess();
   const location = useLocation();
   const navigate = useNavigate();
+  const { isDark, toggleMode } = useThemeMode();
   const activeWorkspace = getWorkspaceRoute(activeArea);
   const workspaceRoutes = WORKSPACE_AREAS
     .map((area) => {
@@ -70,6 +72,18 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={toggleMode}
+          aria-label={isDark ? "Ativar modo diurno" : "Ativar modo noturno"}
+          aria-pressed={isDark}
+          title={isDark ? "Modo diurno" : "Modo noturno"}
+          className="h-9 w-9 shrink-0 border-strong bg-card text-foreground hover:bg-accent"
+        >
+          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
         {activeTenant && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -8,6 +8,7 @@ import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { dashboardQueryDefaults } from "@/lib/queryDefaults";
 import { aplicarTema, getTemaIdFromCorPrimaria } from "@/lib/themeUtils";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { ThemeModeProvider } from "@/contexts/ThemeModeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -149,10 +150,11 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
-        <AuthProvider>
-          <WorkspaceProvider>
-            <ThemeLoader>
-            <SidebarProvider>
+        <ThemeModeProvider>
+          <AuthProvider>
+            <WorkspaceProvider>
+              <ThemeLoader>
+              <SidebarProvider>
             <Toaster />
             <Sonner />
             <Suspense
@@ -209,10 +211,11 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
-            </SidebarProvider>
-            </ThemeLoader>
-          </WorkspaceProvider>
-        </AuthProvider>
+              </SidebarProvider>
+              </ThemeLoader>
+            </WorkspaceProvider>
+          </AuthProvider>
+        </ThemeModeProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

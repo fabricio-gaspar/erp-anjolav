@@ -27,6 +27,10 @@ import {
   BarChart3,
   Settings2,
   UserRound,
+  UserPlus,
+  PackagePlus,
+  ClipboardPlus,
+  CalendarPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
@@ -673,9 +677,14 @@ const CaixaPDV = () => {
     }).format(value);
   };
 
+  const openQuickCadastro = (path: string) => {
+    setShowOperations(false);
+    navigate(path);
+  };
+
   return (
     <AppLayout title="Caixa PDV">
-      <section className="mx-[-1rem] flex w-[calc(100%+2rem)] max-w-none flex-col overflow-hidden rounded-lg border border-border bg-background shadow-lg sm:mx-[-1.5rem] sm:w-[calc(100%+3rem)] xl:h-[calc(100vh-118px)]">
+      <section className="pdv-shell mx-[-1rem] flex w-[calc(100%+2rem)] max-w-none min-w-0 flex-col overflow-hidden rounded-lg border border-strong bg-background shadow-lg sm:mx-[-1.5rem] sm:w-[calc(100%+3rem)] xl:h-[calc(100vh-118px)]">
         <header className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0 text-primary" />
@@ -709,7 +718,7 @@ const CaixaPDV = () => {
           </p>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[400px_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] 2xl:grid-cols-[400px_minmax(0,1fr)]">
           <aside className="relative flex flex-col border-b bg-muted/20 p-3 xl:border-b-0 xl:border-r xl:p-4">
             {!isLoadingCaixa && !caixaAberto && (
               <div className="mb-3 flex items-center gap-2 border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs text-warning">
@@ -763,6 +772,15 @@ const CaixaPDV = () => {
                   )}
                 </div>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 h-9 w-full justify-center gap-2 border-primary/40 text-xs font-bold text-primary hover:bg-primary/10"
+                onClick={() => openQuickCadastro("/residencial/clientes?novo=1")}
+              >
+                <UserPlus className="h-4 w-4" />
+                Novo cliente
+              </Button>
             </div>
 
             <div className="order-3 mt-3 grid grid-cols-2 gap-2">
@@ -947,10 +965,10 @@ const CaixaPDV = () => {
           </section>
         </div>
 
-        <footer className="grid border-t bg-card xl:grid-cols-[400px_minmax(0,1fr)]">
+        <footer className="grid border-t bg-card xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] 2xl:grid-cols-[400px_minmax(0,1fr)]">
           <div className="relative border-b p-2 xl:border-b-0 xl:border-r">
-            <div className="grid grid-cols-5 gap-1">
-              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight text-destructive sm:h-[76px] sm:px-2" onClick={() => {
+            <div className="pdv-shortcuts-grid grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight text-destructive sm:h-[76px] sm:px-2" onClick={() => {
                 if (cart.length === 0) {
                   toast.info("Não há itens para cancelar");
                   return;
@@ -959,10 +977,10 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
                 <span className="flex flex-col items-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => {
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => {
                 if (selectedClient) {
                   toast.info(`${selectedClient.nome_fantasia || selectedClient.razao_social} já está vinculado à venda`);
                   return;
@@ -971,7 +989,7 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><UserRound className="h-5 w-5" />Cliente<span>F2</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => {
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => {
                 if (!currentItem) {
                   toast.info("Adicione ou selecione um item para editar os detalhes");
                   return;
@@ -980,13 +998,13 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
               </Button>
-              <Button type="button" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={handleOpenPagamento}>
+              <Button type="button" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={handleOpenPagamento}>
                 <span className="flex flex-col items-center gap-1"><CreditCard className="h-5 w-5" />Pagamento<span>F4</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowConsultarOSModal(true)}>
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowConsultarOSModal(true)}>
                 <span className="flex flex-col items-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight text-warning sm:h-[76px] sm:px-2" onClick={() => {
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight text-warning sm:h-[76px] sm:px-2" onClick={() => {
                 if (!caixaAberto) {
                   toast.error("Abra o caixa para registrar uma sangria");
                   return;
@@ -995,7 +1013,7 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><ArrowDownCircle className="h-5 w-5" />Sangria<span>F7</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight text-success sm:h-[76px] sm:px-2" onClick={() => {
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight text-success sm:h-[76px] sm:px-2" onClick={() => {
                 if (!caixaAberto) {
                   toast.error("Abra o caixa para registrar um suprimento");
                   return;
@@ -1004,15 +1022,15 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><ArrowUpCircle className="h-5 w-5" />Suprimento<span>Caixa</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowHistoricoVendas(true)}>
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowHistoricoVendas(true)}>
                 <span className="flex flex-col items-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
                 <span className="flex flex-col items-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
               </Button>
             </div>
             {showOperations && (
-              <div className="absolute bottom-full left-2 right-2 z-40 mb-2 grid grid-cols-2 gap-1 border bg-card p-2 shadow-xl">
+              <div className="absolute bottom-full left-2 right-2 z-40 mb-2 grid max-h-[min(70vh,420px)] grid-cols-1 gap-1 overflow-y-auto border border-strong bg-card p-2 shadow-xl sm:grid-cols-2">
                 <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => {
                   if (!caixaAberto) {
                     toast.error("Abra o caixa antes de fechá-lo");
@@ -1027,6 +1045,18 @@ const CaixaPDV = () => {
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => setShowAjudaAtalhos(true)}>
                   <Keyboard className="h-4 w-4" /> Atalhos
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/clientes?novo=1")}>
+                  <UserPlus className="h-4 w-4" /> Novo cliente
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/produtos?novo=1")}>
+                  <PackagePlus className="h-4 w-4" /> Novo produto/serviço
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/ordens?novo=1")}>
+                  <ClipboardPlus className="h-4 w-4" /> Nova ordem de serviço
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/agenda?novo=1")}>
+                  <CalendarPlus className="h-4 w-4" /> Novo agendamento
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={toggleFullscreen}>
                   {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}

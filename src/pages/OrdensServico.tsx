@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListaOS } from "@/components/ordens/ListaOS";
@@ -6,8 +7,17 @@ import { NovaOS } from "@/components/ordens/NovaOS";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export default function OrdensServico() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeArea } = useWorkspace();
   const [activeTab, setActiveTab] = useState("lista");
+
+  useEffect(() => {
+    if (searchParams.get("novo") !== "1") return;
+    setActiveTab("nova");
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("novo");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleNovaOS = () => {
     setActiveTab("nova");
