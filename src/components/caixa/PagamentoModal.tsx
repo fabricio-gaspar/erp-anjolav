@@ -32,6 +32,8 @@ import {
   Gift,
   Settings2,
   MapPin,
+  UserRound,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDays, format, isWeekend, nextMonday } from "date-fns";
@@ -334,195 +336,132 @@ export function PagamentoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[980px] xl:max-w-[1120px] max-h-[calc(100vh-1rem)] overflow-y-auto p-3 sm:p-4">
-        <DialogHeader>
-          <DialogTitle className="text-base sm:text-lg">Finalizar Venda</DialogTitle>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[1200px] xl:max-w-[1320px] max-h-[calc(100vh-1rem)] overflow-y-auto rounded-2xl border-strong bg-card p-4 sm:p-6">
+        <DialogHeader className="mb-1">
+          <DialogTitle className="text-2xl font-black tracking-tight sm:text-3xl">Finalizar Venda</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-2.5">
-          {/* Cliente e resumo */}
-          <div className="grid gap-2 md:grid-cols-[0.82fr_1.18fr]">
-          <div className="bg-muted/50 rounded-lg p-2.5">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm text-muted-foreground">Cliente</p>
-                <p className="font-semibold">
-                  {cliente?.nome_fantasia || cliente?.razao_social || "Cliente não selecionado"}
-                </p>
-                {cliente?.cpf_cnpj && (
-                  <p className="text-xs text-muted-foreground">{cliente.cpf_cnpj}</p>
-                )}
-                {loyaltyLoading ? (
-                  <p className="mt-1 text-xs text-muted-foreground">Consultando fidelidade...</p>
-                ) : loyalty?.programaAtivo ? (
-                  <p className="mt-1 text-xs text-primary">
-                    Fidelidade: {loyalty.saldoPontos} pontos ({formatCurrency(loyalty.valorSaldo)})
-                  </p>
-                ) : null}
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">{totalItems} peças</p>
-                <p className="text-lg font-bold text-primary">{formatCurrency(totalOriginal)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Itens e posição operacional */}
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold">Itens do lançamento</p>
-                <p className="text-[11px] text-muted-foreground">Confira a posição antes de concluir a venda.</p>
-              </div>
-              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
-                {cart.length} {cart.length === 1 ? "item" : "itens"}
-              </span>
-            </div>
-            <div className="mt-2 divide-y rounded-md border bg-background">
-              {cart.map((item) => (
-                <div key={`${item.id}-${item.nome}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-2">
-                  <span className="rounded bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">{item.quantidade}x</span>
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold">{item.nome}</p>
-                    <p className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      {item.posicao_prateleira || "Sem posição informada"}
-                    </p>
+        <div className="space-y-3">
+          {/* Resumo superior: cliente e itens */}
+          <div className="grid gap-3 lg:grid-cols-[1.05fr_1fr]">
+            <div className="rounded-xl border border-strong bg-card p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <UserRound className="h-6 w-6" />
                   </div>
-                  <span className="text-xs font-semibold tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm text-muted-foreground">Cliente</p>
+                    <p className="truncate text-xl font-black tracking-tight">
+                      {cliente?.nome_fantasia || cliente?.razao_social || "Cliente não selecionado"}
+                    </p>
+                    {cliente?.cpf_cnpj && <p className="text-sm text-muted-foreground">{cliente.cpf_cnpj}</p>}
+                    {loyaltyLoading ? (
+                      <p className="mt-1 text-sm text-muted-foreground">Consultando fidelidade...</p>
+                    ) : loyalty?.programaAtivo ? (
+                      <p className="mt-1 text-sm font-medium text-primary">Fidelidade: {loyalty.saldoPontos} pontos ({formatCurrency(loyalty.valorSaldo)})</p>
+                    ) : null}
+                  </div>
                 </div>
-              ))}
+                <div className="shrink-0 border-l pl-4 text-right">
+                  <p className="text-sm text-muted-foreground">{totalItems} {totalItems === 1 ? "peça" : "peças"}</p>
+                  <p className="text-2xl font-black text-primary">{formatCurrency(totalOriginal)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-strong bg-card p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-6 w-6 text-primary" />
+                  <p className="text-lg font-black">Itens do lançamento</p>
+                </div>
+                <span className="text-sm text-muted-foreground">{cart.length} {cart.length === 1 ? "item" : "itens"}</span>
+              </div>
+              <div className="space-y-2">
+                {cart.map((item) => (
+                  <div key={`${item.id}-${item.nome}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-strong bg-background px-3 py-2.5">
+                    <span className="flex h-10 min-w-12 items-center justify-center rounded-lg bg-primary px-2 text-sm font-black text-primary-foreground">{item.quantidade}x</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black uppercase">{item.nome}</p>
+                      <p className="flex items-center gap-1 truncate text-sm text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" />{item.posicao_prateleira || "Sem posição informada"}</p>
+                    </div>
+                    <span className="text-base font-black tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          </div>
 
-          <div className="grid gap-2 md:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5">
-            <div className="flex items-start justify-between gap-3">
+          {/* Configuração de pagamento do cliente */}
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-strong bg-card p-4">
+            <div className="flex min-w-0 items-start gap-3">
+              <Settings2 className="mt-0.5 h-7 w-7 shrink-0 text-foreground" />
               <div className="min-w-0">
-                <p className="text-sm font-semibold">Configuração de pagamento do cliente</p>
+                <p className="text-lg font-black">Configuração de pagamento do cliente</p>
                 {configuracaoPagamento ? (
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <div className="mt-1 grid grid-cols-2 gap-x-5 gap-y-1 text-sm text-muted-foreground sm:grid-cols-4">
                     <span>Forma: <strong className="text-foreground">{getFormaPagamentoClienteLabel(configuracaoPagamento.forma_pagamento)}</strong></span>
                     <span>Fechamento: <strong className="text-foreground">{getFechamentoClienteLabel(configuracaoPagamento.dia_fechamento)}</strong></span>
                     <span>Vencimento: <strong className="text-foreground">Dia {configuracaoPagamento.dia_vencimento ?? "-"}</strong></span>
                     <span>Faturamento: <strong className="text-foreground">{configuracaoPagamento.tipo_faturamento || "Mensal"}</strong></span>
                   </div>
                 ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">Ainda não configurada para este cliente.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Ainda não configurada para este cliente.</p>
                 )}
               </div>
-              {onEditConfiguracaoPagamento && (
-                <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1" onClick={onEditConfiguracaoPagamento}>
-                  <Settings2 className="h-3.5 w-3.5" />
-                  {configuracaoPagamento ? "Editar" : "Configurar"}
-                </Button>
-              )}
             </div>
+            {onEditConfiguracaoPagamento && (
+              <Button type="button" variant="outline" className="h-11 shrink-0 gap-2 px-5 text-base font-bold" onClick={onEditConfiguracaoPagamento}>
+                <Settings2 className="h-5 w-5" />
+                {configuracaoPagamento ? "Editar" : "Configurar"}
+              </Button>
+            )}
           </div>
 
-          {/* Urgência */}
-          <div className="flex items-center justify-between rounded-lg border border-warning/30 bg-warning/5 p-2.5">
-            <div className="flex items-center gap-3">
-              <Zap className={cn("w-5 h-5", urgente ? "text-warning" : "text-muted-foreground")} />
-              <div>
-                <p className="font-medium">Urgente (+{PERCENTUAL_URGENCIA_PADRAO}%)</p>
-                <p className="text-xs text-muted-foreground">Entrega prioritária</p>
+          {/* Previsão, desconto e urgência */}
+          <div className="grid gap-3 lg:grid-cols-[1.18fr_1fr_0.9fr]">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-base font-bold"><CalendarIcon className="h-5 w-5 text-primary" /> Previsão de entrega</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="h-12 w-full justify-start rounded-lg border-strong bg-background text-left font-semibold">
+                    <CalendarIcon className="mr-2 h-5 w-5 text-primary" />
+                    <span className="truncate text-primary">{format(previsaoEntrega, "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={previsaoEntrega} onSelect={(date) => date && setPrevisaoEntrega(date)} disabled={(date) => date < new Date()} initialFocus className="pointer-events-auto p-3" locale={ptBR} />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-base font-bold"><Percent className="h-5 w-5 text-primary" /> Desconto</Label>
+              <div className="flex gap-2">
+                <div className="flex shrink-0 overflow-hidden rounded-lg border border-strong">
+                  <button type="button" onClick={() => setDescontoTipo("percentual")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "percentual" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>%</button>
+                  <button type="button" onClick={() => setDescontoTipo("valor")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "valor" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>R$</button>
+                </div>
+                {descontoTipo === "valor" ? (
+                  <CurrencyInput value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} className="h-12 flex-1" />
+                ) : (
+                  <Input type="text" value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} placeholder="0" className="h-12 flex-1" />
+                )}
               </div>
             </div>
-            <Switch checked={urgente} onCheckedChange={setUrgente} />
-          </div>
-          </div>
 
-          {/* Previsão de Entrega - Editável */}
-          <div className="grid gap-2 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4" />
-              Previsão de Entrega
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-medium",
-                    "border-primary/20 bg-primary/5 hover:bg-primary/10"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                  <span className="text-primary">
-                    {format(previsaoEntrega, "EEEE, dd 'de' MMMM", { locale: ptBR })}
-                  </span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={previsaoEntrega}
-                  onSelect={(date) => date && setPrevisaoEntrega(date)}
-                  disabled={(date) => date < new Date()}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Desconto */}
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-2">
-              <Percent className="w-4 h-4" />
-              Desconto
-            </Label>
-            <div className="flex gap-2">
-              <div className="flex rounded-lg border overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setDescontoTipo("percentual")}
-                  className={cn(
-                    "px-3 py-2 text-sm font-medium transition-colors",
-                    descontoTipo === "percentual" 
-                      ? "bg-primary text-primary-foreground" 
-                      : "bg-muted hover:bg-muted/80"
-                  )}
-                >
-                  %
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDescontoTipo("valor")}
-                  className={cn(
-                    "px-3 py-2 text-sm font-medium transition-colors",
-                    descontoTipo === "valor" 
-                      ? "bg-primary text-primary-foreground" 
-                      : "bg-muted hover:bg-muted/80"
-                  )}
-                >
-                  R$
-                </button>
+            <div className="flex min-h-12 items-center justify-between rounded-xl border border-warning/40 bg-warning/5 p-3">
+              <div className="flex items-center gap-3">
+                <Zap className={cn("h-7 w-7", urgente ? "text-warning" : "text-muted-foreground")} />
+                <div>
+                  <p className="text-base font-black">Urgente (+{PERCENTUAL_URGENCIA_PADRAO}%)</p>
+                  <p className="text-sm text-muted-foreground">Entrega prioritária</p>
+                </div>
               </div>
-              {descontoTipo === "valor" ? (
-                <CurrencyInput
-                  value={descontoInput}
-                  onChange={(e) => setDescontoInput(e.target.value)}
-                  className="flex-1"
-                />
-              ) : (
-                <Input
-                  type="text"
-                  value={descontoInput}
-                  onChange={(e) => setDescontoInput(e.target.value)}
-                  placeholder="0"
-                  className="flex-1"
-                />
-              )}
+              <Switch checked={urgente} onCheckedChange={setUrgente} />
             </div>
           </div>
-          </div>
-
-          <Separator />
 
           {/* Seção de Logística */}
           <LogisticaSection
@@ -535,40 +474,67 @@ export function PagamentoModal({
             onMotoristaChange={setMotoristaId}
             veiculoId={veiculoId}
             onVeiculoChange={setVeiculoId}
+            mostrarDataEntrega={false}
           />
 
-          <Separator />
+          <Separator className="my-1" />
           <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Momento do Pagamento
+            <Label className="flex items-center gap-2 text-lg font-black">
+              <CreditCard className="h-5 w-5 text-primary" />
+              Momento do pagamento
             </Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <button
                 type="button"
                 onClick={() => setPagoAgora(false)}
                 className={cn(
-                  "rounded-lg border-2 p-2.5 text-center transition-all",
-                  !pagoAgora 
-                    ? "border-primary bg-primary/5" 
-                    : "border-muted hover:border-muted-foreground/30"
+                  "flex items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all",
+                  !pagoAgora
+                    ? "border-primary bg-primary/5"
+                    : "border-muted hover:border-muted-foreground/30",
                 )}
               >
-                <p className="font-semibold">Pagamento na Retirada</p>
-                <p className="text-xs text-muted-foreground mt-1">Quando retirar o pedido</p>
+                <span className="flex items-center gap-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Banknote className="h-6 w-6" />
+                  </span>
+                  <span>
+                    <span className="block text-base font-black">Pagamento na retirada</span>
+                    <span className="block text-sm text-muted-foreground">Quando retirar o pedido</span>
+                  </span>
+                </span>
+                <span className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                  !pagoAgora ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50",
+                )}>
+                  {!pagoAgora && <Check className="h-4 w-4" />}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setPagoAgora(true)}
                 className={cn(
-                  "rounded-lg border-2 p-2.5 text-center transition-all",
-                  pagoAgora 
-                    ? "border-primary bg-primary/5" 
-                    : "border-muted hover:border-muted-foreground/30"
+                  "flex items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all",
+                  pagoAgora
+                    ? "border-primary bg-primary/5"
+                    : "border-muted hover:border-muted-foreground/30",
                 )}
               >
-                <p className="font-semibold">Pagar Agora</p>
-                <p className="text-xs text-muted-foreground mt-1">No balcão agora</p>
+                <span className="flex items-center gap-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <CreditCard className="h-6 w-6" />
+                  </span>
+                  <span>
+                    <span className="block text-base font-black">Pagar agora</span>
+                    <span className="block text-sm text-muted-foreground">No balcão agora</span>
+                  </span>
+                </span>
+                <span className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
+                  pagoAgora ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50",
+                )}>
+                  {pagoAgora && <Check className="h-4 w-4" />}
+                </span>
               </button>
             </div>
           </div>
@@ -755,61 +721,56 @@ export function PagamentoModal({
             </div>
           )}
 
-          <Separator />
+          <Separator className="my-1" />
 
           {/* Resumo de Valores */}
-          <div className="space-y-1.5 rounded-lg bg-muted/30 p-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatCurrency(calculos.subtotal)}</span>
+          <div className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-[1fr_1fr_1.25fr] sm:items-center">
+            <div>
+              <p className="text-sm text-muted-foreground">Subtotal</p>
+              <p className="text-lg font-black">{formatCurrency(calculos.subtotal)}</p>
             </div>
-            {calculos.valorDesconto > 0 && (
-              <div className="flex justify-between text-sm text-success">
-                <span>Desconto</span>
-                <span>-{formatCurrency(calculos.valorDesconto)}</span>
-              </div>
-            )}
-            {calculos.valorUrgencia > 0 && (
-              <div className="flex justify-between text-sm text-warning">
-                <span>Urgência (+{PERCENTUAL_URGENCIA_PADRAO}%)</span>
-                <span>+{formatCurrency(calculos.valorUrgencia)}</span>
-              </div>
-            )}
-            <Separator className="my-2" />
-            <div className="flex justify-between text-lg font-bold">
-              <span>TOTAL</span>
-              <span className="text-primary">{formatCurrency(calculos.valorTotal)}</span>
+            <div className="border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
+              <p className="text-sm text-muted-foreground">Desconto</p>
+              <p className="text-lg font-black text-success">-{formatCurrency(calculos.valorDesconto)}</p>
+              {calculos.valorUrgencia > 0 && (
+                <p className="text-xs font-semibold text-warning">Urgência +{formatCurrency(calculos.valorUrgencia)}</p>
+              )}
+              {pagoAgora && formaPagamento === "CARTAO_CREDITO" && parcelas > 1 && (
+                <p className="text-xs text-muted-foreground">{parcelas}x de {formatCurrency(valorParcela)}</p>
+              )}
             </div>
-            {pagoAgora && formaPagamento === "CARTAO_CREDITO" && parcelas > 1 && (
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>{parcelas}x de</span>
-                <span>{formatCurrency(valorParcela)}</span>
-              </div>
-            )}
+            <div className="rounded-lg bg-primary/10 px-4 py-2 sm:text-right">
+              <p className="text-sm font-black tracking-wide text-muted-foreground">TOTAL</p>
+              <p className="text-2xl font-black text-primary">{formatCurrency(calculos.valorTotal)}</p>
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="mt-2">
+        <DialogFooter className="mt-1 gap-2 sm:gap-3">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
+            className="h-12 px-6 text-base font-bold"
           >
             Cancelar
           </Button>
           <Button 
             onClick={handleSubmit} 
             disabled={!canSubmit || isLoading}
-            className="min-w-[150px]"
+            className="h-12 min-w-[220px] gap-2 bg-success px-6 text-base font-bold text-success-foreground hover:bg-success/90"
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Processando...
               </>
             ) : (
-              formaPagamento === "PIX" ? "Criar OS e gerar PIX" : "Finalizar Venda"
+              <>
+                <Check className="h-5 w-5" />
+                {formaPagamento === "PIX" ? "Criar OS e gerar PIX" : "Finalizar Venda"}
+              </>
             )}
           </Button>
         </DialogFooter>
