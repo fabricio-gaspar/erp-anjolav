@@ -716,6 +716,7 @@ Deno.serve(async (req) => {
 
     if (action === "list_payments") {
       const orderId = requireUuid(raw.orderId, "OS");
+      const canReverseForUser = (await requireAdmin(req, supabase)).ok;
       const { data: order, error: orderError } = await supabase
         .from("ordens_servico")
         .select("id, origem")
@@ -739,7 +740,8 @@ Deno.serve(async (req) => {
         success: true,
         payments: (payments ?? []).map((payment) => ({
           ...payment,
-          canReverse: PAYMENT_STATUS_FOR_REVERSAL.has(payment.status) &&
+          canReverse: canReverseForUser &&
+            PAYMENT_STATUS_FOR_REVERSAL.has(payment.status) &&
             ["MANUAL", "LEGACY"].includes(payment.provedor) &&
             payment.metodo !== "FIDELIDADE",
           reversalUnavailableReason: payment.status === "ESTORNADO"
