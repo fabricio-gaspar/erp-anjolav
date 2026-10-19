@@ -31,6 +31,7 @@ import {
   Calculator,
   Gift,
   Settings2,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDays, format, isWeekend, nextMonday } from "date-fns";
@@ -333,14 +334,14 @@ export function PagamentoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[760px] max-h-[calc(100vh-1rem)] overflow-y-auto p-4 sm:p-5">
         <DialogHeader>
-          <DialogTitle className="text-xl">Finalizar Venda</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">Finalizar Venda</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="space-y-3">
           {/* Cliente e resumo */}
-          <div className="bg-muted/50 rounded-lg p-4">
+          <div className="bg-muted/50 rounded-lg p-3">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm text-muted-foreground">Cliente</p>
@@ -365,7 +366,35 @@ export function PagamentoModal({
             </div>
           </div>
 
+          {/* Itens e posição operacional */}
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Itens do lançamento</p>
+                <p className="text-[11px] text-muted-foreground">Confira a posição antes de concluir a venda.</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">
+                {cart.length} {cart.length === 1 ? "item" : "itens"}
+              </span>
+            </div>
+            <div className="mt-2 divide-y rounded-md border bg-background">
+              {cart.map((item) => (
+                <div key={`${item.id}-${item.nome}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-2">
+                  <span className="rounded bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">{item.quantidade}x</span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold">{item.nome}</p>
+                    <p className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      {item.posicao_prateleira || "Sem posição informada"}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-semibold">Configuração de pagamento do cliente</p>
@@ -390,7 +419,7 @@ export function PagamentoModal({
           </div>
 
           {/* Urgência */}
-          <div className="flex items-center justify-between p-4 rounded-lg border border-warning/30 bg-warning/5">
+          <div className="flex items-center justify-between p-3 rounded-lg border border-warning/30 bg-warning/5">
             <div className="flex items-center gap-3">
               <Zap className={cn("w-5 h-5", urgente ? "text-warning" : "text-muted-foreground")} />
               <div>
@@ -402,7 +431,7 @@ export function PagamentoModal({
           </div>
 
           {/* Previsão de Entrega - Editável */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="flex items-center gap-2">
               <CalendarIcon className="w-4 h-4" />
               Previsão de Entrega
@@ -437,7 +466,7 @@ export function PagamentoModal({
           </div>
 
           {/* Desconto */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label className="flex items-center gap-2">
               <Percent className="w-4 h-4" />
               Desconto

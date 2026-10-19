@@ -94,7 +94,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       .from("ordens_servico")
       .select(`
         *,
-        cliente:clientes(razao_social, telefone, email)
+        cliente:clientes!ordens_servico_cliente_id_fkey(razao_social, telefone, email)
       `)
       .eq("id", ordemServicoId)
       .single();
@@ -106,7 +106,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       .from("itens_ordem_servico")
       .select(`
         *,
-        produto:produtos(nome, unidade)
+        produto:produtos!itens_ordem_servico_produto_id_fkey(nome, unidade)
       `)
       .eq("ordem_servico_id", ordemServicoId);
 

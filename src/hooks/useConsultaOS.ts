@@ -66,7 +66,7 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string) {
           forma_pagamento,
           urgente,
           observacoes,
-          cliente:clientes (
+          cliente:clientes!ordens_servico_cliente_id_fkey (
             id,
             razao_social,
             nome_fantasia,
@@ -122,7 +122,7 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string) {
               avarias,
               observacoes,
               posicao_prateleira,
-              produto:produtos (
+              produto:produtos!itens_ordem_servico_produto_id_fkey (
                 nome,
                 codigo
               )
