@@ -334,14 +334,15 @@ export function PagamentoModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[760px] max-h-[calc(100vh-1rem)] overflow-y-auto p-4 sm:p-5">
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[980px] xl:max-w-[1120px] max-h-[calc(100vh-1rem)] overflow-y-auto p-3 sm:p-4">
         <DialogHeader>
-          <DialogTitle className="text-lg sm:text-xl">Finalizar Venda</DialogTitle>
+          <DialogTitle className="text-base sm:text-lg">Finalizar Venda</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {/* Cliente e resumo */}
-          <div className="bg-muted/50 rounded-lg p-3">
+          <div className="grid gap-2 md:grid-cols-[0.82fr_1.18fr]">
+          <div className="bg-muted/50 rounded-lg p-2.5">
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm text-muted-foreground">Cliente</p>
@@ -367,7 +368,7 @@ export function PagamentoModal({
           </div>
 
           {/* Itens e posição operacional */}
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold">Itens do lançamento</p>
@@ -393,7 +394,9 @@ export function PagamentoModal({
               ))}
             </div>
           </div>
+          </div>
 
+          <div className="grid gap-2 md:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -419,7 +422,7 @@ export function PagamentoModal({
           </div>
 
           {/* Urgência */}
-          <div className="flex items-center justify-between p-3 rounded-lg border border-warning/30 bg-warning/5">
+          <div className="flex items-center justify-between rounded-lg border border-warning/30 bg-warning/5 p-2.5">
             <div className="flex items-center gap-3">
               <Zap className={cn("w-5 h-5", urgente ? "text-warning" : "text-muted-foreground")} />
               <div>
@@ -429,8 +432,10 @@ export function PagamentoModal({
             </div>
             <Switch checked={urgente} onCheckedChange={setUrgente} />
           </div>
+          </div>
 
           {/* Previsão de Entrega - Editável */}
+          <div className="grid gap-2 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label className="flex items-center gap-2">
               <CalendarIcon className="w-4 h-4" />
@@ -515,6 +520,7 @@ export function PagamentoModal({
               )}
             </div>
           </div>
+          </div>
 
           <Separator />
 
@@ -532,17 +538,17 @@ export function PagamentoModal({
           />
 
           <Separator />
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
               Momento do Pagamento
             </Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setPagoAgora(false)}
                 className={cn(
-                  "p-4 rounded-lg border-2 text-center transition-all",
+                  "rounded-lg border-2 p-2.5 text-center transition-all",
                   !pagoAgora 
                     ? "border-primary bg-primary/5" 
                     : "border-muted hover:border-muted-foreground/30"
@@ -555,7 +561,7 @@ export function PagamentoModal({
                 type="button"
                 onClick={() => setPagoAgora(true)}
                 className={cn(
-                  "p-4 rounded-lg border-2 text-center transition-all",
+                  "rounded-lg border-2 p-2.5 text-center transition-all",
                   pagoAgora 
                     ? "border-primary bg-primary/5" 
                     : "border-muted hover:border-muted-foreground/30"
@@ -571,14 +577,14 @@ export function PagamentoModal({
           {pagoAgora && (
             <div className="space-y-3">
               <Label>Forma de Pagamento</Label>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
                 {FORMAS_PAGAMENTO.map((forma) => (
                   <button
                     key={forma.value}
                     type="button"
                     onClick={() => setFormaPagamento(forma.value)}
                     className={cn(
-                      "flex flex-col items-center gap-1 p-3 rounded-lg border-2 transition-all",
+                      "flex flex-col items-center gap-1 rounded-lg border-2 p-2 transition-all",
                       formaPagamento === forma.value
                         ? "border-primary bg-primary/5 text-primary"
                         : "border-muted hover:border-muted-foreground/30"
@@ -623,7 +629,7 @@ export function PagamentoModal({
           )}
 
           {pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO") && (
-            <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+            <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
               <div>
                 <Label>Bandeira</Label>
                 <Select value={bandeira} onValueChange={setBandeira}>
@@ -704,7 +710,7 @@ export function PagamentoModal({
 
           {/* Gaveta de Troco (apenas para dinheiro) */}
           {pagoAgora && formaPagamento === "DINHEIRO" && (
-            <div className="p-4 rounded-lg bg-success/5 border border-success/30 space-y-3">
+            <div className="rounded-lg border border-success/30 bg-success/5 p-3 space-y-2">
               <Label className="flex items-center gap-2 text-success">
                 <Banknote className="w-4 h-4" />
                 Valor Recebido
@@ -752,7 +758,7 @@ export function PagamentoModal({
           <Separator />
 
           {/* Resumo de Valores */}
-          <div className="space-y-2 bg-muted/30 rounded-lg p-4">
+          <div className="space-y-1.5 rounded-lg bg-muted/30 p-3">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Subtotal</span>
               <span>{formatCurrency(calculos.subtotal)}</span>
@@ -783,7 +789,7 @@ export function PagamentoModal({
           </div>
         </div>
 
-        <DialogFooter className="mt-4">
+        <DialogFooter className="mt-2">
           <Button
             type="button"
             variant="outline"

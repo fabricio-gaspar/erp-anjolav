@@ -675,7 +675,7 @@ const CaixaPDV = () => {
 
   return (
     <AppLayout title="Caixa PDV">
-      <section className="mx-auto flex w-full max-w-[1560px] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-lg xl:h-[calc(100vh-118px)]">
+      <section className="mx-[-1rem] flex w-[calc(100%+2rem)] max-w-none flex-col overflow-hidden rounded-lg border border-border bg-background shadow-lg sm:mx-[-1.5rem] sm:w-[calc(100%+3rem)] xl:h-[calc(100vh-118px)]">
         <header className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0 text-primary" />
@@ -702,14 +702,14 @@ const CaixaPDV = () => {
           </div>
         </header>
 
-        <div className="border-b border-primary/40 bg-primary px-4 py-3 text-primary-foreground sm:px-6">
+        <div className="border-b border-primary/40 bg-primary px-4 py-1.5 text-primary-foreground sm:px-6 sm:py-2">
           <p className="text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-primary-foreground/70">Item atual</p>
-          <p className="truncate text-center text-xl font-semibold tracking-[0.08em] sm:text-2xl lg:text-4xl">
+          <p className="truncate text-center text-lg font-semibold leading-tight tracking-[0.08em] sm:text-xl lg:text-3xl">
             {currentItem?.nome || "Aguardando item"}
           </p>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[330px_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[400px_minmax(0,1fr)]">
           <aside className="relative flex flex-col border-b bg-muted/20 p-3 xl:border-b-0 xl:border-r xl:p-4">
             {!isLoadingCaixa && !caixaAberto && (
               <div className="mb-3 flex items-center gap-2 border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs text-warning">
@@ -947,10 +947,10 @@ const CaixaPDV = () => {
           </section>
         </div>
 
-        <footer className="grid border-t bg-card xl:grid-cols-[330px_minmax(0,1fr)]">
+        <footer className="grid border-t bg-card xl:grid-cols-[400px_minmax(0,1fr)]">
           <div className="relative border-b p-2 xl:border-b-0 xl:border-r">
             <div className="grid grid-cols-5 gap-1">
-              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight text-destructive" onClick={() => {
+              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight text-destructive sm:h-[76px] sm:px-2" onClick={() => {
                 if (cart.length === 0) {
                   toast.info("Não há itens para cancelar");
                   return;
@@ -959,10 +959,10 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
+              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
                 <span className="flex flex-col items-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => {
+              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => {
                 if (selectedClient) {
                   toast.info(`${selectedClient.nome_fantasia || selectedClient.razao_social} já está vinculado à venda`);
                   return;
@@ -971,7 +971,7 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><UserRound className="h-5 w-5" />Cliente<span>F2</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => {
+              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => {
                 if (!currentItem) {
                   toast.info("Adicione ou selecione um item para editar os detalhes");
                   return;
@@ -980,13 +980,13 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
               </Button>
-              <Button type="button" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={handleOpenPagamento}>
+              <Button type="button" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={handleOpenPagamento}>
                 <span className="flex flex-col items-center gap-1"><CreditCard className="h-5 w-5" />Pagamento<span>F4</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => setShowConsultarOSModal(true)}>
+              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowConsultarOSModal(true)}>
                 <span className="flex flex-col items-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight text-warning" onClick={() => {
+              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight text-warning sm:h-[76px] sm:px-2" onClick={() => {
                 if (!caixaAberto) {
                   toast.error("Abra o caixa para registrar uma sangria");
                   return;
@@ -995,7 +995,7 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><ArrowDownCircle className="h-5 w-5" />Sangria<span>F7</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight text-success" onClick={() => {
+              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight text-success sm:h-[76px] sm:px-2" onClick={() => {
                 if (!caixaAberto) {
                   toast.error("Abra o caixa para registrar um suprimento");
                   return;
@@ -1004,10 +1004,10 @@ const CaixaPDV = () => {
               }}>
                 <span className="flex flex-col items-center gap-1"><ArrowUpCircle className="h-5 w-5" />Suprimento<span>Caixa</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
+              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowHistoricoVendas(true)}>
                 <span className="flex flex-col items-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
+              <Button type="button" variant="outline" className="h-[72px] rounded-sm px-1.5 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
                 <span className="flex flex-col items-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
               </Button>
             </div>
