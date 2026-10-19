@@ -675,7 +675,7 @@ const CaixaPDV = () => {
 
   return (
     <AppLayout title="Caixa PDV">
-      <section className="mx-auto flex w-full max-w-[1560px] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-lg md:h-[calc(100vh-118px)]">
+      <section className="mx-auto flex w-full max-w-[1560px] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-lg xl:h-[calc(100vh-118px)]">
         <header className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0 text-primary" />
@@ -709,8 +709,8 @@ const CaixaPDV = () => {
           </p>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 sm:grid-cols-[270px_minmax(0,1fr)]">
-          <aside className="relative border-b bg-muted/20 p-3 sm:border-b-0 sm:border-r sm:p-4">
+        <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[330px_minmax(0,1fr)]">
+          <aside className="relative flex flex-col border-b bg-muted/20 p-3 xl:border-b-0 xl:border-r xl:p-4">
             {!isLoadingCaixa && !caixaAberto && (
               <div className="mb-3 flex items-center gap-2 border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs text-warning">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -718,7 +718,7 @@ const CaixaPDV = () => {
               </div>
             )}
 
-            <div className="relative">
+            <div className="relative order-2">
               <label htmlFor="pdv-product-search" className="mb-1 block text-sm font-bold">Código / produto</label>
               <Search className="pointer-events-none absolute bottom-2.5 left-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -765,7 +765,7 @@ const CaixaPDV = () => {
               )}
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="order-3 mt-3 grid grid-cols-2 gap-2">
               <div className="col-span-2">
                 <p className="mb-1 text-sm font-bold">Quantidade</p>
                 <div className="flex h-10 items-center border bg-background">
@@ -808,7 +808,7 @@ const CaixaPDV = () => {
               </div>
             </div>
 
-            <div className="relative mt-4 border-t pt-3">
+            <div className="relative order-1 mb-3">
               <div className="mb-1 flex items-center justify-between gap-2">
                 <label htmlFor="pdv-client-search" className="flex items-center gap-1 text-sm font-bold">
                   <UserRound className="h-4 w-4 text-primary" /> Cliente
@@ -821,6 +821,9 @@ const CaixaPDV = () => {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-primary">{selectedClient.nome_fantasia || selectedClient.razao_social}</p>
                       <p className="text-xs text-muted-foreground">{selectedClient.cpf_cnpj}</p>
+                      <p className="mt-1 text-[11px] font-semibold text-primary">
+                        {selectedClient.tabela_preco_tipo === "personalizada" ? "Tabela personalizada ativa" : "Tabela padrão ativa"}
+                      </p>
                       {isLoadingCustomerLoyalty ? (
                         <p className="mt-1 text-xs text-muted-foreground">Consultando pontos...</p>
                       ) : customerLoyalty?.programaAtivo ? (
@@ -944,46 +947,82 @@ const CaixaPDV = () => {
           </section>
         </div>
 
-        <footer className="grid border-t bg-card sm:grid-cols-[270px_minmax(0,1fr)]">
-          <div className="relative border-b p-2 sm:border-b-0 sm:border-r">
+        <footer className="grid border-t bg-card xl:grid-cols-[330px_minmax(0,1fr)]">
+          <div className="relative border-b p-2 xl:border-b-0 xl:border-r">
             <div className="grid grid-cols-5 gap-1">
-              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight text-destructive" disabled={cart.length === 0} onClick={clearCart}>
-                <span className="flex flex-col items-center gap-1"><Trash2 className="h-4 w-4" />Cancelar<span>F8</span></span>
+              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight text-destructive" onClick={() => {
+                if (cart.length === 0) {
+                  toast.info("Não há itens para cancelar");
+                  return;
+                }
+                clearCart();
+              }}>
+                <span className="flex flex-col items-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
-                <span className="flex flex-col items-center gap-1"><ShoppingCart className="h-4 w-4" />Produtos<span>F3</span></span>
+              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
+                <span className="flex flex-col items-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" onClick={() => clientSearchRef.current?.focus()}>
-                <span className="flex flex-col items-center gap-1"><UserRound className="h-4 w-4" />Cliente<span>F2</span></span>
+              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => {
+                if (selectedClient) {
+                  toast.info(`${selectedClient.nome_fantasia || selectedClient.razao_social} já está vinculado à venda`);
+                  return;
+                }
+                clientSearchRef.current?.focus();
+              }}>
+                <span className="flex flex-col items-center gap-1"><UserRound className="h-5 w-5" />Cliente<span>F2</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" disabled={!currentItem} onClick={() => currentItem && openDetalhesModal(currentItem)}>
-                <span className="flex flex-col items-center gap-1"><FileText className="h-4 w-4" />Detalhes<span>Item</span></span>
+              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => {
+                if (!currentItem) {
+                  toast.info("Adicione ou selecione um item para editar os detalhes");
+                  return;
+                }
+                openDetalhesModal(currentItem);
+              }}>
+                <span className="flex flex-col items-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
               </Button>
-              <Button type="button" className="h-14 rounded-sm px-1 text-[10px] leading-tight" disabled={cart.length === 0 || !caixaAberto} onClick={handleOpenPagamento}>
-                <span className="flex flex-col items-center gap-1"><CreditCard className="h-4 w-4" />Pagamento<span>F4</span></span>
+              <Button type="button" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={handleOpenPagamento}>
+                <span className="flex flex-col items-center gap-1"><CreditCard className="h-5 w-5" />Pagamento<span>F4</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" disabled={!caixaAberto} onClick={() => setShowConsultarOSModal(true)}>
-                <span className="flex flex-col items-center gap-1"><FileSearch className="h-4 w-4" />Consultar<span>F5</span></span>
+              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => setShowConsultarOSModal(true)}>
+                <span className="flex flex-col items-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight text-warning" disabled={!caixaAberto} onClick={() => setShowSangriaModal(true)}>
-                <span className="flex flex-col items-center gap-1"><ArrowDownCircle className="h-4 w-4" />Sangria<span>F7</span></span>
+              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight text-warning" onClick={() => {
+                if (!caixaAberto) {
+                  toast.error("Abra o caixa para registrar uma sangria");
+                  return;
+                }
+                setShowSangriaModal(true);
+              }}>
+                <span className="flex flex-col items-center gap-1"><ArrowDownCircle className="h-5 w-5" />Sangria<span>F7</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight text-success" disabled={!caixaAberto} onClick={() => setShowSuprimentoModal(true)}>
-                <span className="flex flex-col items-center gap-1"><ArrowUpCircle className="h-4 w-4" />Suprimento<span>Caixa</span></span>
+              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight text-success" onClick={() => {
+                if (!caixaAberto) {
+                  toast.error("Abra o caixa para registrar um suprimento");
+                  return;
+                }
+                setShowSuprimentoModal(true);
+              }}>
+                <span className="flex flex-col items-center gap-1"><ArrowUpCircle className="h-5 w-5" />Suprimento<span>Caixa</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" disabled={!caixaAberto} onClick={() => setShowHistoricoVendas(true)}>
-                <span className="flex flex-col items-center gap-1"><History className="h-4 w-4" />Histórico<span>F6</span></span>
+              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
+                <span className="flex flex-col items-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
               </Button>
-              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
-                <span className="flex flex-col items-center gap-1"><Settings2 className="h-4 w-4" />Mais<span>Ações</span></span>
+              <Button type="button" variant="outline" className="h-16 rounded-sm px-1 text-[11px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
+                <span className="flex flex-col items-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
               </Button>
             </div>
             {showOperations && (
               <div className="absolute bottom-full left-2 right-2 z-40 mb-2 grid grid-cols-2 gap-1 border bg-card p-2 shadow-xl">
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" disabled={!caixaAberto} onClick={() => setShowFecharCaixaModal(true)}>
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => {
+                  if (!caixaAberto) {
+                    toast.error("Abra o caixa antes de fechá-lo");
+                    return;
+                  }
+                  setShowFecharCaixaModal(true);
+                }}>
                   <Lock className="h-4 w-4" /> Fechar caixa
                 </Button>
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" disabled={!caixaAberto} onClick={() => navigate("/relatorios/caixa")}>
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate("/relatorios/caixa")}>
                   <BarChart3 className="h-4 w-4" /> Relatórios
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => setShowAjudaAtalhos(true)}>
