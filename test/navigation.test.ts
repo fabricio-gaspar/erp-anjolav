@@ -12,6 +12,7 @@ import {
   getRoutePermissionRequirement,
   isRouteAccessible,
   resolveDefaultAccessibleRoute,
+  resolveFirstAccessibleRouteInArea,
   resolveLegacyRouteRedirect,
   type RouteAccessContext,
 } from "../src/lib/authorization.ts";
@@ -135,4 +136,24 @@ test("Configurações é exibida na navegação apenas do Central", () => {
   assert.equal(centralPaths.filter((path) => path === "/central/configuracoes").length, 1);
   assert.equal(industrialPaths.includes("/central/configuracoes"), false);
   assert.equal(residentialPaths.includes("/central/configuracoes"), false);
+});
+
+test("seletor de painel encontra a primeira rota autorizada mesmo sem Dashboard", () => {
+  const access: RouteAccessContext = {
+    accessibleAreas: { central: false, industrial: true, residencial: false },
+    modulePermissions: { clientes: true },
+    isAdmin: false,
+  };
+
+  assert.equal(resolveFirstAccessibleRouteInArea("industrial", access)?.path, "/industrial/clientes");
+});
+
+test("grupos de navegação usam rótulos semânticos por área", () => {
+  const industrialGroups = getSidebarNavigationGroups("industrial");
+  const residentialGroups = getSidebarNavigationGroups("residencial");
+
+  assert.equal(industrialGroups.find((group) => group.id === "industrial-customers")?.label, "Cadastros");
+  assert.equal(industrialGroups.find((group) => group.id === "industrial-billing")?.label, "Financeiro e Estoque");
+  assert.equal(industrialGroups.find((group) => group.id === "industrial-analysis")?.label, "Relatórios");
+  assert.equal(residentialGroups.find((group) => group.id === "residential-billing")?.label, "Catálogo, Caixa e Financeiro");
 });

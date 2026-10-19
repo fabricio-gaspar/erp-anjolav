@@ -297,16 +297,16 @@ const SIDEBAR_GROUP_DEFINITIONS: Readonly<Record<WorkspaceArea, readonly Sidebar
   ],
   industrial: [
     { id: "industrial-dashboard", label: null },
-    { id: "industrial-customers", label: "Clientes e Contratos" },
+    { id: "industrial-customers", label: "Cadastros" },
     { id: "industrial-operations", label: "Operação" },
-    { id: "industrial-billing", label: "Faturamento e Gestão" },
-    { id: "industrial-analysis", label: "Análises" },
+    { id: "industrial-billing", label: "Financeiro e Estoque" },
+    { id: "industrial-analysis", label: "Relatórios" },
   ],
   residencial: [
     { id: "residential-dashboard", label: null },
     { id: "residential-service", label: "Atendimento" },
     { id: "residential-operations", label: "Pedidos e Produção" },
-    { id: "residential-billing", label: "Caixa e Financeiro" },
+    { id: "residential-billing", label: "Catálogo, Caixa e Financeiro" },
   ],
 };
 

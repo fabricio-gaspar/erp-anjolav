@@ -6,6 +6,7 @@ import {
   hasAnyModulePermission,
   isRouteAccessible,
   resolveDefaultAccessibleRoute,
+  resolveFirstAccessibleRouteInArea,
   resolveLegacyRouteRedirect,
   type ModulePermissionKey,
   type RoutePermissionRequirement,
@@ -14,6 +15,7 @@ import {
   getAppRoute,
   type AppRouteDefinition,
   type LegacyRouteRedirect,
+  type WorkspaceArea,
 } from "@/lib/appRoutes";
 import { useAccessibleWorkspaces } from "@/hooks/useAccessibleWorkspaces";
 
@@ -130,6 +132,7 @@ export const useTemPermissaoModulo = (moduleKey: ModulePermissionKey): boolean =
 
 export interface NavigationAccessState {
   canAccessRoute: (route: string | AppRouteDefinition) => boolean;
+  resolveWorkspaceRoute: (area: WorkspaceArea) => string | null;
   resolveDefaultRoute: () => string | null;
   resolveLegacyRoute: (redirect: LegacyRouteRedirect) => string | null;
   isError: boolean;
@@ -169,6 +172,11 @@ export const useNavigationAccess = (): NavigationAccessState => {
     return resolveDefaultAccessibleRoute(access)?.path ?? null;
   };
 
+  const resolveWorkspaceRoute = (area: WorkspaceArea): string | null => {
+    if (isLoading || isError) return null;
+    return resolveFirstAccessibleRouteInArea(area, access)?.path ?? null;
+  };
+
   const resolveLegacyRoute = (redirect: LegacyRouteRedirect): string | null => {
     if (isLoading || isError) return null;
     return resolveLegacyRouteRedirect(redirect, access);
@@ -176,6 +184,7 @@ export const useNavigationAccess = (): NavigationAccessState => {
 
   return {
     canAccessRoute,
+    resolveWorkspaceRoute,
     resolveDefaultRoute,
     resolveLegacyRoute,
     isError,

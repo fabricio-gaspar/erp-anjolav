@@ -27,7 +27,7 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
+  webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER ? undefined : {
     command:
       "npm run build -- --mode e2e && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort",
     url: "http://127.0.0.1:4173/login",

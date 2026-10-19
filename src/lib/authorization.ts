@@ -69,6 +69,13 @@ function getFirstAccessibleRouteInArea(
   ) ?? null;
 }
 
+export function resolveFirstAccessibleRouteInArea(
+  area: AppRouteDefinition["area"],
+  access: RouteAccessContext,
+): AppRouteDefinition | null {
+  return getFirstAccessibleRouteInArea(area, access);
+}
+
 function getFirstAccessibleRoute(access: RouteAccessContext): AppRouteDefinition | null {
   for (const area of WORKSPACE_DEFAULT_ORDER) {
     const route = getFirstAccessibleRouteInArea(area, access);

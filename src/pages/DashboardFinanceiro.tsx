@@ -1,21 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, AlertCircle, Clock, Calendar, Factory, Store } from "lucide-react";
 import { useDashboardFinanceiro, type SetorFinanceiro } from "@/hooks/useDashboardFinanceiro";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { FinanceiroWidgetState } from "@/components/financeiro/FinanceiroWidgetState";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const setorLabels: Record<SetorFinanceiro, { title: string; subtitle: string }> = {
   todos: { title: "Dashboard Financeiro", subtitle: "Visão consolidada — Industrial + Loja" },
-  industrial: { title: "Financeiro — Industrial", subtitle: "Receitas de faturamento (clientes industriais)" },
-  loja: { title: "Financeiro — Loja", subtitle: "Receitas do Caixa PDV (clientes residenciais)" },
+  industrial: { title: "Financeiro Industrial", subtitle: "Receitas de faturamento (clientes industriais)" },
+  loja: { title: "Financeiro Residencial", subtitle: "Receitas do Caixa PDV (clientes residenciais)" },
 };
 
 const DashboardFinanceiro = () => {
-  const [setor, setSetor] = useState<SetorFinanceiro>("todos");
+  const { activeArea } = useWorkspace();
+  const defaultSetor: SetorFinanceiro =
+    activeArea === "industrial" ? "industrial" : activeArea === "residencial" ? "loja" : "todos";
+  const [setorSelecionado, setSetorSelecionado] = useState<SetorFinanceiro>(defaultSetor);
+  const setor = activeArea === "central" ? setorSelecionado : defaultSetor;
+
+  useEffect(() => {
+    setSetorSelecionado(defaultSetor);
+  }, [defaultSetor]);
+
   const {
     resultadoRegistrado, receitasTotais, receitasCount,
     despesasTotais, despesasCount, margemOperacionalRegistrada,
@@ -53,18 +63,20 @@ const DashboardFinanceiro = () => {
         </div>
 
         <div className="space-y-4">
-        {/* Sector Toggle */}
-        <Tabs value={setor} onValueChange={(v) => setSetor(v as SetorFinanceiro)}>
-          <TabsList className="grid w-full max-w-md grid-cols-3">
-            <TabsTrigger value="todos" className="text-xs">Todos</TabsTrigger>
-            <TabsTrigger value="industrial" className="text-xs gap-1">
-              <Factory className="w-3.5 h-3.5" /> Industrial
-            </TabsTrigger>
-            <TabsTrigger value="loja" className="text-xs gap-1">
-              <Store className="w-3.5 h-3.5" /> Loja
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Sector Toggle: only the Central panel can switch across sectors. */}
+        {activeArea === "central" && (
+          <Tabs value={setorSelecionado} onValueChange={(v) => setSetorSelecionado(v as SetorFinanceiro)}>
+            <TabsList className="grid w-full max-w-md grid-cols-3">
+              <TabsTrigger value="todos" className="text-xs">Todos</TabsTrigger>
+              <TabsTrigger value="industrial" className="text-xs gap-1">
+                <Factory className="w-3.5 h-3.5" /> Industrial
+              </TabsTrigger>
+              <TabsTrigger value="loja" className="text-xs gap-1">
+                <Store className="w-3.5 h-3.5" /> Residencial
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
 
         {/* Top KPI Cards */}
         <FinanceiroWidgetState

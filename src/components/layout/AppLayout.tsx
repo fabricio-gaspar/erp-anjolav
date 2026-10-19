@@ -30,7 +30,7 @@ export function AppLayout({
       {/* Mobile Sidebar (Sheet) */}
       {isMobile && (
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetContent side="left" className="p-0 w-[100px] bg-white border-none">
+          <SheetContent side="left" className="w-[280px] max-w-[88vw] border-none bg-white p-0">
             <AppSidebar isMobile onItemClick={() => setMobileMenuOpen(false)} />
           </SheetContent>
         </Sheet>

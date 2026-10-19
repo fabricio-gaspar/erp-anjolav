@@ -29,13 +29,17 @@ interface AppHeaderProps {
 export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppHeaderProps) {
   const { activeArea } = useWorkspace();
   const { activeTenant, tenants, switchTenant } = useAuth();
-  const { canAccessRoute } = useNavigationAccess();
+  const { resolveWorkspaceRoute } = useNavigationAccess();
   const location = useLocation();
   const navigate = useNavigate();
   const activeWorkspace = getWorkspaceRoute(activeArea);
   const workspaceRoutes = WORKSPACE_AREAS
-    .map(getWorkspaceRoute)
-    .filter((route): route is AppRouteDefinition => !!route && canAccessRoute(route));
+    .map((area) => {
+      const route = getWorkspaceRoute(area);
+      const destination = resolveWorkspaceRoute(area);
+      return route && destination ? { route, destination } : null;
+    })
+    .filter((entry): entry is { route: AppRouteDefinition; destination: string } => !!entry);
 
   return (
     <header className={cn(
@@ -44,39 +48,15 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
     )}>
       <div className="flex items-center gap-4 w-full">
         {showMenuButton && (
-          <Button variant="ghost" size="icon" onClick={onMenuClick} className="shrink-0 text-white/70 hover:text-white hover:bg-white/10">
+          <Button variant="ghost" size="icon" onClick={onMenuClick} aria-label="Abrir menu" className="shrink-0 text-white/70 hover:text-white hover:bg-white/10">
             <Menu className="w-5 h-5" />
           </Button>
         )}
         
-        <div className="flex items-center gap-5 w-full">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className={cn(
-                "gap-2 px-3 h-10 rounded-xl transition-colors shrink-0",
-                activeArea === "central" ? "text-white hover:bg-white/10" : "text-slate-900 hover:bg-slate-100"
-              )}>
-                <LayoutGrid className={cn("w-5 h-5", activeArea === "central" ? "text-sky-400" : "text-blue-600")} />
-                <span className="font-black text-[13px] uppercase tracking-wider hidden sm:inline">{activeWorkspace?.label ?? "AnjoLav"}</span>
-                <ChevronRight className={cn("w-3.5 h-3.5 rotate-90", activeArea === "central" ? "text-white/40" : "text-slate-400")} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 p-2 rounded-xl">
-              {workspaceRoutes.map((route) => (
-                <DropdownMenuItem
-                  key={route.path}
-                  onClick={() => navigate(route.path)}
-                  className={cn("rounded-lg mb-1", activeArea === route.area && "bg-slate-100 font-black")}
-                >
-                  {route.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
           <div className={cn("w-[1px] h-8 shrink-0", activeArea === "central" ? "bg-white/10" : "bg-slate-200")} />
 
-          <div className="flex flex-col justify-center min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 flex-col justify-center">
             <div className="flex items-center gap-2">
               <h1 className={cn("text-xl font-black tracking-tight truncate", activeArea === "central" ? "text-white" : "text-slate-900")}>
                 {title || getAppRoute(location.pathname)?.label || "AnjoLav"}
@@ -89,7 +69,7 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
         {activeTenant && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -124,6 +104,36 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
           </DropdownMenu>
         )}
         <GlobalSearch />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Trocar painel. Painel atual: ${activeWorkspace?.label ?? "AnjoLav"}`}
+              className={cn(
+                "max-w-[12rem] gap-2 rounded-xl px-2 sm:px-3",
+                activeArea === "central" ? "text-white hover:bg-white/10" : "text-slate-900 hover:bg-slate-100",
+              )}
+            >
+              <LayoutGrid className={cn("h-5 w-5 shrink-0", activeArea === "central" ? "text-sky-400" : "text-blue-600")} />
+              <span className="hidden truncate font-black text-[13px] uppercase tracking-wider sm:inline">
+                {activeWorkspace?.label ?? "AnjoLav"}
+              </span>
+              <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 rotate-90", activeArea === "central" ? "text-white/40" : "text-slate-400")} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl">
+            {workspaceRoutes.map(({ route, destination }) => (
+              <DropdownMenuItem
+                key={route.path}
+                onClick={() => navigate(destination)}
+                className={cn("rounded-lg mb-1", activeArea === route.area && "bg-slate-100 font-black")}
+              >
+                {route.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

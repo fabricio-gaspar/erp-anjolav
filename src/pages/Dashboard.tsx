@@ -487,26 +487,7 @@ const Dashboard = () => {
             </h1>
           </div>
 
-          <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1">
-            <div className="flex shrink-0 rounded-xl border border-slate-200/50 bg-slate-100/80 p-1">
-              {(["central", "industrial", "residencial"] as const).map((area) => (
-                <Button
-                  key={area}
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "h-8 rounded-lg px-3 text-[11px] font-black uppercase tracking-wider transition-all sm:px-5",
-                    activeArea === area
-                      ? "bg-white text-slate-900 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700",
-                  )}
-                  onClick={() => navigate(`/${area}`)}
-                  aria-current={activeArea === area ? "page" : undefined}
-                >
-                  {area === "central" ? "Central" : area === "industrial" ? "Industrial" : "Residencial"}
-                </Button>
-              ))}
-            </div>
+          <div className="flex max-w-full items-center justify-end gap-2 overflow-x-auto pb-1">
             <Button
               variant="outline"
               size="sm"
