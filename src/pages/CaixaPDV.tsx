@@ -26,7 +26,6 @@ import {
   Clock,
   BarChart3,
   Settings2,
-  ChevronDown,
   UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -89,8 +88,6 @@ interface PixFlowContext {
   source: "sale" | "receivable";
 }
 
-const alphabet = ["TODOS", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
-
 const getUnidadeLabel = (unidade: string | null) => {
   switch (unidade) {
     case "kg": return "Kg";
@@ -116,7 +113,7 @@ const CaixaPDV = () => {
   const barcodeBufferRef = useRef("");
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedLetter, setSelectedLetter] = useState("TODOS");
+  const [showProductList, setShowProductList] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -195,10 +192,9 @@ const CaixaPDV = () => {
       const matchesSearch = 
         produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         produto.codigo?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesLetter = selectedLetter === "TODOS" || produto.nome.toUpperCase().startsWith(selectedLetter);
-      return matchesSearch && matchesLetter;
+      return matchesSearch;
     });
-  }, [produtosAtivos, searchTerm, selectedLetter]);
+  }, [produtosAtivos, searchTerm]);
 
   const filteredClientes = useMemo(() => {
     if (!clientSearch) return clientesFiltradosPorTipo.slice(0, 10);
@@ -236,6 +232,8 @@ const CaixaPDV = () => {
         quantidade: 1 
       }];
     });
+    setSearchTerm("");
+    setShowProductList(false);
   }, [caixaAberto, getPrecoForProduto]);
 
   const updateQuantity = useCallback((id: string, delta: number) => {
@@ -677,474 +675,338 @@ const CaixaPDV = () => {
 
   return (
     <AppLayout title="Caixa PDV">
-      <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-120px)] gap-4">
-        {/* Left Panel - Products */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* PDV Header */}
-          <div className="bg-card border border-primary/20 rounded-xl p-3 mb-4 space-y-3 shadow-sm">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-                  <ShoppingCart className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-semibold text-primary">Caixa PDV</h2>
-                    <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Venda rápida</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground capitalize">{today} · selecione o cliente e os serviços</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                {isLoadingCaixa ? (
-                  <Badge variant="outline" className="gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Carregando...
-                  </Badge>
-                ) : caixaAberto ? (
-                  <>
-                    <Badge variant="outline" className="border-success text-success gap-1">
-                      <span className="w-2 h-2 rounded-full bg-success" />
-                      Caixa Aberto
-                    </Badge>
-                    <span className="text-sm text-muted-foreground hidden sm:inline">| {caixaAberto.operador}</span>
-                    <div className="bg-success text-success-foreground px-3 py-1 rounded-lg">
-                      <span className="text-xs">Vendas Hoje</span>
-                      <p className="font-black">{formatCurrency(caixaAberto.valor_vendas)}</p>
-                    </div>
-                  </>
-                ) : (
-                  <Badge variant="outline" className="border-destructive text-destructive gap-1">
-                    <span className="w-2 h-2 rounded-full bg-destructive" />
-                    Caixa Fechado
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
-                {!caixaAberto && (
-                  <Button size="sm" className="gap-1" onClick={() => setShowAbrirCaixaModal(true)}>
-                    <DoorOpen className="w-4 h-4" />
-                    Abrir Caixa
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                  onClick={() => setShowOperations((open) => !open)}
-                  aria-expanded={showOperations}
-                >
-                  <Settings2 className="w-4 h-4" />
-                  Operações
-                  <ChevronDown className={cn("w-4 h-4 transition-transform", showOperations && "rotate-180")} />
-                </Button>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button type="button" variant="ghost" size="sm" className="gap-1" onClick={() => setShowHistoricoVendas(true)} disabled={!caixaAberto}>
-                  <History className="w-4 h-4" />
-                  <span className="hidden sm:inline">Histórico</span>
-                </Button>
-                <Button type="button" variant="ghost" size="sm" className="gap-1" onClick={() => setShowAjudaAtalhos(true)}>
-                  <Keyboard className="w-4 h-4" />
-                  <span className="hidden sm:inline">Atalhos</span>
-                </Button>
-                <Button type="button" variant="ghost" size="icon" onClick={toggleFullscreen} title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}>
-                  {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-
-            {showOperations && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-1 border-t border-border/70">
-                <Button variant="outline" size="sm" className="justify-start gap-1" onClick={() => setShowConsultarOSModal(true)} disabled={!caixaAberto}>
-                  <FileSearch className="w-4 h-4" /> Consultar OS <span className="text-[10px] text-muted-foreground">F5</span>
-                </Button>
-                <Button variant="outline" size="sm" className="justify-start gap-1 text-warning border-warning" onClick={() => setShowSangriaModal(true)} disabled={!caixaAberto}>
-                  <ArrowDownCircle className="w-4 h-4" /> Sangria
-                </Button>
-                <Button variant="outline" size="sm" className="justify-start gap-1 text-success border-success" onClick={() => setShowSuprimentoModal(true)} disabled={!caixaAberto}>
-                  <ArrowUpCircle className="w-4 h-4" /> Suprimento
-                </Button>
-                <Button variant="outline" size="sm" className="justify-start gap-1 text-destructive border-destructive" onClick={() => setShowFecharCaixaModal(true)} disabled={!caixaAberto}>
-                  <Lock className="w-4 h-4" /> Fechar caixa
-                </Button>
-                <Button variant="outline" size="sm" className="justify-start gap-1" onClick={() => navigate("/relatorios/caixa")} disabled={!caixaAberto}>
-                  <BarChart3 className="w-4 h-4" /> Relatórios
-                </Button>
-              </div>
-            )}
+      <section className="mx-auto flex w-full max-w-[1560px] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-lg md:h-[calc(100vh-118px)]">
+        <header className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-3 sm:px-5">
+          <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            <Clock className="h-4 w-4 shrink-0 text-primary" />
+            <span className="hidden sm:inline capitalize">{today}</span>
+            <span>{format(currentTime, "HH:mm")}</span>
           </div>
-
-          {/* Aviso de caixa fechado */}
-          {!isLoadingCaixa && !caixaAberto && (
-            <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-warning" />
-                <div>
-                  <p className="font-medium text-warning">Caixa Fechado</p>
-                  <p className="text-sm text-muted-foreground">Abra o caixa para iniciar as vendas do dia</p>
-                </div>
-              </div>
-              <Button onClick={() => setShowAbrirCaixaModal(true)}>
-                <DoorOpen className="w-4 h-4 mr-2" />
-                Abrir Caixa
-              </Button>
-            </div>
-          )}
-
-          {/* Item em destaque: mantém o foco do operador no último item lançado. */}
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 mb-4 min-h-[76px] flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary/80">Item atual</p>
-              <p className="text-lg font-bold truncate">
-                {currentItem?.nome || "Selecione um produto ou serviço"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {currentItem ? `${currentItem.quantidade} ${currentItem.unidade} · ${formatCurrency(currentItem.preco)} cada` : "Clique em um card para adicionar à venda"}
-              </p>
-            </div>
-            <ShoppingCart className="w-7 h-7 text-primary/50 shrink-0" />
+          <div className="text-center">
+            <p className="text-sm font-semibold tracking-wide sm:text-base">
+              Atendente: {caixaAberto?.operador || "—"}
+            </p>
           </div>
-
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div>
-              <h3 className="font-semibold text-foreground">Produtos e serviços</h3>
-              <p className="text-xs text-muted-foreground">Busque por nome ou código e clique para lançar</p>
-            </div>
-            <Badge variant="outline">{filteredProdutos.length} disponíveis</Badge>
-          </div>
-
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              ref={searchInputRef}
-              placeholder="Buscar produto por nome ou código..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-
-          {/* Alphabet Filter */}
-          <div className="flex gap-0.5 flex-wrap mb-4">
-            {alphabet.map((letter) => (
-              <button
-                key={letter}
-                onClick={() => setSelectedLetter(letter)}
-                className={cn(
-                  "min-w-[28px] h-6 px-1 rounded text-xs font-medium transition-colors",
-                  selectedLetter === letter
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {letter}
-              </button>
-            ))}
-          </div>
-
-          {/* Products Grid */}
-          <div className="flex-1 overflow-y-auto">
-            {isLoadingProdutos ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                <span className="ml-2 text-muted-foreground">Carregando produtos...</span>
-              </div>
-            ) : filteredProdutos.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                Nenhum produto encontrado
-              </div>
+          <div className="flex items-center justify-end gap-2">
+            <p className="hidden text-sm font-black uppercase tracking-[0.14em] sm:block">Caixa vendas</p>
+            {isLoadingCaixa ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : caixaAberto ? (
+              <Badge variant="outline" className="border-success text-success">Aberto</Badge>
             ) : (
-              <div className="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-10 gap-2">
-                {filteredProdutos.map((produto) => {
-                  const preco = getPrecoForProduto(produto);
-                  const hasSpecialPrice = preco !== produto.preco;
-                  
-                  return (
-                    <button
-                      key={produto.id}
-                      onClick={() => addToCart(produto)}
-                      disabled={!caixaAberto}
-                      className={cn(
-                        "bg-card border rounded-lg p-2 text-left hover:shadow-md hover:border-primary transition-all relative aspect-square flex flex-col justify-between",
-                        !caixaAberto && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      {produto.codigo && (
-                        <span className="absolute top-1 right-1 text-[10px] font-mono bg-muted px-1 rounded text-muted-foreground">
-                          {produto.codigo}
-                        </span>
-                      )}
-                      <h3 className="font-semibold text-xs text-foreground line-clamp-2 pr-8">
-                        {produto.nome}
-                      </h3>
-                      <div>
-                        <span className={cn(
-                          "text-sm font-black",
-                          hasSpecialPrice ? "text-success" : "text-primary"
-                        )}>
-                          R$ {preco.toFixed(2).replace(".", ",")}
-                        </span>
-                        {hasSpecialPrice && (
-                          <span className="text-[10px] text-muted-foreground line-through ml-1">
-                            R$ {produto.preco.toFixed(2).replace(".", ",")}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <Button size="sm" className="h-8 gap-1" onClick={() => setShowAbrirCaixaModal(true)}>
+                <DoorOpen className="h-3.5 w-3.5" />
+                Abrir caixa
+              </Button>
             )}
           </div>
+        </header>
+
+        <div className="border-b border-primary/40 bg-primary px-4 py-3 text-primary-foreground sm:px-6">
+          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-primary-foreground/70">Item atual</p>
+          <p className="truncate text-center text-2xl font-semibold tracking-[0.08em] sm:text-4xl">
+            {currentItem?.nome || "Aguardando produto ou serviço"}
+          </p>
         </div>
 
-        {/* Right Panel - Cart */}
-        <div className="w-full lg:w-96 flex flex-col bg-card border rounded-xl overflow-hidden lg:max-h-full max-h-[50vh] shadow-sm">
-          {/* Client Search */}
-          <div className="p-4 border-b relative">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="flex items-center gap-2">
-                <UserRound className="w-4 h-4 text-primary" />
-                <div>
-                  <p className="font-semibold text-sm">Cliente da venda</p>
-                  <p className="text-[11px] text-muted-foreground">Obrigatório para concluir o pagamento</p>
-                </div>
+        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[304px_minmax(0,1fr)]">
+          <aside className="relative border-b bg-muted/20 p-3 lg:border-b-0 lg:border-r sm:p-4">
+            {!isLoadingCaixa && !caixaAberto && (
+              <div className="mb-3 flex items-center gap-2 border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs text-warning">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Abra o caixa para lançar itens.
               </div>
-              <Badge variant={selectedClient ? "default" : "outline"} className="text-[10px]">
-                {selectedClient ? "Selecionado" : "Pendente"}
-              </Badge>
+            )}
+
+            <div className="relative">
+              <label htmlFor="pdv-product-search" className="mb-1 block text-sm font-bold">Código / produto</label>
+              <Search className="pointer-events-none absolute bottom-2.5 left-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="pdv-product-search"
+                ref={searchInputRef}
+                placeholder="Buscar produto ou serviço..."
+                value={searchTerm}
+                onChange={(event) => {
+                  setSearchTerm(event.target.value);
+                  setShowProductList(true);
+                }}
+                onFocus={() => setShowProductList(true)}
+                className="h-10 pl-9 pr-3"
+              />
+              {showProductList && (
+                <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto border bg-card shadow-xl">
+                  {isLoadingProdutos ? (
+                    <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Carregando produtos...
+                    </div>
+                  ) : filteredProdutos.length === 0 ? (
+                    <p className="p-3 text-center text-sm text-muted-foreground">Nenhum produto ou serviço encontrado.</p>
+                  ) : (
+                    filteredProdutos.slice(0, 8).map((produto) => {
+                      const preco = getPrecoForProduto(produto);
+                      return (
+                        <button
+                          key={produto.id}
+                          type="button"
+                          disabled={!caixaAberto}
+                          onClick={() => addToCart(produto)}
+                          className="flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium">{produto.nome}</span>
+                            <span className="block text-[11px] text-muted-foreground">{produto.codigo || "Sem código"}</span>
+                          </span>
+                          <span className="shrink-0 text-sm font-bold text-primary">{formatCurrency(preco)}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
-            {selectedClient ? (
-              <div className="flex items-center justify-between bg-primary/10 rounded-lg p-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-primary truncate">
-                    {selectedClient.nome_fantasia || selectedClient.razao_social}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{selectedClient.cpf_cnpj}</p>
-                  {isLoadingCustomerLoyalty ? (
-                    <p className="text-xs text-muted-foreground">Consultando pontos...</p>
-                  ) : customerLoyalty?.programaAtivo ? (
-                    <p className="text-xs text-primary">
-                      {customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}
-                    </p>
-                  ) : null}
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="col-span-2">
+                <p className="mb-1 text-sm font-bold">Quantidade</p>
+                <div className="flex h-10 items-center border bg-background">
                   <Button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 h-7 gap-1 text-xs"
-                    onClick={handleOpenClientePagamento}
+                    variant="ghost"
+                    size="icon"
+                    className="h-full w-10 rounded-none"
+                    disabled={!currentItem}
+                    onClick={() => currentItem && updateQuantity(currentItem.id, -1)}
+                    aria-label="Diminuir quantidade do item atual"
                   >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="flex-1 text-center text-xl font-semibold tabular-nums">{currentItem?.quantidade ?? 0}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-full w-10 rounded-none"
+                    disabled={!currentItem || !caixaAberto}
+                    onClick={() => currentItem && updateQuantity(currentItem.id, 1)}
+                    aria-label="Aumentar quantidade do item atual"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-bold">Preço</p>
+                <div className="flex h-10 items-center justify-end border bg-background px-3 text-lg font-semibold tabular-nums">
+                  {formatCurrency(currentItem?.preco ?? 0)}
+                </div>
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-bold">Subtotal</p>
+                <div className="flex h-10 items-center justify-end border bg-background px-3 text-lg font-semibold tabular-nums">
+                  {formatCurrency(currentItem ? currentItem.preco * currentItem.quantidade : 0)}
+                </div>
+              </div>
+            </div>
+
+            <div className="relative mt-4 border-t pt-3">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label htmlFor="pdv-client-search" className="flex items-center gap-1 text-sm font-bold">
+                  <UserRound className="h-4 w-4 text-primary" /> Cliente
+                </label>
+                <span className="text-[10px] text-muted-foreground">F2</span>
+              </div>
+              {selectedClient ? (
+                <div className="border bg-primary/5 p-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-primary">{selectedClient.nome_fantasia || selectedClient.razao_social}</p>
+                      <p className="text-xs text-muted-foreground">{selectedClient.cpf_cnpj}</p>
+                      {isLoadingCustomerLoyalty ? (
+                        <p className="mt-1 text-xs text-muted-foreground">Consultando pontos...</p>
+                      ) : customerLoyalty?.programaAtivo ? (
+                        <p className="mt-1 text-xs text-primary">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
+                      ) : null}
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={clearClient} title="Trocar cliente">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" className="mt-2 h-7 w-full gap-1 text-xs" onClick={handleOpenClientePagamento}>
                     <Settings2 className="h-3.5 w-3.5" />
                     {configuracaoPagamento ? "Editar pagamento" : "Configurar pagamento"}
                   </Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={clearClient}>
-                  <Trash2 className="w-4 h-4" />
+              ) : (
+                <>
+                  <Search className="pointer-events-none absolute bottom-2.5 left-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="pdv-client-search"
+                    ref={clientSearchRef}
+                    placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
+                    value={clientSearch}
+                    onChange={(event) => {
+                      setClientSearch(event.target.value);
+                      setShowClientList(true);
+                    }}
+                    onFocus={() => setShowClientList(true)}
+                    className="h-10 pl-9 text-sm"
+                  />
+                  {showClientList && (
+                    <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto border bg-card shadow-xl">
+                      {isLoadingClientes ? (
+                        <p className="p-3 text-center text-sm text-muted-foreground">Carregando...</p>
+                      ) : filteredClientes.length === 0 ? (
+                        <p className="p-3 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</p>
+                      ) : (
+                        filteredClientes.map((cliente) => (
+                          <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)} className="w-full border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5">
+                            <p className="truncate text-sm font-medium">{cliente.nome_fantasia || cliente.razao_social}</p>
+                            <p className="text-xs text-muted-foreground">{cliente.cpf_cnpj} · {cliente.telefone}</p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </aside>
+
+          <section className="flex min-h-[360px] min-w-0 flex-col">
+            <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-2">
+              <p className="text-base font-bold">Itens:</p>
+              <p className="text-xs text-muted-foreground">{cart.length} produtos · {totalItems} unidades</p>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto">
+              <table className="w-full min-w-[620px] table-fixed text-sm">
+                <thead className="sticky top-0 z-10 bg-muted/60 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="w-12 border-b px-3 py-2 text-center">Item</th>
+                    <th className="border-b px-3 py-2">Descrição</th>
+                    <th className="w-28 border-b px-3 py-2 text-right">Preço</th>
+                    <th className="w-36 border-b px-3 py-2 text-center">Quantidade</th>
+                    <th className="w-32 border-b px-3 py-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cart.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="h-56 px-4 text-center text-muted-foreground">
+                        <ShoppingCart className="mx-auto mb-3 h-10 w-10 opacity-30" />
+                        <p className="font-medium">Nenhum item lançado</p>
+                        <p className="mt-1 text-xs">Pesquise pelo código ou nome do produto para iniciar a venda.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    cart.map((item, index) => {
+                      const temDetalhes = hasItemDetalhes(item);
+                      return (
+                        <tr key={item.id} className={cn("border-b align-top hover:bg-muted/30", item.avarias && "bg-warning/5")}>
+                          <td className="px-3 py-3 text-center font-semibold text-muted-foreground">{index + 1}</td>
+                          <td className="min-w-0 px-3 py-3">
+                            <div className="flex items-start gap-1.5">
+                              <p className="min-w-0 flex-1 truncate font-semibold">{item.nome}</p>
+                              {item.avarias ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" /> : null}
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <span>{item.unidade}</span>
+                              {temDetalhes ? <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3 text-primary" />Detalhes</span> : null}
+                              <button type="button" className="text-primary hover:underline" onClick={() => openDetalhesModal(item)}>Editar</button>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-right font-medium tabular-nums">{formatCurrency(item.preco)}</td>
+                          <td className="px-3 py-2">
+                            <div className="mx-auto flex w-fit items-center border bg-background">
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}>
+                                <Minus className="h-3.5 w-3.5" />
+                              </Button>
+                              <span className="w-8 text-center font-semibold tabular-nums">{item.quantidade}</span>
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}>
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="font-bold tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeFromCart(item.id)} title="Remover item">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <footer className="grid border-t bg-card lg:grid-cols-[304px_minmax(0,1fr)]">
+          <div className="relative border-b p-2 lg:border-b-0 lg:border-r">
+            <div className="grid grid-cols-5 gap-1">
+              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight text-destructive" disabled={cart.length === 0} onClick={clearCart}>
+                <span className="flex flex-col items-center gap-1"><Trash2 className="h-4 w-4" />Cancelar<span>F8</span></span>
+              </Button>
+              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
+                <span className="flex flex-col items-center gap-1"><ShoppingCart className="h-4 w-4" />Produtos<span>F3</span></span>
+              </Button>
+              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" onClick={() => clientSearchRef.current?.focus()}>
+                <span className="flex flex-col items-center gap-1"><UserRound className="h-4 w-4" />Cliente<span>F2</span></span>
+              </Button>
+              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" disabled={!currentItem} onClick={() => currentItem && openDetalhesModal(currentItem)}>
+                <span className="flex flex-col items-center gap-1"><FileText className="h-4 w-4" />Detalhes<span>Item</span></span>
+              </Button>
+              <Button type="button" className="h-14 rounded-sm px-1 text-[10px] leading-tight" disabled={cart.length === 0 || !caixaAberto} onClick={handleOpenPagamento}>
+                <span className="flex flex-col items-center gap-1"><CreditCard className="h-4 w-4" />Pagamento<span>F4</span></span>
+              </Button>
+              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" disabled={!caixaAberto} onClick={() => setShowConsultarOSModal(true)}>
+                <span className="flex flex-col items-center gap-1"><FileSearch className="h-4 w-4" />Consultar<span>F5</span></span>
+              </Button>
+              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight text-warning" disabled={!caixaAberto} onClick={() => setShowSangriaModal(true)}>
+                <span className="flex flex-col items-center gap-1"><ArrowDownCircle className="h-4 w-4" />Sangria<span>F7</span></span>
+              </Button>
+              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight text-success" disabled={!caixaAberto} onClick={() => setShowSuprimentoModal(true)}>
+                <span className="flex flex-col items-center gap-1"><ArrowUpCircle className="h-4 w-4" />Suprimento<span>Caixa</span></span>
+              </Button>
+              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" disabled={!caixaAberto} onClick={() => setShowHistoricoVendas(true)}>
+                <span className="flex flex-col items-center gap-1"><History className="h-4 w-4" />Histórico<span>F6</span></span>
+              </Button>
+              <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
+                <span className="flex flex-col items-center gap-1"><Settings2 className="h-4 w-4" />Mais<span>Ações</span></span>
+              </Button>
+            </div>
+            {showOperations && (
+              <div className="absolute bottom-full left-2 right-2 z-40 mb-2 grid grid-cols-2 gap-1 border bg-card p-2 shadow-xl">
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" disabled={!caixaAberto} onClick={() => setShowFecharCaixaModal(true)}>
+                  <Lock className="h-4 w-4" /> Fechar caixa
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" disabled={!caixaAberto} onClick={() => navigate("/relatorios/caixa")}>
+                  <BarChart3 className="h-4 w-4" /> Relatórios
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => setShowAjudaAtalhos(true)}>
+                  <Keyboard className="h-4 w-4" /> Atalhos
+                </Button>
+                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={toggleFullscreen}>
+                  {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                  {isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
                 </Button>
               </div>
-            ) : (
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  ref={clientSearchRef}
-                  placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
-                  value={clientSearch}
-                  onChange={(e) => {
-                    setClientSearch(e.target.value);
-                    setShowClientList(true);
-                  }}
-                  onFocus={() => setShowClientList(true)}
-                  className="pl-9 text-sm"
-                />
-                
-                {/* Client Dropdown */}
-                {showClientList && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                    {isLoadingClientes ? (
-                      <div className="p-3 text-center text-muted-foreground text-sm">
-                        Carregando...
-                      </div>
-                    ) : filteredClientes.length === 0 ? (
-                      <div className="p-3 text-center text-muted-foreground text-sm">
-                        Nenhum cliente encontrado
-                      </div>
-                    ) : (
-                      filteredClientes.map(cliente => (
-                        <button
-                          key={cliente.id}
-                          onClick={() => selectClient(cliente.id)}
-                          className="w-full p-2 text-left hover:bg-muted transition-colors border-b last:border-b-0"
-                        >
-                          <p className="text-sm font-medium truncate">
-                            {cliente.nome_fantasia || cliente.razao_social}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {cliente.cpf_cnpj} • {cliente.telefone}
-                          </p>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
             )}
           </div>
-
-          {/* Cart Items */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <ShoppingCart className="w-12 h-12 mb-2 opacity-50" />
-                <p className="font-medium">Carrinho vazio</p>
-                <p className="text-xs">Adicione produtos para iniciar a venda</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {cart.map((item) => {
-                  const temDetalhes = hasItemDetalhes(item);
-                  const temAvarias = !!item.avarias;
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        "p-2 rounded-lg transition-colors",
-                        temAvarias 
-                          ? "bg-warning/10 border border-warning/30" 
-                          : "bg-muted/50"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1">
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {item.nome}
-                            </p>
-                            {temDetalhes && (
-                              <FileText className="w-3 h-3 text-primary flex-shrink-0" />
-                            )}
-                            {temAvarias && (
-                              <AlertTriangle className="w-3 h-3 text-warning flex-shrink-0" />
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            R$ {item.preco.toFixed(2)} × {item.quantidade}
-                          </p>
-                          {/* Resumo de detalhes */}
-                          {temDetalhes && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {item.cor_item && (
-                                <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded">
-                                  🎨 {item.cor_item}
-                                </span>
-                              )}
-                              {item.posicao_prateleira && (
-                                <span className="text-[10px] bg-muted text-muted-foreground px-1.5 rounded">
-                                  📍 {item.posicao_prateleira}
-                                </span>
-                              )}
-                              {item.marca_item && (
-                                <span className="text-[10px] bg-muted text-muted-foreground px-1.5 rounded">
-                                  🏷️ {item.marca_item}
-                                </span>
-                              )}
-                              {item.avarias && (
-                                <span className="text-[10px] bg-warning/20 text-warning px-1.5 rounded truncate max-w-[100px]">
-                                  ⚠️ {item.avarias}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-primary"
-                            onClick={() => openDetalhesModal(item)}
-                            title="Detalhes do item"
-                          >
-                            <FileText className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateQuantity(item.id, -1)}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-6 text-center text-sm font-medium">
-                            {item.quantidade}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateQuantity(item.id, 1)}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive"
-                            onClick={() => removeFromCart(item.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Cart Footer */}
-          <div className="p-4 border-t bg-muted/30">
-            <div className="flex justify-between text-sm text-muted-foreground mb-1">
-              <span>Itens: {totalItems}</span>
-              <span>Qtd. Produtos: {cart.length}</span>
+          <div className="flex items-center justify-between gap-4 p-3 sm:px-5">
+            <div>
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Itens: {totalItems} · Produtos: {cart.length}</p>
+              <p className="mt-1 text-2xl font-black uppercase sm:text-3xl">Total:</p>
             </div>
-            <div className="flex justify-between items-baseline mb-4">
-              <span className="text-lg font-semibold">TOTAL:</span>
-              <span className="text-2xl font-black text-success">
-                R$ {totalValue.toFixed(2).replace(".", ",")}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                className="w-full text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                disabled={cart.length === 0}
-                onClick={clearCart}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Cancelar (F8)
-              </Button>
-              <Button
-                className="w-full bg-primary hover:bg-primary/90"
-                disabled={cart.length === 0 || !caixaAberto}
-                onClick={handleOpenPagamento}
-              >
-                <CreditCard className="w-4 h-4 mr-2" />
-                Pagamento (F4)
-              </Button>
+            <div className="min-w-[190px] bg-primary px-4 py-2 text-right text-3xl font-black tabular-nums text-primary-foreground sm:min-w-[270px] sm:text-5xl">
+              {formatCurrency(totalValue)}
             </div>
           </div>
-        </div>
-      </div>
+        </footer>
+      </section>
 
       {/* Modal de Detalhes do Item */}
       {selectedCartItem && (
