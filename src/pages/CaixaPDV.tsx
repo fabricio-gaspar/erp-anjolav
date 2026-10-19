@@ -679,7 +679,7 @@ const CaixaPDV = () => {
         <header className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-3 sm:px-5">
           <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0 text-primary" />
-            <span className="hidden sm:inline capitalize">{today}</span>
+            <span className="hidden lg:inline capitalize">{today}</span>
             <span>{format(currentTime, "HH:mm")}</span>
           </div>
           <div className="text-center">
@@ -688,7 +688,7 @@ const CaixaPDV = () => {
             </p>
           </div>
           <div className="flex items-center justify-end gap-2">
-            <p className="hidden text-sm font-black uppercase tracking-[0.14em] sm:block">Caixa vendas</p>
+            <p className="hidden text-sm font-black uppercase tracking-[0.14em] lg:block">Caixa vendas</p>
             {isLoadingCaixa ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             ) : caixaAberto ? (
@@ -704,13 +704,13 @@ const CaixaPDV = () => {
 
         <div className="border-b border-primary/40 bg-primary px-4 py-3 text-primary-foreground sm:px-6">
           <p className="text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-primary-foreground/70">Item atual</p>
-          <p className="truncate text-center text-2xl font-semibold tracking-[0.08em] sm:text-4xl">
-            {currentItem?.nome || "Aguardando produto ou serviço"}
+          <p className="truncate text-center text-xl font-semibold tracking-[0.08em] sm:text-2xl lg:text-4xl">
+            {currentItem?.nome || "Aguardando item"}
           </p>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[304px_minmax(0,1fr)]">
-          <aside className="relative border-b bg-muted/20 p-3 lg:border-b-0 lg:border-r sm:p-4">
+        <div className="grid min-h-0 flex-1 grid-cols-1 sm:grid-cols-[270px_minmax(0,1fr)]">
+          <aside className="relative border-b bg-muted/20 p-3 sm:border-b-0 sm:border-r sm:p-4">
             {!isLoadingCaixa && !caixaAberto && (
               <div className="mb-3 flex items-center gap-2 border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs text-warning">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -944,8 +944,8 @@ const CaixaPDV = () => {
           </section>
         </div>
 
-        <footer className="grid border-t bg-card lg:grid-cols-[304px_minmax(0,1fr)]">
-          <div className="relative border-b p-2 lg:border-b-0 lg:border-r">
+        <footer className="grid border-t bg-card sm:grid-cols-[270px_minmax(0,1fr)]">
+          <div className="relative border-b p-2 sm:border-b-0 sm:border-r">
             <div className="grid grid-cols-5 gap-1">
               <Button type="button" variant="outline" className="h-14 rounded-sm px-1 text-[10px] leading-tight text-destructive" disabled={cart.length === 0} onClick={clearCart}>
                 <span className="flex flex-col items-center gap-1"><Trash2 className="h-4 w-4" />Cancelar<span>F8</span></span>
