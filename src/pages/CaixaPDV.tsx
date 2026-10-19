@@ -200,6 +200,14 @@ const CaixaPDV = () => {
     });
   }, [produtosAtivos, searchTerm]);
 
+  const produtoProntoParaAdicionar = useMemo(() => {
+    const termo = searchTerm.trim().toLowerCase();
+    if (!termo) return null;
+    return filteredProdutos.find((produto) =>
+      produto.codigo?.toLowerCase() === termo || produto.nome.toLowerCase() === termo
+    ) ?? (filteredProdutos.length === 1 ? filteredProdutos[0] : null);
+  }, [filteredProdutos, searchTerm]);
+
   const filteredClientes = useMemo(() => {
     if (!clientSearch) return clientesFiltradosPorTipo.slice(0, 10);
     const term = clientSearch.toLowerCase();
@@ -239,6 +247,16 @@ const CaixaPDV = () => {
     setSearchTerm("");
     setShowProductList(false);
   }, [caixaAberto, getPrecoForProduto]);
+
+  const handleAddCurrentProduct = () => {
+    if (!produtoProntoParaAdicionar) {
+      setShowProductList(true);
+      searchInputRef.current?.focus();
+      toast.info("Selecione um produto ou serviço na lista");
+      return;
+    }
+    addToCart(produtoProntoParaAdicionar);
+  };
 
   const updateQuantity = useCallback((id: string, delta: number) => {
     setCart((prev) =>
@@ -679,15 +697,15 @@ const CaixaPDV = () => {
 
   return (
     <AppLayout title="Caixa PDV">
-      <section className="pdv-shell mx-[-1rem] flex w-[calc(100%+2rem)] max-w-none min-w-0 flex-col overflow-hidden rounded-lg border border-strong bg-background shadow-lg sm:mx-[-1.5rem] sm:w-[calc(100%+3rem)] xl:h-[calc(100vh-118px)]">
-        <header className="grid min-h-14 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-3 sm:px-5">
+      <section className="pdv-shell mx-[-1rem] flex w-[calc(100%+2rem)] max-w-none min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-muted/20 shadow-lg sm:mx-[-1.5rem] sm:w-[calc(100%+3rem)] xl:h-[calc(100vh-118px)]">
+        <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0 text-primary" />
             <span className="hidden lg:inline capitalize">{today}</span>
             <span>{format(currentTime, "HH:mm")}</span>
           </div>
           <div className="text-center">
-            <p className="text-sm font-semibold tracking-wide sm:text-base">
+            <p className="text-sm font-bold tracking-wide sm:text-base">
               Atendente: {caixaAberto?.operador || "—"}
             </p>
           </div>
@@ -706,120 +724,24 @@ const CaixaPDV = () => {
           </div>
         </header>
 
-        <div className="border-b border-primary/40 bg-primary px-4 py-1.5 text-primary-foreground sm:px-6 sm:py-2">
-          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-primary-foreground/70">Item atual</p>
-          <p className="truncate text-center text-lg font-semibold leading-tight tracking-[0.08em] sm:text-xl lg:text-3xl">
-            {currentItem?.nome || "Aguardando item"}
-          </p>
-        </div>
-
-        <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] 2xl:grid-cols-[400px_minmax(0,1fr)]">
-          <aside className="relative flex flex-col border-b bg-muted/20 p-3 xl:border-b-0 xl:border-r xl:p-4">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 sm:p-4 xl:grid-cols-[minmax(350px,410px)_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
+          <aside className="relative flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5">
             {!isLoadingCaixa && !caixaAberto && (
-              <div className="mb-3 flex items-center gap-2 border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs text-warning">
+              <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 Abra o caixa para lançar itens.
               </div>
             )}
 
-            <div className="relative order-2">
-              <label htmlFor="pdv-product-search" className="mb-1 block text-sm font-bold">Código / produto</label>
-              <Search className="pointer-events-none absolute bottom-2.5 left-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="pdv-product-search"
-                ref={searchInputRef}
-                placeholder="Buscar produto ou serviço..."
-                value={searchTerm}
-                onChange={(event) => {
-                  setSearchTerm(event.target.value);
-                  setShowProductList(true);
-                }}
-                onFocus={() => setShowProductList(true)}
-                className="h-10 pl-9 pr-3"
-              />
-              {showProductList && (
-                <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto border bg-card shadow-xl">
-                  {isLoadingProdutos ? (
-                    <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Carregando produtos...
-                    </div>
-                  ) : filteredProdutos.length === 0 ? (
-                    <p className="p-3 text-center text-sm text-muted-foreground">Nenhum produto ou serviço encontrado.</p>
-                  ) : (
-                    filteredProdutos.slice(0, 8).map((produto) => {
-                      const preco = getPrecoForProduto(produto);
-                      return (
-                        <button
-                          key={produto.id}
-                          type="button"
-                          disabled={!caixaAberto}
-                          onClick={() => addToCart(produto)}
-                          className="flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-medium">{produto.nome}</span>
-                            <span className="block text-[11px] text-muted-foreground">{produto.codigo || "Sem código"}</span>
-                          </span>
-                          <span className="shrink-0 text-sm font-bold text-primary">{formatCurrency(preco)}</span>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="order-3 mt-3 grid grid-cols-2 gap-2">
-              <div className="col-span-2">
-                <p className="mb-1 text-sm font-bold">Quantidade</p>
-                <div className="flex h-10 items-center border bg-background">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-full w-10 rounded-none"
-                    disabled={!currentItem}
-                    onClick={() => currentItem && updateQuantity(currentItem.id, -1)}
-                    aria-label="Diminuir quantidade do item atual"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="flex-1 text-center text-xl font-semibold tabular-nums">{currentItem?.quantidade ?? 0}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-full w-10 rounded-none"
-                    disabled={!currentItem || !caixaAberto}
-                    onClick={() => currentItem && updateQuantity(currentItem.id, 1)}
-                    aria-label="Aumentar quantidade do item atual"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-bold">Preço</p>
-                <div className="flex h-10 items-center justify-end border bg-background px-3 text-lg font-semibold tabular-nums">
-                  {formatCurrency(currentItem?.preco ?? 0)}
-                </div>
-              </div>
-              <div>
-                <p className="mb-1 text-sm font-bold">Subtotal</p>
-                <div className="flex h-10 items-center justify-end border bg-background px-3 text-lg font-semibold tabular-nums">
-                  {formatCurrency(currentItem ? currentItem.preco * currentItem.quantidade : 0)}
-                </div>
-              </div>
-            </div>
-
-            <div className="relative order-1 mb-3">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <label htmlFor="pdv-client-search" className="flex items-center gap-1 text-sm font-bold">
-                  <UserRound className="h-4 w-4 text-primary" /> Cliente
+            <div className="pdv-entry-card relative z-20 rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <label htmlFor="pdv-client-search" className="flex items-center gap-2 text-base font-bold">
+                  <UserRound className="h-5 w-5 text-primary" /> Cliente
                 </label>
+                <span className="rounded-md bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">1º passo</span>
               </div>
               {selectedClient ? (
-                <div className="border bg-primary/5 p-2.5">
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-primary">{selectedClient.nome_fantasia || selectedClient.razao_social}</p>
@@ -844,35 +766,37 @@ const CaixaPDV = () => {
                 </div>
               ) : (
                 <>
-                  <Search className="pointer-events-none absolute bottom-2.5 left-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="pdv-client-search"
-                    ref={clientSearchRef}
-                    placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
-                    value={clientSearch}
-                    onChange={(event) => {
-                      setClientSearch(event.target.value);
-                      setShowClientList(true);
-                    }}
-                    onFocus={() => setShowClientList(true)}
-                    className="h-10 pl-9 text-sm"
-                  />
-                  {showClientList && (
-                    <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto border bg-card shadow-xl">
-                      {isLoadingClientes ? (
-                        <p className="p-3 text-center text-sm text-muted-foreground">Carregando...</p>
-                      ) : filteredClientes.length === 0 ? (
-                        <p className="p-3 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</p>
-                      ) : (
-                        filteredClientes.map((cliente) => (
-                          <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)} className="w-full border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5">
-                            <p className="truncate text-sm font-medium">{cliente.nome_fantasia || cliente.razao_social}</p>
-                            <p className="text-xs text-muted-foreground">{cliente.cpf_cnpj} · {cliente.telefone}</p>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="pdv-client-search"
+                      ref={clientSearchRef}
+                      placeholder="Buscar cliente (nome, CPF, telefone)..."
+                      value={clientSearch}
+                      onChange={(event) => {
+                        setClientSearch(event.target.value);
+                        setShowClientList(true);
+                      }}
+                      onFocus={() => setShowClientList(true)}
+                      className="h-10 pl-9 text-sm"
+                    />
+                    {showClientList && (
+                      <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-strong bg-card shadow-xl">
+                        {isLoadingClientes ? (
+                          <p className="p-3 text-center text-sm text-muted-foreground">Carregando...</p>
+                        ) : filteredClientes.length === 0 ? (
+                          <p className="p-3 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</p>
+                        ) : (
+                          filteredClientes.map((cliente) => (
+                            <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)} className="w-full border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5">
+                              <p className="truncate text-sm font-medium">{cliente.nome_fantasia || cliente.razao_social}</p>
+                              <p className="text-xs text-muted-foreground">{cliente.cpf_cnpj} · {cliente.telefone}</p>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
               <Button
@@ -885,31 +809,206 @@ const CaixaPDV = () => {
                 Novo cliente
               </Button>
             </div>
+
+            <div className="pdv-entry-card relative z-10 rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <label htmlFor="pdv-product-search" className="flex items-center gap-2 text-base font-bold">
+                  <ShoppingCart className="h-5 w-5 text-primary" /> Produto / Serviço
+                </label>
+                <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-bold text-muted-foreground">2º passo</span>
+              </div>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="pdv-product-search"
+                  ref={searchInputRef}
+                  placeholder="Digite código ou nome do produto/serviço"
+                  value={searchTerm}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    setShowProductList(true);
+                  }}
+                  onFocus={() => setShowProductList(true)}
+                  className="h-11 pl-9 pr-3"
+                />
+                {showProductList && (
+                  <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-strong bg-card shadow-xl">
+                    {isLoadingProdutos ? (
+                      <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Carregando produtos...
+                      </div>
+                    ) : filteredProdutos.length === 0 ? (
+                      <p className="p-3 text-center text-sm text-muted-foreground">Nenhum produto ou serviço encontrado.</p>
+                    ) : (
+                      filteredProdutos.slice(0, 8).map((produto) => {
+                        const preco = getPrecoForProduto(produto);
+                        return (
+                          <button
+                            key={produto.id}
+                            type="button"
+                            disabled={!caixaAberto}
+                            onClick={() => addToCart(produto)}
+                            className="flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-medium">{produto.nome}</span>
+                              <span className="block text-[11px] text-muted-foreground">{produto.codigo || "Sem código"}</span>
+                            </span>
+                            <span className="shrink-0 text-sm font-bold text-primary">{formatCurrency(preco)}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+              <Button type="button" className="mt-3 h-10 w-full gap-2 font-bold" disabled={!caixaAberto} onClick={handleAddCurrentProduct}>
+                <ShoppingCart className="h-4 w-4" />
+                Adicionar item
+                <span className="text-primary-foreground/70">↵</span>
+              </Button>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Quantidade</p>
+                  <div className="flex h-10 items-center rounded-md border bg-background">
+                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem} onClick={() => currentItem && updateQuantity(currentItem.id, -1)} aria-label="Diminuir quantidade do item atual">
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="flex-1 text-center text-lg font-semibold tabular-nums">{currentItem?.quantidade ?? 0}</span>
+                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem || !caixaAberto} onClick={() => currentItem && updateQuantity(currentItem.id, 1)} aria-label="Aumentar quantidade do item atual">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Preço unitário</p>
+                  <div className="flex h-10 items-center justify-end rounded-md border bg-background px-3 text-base font-semibold tabular-nums">{formatCurrency(currentItem?.preco ?? 0)}</div>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Subtotal</p>
+                  <div className="flex h-10 items-center justify-end rounded-md border bg-background px-3 text-base font-semibold tabular-nums">{formatCurrency(currentItem ? currentItem.preco * currentItem.quantidade : 0)}</div>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs">
+                <span className="font-semibold text-muted-foreground">Item atual</span>
+                <span className="max-w-[65%] truncate font-bold">{currentItem?.nome || "Aguardando item"}</span>
+              </div>
+            </div>
+
+            <div className="pdv-entry-card rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
+              <div className="mb-3 flex items-center gap-2 text-base font-bold">
+                <Keyboard className="h-5 w-5 text-primary" /> Ações rápidas
+              </div>
+              <div className="pdv-shortcuts-grid grid grid-cols-3 gap-2">
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
+                  <span className="flex flex-col items-center justify-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowConsultarOSModal(true)}>
+                  <span className="flex flex-col items-center justify-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
+                  <span className="flex flex-col items-center justify-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
+                </Button>
+                <Button type="button" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={handleOpenPagamento}>
+                  <span className="flex flex-col items-center justify-center gap-1"><CreditCard className="h-5 w-5" />Pagamento<span>F4</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => {
+                  if (!currentItem) {
+                    toast.info("Adicione ou selecione um item para editar os detalhes");
+                    return;
+                  }
+                  openDetalhesModal(currentItem);
+                }}>
+                  <span className="flex flex-col items-center justify-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight text-destructive" onClick={() => {
+                  if (cart.length === 0) {
+                    toast.info("Não há itens para cancelar");
+                    return;
+                  }
+                  clearCart();
+                }}>
+                  <span className="flex flex-col items-center justify-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight text-warning" onClick={() => {
+                  if (!caixaAberto) {
+                    toast.error("Abra o caixa para registrar uma sangria");
+                    return;
+                  }
+                  setShowSangriaModal(true);
+                }}>
+                  <span className="flex flex-col items-center justify-center gap-1"><ArrowDownCircle className="h-5 w-5" />Sangria<span>F7</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight text-success" onClick={() => {
+                  if (!caixaAberto) {
+                    toast.error("Abra o caixa para registrar um suprimento");
+                    return;
+                  }
+                  setShowSuprimentoModal(true);
+                }}>
+                  <span className="flex flex-col items-center justify-center gap-1"><ArrowUpCircle className="h-5 w-5" />Suprimento<span>Caixa</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[74px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
+                  <span className="flex flex-col items-center justify-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
+                </Button>
+              </div>
+              {showOperations && (
+                <div className="absolute bottom-3 left-3 right-3 z-40 grid max-h-[min(70vh,420px)] grid-cols-1 gap-1 overflow-y-auto rounded-lg border border-strong bg-card p-2 shadow-xl sm:grid-cols-2">
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => {
+                    if (!caixaAberto) {
+                      toast.error("Abra o caixa antes de fechá-lo");
+                      return;
+                    }
+                    setShowFecharCaixaModal(true);
+                  }}><Lock className="h-4 w-4" /> Fechar caixa</Button>
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate("/relatorios/caixa")}><BarChart3 className="h-4 w-4" /> Relatórios</Button>
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => setShowAjudaAtalhos(true)}><Keyboard className="h-4 w-4" /> Atalhos</Button>
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/clientes?novo=1")}><UserPlus className="h-4 w-4" /> Novo cliente</Button>
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/produtos?novo=1")}><PackagePlus className="h-4 w-4" /> Novo produto/serviço</Button>
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/ordens?novo=1")}><ClipboardPlus className="h-4 w-4" /> Nova ordem de serviço</Button>
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/agenda?novo=1")}><CalendarPlus className="h-4 w-4" /> Novo agendamento</Button>
+                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={toggleFullscreen}>{isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}{isFullscreen ? "Sair da tela cheia" : "Tela cheia"}</Button>
+                </div>
+              )}
+            </div>
           </aside>
 
-          <section className="flex min-h-[360px] min-w-0 flex-col">
-            <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-2">
-              <p className="text-base font-bold">Itens:</p>
-              <p className="text-xs text-muted-foreground">{cart.length} produtos · {totalItems} unidades</p>
+          <section className="flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-card shadow-sm xl:min-h-0">
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5 text-primary" />
+                <p className="text-base font-bold uppercase tracking-wide">Itens da venda</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <p className="hidden text-xs text-muted-foreground sm:block">{cart.length} produtos · {totalItems} unidades</p>
+                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-destructive" onClick={() => {
+                  if (cart.length === 0) {
+                    toast.info("Não há itens para limpar");
+                    return;
+                  }
+                  clearCart();
+                }}><Trash2 className="h-3.5 w-3.5" /> Limpar venda</Button>
+              </div>
             </div>
             <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full min-w-[620px] table-fixed text-sm">
+              <table className="w-full min-w-[720px] table-fixed text-sm">
                 <thead className="sticky top-0 z-10 bg-muted/60 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="w-12 border-b px-3 py-2 text-center">Item</th>
                     <th className="border-b px-3 py-2">Descrição</th>
-                    <th className="w-28 border-b px-3 py-2 text-right">Preço</th>
-                    <th className="w-36 border-b px-3 py-2 text-center">Quantidade</th>
+                    <th className="w-32 border-b px-3 py-2 text-right">Preço unit.</th>
+                    <th className="w-36 border-b px-3 py-2 text-center">Qtd.</th>
                     <th className="w-32 border-b px-3 py-2 text-right">Total</th>
+                    <th className="w-24 border-b px-3 py-2 text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cart.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="h-56 px-4 text-center text-muted-foreground">
+                      <td colSpan={6} className="h-56 px-4 text-center text-muted-foreground">
                         <ShoppingCart className="mx-auto mb-3 h-10 w-10 opacity-30" />
                         <p className="font-medium">Nenhum item lançado</p>
-                        <p className="mt-1 text-xs">Pesquise pelo código ou nome do produto para iniciar a venda.</p>
+                        <p className="mt-1 text-xs">Selecione primeiro o cliente e pesquise um produto ou serviço para iniciar a venda.</p>
                       </td>
                     </tr>
                   ) : (
@@ -926,7 +1025,6 @@ const CaixaPDV = () => {
                             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                               <span>{item.unidade}</span>
                               {temDetalhes ? <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3 text-primary" />Detalhes</span> : null}
-                              <button type="button" className="text-primary hover:underline" onClick={() => openDetalhesModal(item)}>Editar</button>
                             </div>
                           </td>
                           <td className="px-3 py-3 text-right font-medium tabular-nums">{formatCurrency(item.preco)}</td>
@@ -942,11 +1040,12 @@ const CaixaPDV = () => {
                             </div>
                           </td>
                           <td className="px-3 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <span className="font-bold tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
-                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeFromCart(item.id)} title="Remover item">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                            <span className="font-bold tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openDetalhesModal(item)} title="Editar detalhes do item"><FileText className="h-3.5 w-3.5" /></Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromCart(item.id)} title="Remover item"><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                           </td>
                         </tr>
@@ -956,110 +1055,32 @@ const CaixaPDV = () => {
                 </tbody>
               </table>
             </div>
+            <div className="border-t bg-card p-3 sm:p-4">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_minmax(220px,280px)] sm:items-center">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{totalItems} itens · {cart.length} produtos</p>
+                  <p className="mt-1 truncate text-sm font-semibold">{selectedClient ? `Cliente: ${selectedClient.nome_fantasia || selectedClient.razao_social}` : "Nenhum cliente selecionado"}</p>
+                </div>
+                <div className="border-l pl-3 sm:min-w-[120px]">
+                  <p className="text-xs text-muted-foreground">Subtotal</p>
+                  <p className="text-lg font-bold tabular-nums">{formatCurrency(totalValue)}</p>
+                </div>
+                <div className="border-l pl-3 sm:min-w-[100px]">
+                  <p className="text-xs text-muted-foreground">Desconto</p>
+                  <p className="text-lg font-bold tabular-nums">{formatCurrency(0)}</p>
+                </div>
+                <div className="rounded-lg bg-primary/10 px-4 py-2 sm:text-right">
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Total</p>
+                  <p className="text-3xl font-black tabular-nums text-primary sm:text-4xl">{formatCurrency(totalValue)}</p>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(180px,1fr)_minmax(240px,1.6fr)]">
+                <Button type="button" variant="outline" className="h-11 gap-2 font-semibold" onClick={() => setShowConsultarOSModal(true)}><FileSearch className="h-4 w-4" /> Consultar ROL (F5)</Button>
+                <Button type="button" className="h-11 gap-2 bg-success text-success-foreground hover:bg-success/90" onClick={handleOpenPagamento}><CreditCard className="h-5 w-5" /> Receber pagamento <span className="text-success-foreground/75">F4</span></Button>
+              </div>
+            </div>
           </section>
         </div>
-
-        <footer className="grid border-t bg-card xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] 2xl:grid-cols-[400px_minmax(0,1fr)]">
-          <div className="relative border-b p-2 xl:border-b-0 xl:border-r">
-            <div className="pdv-shortcuts-grid grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
-                <span className="flex flex-col items-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
-              </Button>
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => {
-                if (!currentItem) {
-                  toast.info("Adicione ou selecione um item para editar os detalhes");
-                  return;
-                }
-                openDetalhesModal(currentItem);
-              }}>
-                <span className="flex flex-col items-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
-              </Button>
-              <Button type="button" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={handleOpenPagamento}>
-                <span className="flex flex-col items-center gap-1"><CreditCard className="h-5 w-5" />Pagamento<span>F4</span></span>
-              </Button>
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowConsultarOSModal(true)}>
-                <span className="flex flex-col items-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
-              </Button>
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight text-warning sm:h-[76px] sm:px-2" onClick={() => {
-                if (!caixaAberto) {
-                  toast.error("Abra o caixa para registrar uma sangria");
-                  return;
-                }
-                setShowSangriaModal(true);
-              }}>
-                <span className="flex flex-col items-center gap-1"><ArrowDownCircle className="h-5 w-5" />Sangria<span>F7</span></span>
-              </Button>
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight text-success sm:h-[76px] sm:px-2" onClick={() => {
-                if (!caixaAberto) {
-                  toast.error("Abra o caixa para registrar um suprimento");
-                  return;
-                }
-                setShowSuprimentoModal(true);
-              }}>
-                <span className="flex flex-col items-center gap-1"><ArrowUpCircle className="h-5 w-5" />Suprimento<span>Caixa</span></span>
-              </Button>
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowHistoricoVendas(true)}>
-                <span className="flex flex-col items-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
-              </Button>
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight text-destructive sm:h-[76px] sm:px-2" onClick={() => {
-                if (cart.length === 0) {
-                  toast.info("Não há itens para cancelar");
-                  return;
-                }
-                clearCart();
-              }}>
-                <span className="flex flex-col items-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
-              </Button>
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
-                <span className="flex flex-col items-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
-              </Button>
-            </div>
-            {showOperations && (
-              <div className="absolute bottom-full left-2 right-2 z-40 mb-2 grid max-h-[min(70vh,420px)] grid-cols-1 gap-1 overflow-y-auto border border-strong bg-card p-2 shadow-xl sm:grid-cols-2">
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => {
-                  if (!caixaAberto) {
-                    toast.error("Abra o caixa antes de fechá-lo");
-                    return;
-                  }
-                  setShowFecharCaixaModal(true);
-                }}>
-                  <Lock className="h-4 w-4" /> Fechar caixa
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate("/relatorios/caixa")}>
-                  <BarChart3 className="h-4 w-4" /> Relatórios
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => setShowAjudaAtalhos(true)}>
-                  <Keyboard className="h-4 w-4" /> Atalhos
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/clientes?novo=1")}>
-                  <UserPlus className="h-4 w-4" /> Novo cliente
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/produtos?novo=1")}>
-                  <PackagePlus className="h-4 w-4" /> Novo produto/serviço
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/ordens?novo=1")}>
-                  <ClipboardPlus className="h-4 w-4" /> Nova ordem de serviço
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/agenda?novo=1")}>
-                  <CalendarPlus className="h-4 w-4" /> Novo agendamento
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={toggleFullscreen}>
-                  {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                  {isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
-                </Button>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center justify-between gap-4 p-3 sm:px-5">
-            <div>
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Itens: {totalItems} · Produtos: {cart.length}</p>
-              <p className="mt-1 text-2xl font-black uppercase sm:text-3xl">Total:</p>
-            </div>
-            <div className="min-w-[190px] bg-primary px-4 py-2 text-right text-3xl font-black tabular-nums text-primary-foreground sm:min-w-[270px] sm:text-5xl">
-              {formatCurrency(totalValue)}
-            </div>
-          </div>
-        </footer>
       </section>
 
       {/* Modal de Detalhes do Item */}
