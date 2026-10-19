@@ -968,26 +968,8 @@ const CaixaPDV = () => {
         <footer className="grid border-t bg-card xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] 2xl:grid-cols-[400px_minmax(0,1fr)]">
           <div className="relative border-b p-2 xl:border-b-0 xl:border-r">
             <div className="pdv-shortcuts-grid grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight text-destructive sm:h-[76px] sm:px-2" onClick={() => {
-                if (cart.length === 0) {
-                  toast.info("Não há itens para cancelar");
-                  return;
-                }
-                clearCart();
-              }}>
-                <span className="flex flex-col items-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
-              </Button>
               <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
                 <span className="flex flex-col items-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
-              </Button>
-              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => {
-                if (selectedClient) {
-                  toast.info(`${selectedClient.nome_fantasia || selectedClient.razao_social} já está vinculado à venda`);
-                  return;
-                }
-                clientSearchRef.current?.focus();
-              }}>
-                <span className="flex flex-col items-center gap-1"><UserRound className="h-5 w-5" />Cliente<span>F2</span></span>
               </Button>
               <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => {
                 if (!currentItem) {
@@ -1024,6 +1006,15 @@ const CaixaPDV = () => {
               </Button>
               <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowHistoricoVendas(true)}>
                 <span className="flex flex-col items-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
+              </Button>
+              <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight text-destructive sm:h-[76px] sm:px-2" onClick={() => {
+                if (cart.length === 0) {
+                  toast.info("Não há itens para cancelar");
+                  return;
+                }
+                clearCart();
+              }}>
+                <span className="flex flex-col items-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
               </Button>
               <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight sm:h-[76px] sm:px-2" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
                 <span className="flex flex-col items-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>

@@ -191,7 +191,7 @@ export const APP_ROUTES = [
     requiredModules: ["relatorios"],
     adminOnly: false,
     label: "Relatório de Clientes",
-    navigationGroup: "industrial-analysis",
+    navigationGroup: "industrial-billing",
   },
   {
     path: "/industrial/relatorios/proximidade",
@@ -199,7 +199,7 @@ export const APP_ROUTES = [
     requiredModules: ["relatorios"],
     adminOnly: false,
     label: "Proximidade",
-    navigationGroup: "industrial-analysis",
+    navigationGroup: "industrial-billing",
   },
   {
     path: "/residencial",
@@ -299,14 +299,13 @@ const SIDEBAR_GROUP_DEFINITIONS: Readonly<Record<WorkspaceArea, readonly Sidebar
     { id: "industrial-dashboard", label: null },
     { id: "industrial-customers", label: "Cadastros" },
     { id: "industrial-operations", label: "Operação" },
-    { id: "industrial-billing", label: "Financeiro e Estoque" },
-    { id: "industrial-analysis", label: "Relatórios" },
+    { id: "industrial-billing", label: "Financeiro e relatórios" },
   ],
   residencial: [
     { id: "residential-dashboard", label: null },
     { id: "residential-service", label: "Atendimento" },
     { id: "residential-operations", label: "Pedidos e Produção" },
-    { id: "residential-billing", label: "Catálogo, Caixa e Financeiro" },
+    { id: "residential-billing", label: "Financeiro e relatórios" },
   ],
 };
 

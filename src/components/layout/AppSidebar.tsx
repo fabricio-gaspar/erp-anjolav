@@ -33,10 +33,6 @@ import {
   BarChart3,
   Droplets,
   ShieldCheck,
-  UserPlus,
-  PackagePlus,
-  ClipboardPlus,
-  CalendarPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Children, isValidElement, useState, type ElementType, type ReactElement, type ReactNode } from "react";
@@ -348,13 +344,6 @@ const ROUTE_ICONS: Readonly<Record<string, ElementType>> = {
   "/residencial/relatorios/caixa": BarChart3,
 };
 
-const QUICK_ACTION_ICONS: Readonly<Record<string, ElementType>> = {
-  cliente: UserPlus,
-  produto: PackagePlus,
-  ordem: ClipboardPlus,
-  agenda: CalendarPlus,
-};
-
 const CollapseButton = () => {
   const { isCollapsed, toggleSidebar } = useSidebarContext();
 
@@ -398,36 +387,6 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
       routes: group.routes.filter((route) => canAccessRoute(route)),
     }))
     .filter((group) => group.routes.length > 0);
-
-  const quickActions = activeArea === "central" ? [] : [
-    {
-      id: "cliente",
-      label: "Novo cliente",
-      path: `/${activeArea}/clientes?novo=1`,
-      routePath: `/${activeArea}/clientes`,
-    },
-    {
-      id: "produto",
-      label: "Novo produto/serviço",
-      path: `/${activeArea}/produtos?novo=1`,
-      routePath: `/${activeArea}/produtos`,
-    },
-    {
-      id: "ordem",
-      label: "Nova ordem de serviço",
-      path: `/${activeArea}/ordens?novo=1`,
-      routePath: `/${activeArea}/ordens`,
-    },
-    {
-      id: "agenda",
-      label: "Novo agendamento",
-      path: `/${activeArea}/agenda?novo=1`,
-      routePath: `/${activeArea}/agenda`,
-    },
-  ].filter((action) => {
-    const route = getAppRoute(action.routePath);
-    return !!route && canAccessRoute(route);
-  });
 
   return (
     <TooltipProvider>
@@ -487,44 +446,6 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
               </NavGroup>
             );
           })}
-          {quickActions.length > 0 && (
-            <div className={cn("border-t border-border/80", compact ? "mx-1 mt-2 pt-2" : "mx-2 mt-3 pt-3")}>
-              {!effectiveCollapsed && (
-                <p className="px-3 pb-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                  Atalhos de cadastro
-                </p>
-              )}
-              <div className={cn("space-y-1", effectiveCollapsed && "flex flex-col items-center")}>
-                {quickActions.map((action) => {
-                  const Icon = QUICK_ACTION_ICONS[action.id];
-                  const content = (
-                    <NavLink
-                      key={action.id}
-                      to={action.path}
-                      className={cn(
-                        "group flex min-w-0 items-center gap-2 rounded-lg border border-transparent font-bold text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-foreground",
-                        compact ? "px-2 py-1.5 text-[10px]" : "px-3 py-2 text-xs",
-                        effectiveCollapsed && "mx-0 w-10 justify-center px-2"
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0 text-primary" />
-                      {!effectiveCollapsed && <span className="min-w-0 truncate">{action.label}</span>}
-                    </NavLink>
-                  );
-
-                  if (!effectiveCollapsed) return content;
-                  return (
-                    <Tooltip key={action.id} delayDuration={0}>
-                      <TooltipTrigger asChild>{content}</TooltipTrigger>
-                      <TooltipContent side="right" className="bg-popover text-popover-foreground border-border shadow-md">
-                        {action.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </nav>
 
         {/* User Section */}

@@ -74,6 +74,7 @@ const PROVIDER_ID_PATTERN = /^[A-Za-z0-9_-]{3,200}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CARD_BRANDS = new Set(["VISA", "MASTERCARD", "ELO", "AMEX", "HIPERCARD", "OUTRA"]);
 const PAYMENT_STATUS_FOR_REVERSAL = new Set(["CONFIRMADO", "EM_REVISAO"]);
+const PAYMENT_METHODS_FOR_CORRECTION = new Set(["DINHEIRO", "PIX", "CARTAO_CREDITO", "CARTAO_DEBITO", "OUTRO"]);
 
 function boundedText(value: unknown, maxLength: number): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -101,6 +102,15 @@ function requireReason(value: unknown): string {
     throw new RequestError("Informe um motivo de estorno com ao menos 5 caracteres");
   }
   return reason;
+}
+
+function requireCorrectionMethod(value: unknown): string {
+  if (typeof value !== "string") throw new RequestError("Forma de pagamento inválida");
+  const method = value.trim().toUpperCase();
+  if (!PAYMENT_METHODS_FOR_CORRECTION.has(method)) {
+    throw new RequestError("Forma de pagamento inválida");
+  }
+  return method;
 }
 
 function money(value: unknown, field: string, allowZero = false): number {
@@ -716,7 +726,7 @@ Deno.serve(async (req) => {
 
     if (action === "list_payments") {
       const orderId = requireUuid(raw.orderId, "OS");
-      const canReverseForUser = (await requireAdmin(req, supabase)).ok;
+      const canManagePaymentsForUser = (await requireAdmin(req, supabase)).ok;
       const { data: order, error: orderError } = await supabase
         .from("ordens_servico")
         .select("id, origem")
@@ -740,7 +750,11 @@ Deno.serve(async (req) => {
         success: true,
         payments: (payments ?? []).map((payment) => ({
           ...payment,
-          canReverse: canReverseForUser &&
+          canReverse: canManagePaymentsForUser &&
+            PAYMENT_STATUS_FOR_REVERSAL.has(payment.status) &&
+            ["MANUAL", "LEGACY"].includes(payment.provedor) &&
+            payment.metodo !== "FIDELIDADE",
+          canEdit: canManagePaymentsForUser &&
             PAYMENT_STATUS_FOR_REVERSAL.has(payment.status) &&
             ["MANUAL", "LEGACY"].includes(payment.provedor) &&
             payment.metodo !== "FIDELIDADE",
@@ -765,6 +779,25 @@ Deno.serve(async (req) => {
         _pagamento_id: paymentId,
         _motivo: reason,
         _estornado_por: adminAuthorization.user.id,
+      });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, payment: data });
+    }
+
+    if (action === "edit_payment") {
+      const adminAuthorization = await requireAdmin(req, supabase);
+      if (!adminAuthorization.ok) return adminAuthorization.response;
+      const paymentId = requireUuid(raw.paymentId, "Pagamento");
+      const reason = requireReason(raw.reason);
+      const newValue = money(raw.newValue, "Novo valor");
+      const newMethod = requireCorrectionMethod(raw.newMethod);
+      const { data, error } = await supabase.rpc("editar_pagamento_pdv", {
+        _tenant_id: adminAuthorization.tenantId,
+        _pagamento_id: paymentId,
+        _novo_valor: newValue,
+        _novo_metodo: newMethod,
+        _motivo: reason,
+        _editado_por: adminAuthorization.user.id,
       });
       if (error) throw error;
       return jsonResponse(req, { success: true, payment: data });

@@ -74,6 +74,7 @@ export interface PdvPaymentSummary {
   created_at: string;
   metadata: Record<string, unknown>;
   canReverse: boolean;
+  canEdit: boolean;
   reversalUnavailableReason?: string;
 }
 
@@ -193,6 +194,33 @@ export function useReversePdvPayment() {
       const result = await invoke<{ success: true; payment: Record<string, unknown> }>({
         action: "reverse_payment",
         paymentId,
+        reason,
+      });
+      return result.payment;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useEditPdvPayment() {
+  const invalidate = useInvalidatePdv();
+  return useMutation({
+    mutationFn: async ({
+      paymentId,
+      newValue,
+      newMethod,
+      reason,
+    }: {
+      paymentId: string;
+      newValue: number;
+      newMethod: string;
+      reason: string;
+    }) => {
+      const result = await invoke<{ success: true; payment: Record<string, unknown> }>({
+        action: "edit_payment",
+        paymentId,
+        newValue,
+        newMethod,
         reason,
       });
       return result.payment;

@@ -153,7 +153,7 @@ test("grupos de navegação usam rótulos semânticos por área", () => {
   const residentialGroups = getSidebarNavigationGroups("residencial");
 
   assert.equal(industrialGroups.find((group) => group.id === "industrial-customers")?.label, "Cadastros");
-  assert.equal(industrialGroups.find((group) => group.id === "industrial-billing")?.label, "Financeiro e Estoque");
-  assert.equal(industrialGroups.find((group) => group.id === "industrial-analysis")?.label, "Relatórios");
-  assert.equal(residentialGroups.find((group) => group.id === "residential-billing")?.label, "Catálogo, Caixa e Financeiro");
+  assert.equal(industrialGroups.find((group) => group.id === "industrial-billing")?.label, "Financeiro e relatórios");
+  assert.equal(industrialGroups.some((group) => group.id === "industrial-analysis"), false);
+  assert.equal(residentialGroups.find((group) => group.id === "residential-billing")?.label, "Financeiro e relatórios");
 });

@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 const root = join(import.meta.dirname, "..");
 const migration = readFileSync(join(root, "supabase", "migrations", "20261019100000_pdv_payment_reversal.sql"), "utf8");
+const editMigration = readFileSync(join(root, "supabase", "migrations", "20261019110000_pdv_payment_edit.sql"), "utf8");
 const edgeFunction = readFileSync(join(root, "supabase", "functions", "pdv-payment", "index.ts"), "utf8");
 const osModal = readFileSync(join(root, "src", "components", "caixa", "ConsultarOSModal.tsx"), "utf8");
 
@@ -30,4 +31,15 @@ test("consulta da OS expõe histórico e confirmação do estorno", () => {
   assert.match(osModal, /Histórico de pagamentos/);
   assert.match(osModal, /Confirmar estorno/);
   assert.match(osModal, /Informe pelo menos 5 caracteres/);
+});
+
+test("correção de pagamento preserva histórico e exige operação administrativa", () => {
+  assert.match(editMigration, /CREATE OR REPLACE FUNCTION public\.editar_pagamento_pdv/);
+  assert.match(editMigration, /PERFORM public\.estornar_pagamento_pdv/);
+  assert.match(editMigration, /INSERT INTO public\.pdv_pagamentos/);
+  assert.match(editMigration, /provedor.*NOT IN \('MANUAL', 'LEGACY'\)/);
+  assert.match(edgeFunction, /action === "edit_payment"/);
+  assert.match(edgeFunction, /requireCorrectionMethod\(raw\.newMethod\)/);
+  assert.match(osModal, /Editar pagamento/);
+  assert.match(osModal, /Salvar correção/);
 });
