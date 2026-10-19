@@ -772,15 +772,6 @@ const CaixaPDV = () => {
                   )}
                 </div>
               )}
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-2 h-9 w-full justify-center gap-2 border-primary/40 text-xs font-bold text-primary hover:bg-primary/10"
-                onClick={() => openQuickCadastro("/residencial/clientes?novo=1")}
-              >
-                <UserPlus className="h-4 w-4" />
-                Novo cliente
-              </Button>
             </div>
 
             <div className="order-3 mt-3 grid grid-cols-2 gap-2">
@@ -890,6 +881,15 @@ const CaixaPDV = () => {
                   )}
                 </>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 h-9 w-full justify-center gap-2 border-primary/40 text-xs font-bold text-primary hover:bg-primary/10"
+                onClick={() => openQuickCadastro("/residencial/clientes?novo=1")}
+              >
+                <UserPlus className="h-4 w-4" />
+                Novo cliente
+              </Button>
             </div>
           </aside>
 
