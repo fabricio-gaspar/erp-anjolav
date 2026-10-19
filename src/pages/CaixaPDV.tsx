@@ -967,7 +967,7 @@ const CaixaPDV = () => {
 
         <footer className="grid border-t bg-card xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] 2xl:grid-cols-[400px_minmax(0,1fr)]">
           <div className="relative border-b p-2 xl:border-b-0 xl:border-r">
-            <div className="pdv-shortcuts-grid grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            <div className="pdv-shortcuts-grid grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
               <Button type="button" variant="outline" className="pdv-shortcut-button h-[72px] rounded-sm px-1 text-xs leading-tight text-destructive sm:h-[76px] sm:px-2" onClick={() => {
                 if (cart.length === 0) {
                   toast.info("Não há itens para cancelar");
