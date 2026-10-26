@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Loader2, LogIn, Eye, EyeOff, AlertCircle, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { presentAuthError } from "@/lib/authErrorPresentation";
 
 const inputClass =
   "flex h-9 w-full rounded-md border border-input bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60 md:text-sm";
@@ -61,7 +62,12 @@ const Login = () => {
     try {
       const { error } = await signIn(trimmedLogin, password);
       if (error) {
-        setPasswordError("Login ou senha incorretos");
+        const presentation = presentAuthError(error);
+        if (presentation.kind === "invalid_credentials") {
+          setPasswordError(presentation.message);
+        } else {
+          setFormError(presentation.message);
+        }
         setIsLoading(false);
         return;
       }

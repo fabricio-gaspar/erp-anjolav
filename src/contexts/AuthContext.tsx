@@ -3,6 +3,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { limparCacheFinanceiroAgregado } from "@/lib/financeiroDashboardState";
+import { presentAuthError } from "@/lib/authErrorPresentation";
 import { toast } from "sonner";
 
 interface Funcionario {
@@ -203,16 +204,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           toast.success("Login realizado com sucesso!");
           return { error: null };
         }
-        toast.error("Login ou senha incorretos.");
+        toast.error(presentAuthError(passwordError).message);
         return { error: passwordError };
       }
 
       const signInError = error ?? new Error(data?.error || "Serviço de login indisponível");
-      toast.error("Não foi possível entrar com as credenciais informadas.");
+      toast.error(presentAuthError(signInError).message);
       return { error: signInError };
     } catch (err) {
       const error = err as Error;
-      toast.error("Não foi possível entrar. Tente novamente mais tarde.");
+      toast.error(presentAuthError(error).message);
       return { error };
     }
   };
