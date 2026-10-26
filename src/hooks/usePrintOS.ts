@@ -156,14 +156,7 @@ export function usePrintOS(ordemServicoId?: string) {
 }
 
 // Hook for printing from Lancamentos with custom data
-export interface LancamentosPrintData {
-  clienteNome: string;
-  clienteTelefone?: string;
-  itens: { nome: string; quantidade: number; precoUnitario: number; subtotal: number }[];
-  valorTotal: number;
-  dataEmissao: Date;
-  previsaoEntrega?: Date;
-  observacoes?: string;
+export interface LancamentosPrintData extends Omit<PrintOSData, "numero"> {
   numeroRol?: string;
 }
 
@@ -184,14 +177,8 @@ export function usePrintLancamento() {
       const tempNumero = data.numeroRol || `L${Date.now().toString().slice(-6)}`;
 
       const osData: PrintOSData = {
+        ...data,
         numero: tempNumero,
-        clienteNome: data.clienteNome,
-        clienteTelefone: data.clienteTelefone,
-        itens: data.itens,
-        valorTotal: data.valorTotal,
-        dataEmissao: data.dataEmissao,
-        previsaoEntrega: data.previsaoEntrega,
-        observacoes: data.observacoes,
       };
 
       return generateROLHTMLWithData(config, osData);

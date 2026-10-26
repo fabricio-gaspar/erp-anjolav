@@ -1,3 +1,4 @@
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -51,6 +52,7 @@ const getPaymentStatus = (lancamento: LancamentoType) => {
 };
 
 export function PendentesTab() {
+  const { activeArea } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
   const clienteFiltroId = searchParams.get("cliente");
 
@@ -80,10 +82,10 @@ export function PendentesTab() {
   };
 
   const lancamentosFiltrados = useMemo(() => {
-    const industrialOnly = lancamentosPendentes.filter(l => l.cliente?.classificacao === "industrial");
-    if (!clienteFiltroId) return industrialOnly;
-    return industrialOnly.filter(l => l.cliente_id === clienteFiltroId);
-  }, [lancamentosPendentes, clienteFiltroId]);
+    const workspaceOnly = lancamentosPendentes.filter(l => l.cliente?.classificacao === activeArea);
+    if (!clienteFiltroId) return workspaceOnly;
+    return workspaceOnly.filter(l => l.cliente_id === clienteFiltroId);
+  }, [lancamentosPendentes, clienteFiltroId, activeArea]);
 
   // Buscar tipo_faturamento dos clientes envolvidos
   const clienteIds = useMemo(() => Array.from(new Set(lancamentosFiltrados.map(l => l.cliente_id))), [lancamentosFiltrados]);
@@ -141,6 +143,7 @@ export function PendentesTab() {
   }, [lancamentosFiltrados, getCiclo]);
 
   const handleToggleLancamento = (id: string) => {
+    if (!lancamentosFiltrados.some(l => l.id === id)) return;
     setSelectedLancamentos(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
@@ -169,6 +172,7 @@ export function PendentesTab() {
 
   const dadosFaturamento: DadosFaturamento | null = useMemo(() => {
     if (!clienteSelecionadoFaturamento || !lancamentosComItens || lancamentosComItens.length === 0) return null;
+    if (lancamentosComItens.length !== selectedLancamentos.length || lancamentosComItens.some(l => l.cliente?.classificacao !== activeArea || l.cliente_id !== clienteSelecionadoFaturamento.id || !lancamentosFiltrados.some(visible => visible.id === l.id))) return null;
     const allItens = lancamentosComItens.flatMap(l =>
       (l.itens || []).map(item => ({
         id: item.id, produto: item.produto_nome, quantidade: Number(item.quantidade),
@@ -191,7 +195,7 @@ export function PendentesTab() {
       clienteInscricaoMunicipal: cli?.inscricao_municipal || null,
       clienteInscricaoEstadual: cli?.inscricao_estadual || null,
       clienteRegimeTributario: cli?.regime_tributario || null,
-      clienteClassificacao: cli?.classificacao || "industrial",
+      clienteClassificacao: clienteSelecionadoFaturamento.classificacao,
       clienteEndereco: dadosClienteCompletos.endereco || null,
       configPagamento: dadosClienteCompletos.configPagamento || null,
       configCliente: dadosClienteCompletos.configCliente || null,
@@ -201,9 +205,10 @@ export function PendentesTab() {
       periodoFim: pFim,
       lancamentoIds: selectedLancamentos,
     };
-  }, [clienteSelecionadoFaturamento, lancamentosComItens, totalSelecionado, selectedLancamentos, dadosClienteCompletos]);
+  }, [clienteSelecionadoFaturamento, lancamentosComItens, totalSelecionado, selectedLancamentos, dadosClienteCompletos, activeArea, lancamentosFiltrados]);
 
   const handleGerarFatura = () => {
+    if (selectedLancamentos.some(id => !lancamentosFiltrados.some(l => l.id === id))) return;
     if (!clienteSelecionadoFaturamento || selectedLancamentos.length === 0) return;
     if (!dadosFaturamento || dadosFaturamento.itens.length === 0) {
       toast.error("Aguarde, carregando itens dos lançamentos...");
@@ -225,6 +230,11 @@ export function PendentesTab() {
     itensAtualizados: ItemLancamento[], itensRemovidos: string[],
     itensNovos: Omit<ItemLancamento, 'id' | 'created_at'>[]
   ) => {
+    const current = lancamentosFiltrados.find(l => l.id === lancamentoId);
+    if (!current || current.ordem_servico_id) {
+      toast.error("Gerado pelo PDV; gerencie pela OS");
+      return;
+    }
     setIsSaving(true);
     try {
       updateLancamento.mutate({ id: lancamentoId, observacao: data.observacao, data_lancamento: data.data_lancamento, valor_total: data.valor_total });
@@ -334,9 +344,10 @@ export function PendentesTab() {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setLancamentoSelecionado(lancamento); setVisualizarItensOpen(true); }} title="Ver itens"><Eye className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setLancamentoSelecionado(lancamento); setEditarLancamentoOpen(true); }} title="Editar"><Edit className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => { setLancamentoParaExcluir(lancamento); setDeleteConfirmOpen(true); }} title="Excluir"><Trash2 className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={!!lancamento.ordem_servico_id} onClick={() => { if (lancamento.ordem_servico_id) return; setLancamentoSelecionado(lancamento); setEditarLancamentoOpen(true); }} title={lancamento.ordem_servico_id ? "Gerado pelo PDV; gerencie pela OS" : "Editar"}><Edit className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" disabled={!!lancamento.ordem_servico_id} onClick={() => { if (lancamento.ordem_servico_id) return; setLancamentoParaExcluir(lancamento); setDeleteConfirmOpen(true); }} title={lancamento.ordem_servico_id ? "Gerado pelo PDV; gerencie pela OS" : "Excluir"}><Trash2 className="w-3.5 h-3.5" /></Button>
                           </div>
+                          {lancamento.ordem_servico_id && <p className="mt-1 text-xs text-muted-foreground">Gerado pelo PDV; gerencie pela OS</p>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -404,7 +415,7 @@ export function PendentesTab() {
       {/* Modals */}
       <FaturamentoModal open={faturamentoModalOpen} onOpenChange={(open) => { if (!open) setWizardDados(null); setFaturamentoModalOpen(open); }} dados={wizardDados} onComplete={handleFaturamentoConcluido} faturaExistente={null} />
       <VisualizarItensModal open={visualizarItensOpen} onOpenChange={setVisualizarItensOpen} lancamento={lancamentoSelecionado} itens={itensLancamentoSelecionado} isLoading={isLoadingItensLancamento} />
-      <EditarLancamentoModal open={editarLancamentoOpen} onOpenChange={setEditarLancamentoOpen} lancamento={lancamentoSelecionado} itens={itensLancamentoSelecionado} onSave={handleSalvarLancamento} isSaving={isSaving} />
+      <EditarLancamentoModal open={editarLancamentoOpen && !!lancamentoSelecionado && !lancamentoSelecionado.ordem_servico_id} onOpenChange={setEditarLancamentoOpen} lancamento={lancamentoSelecionado} itens={itensLancamentoSelecionado} onSave={handleSalvarLancamento} isSaving={isSaving} />
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -413,7 +424,11 @@ export function PendentesTab() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (lancamentoParaExcluir) { deleteLancamento.mutate(lancamentoParaExcluir.id); setDeleteConfirmOpen(false); setLancamentoParaExcluir(null); } }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+            <AlertDialogAction disabled={!lancamentoParaExcluir || !!lancamentoParaExcluir.ordem_servico_id} onClick={() => {
+              const current = lancamentosFiltrados.find(l => l.id === lancamentoParaExcluir?.id);
+              if (!current || current.ordem_servico_id) return;
+              deleteLancamento.mutate(current.id); setDeleteConfirmOpen(false); setLancamentoParaExcluir(null);
+            }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

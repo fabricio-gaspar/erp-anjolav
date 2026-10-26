@@ -19,7 +19,7 @@ interface SaleItem {
 }
 export interface CreatePdvSaleInput {
   clientId: string;
-  cashRegisterId: string;
+  cashRegisterId: string | null;
   deliveryDate: string;
   urgent: boolean;
   urgencyPercentage: number;
@@ -108,6 +108,8 @@ function useInvalidatePdv() {
     queryClient.invalidateQueries({ queryKey: ["pdv-customer-loyalty"] });
     queryClient.invalidateQueries({ queryKey: ["pdv-payments"] });
     queryClient.invalidateQueries({ queryKey: ["vendas-do-dia"] });
+    queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
+    queryClient.invalidateQueries({ queryKey: ["faturas"] });
   };
 }
 

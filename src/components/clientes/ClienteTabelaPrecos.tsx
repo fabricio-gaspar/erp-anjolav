@@ -32,6 +32,7 @@ import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useClientes, type Cliente } from "@/hooks/useClientes";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 
 interface ClienteTabelaPrecosProps {
   clienteId: string | null;
@@ -50,6 +51,7 @@ interface PrecoEspecialLocal {
 
 export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => {
   const navigate = useNavigate();
+  const { allowed: canManageTerms } = usePermissaoModulo("alterar_condicoes_comerciais");
   const { activeArea } = useWorkspace();
   const {
     produtos,
@@ -137,6 +139,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   );
 
   const handleImportar = async () => {
+    if (!canManageTerms) return;
     if (!clienteImportar || !clienteId) return;
 
     await copyPrecosEspeciais.mutateAsync(
@@ -146,6 +149,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleAdicionarProduto = () => {
+    if (!canManageTerms) return;
     if (!clienteId) return;
     if (!produtoSelecionado) {
       navigate(`${produtoRoute}?novo=1`);
@@ -179,6 +183,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleUpdatePreco = (id: string, produtoId: string, valor: string) => {
+    if (!canManageTerms) return;
     const precoNum = parseCurrencyToNumber(valor);
     if (isNaN(precoNum)) return;
 
@@ -194,6 +199,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleRemover = (id: string) => {
+    if (!canManageTerms) return;
     deletePrecoEspecial.mutate(id);
   };
 
@@ -204,6 +210,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleTabelaPrecoChange = (value: string) => {
+    if (!canManageTerms) return;
     if (!clienteId || (value !== "padrao" && value !== "personalizada")) return;
     updateCliente.mutate({ id: clienteId, tabela_preco_tipo: value });
   };
@@ -256,6 +263,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
 
   return (
     <div className="space-y-6 mt-6">
+      {!canManageTerms && <p className="text-sm text-muted-foreground">Consulta permitida. Para alterar preços ou a tabela, solicite a permissão de condições comerciais ao administrador.</p>}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border rounded-lg bg-muted/20">
         <div>
           <p className="font-medium">Tabela de preços do cliente</p>
@@ -265,7 +273,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
               : "Os produtos usam os preços padrão cadastrados."}
           </p>
         </div>
-        <Select value={tabelaPrecoTipo} onValueChange={handleTabelaPrecoChange} disabled={updateCliente.isPending}>
+        <Select value={tabelaPrecoTipo} onValueChange={handleTabelaPrecoChange} disabled={!canManageTerms || updateCliente.isPending}>
           <SelectTrigger className="w-full sm:w-[220px] bg-background" aria-label="Tipo de tabela de preços">
             <SelectValue />
           </SelectTrigger>
@@ -276,7 +284,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
         </Select>
       </div>
 
-      {isTabelaPersonalizada && (
+      {isTabelaPersonalizada && canManageTerms && (
         <div className="flex flex-col lg:flex-row gap-4">
         {/* Importar de outro cliente */}
         <div className="flex-1 flex gap-2 items-center p-3 border rounded-lg bg-muted/20">
@@ -404,6 +412,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <CurrencyInput
+                        disabled={!canManageTerms}
                         defaultValue={item.preco_especial}
                         onBlur={(e) => handleUpdatePreco(item.id, item.produto_id, e.target.value)}
                         className="w-32"
@@ -430,7 +439,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => handleRemover(item.id)}
-                        disabled={deletePrecoEspecial.isPending}
+                        disabled={!canManageTerms || deletePrecoEspecial.isPending}
                       >
                         {deletePrecoEspecial.isPending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />

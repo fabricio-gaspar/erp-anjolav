@@ -10,9 +10,9 @@ import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const setorLabels: Record<SetorFinanceiro, { title: string; subtitle: string }> = {
-  todos: { title: "Dashboard Financeiro", subtitle: "Visão consolidada — Industrial + Loja" },
-  industrial: { title: "Financeiro Industrial", subtitle: "Receitas de faturamento (clientes industriais)" },
-  loja: { title: "Financeiro Residencial", subtitle: "Receitas do Caixa PDV (clientes residenciais)" },
+  todos: { title: "Dashboard Financeiro", subtitle: "Visão consolidada — Industrial + Residencial" },
+  industrial: { title: "Financeiro Industrial", subtitle: "Faturas e recebimentos do PDV — setor industrial" },
+  loja: { title: "Financeiro Residencial", subtitle: "Faturas e recebimentos do PDV — setor residencial" },
 };
 
 const DashboardFinanceiro = () => {
@@ -98,9 +98,7 @@ const DashboardFinanceiro = () => {
               <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-success truncate">RECEITAS</p>
               <p className="text-lg sm:text-2xl font-black text-success mt-1 truncate">{formatCurrency(receitasTotais)}</p>
               <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">
-                {setor === "todos" ? `Faturas + Caixa (${receitasCount})` :
-                 setor === "industrial" ? `Faturas pagas (${receitasCount})` :
-                 `Vendas PDV (${receitasCount})`}
+                Faturas pagas + recebimentos do PDV ({receitasCount})
               </p>
             </Card>
 
@@ -118,13 +116,13 @@ const DashboardFinanceiro = () => {
           </div>
         </FinanceiroWidgetState>
 
-        {/* Loja breakdown when viewing "todos" */}
+        {/* Invoice/direct receipt breakdown across both sectors */}
         {setor === "todos" && receitasLojaCount > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="p-4 border-l-4 border-l-blue-500">
               <div className="flex items-center gap-2 mb-1">
                 <Factory className="w-4 h-4 text-blue-500" />
-                <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">RECEITA INDUSTRIAL</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">RECEITA DE FATURAS</p>
               </div>
               <p className="text-xl font-black text-foreground">{formatCurrency(receitasTotais - receitasLoja)}</p>
               <p className="text-xs text-muted-foreground">Faturas pagas ({receitasCount - receitasLojaCount})</p>
@@ -132,7 +130,7 @@ const DashboardFinanceiro = () => {
             <Card className="p-4 border-l-4 border-l-orange-500">
               <div className="flex items-center gap-2 mb-1">
                 <Store className="w-4 h-4 text-orange-500" />
-                <p className="text-xs font-semibold uppercase tracking-wider text-orange-500">RECEITA LOJA</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-orange-500">RECEITA DO PDV</p>
               </div>
               <p className="text-xl font-black text-foreground">{formatCurrency(receitasLoja)}</p>
               <p className="text-xs text-muted-foreground">Vendas PDV ({receitasLojaCount})</p>

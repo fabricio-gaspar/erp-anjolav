@@ -81,6 +81,7 @@ const ROUTE_COMPONENTS = {
   "/industrial/agenda": Agenda,
   "/industrial/ordens": OrdensServico,
   "/industrial/producao": FluxoProducao,
+  "/industrial/caixa": CaixaPDV,
   "/industrial/lancamentos": Lancamentos,
   "/industrial/financeiro": DashboardFinanceiro,
   "/industrial/estoque": Estoque,
@@ -88,6 +89,7 @@ const ROUTE_COMPONENTS = {
   "/industrial/relatorios/proximidade": RelatorioProximidade,
   "/residencial": Dashboard,
   "/residencial/caixa": CaixaPDV,
+  "/residencial/lancamentos": Lancamentos,
   "/residencial/clientes": Clientes,
   "/residencial/agenda": Agenda,
   "/residencial/ordens": OrdensServico,
@@ -130,7 +132,9 @@ function AuthorizedRouteRedirect({ redirect }: { redirect?: LegacyRouteRedirect 
   if (!destination) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4" role="alert">
-        Sua conta não possui acesso a um ambiente de trabalho.
+        {redirect?.from === "/pdv" || redirect?.from === "/caixa"
+          ? "Sua conta não possui acesso ao PDV de atendimento em nenhum setor."
+          : "Sua conta não possui acesso a um ambiente de trabalho."}
       </div>
     );
   }

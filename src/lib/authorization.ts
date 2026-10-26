@@ -22,6 +22,7 @@ export const MODULE_PERMISSION_KEYS = [
   "contas_pagar",
   "relatorios",
   "configuracoes",
+  "alterar_condicoes_comerciais",
 ] as const;
 
 export type ModulePermissionKey = (typeof MODULE_PERMISSION_KEYS)[number];
@@ -112,6 +113,12 @@ export function resolveLegacyRouteRedirect(
   redirect: LegacyRouteRedirect,
   access: RouteAccessContext,
 ): string | null {
+  if (redirect.from === "/pdv" || redirect.from === "/caixa") {
+    const pdv = ["/residencial/caixa", "/industrial/caixa"]
+      .map(path => getAppRoute(path))
+      .find(route => isRouteAccessible(route, access));
+    return pdv ? `${pdv.path}${redirect.search ?? ""}` : null;
+  }
   const destination = resolvePreferredAccessibleRoute(getAppRoute(redirect.to), access);
   if (!destination) return null;
 

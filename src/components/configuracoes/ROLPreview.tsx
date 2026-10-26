@@ -1,3 +1,4 @@
+import { getFontFamily, generateROLCommercialHTML } from "@/lib/rolPrint";
 import { escapeHtml, openPrintDocument, printDocumentWhenReady, safeHttpsUrl } from "@/lib/safePrint";
 
 export interface ROLPreviewConfig {
@@ -33,15 +34,7 @@ interface ROLPreviewProps {
   config: ROLPreviewConfig;
 }
 
-export const getFontFamily = (font: string) => {
-  switch (font) {
-    case 'courier': return 'Courier New, monospace';
-    case 'arial': return 'Arial, sans-serif';
-    case 'times': return 'Times New Roman, serif';
-    case 'consolas': return 'Consolas, monospace';
-    default: return 'Courier New, monospace';
-  }
-};
+export { getFontFamily } from "@/lib/rolPrint";
 
 const boundedNumber = (value: unknown, fallback: number, min: number, max: number) => {
   const numericValue = Number(value);
@@ -249,6 +242,8 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
         <div class="client-info"><strong>Cliente:</strong> CLIENTE DE EXEMPLO</div>
         ${config.previsaoEntrega ? `<div class="client-info previsao"><strong>Previsão:</strong> ${sampleDelivery.toLocaleDateString('pt-BR')}</div>` : ''}
       </div>
+
+      ${generateROLCommercialHTML({ valorTotal: total, condicaoPagamento: "retirada", condicoesComerciais: { tabela_preco_tipo: "padrao" }, valorPago: 0, statusPagamento: "pendente" }, config.tipoPreco)}
 
       <div class="section">
         <div class="items-header">

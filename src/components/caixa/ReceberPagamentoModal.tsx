@@ -40,6 +40,7 @@ interface ReceberPagamentoModalProps {
   valorTotal: number;
   valorPago: number;
   onSuccess?: () => void;
+  canUseLoyalty?: boolean;
   onRequestPix: (request: PixRecebimentoRequest) => void;
 }
 
@@ -57,6 +58,7 @@ export function ReceberPagamentoModal({
   valorTotal,
   valorPago,
   onSuccess,
+  canUseLoyalty = false,
   onRequestPix,
 }: ReceberPagamentoModalProps) {
   const valorPendente = Math.max(0, Math.round((valorTotal - (valorPago || 0)) * 100) / 100);
@@ -72,7 +74,7 @@ export function ReceberPagamentoModal({
   const { data: caixaAberto } = useCaixaAberto();
   const recordPayment = useRecordPdvPayment();
   const redeemLoyalty = useRedeemPdvLoyalty();
-  const { data: loyalty, isLoading: isLoadingLoyalty } = usePdvLoyaltySummary(osId, open && formaPagamento === "FIDELIDADE");
+  const { data: loyalty, isLoading: isLoadingLoyalty } = usePdvLoyaltySummary(osId, canUseLoyalty && open && formaPagamento === "FIDELIDADE");
 
   useEffect(() => {
     if (!open) return;
@@ -106,7 +108,7 @@ export function ReceberPagamentoModal({
     if (!caixaAberto) return false;
     if (formaPagamento === "FIDELIDADE") {
       const valorResgate = Math.round((pontosResgate * Number(loyalty?.valorPorPonto ?? 0)) * 100) / 100;
-      return Boolean(loyalty?.programaAtivo)
+      return canUseLoyalty && Boolean(loyalty?.programaAtivo)
         && Number.isInteger(pontosResgate)
         && pontosResgate >= Number(loyalty.pontosMinimosResgate)
         && pontosResgate <= Number(loyalty.saldoPontos)
@@ -119,7 +121,7 @@ export function ReceberPagamentoModal({
       return false;
     }
     return true;
-  }, [amount, bandeira, caixaAberto, codigoAutorizacao, formaPagamento, loyalty, nsu, pontosResgate, tendered, valorPendente]);
+  }, [amount, bandeira, caixaAberto, canUseLoyalty, codigoAutorizacao, formaPagamento, loyalty, nsu, pontosResgate, tendered, valorPendente]);
 
   const handleSubmit = async () => {
     if (!caixaAberto || !canSubmit) return;
@@ -209,7 +211,7 @@ export function ReceberPagamentoModal({
           <div className="space-y-2">
             <Label>Forma de pagamento</Label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {PAYMENT_METHODS.map((method) => {
+              {PAYMENT_METHODS.filter((method) => method.id !== "FIDELIDADE" || canUseLoyalty).map((method) => {
                 const Icon = method.icon;
                 return (
                   <Button

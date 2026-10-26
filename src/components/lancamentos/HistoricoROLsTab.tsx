@@ -1,3 +1,5 @@
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import React, { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,10 +30,12 @@ const statusBadge: Record<string, { label: string; className: string }> = {
 };
 
 export const HistoricoROLsTab: React.FC = () => {
+  const { activeArea } = useWorkspace();
+  const { activeTenant, user } = useAuth();
   const { clientes } = useClientes();
-  const clientesIndustriais = useMemo(
-    () => clientes.filter((c: any) => c.classificacao === "industrial"),
-    [clientes]
+  const clientesDoSetor = useMemo(
+    () => clientes.filter((c: any) => c.classificacao === activeArea),
+    [clientes, activeArea]
   );
 
   const [clienteId, setClienteId] = useState<string>("todos");
@@ -41,13 +45,16 @@ export const HistoricoROLsTab: React.FC = () => {
   const [dataFim, setDataFim] = useState("");
   const [visualizarId, setVisualizarId] = useState<string | null>(null);
 
-  const { data: lancamentos = [], isLoading } = useQuery({
-    queryKey: ["historico-rols", clienteId, status, dataInicio, dataFim],
+  const { data: lancamentos = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ["historico-rols", activeTenant?.id, user?.id, activeArea, clienteId, status, dataInicio, dataFim],
     refetchOnMount: "always",
+    enabled: !!activeTenant && !!user && activeArea !== "central",
     queryFn: async () => {
       let q = supabase
         .from("lancamentos")
-        .select("*, cliente:clientes(id, razao_social, nome_fantasia, classificacao)")
+        .select("*, cliente:clientes!inner(id, razao_social, nome_fantasia, classificacao)")
+        .filter("tenant_id", "eq", activeTenant!.id)
+        .eq("cliente.classificacao", activeArea)
         .order("data_lancamento", { ascending: false });
 
       if (clienteId !== "todos") q = q.eq("cliente_id", clienteId);
@@ -57,7 +64,7 @@ export const HistoricoROLsTab: React.FC = () => {
 
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []).filter((l: any) => l.cliente?.classificacao === "industrial");
+      return (data || []).filter((l: any) => l.cliente?.classificacao === activeArea);
     },
   });
 
@@ -96,7 +103,7 @@ export const HistoricoROLsTab: React.FC = () => {
             <SelectTrigger className="h-9"><SelectValue placeholder="Cliente" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os clientes</SelectItem>
-              {clientesIndustriais.map((c: any) => (
+              {clientesDoSetor.map((c: any) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.nome_fantasia || c.razao_social}
                 </SelectItem>
@@ -143,6 +150,8 @@ export const HistoricoROLsTab: React.FC = () => {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">Carregando...</TableCell></TableRow>
+            ) : isError ? (
+              <TableRow><TableCell colSpan={7} className="text-center py-6"><p role="alert">Não foi possível carregar o histórico deste setor.</p><Button variant="outline" onClick={() => void refetch()}>Tentar novamente</Button></TableCell></TableRow>
             ) : filtrados.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                 <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />

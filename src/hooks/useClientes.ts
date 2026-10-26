@@ -270,7 +270,7 @@ export function useEnderecoCliente(clienteId: string | null) {
 export function useConfiguracaoPagamentoCliente(clienteId: string | null) {
   const queryClient = useQueryClient();
 
-  const { data: configuracao, isLoading } = useQuery({
+  const { data: configuracao, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["configuracao_pagamento_cliente", clienteId],
     queryFn: async () => {
       if (!clienteId) return null;
@@ -321,7 +321,7 @@ export function useConfiguracaoPagamentoCliente(clienteId: string | null) {
     },
   });
 
-  return { configuracao, isLoading, upsertConfiguracao };
+  return { configuracao, isLoading, isError, error, refetch, upsertConfiguracao };
 }
 
 // Configurações do Cliente (Acesso/Agenda)

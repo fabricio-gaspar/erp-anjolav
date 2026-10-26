@@ -29,7 +29,7 @@ interface SaleItemInput {
 interface SaleInput {
   action: "create_sale";
   clientId: string;
-  cashRegisterId: string;
+  cashRegisterId: string | null;
   deliveryDate: string;
   urgent: boolean;
   urgencyPercentage: number;
@@ -157,7 +157,7 @@ function validateManualPayment(raw: unknown, requireAmount: boolean): ManualPaym
 
 function validateSale(raw: Record<string, unknown>): SaleInput {
   const clientId = requireUuid(raw.clientId, "Cliente");
-  const cashRegisterId = requireUuid(raw.cashRegisterId, "Caixa");
+  const cashRegisterId = raw.cashRegisterId == null ? null : requireUuid(raw.cashRegisterId, "Caixa");
   const deliveryDate = typeof raw.deliveryDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.deliveryDate)
     ? raw.deliveryDate
     : "";
@@ -202,6 +202,7 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
     const method = (raw.payment as Record<string, unknown>).method;
     payment = method === "PIX" ? { method: "PIX" } : validateManualPayment(raw.payment, false);
   }
+  if (payment && !cashRegisterId) throw new RequestError("Abra um caixa para receber o pagamento");
   return {
     action: "create_sale",
     clientId,
@@ -262,19 +263,95 @@ async function getCustomerLoyaltySummary(
   };
 }
 
+type PdvArea = "industrial" | "residencial";
+interface PdvScope {
+  tenantId: string;
+  areas: Set<PdvArea>;
+}
+
+// The service client bypasses RLS. Check both tenant and area before every
+// lookup by client/order/payment id, including read-only and provider actions.
+async function loadPdvScope(supabase: SupabaseClient, tenantId: string, userId: string): Promise<PdvScope> {
+  const [employee, membership, grants] = await Promise.all([
+    supabase.from("funcionarios").select("id").eq("tenant_id", tenantId).eq("user_id", userId).eq("ativo", true).maybeSingle(),
+    supabase.from("tenant_memberships").select("role").eq("tenant_id", tenantId).eq("user_id", userId).eq("enabled", true).eq("is_active", true).maybeSingle(),
+    supabase.from("area_permissoes").select("area").eq("tenant_id", tenantId).eq("user_id", userId),
+  ]);
+  if (employee.error || membership.error || grants.error) throw employee.error ?? membership.error ?? grants.error;
+  if (!employee.data || !membership.data) throw new RequestError("Acesso negado", 403);
+  const areas = new Set<PdvArea>();
+  if (["owner", "admin"].includes(membership.data.role) || grants.data?.some((grant) => grant.area === "central")) {
+    areas.add("industrial");
+    areas.add("residencial");
+  } else {
+    for (const grant of grants.data ?? []) {
+      if (grant.area === "industrial" || grant.area === "residencial") areas.add(grant.area);
+    }
+  }
+  return { tenantId, areas };
+}
+
+function assertArea(scope: PdvScope, area: unknown): void {
+  if ((area !== "industrial" && area !== "residencial") || !scope.areas.has(area)) {
+    throw new RequestError("Sem permissão para o setor deste atendimento", 403);
+  }
+}
+
+async function assertScopedClient(supabase: SupabaseClient, scope: PdvScope, clientId: string) {
+  const { data, error } = await supabase.from("clientes").select("id, ativo, classificacao")
+    .eq("tenant_id", scope.tenantId).eq("id", clientId).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new RequestError("Cliente fora da empresa ativa", 403);
+  assertArea(scope, data.classificacao);
+  if (!data.ativo) throw new RequestError("Cliente inativo", 409);
+  return data;
+}
+
+async function assertScopedOrder(supabase: SupabaseClient, scope: PdvScope, orderId: string) {
+  const { data, error } = await supabase.from("ordens_servico")
+    .select("id, numero, cliente_id, valor_total, valor_pago, status, origem, condicao_pagamento")
+    .eq("tenant_id", scope.tenantId).eq("id", orderId).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new RequestError("OS fora da empresa ativa", 403);
+  assertArea(scope, data.origem === "loja" ? "residencial" : data.origem);
+  return data;
+}
+
+function assertDirectPayment(order: { condicao_pagamento: string | null; status: string }): void {
+  if (order.condicao_pagamento === "faturado") {
+    throw new RequestError("Pedido faturado: receba pelo fechamento da fatura", 409);
+  }
+  if (order.status === "cancelada") throw new RequestError("OS cancelada", 409);
+}
+
+async function assertScopedCash(supabase: SupabaseClient, tenantId: string, cashRegisterId: string) {
+  const { data, error } = await supabase.from("caixas").select("id, status")
+    .eq("tenant_id", tenantId).eq("id", cashRegisterId).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new RequestError("Caixa fora da empresa ativa", 403);
+  if (data.status !== "ABERTO") throw new RequestError("O caixa precisa estar aberto", 409);
+}
+
+async function assertScopedPayment(supabase: SupabaseClient, scope: PdvScope, paymentId: string) {
+  const { data, error } = await supabase.from("pdv_pagamentos").select("ordem_servico_id")
+    .eq("tenant_id", scope.tenantId).eq("id", paymentId).maybeSingle();
+  if (error) throw error;
+  if (!data?.ordem_servico_id) throw new RequestError("Pagamento fora da empresa ativa", 403);
+  return await assertScopedOrder(supabase, scope, data.ordem_servico_id);
+}
+
 async function assertScopedOrderAndCash(
   supabase: SupabaseClient,
-  tenantId: string,
+  scope: PdvScope,
   orderId: string,
   cashRegisterId: string,
 ) {
-  const [{ data: scopedOrder, error: orderScopeError }, { data: scopedCash, error: cashScopeError }] =
-    await Promise.all([
-      supabase.from("ordens_servico").select("id").eq("tenant_id", tenantId).eq("id", orderId).maybeSingle(),
-      supabase.from("caixas").select("id").eq("tenant_id", tenantId).eq("id", cashRegisterId).maybeSingle(),
-    ]);
-  if (orderScopeError || cashScopeError) throw orderScopeError ?? cashScopeError;
-  if (!scopedOrder || !scopedCash) throw new RequestError("OS ou caixa fora da empresa ativa", 403);
+  const [order] = await Promise.all([
+    assertScopedOrder(supabase, scope, orderId),
+    assertScopedCash(supabase, scope.tenantId, cashRegisterId),
+  ]);
+  assertDirectPayment(order);
+  return order;
 }
 
 function dateInSaoPaulo(): string {
@@ -341,6 +418,14 @@ function providerTimestamp(payment: AsaasPayment): string {
   return new Date().toISOString();
 }
 
+async function getScopedProviderReference(supabase: SupabaseClient, tenantId: string, chargeId: string): Promise<string> {
+  const { data, error } = await supabase.from("asaas_charges").select("external_reference")
+    .eq("tenant_id", tenantId).eq("id", chargeId).maybeSingle();
+  if (error) throw error;
+  if (!data?.external_reference) throw new RequestError("Cobrança PIX fora da empresa ativa", 403);
+  return data.external_reference;
+}
+
 async function getOrCreatePix(
   supabase: SupabaseClient,
   orderId: string,
@@ -348,8 +433,11 @@ async function getOrCreatePix(
   moment: PaymentMoment,
   idempotencyKey: string,
   userId: string,
-  tenantId: string,
+  scope: PdvScope,
 ) {
+  const { tenantId } = scope;
+  // Validate before even returning a previous QR or contacting the provider.
+  const order = await assertScopedOrderAndCash(supabase, scope, orderId, cashRegisterId);
   const { data: paymentByKey, error: paymentByKeyError } = await supabase
     .from("pdv_pagamentos")
     .select("id, ordem_servico_id, caixa_id, status, status_provedor, valor, asaas_charge_id, provedor_pagamento_id")
@@ -400,16 +488,6 @@ async function getOrCreatePix(
     };
   }
 
-  const { data: order, error: orderError } = await supabase
-    .from("ordens_servico")
-    .select("id, numero, cliente_id, valor_total, valor_pago, status, origem")
-    .eq("tenant_id", tenantId)
-    .eq("id", orderId)
-    .maybeSingle();
-  if (orderError) throw orderError;
-  if (!order || !["residencial", "loja"].includes(order.origem) || order.status === "cancelada") {
-    throw new RequestError("OS residencial inválida", 404);
-  }
   const amount = Math.round((Number(order.valor_total ?? 0) - Number(order.valor_pago ?? 0)) * 100) / 100;
   if (amount <= 0) throw new RequestError("A OS não possui saldo pendente", 409);
 
@@ -421,13 +499,17 @@ async function getOrCreatePix(
     .maybeSingle();
   if (clientError) throw clientError;
   const document = typeof client?.cpf_cnpj === "string" ? client.cpf_cnpj.replace(/\D/g, "") : "";
-  if (!client?.ativo || client.classificacao !== "residencial" || !isValidCpfCnpj(document)) {
+  if (client) assertArea(scope, client.classificacao);
+  if (!client?.ativo || !isValidCpfCnpj(document)) {
     throw new RequestError("O cliente precisa ter CPF/CNPJ válido para gerar PIX", 409);
   }
   const candidateEmail = boundedText(client.email, 254)?.toLowerCase();
   const customerEmail = candidateEmail && EMAIL_PATTERN.test(candidateEmail) ? candidateEmail : undefined;
 
-  const externalReference = idempotencyKey;
+  // Provider searches are global to its account, so a caller-controlled key
+  // alone must never recover a charge belonging to a different tenant/order.
+  const referenceHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${tenantId}:${orderId}:${idempotencyKey}`));
+  const externalReference = `pdv:${Array.from(new Uint8Array(referenceHash), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
   const dueDate = dateInSaoPaulo();
   const existingPayments = await asaasRequest<AsaasListResponse<AsaasPayment>>(
     `/payments?externalReference=${encodeURIComponent(externalReference)}&limit=1`,
@@ -488,7 +570,7 @@ async function getOrCreatePix(
 
   const [{ data: category }, { data: costCenter }] = await Promise.all([
     supabase.from("categorias_financeiras").select("id").eq("tenant_id", tenantId).eq("nome", "Cobrança Asaas").eq("tipo", "receita").maybeSingle(),
-    supabase.from("centros_custo").select("id").eq("tenant_id", tenantId).eq("nome", "Loja").maybeSingle(),
+    supabase.from("centros_custo").select("id").eq("tenant_id", tenantId).eq("nome", order.origem === "industrial" ? "Industrial" : "Loja").maybeSingle(),
   ]);
   const chargePayload = {
     tenant_id: tenantId,
@@ -573,7 +655,8 @@ async function getOrCreatePix(
   };
 }
 
-async function reconcilePix(supabase: SupabaseClient, paymentId: string, tenantId: string) {
+async function reconcilePix(supabase: SupabaseClient, paymentId: string, scope: PdvScope) {
+  const { tenantId } = scope;
   const { data: payment, error: paymentError } = await supabase
     .from("pdv_pagamentos")
     .select("id, ordem_servico_id, asaas_charge_id, provedor_pagamento_id, idempotency_key, status, valor")
@@ -585,19 +668,13 @@ async function reconcilePix(supabase: SupabaseClient, paymentId: string, tenantI
   if (!payment?.asaas_charge_id || !payment.provedor_pagamento_id) {
     throw new RequestError("Pagamento PIX não encontrado", 404);
   }
-  const { data: order, error: orderError } = await supabase
-    .from("ordens_servico")
-    .select("origem")
-    .eq("tenant_id", tenantId)
-    .eq("id", payment.ordem_servico_id)
-    .maybeSingle();
-  if (orderError) throw orderError;
-  if (!order || !["residencial", "loja"].includes(order.origem)) throw new RequestError("Acesso negado", 403);
+  await assertScopedOrder(supabase, scope, payment.ordem_servico_id);
+  const externalReference = await getScopedProviderReference(supabase, tenantId, payment.asaas_charge_id);
 
   const providerPayment = await asaasRequest<AsaasPayment>(
     `/payments/${encodeURIComponent(payment.provedor_pagamento_id)}`,
   );
-  assertProviderPayment(providerPayment, payment.idempotency_key, Number(payment.valor));
+  assertProviderPayment(providerPayment, externalReference, Number(payment.valor));
   const paidAt = providerPayment.status === "RECEIVED" ? providerTimestamp(providerPayment) : null;
   const { error: chargeUpdateError } = await supabase
     .from("asaas_charges")
@@ -633,9 +710,6 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const authorization = await requireModule(req, supabase, "caixa");
-  if (!authorization.ok) return authorization.response;
-
   try {
     const parsedBody = await readJsonBody(req, 131_072);
     if (!parsedBody.ok) return parsedBody.response;
@@ -644,16 +718,26 @@ Deno.serve(async (req) => {
     }
     const raw = parsedBody.value as Record<string, unknown>;
     const action = raw.action;
+    let authorization = await requireModule(req, supabase, "caixa");
+    // Billing staff may create unpaid orders, but cannot receive money or
+    // access payment histories/provider actions without the caixa permission.
+    if (!authorization.ok && authorization.response.status === 403 && action === "create_sale" && raw.payment == null) {
+      authorization = await requireModule(req, supabase, "faturamento");
+    }
+    if (!authorization.ok) return authorization.response;
+    const scope = await loadPdvScope(supabase, authorization.tenantId, authorization.user.id);
 
     if (action === "create_sale") {
       const sale = validateSale(raw);
-      const [{ data: scopedClient, error: clientScopeError }, { data: scopedCash, error: cashScopeError }] =
-        await Promise.all([
-          supabase.from("clientes").select("id").eq("tenant_id", authorization.tenantId).eq("id", sale.clientId).maybeSingle(),
-          supabase.from("caixas").select("id").eq("tenant_id", authorization.tenantId).eq("id", sale.cashRegisterId).maybeSingle(),
-        ]);
-      if (clientScopeError || cashScopeError) throw clientScopeError ?? cashScopeError;
-      if (!scopedClient || !scopedCash) throw new RequestError("Cliente ou caixa fora da empresa ativa", 403);
+      await assertScopedClient(supabase, scope, sale.clientId);
+      if (sale.cashRegisterId) await assertScopedCash(supabase, scope.tenantId, sale.cashRegisterId);
+      for (const [table, id] of [["motoristas", sale.driverId], ["veiculos", sale.vehicleId]] as const) {
+        if (!id) continue;
+        const { data: reference, error: referenceError } = await supabase.from(table).select("id")
+          .eq("tenant_id", scope.tenantId).eq("id", id).maybeSingle();
+        if (referenceError) throw referenceError;
+        if (!reference) throw new RequestError("Motorista ou veículo fora da empresa ativa", 403);
+      }
       const rpcPayment = sale.payment && sale.payment.method !== "PIX"
         ? {
             metodo: sale.payment.method,
@@ -663,7 +747,7 @@ Deno.serve(async (req) => {
             nsu: sale.payment.nsu ?? null,
             codigo_autorizacao: sale.payment.authorizationCode ?? null,
           }
-        : null;
+        : sale.payment?.method === "PIX" ? { metodo: "PIX" } : null;
       const { data, error } = await supabase.rpc("criar_venda_pdv", {
         _cliente_id: sale.clientId,
         _caixa_id: sale.cashRegisterId,
@@ -687,11 +771,11 @@ Deno.serve(async (req) => {
           pix = await getOrCreatePix(
             supabase,
             order.id,
-            sale.cashRegisterId,
+            requireUuid(sale.cashRegisterId, "Caixa"),
             "ENTRADA",
             `${sale.idempotencyKey}:pix`,
             authorization.user.id,
-            authorization.tenantId,
+            scope,
           );
         } catch (error: unknown) {
           pixError = error instanceof Error ? error.message : "Não foi possível gerar o PIX";
@@ -713,30 +797,21 @@ Deno.serve(async (req) => {
         moment,
         idempotencyKey,
         authorization.user.id,
-        authorization.tenantId,
+        scope,
       );
       return jsonResponse(req, { success: true, pix });
     }
 
     if (action === "get_pix_status") {
       const paymentId = requireUuid(raw.paymentId, "Pagamento");
-      const payment = await reconcilePix(supabase, paymentId, authorization.tenantId);
+      const payment = await reconcilePix(supabase, paymentId, scope);
       return jsonResponse(req, { success: true, payment });
     }
 
     if (action === "list_payments") {
       const orderId = requireUuid(raw.orderId, "OS");
       const canManagePaymentsForUser = (await requireAdmin(req, supabase)).ok;
-      const { data: order, error: orderError } = await supabase
-        .from("ordens_servico")
-        .select("id, origem")
-        .eq("tenant_id", authorization.tenantId)
-        .eq("id", orderId)
-        .maybeSingle();
-      if (orderError) throw orderError;
-      if (!order || !["residencial", "loja"].includes(order.origem)) {
-        throw new RequestError("OS fora da empresa ativa", 404);
-      }
+      await assertScopedOrder(supabase, scope, orderId);
 
       const { data: payments, error: paymentsError } = await supabase
         .from("pdv_pagamentos")
@@ -772,8 +847,10 @@ Deno.serve(async (req) => {
     if (action === "reverse_payment") {
       const adminAuthorization = await requireAdmin(req, supabase);
       if (!adminAuthorization.ok) return adminAuthorization.response;
+      if (adminAuthorization.tenantId !== scope.tenantId) throw new RequestError("A empresa ativa mudou. Tente novamente", 409);
       const paymentId = requireUuid(raw.paymentId, "Pagamento");
       const reason = requireReason(raw.reason);
+      await assertScopedPayment(supabase, scope, paymentId);
       const { data, error } = await supabase.rpc("estornar_pagamento_pdv", {
         _tenant_id: adminAuthorization.tenantId,
         _pagamento_id: paymentId,
@@ -787,10 +864,13 @@ Deno.serve(async (req) => {
     if (action === "edit_payment") {
       const adminAuthorization = await requireAdmin(req, supabase);
       if (!adminAuthorization.ok) return adminAuthorization.response;
+      if (adminAuthorization.tenantId !== scope.tenantId) throw new RequestError("A empresa ativa mudou. Tente novamente", 409);
       const paymentId = requireUuid(raw.paymentId, "Pagamento");
       const reason = requireReason(raw.reason);
       const newValue = money(raw.newValue, "Novo valor");
       const newMethod = requireCorrectionMethod(raw.newMethod);
+      const order = await assertScopedPayment(supabase, scope, paymentId);
+      assertDirectPayment(order);
       const { data, error } = await supabase.rpc("editar_pagamento_pdv", {
         _tenant_id: adminAuthorization.tenantId,
         _pagamento_id: paymentId,
@@ -809,7 +889,7 @@ Deno.serve(async (req) => {
       const moment: PaymentMoment = raw.moment === "ENTRADA" ? "ENTRADA" : "RETIRADA";
       const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
       const payment = validateManualPayment(raw.payment, true);
-      await assertScopedOrderAndCash(supabase, authorization.tenantId, orderId, cashRegisterId);
+      await assertScopedOrderAndCash(supabase, scope, orderId, cashRegisterId);
       const { data, error } = await supabase.rpc("registrar_pagamento_pdv", {
         _ordem_servico_id: orderId,
         _caixa_id: cashRegisterId,
@@ -834,7 +914,10 @@ Deno.serve(async (req) => {
       const moment: PaymentMoment = raw.moment === "ENTRADA" ? "ENTRADA" : "RETIRADA";
       const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
       const points = loyaltyPoints(raw.points);
-      await assertScopedOrderAndCash(supabase, authorization.tenantId, orderId, cashRegisterId);
+      const order = await assertScopedOrderAndCash(supabase, scope, orderId, cashRegisterId);
+      if (order.origem === "industrial") {
+        throw new RequestError("O resgate de fidelidade está disponível somente para atendimentos residenciais", 409);
+      }
       const { data, error } = await supabase.rpc("resgatar_pontos_fidelidade_pdv", {
         _ordem_servico_id: orderId,
         _caixa_id: cashRegisterId,
@@ -849,14 +932,7 @@ Deno.serve(async (req) => {
 
     if (action === "loyalty_summary") {
       const orderId = requireUuid(raw.orderId, "OS");
-      const { data: order, error: orderError } = await supabase
-        .from("ordens_servico")
-        .select("id")
-        .eq("tenant_id", authorization.tenantId)
-        .eq("id", orderId)
-        .maybeSingle();
-      if (orderError) throw orderError;
-      if (!order) throw new RequestError("OS fora da empresa ativa", 403);
+      await assertScopedOrder(supabase, scope, orderId);
       const { data, error } = await supabase.rpc("consultar_fidelidade_pdv", { _ordem_servico_id: orderId });
       if (error) throw error;
       return jsonResponse(req, { success: true, loyalty: data });
@@ -864,14 +940,7 @@ Deno.serve(async (req) => {
 
     if (action === "loyalty_customer_summary") {
       const clientId = requireUuid(raw.clientId, "Cliente");
-      const { data: client, error: clientError } = await supabase
-        .from("clientes")
-        .select("id")
-        .eq("tenant_id", authorization.tenantId)
-        .eq("id", clientId)
-        .maybeSingle();
-      if (clientError) throw clientError;
-      if (!client) throw new RequestError("Cliente fora da empresa ativa", 403);
+      await assertScopedClient(supabase, scope, clientId);
 
       const loyalty = await getCustomerLoyaltySummary(supabase, authorization.tenantId, clientId);
       return jsonResponse(req, { success: true, loyalty });
@@ -879,6 +948,7 @@ Deno.serve(async (req) => {
 
     if (action === "cancel_pix") {
       const paymentId = requireUuid(raw.paymentId, "Pagamento");
+      await assertScopedPayment(supabase, scope, paymentId);
       const { data: payment, error: paymentError } = await supabase
         .from("pdv_pagamentos")
         .select("id, status, asaas_charge_id, provedor_pagamento_id, idempotency_key, valor")
@@ -890,10 +960,11 @@ Deno.serve(async (req) => {
       if (!payment?.asaas_charge_id || !payment.provedor_pagamento_id) {
         throw new RequestError("Pagamento PIX não encontrado", 404);
       }
+      const externalReference = await getScopedProviderReference(supabase, scope.tenantId, payment.asaas_charge_id);
       const current = await asaasRequest<AsaasPayment>(`/payments/${encodeURIComponent(payment.provedor_pagamento_id)}`);
-      assertProviderPayment(current, payment.idempotency_key, Number(payment.valor));
+      assertProviderPayment(current, externalReference, Number(payment.valor));
       if (current.status === "RECEIVED") {
-        await reconcilePix(supabase, payment.id, authorization.tenantId);
+        await reconcilePix(supabase, payment.id, scope);
         throw new RequestError("O PIX já foi recebido e não pode ser cancelado", 409);
       }
       await asaasRequest<unknown>(`/payments/${encodeURIComponent(payment.provedor_pagamento_id)}`, { method: "DELETE" });

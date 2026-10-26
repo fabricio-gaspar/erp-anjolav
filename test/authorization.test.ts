@@ -14,7 +14,8 @@ test("normaliza query string, hash e barra final", () => {
 test("mapeia rotas de cada área para módulos explícitos", () => {
   assert.deepEqual(getRoutePermissionRequirement("/central"), ["dashboard"]);
   assert.deepEqual(getRoutePermissionRequirement("/industrial/ordens"), ["ordens"]);
-  assert.deepEqual(getRoutePermissionRequirement("/residencial/caixa"), ["caixa"]);
+  assert.deepEqual(getRoutePermissionRequirement("/residencial/caixa"), ["caixa", "faturamento"]);
+  assert.deepEqual(getRoutePermissionRequirement("/industrial/caixa"), ["caixa", "faturamento"]);
 });
 
 test("permite a página de contas quando ao menos um módulo financeiro foi concedido", () => {

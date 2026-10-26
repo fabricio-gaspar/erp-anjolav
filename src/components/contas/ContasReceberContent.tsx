@@ -19,8 +19,9 @@ import { formatNumberToCurrency } from "@/lib/currencyUtils";
 import { format, parseISO, isBefore, startOfDay } from "date-fns";
 
 const origemLabel: Record<OrigemReceita, { label: string; icon: any; cls: string }> = {
-  fatura: { label: "Fatura Industrial", icon: FileText, cls: "bg-blue-50 text-blue-700 border-blue-200" },
-  pdv_loja: { label: "PDV Loja", icon: Store, cls: "bg-green-50 text-green-700 border-green-200" },
+  fatura: { label: "Fatura", icon: FileText, cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  pdv_loja: { label: "PDV Residencial", icon: Store, cls: "bg-green-50 text-green-700 border-green-200" },
+  pdv_industrial: { label: "PDV Industrial", icon: Store, cls: "bg-blue-50 text-blue-700 border-blue-200" },
   asaas: { label: "Cobrança Asaas", icon: CreditCard, cls: "bg-purple-50 text-purple-700 border-purple-200" },
   contrato: { label: "Contrato Aluguel", icon: ScrollText, cls: "bg-amber-50 text-amber-700 border-amber-200" },
   manual: { label: "Manual", icon: Receipt, cls: "bg-slate-50 text-slate-700 border-slate-200" },
@@ -65,7 +66,7 @@ const ContasReceberContent = () => {
     s === "recebido" ? "success" : s === "atrasado" ? "danger" : s === "cancelado" ? "default" : "warning";
 
   const statusLabel = (s: string) =>
-    s === "recebido" ? "Recebido" : s === "atrasado" ? "Atrasado" : s === "cancelado" ? "Cancelado" : s === "parcial" ? "Parcial" : "Pendente";
+    s === "recebido" ? "Recebido" : s === "atrasado" ? "Atrasado" : s === "cancelado" ? "Cancelado" : s === "estornado" ? "Estornado" : s === "parcial" ? "Parcial" : "Pendente";
 
   return (
     <>
@@ -112,8 +113,9 @@ const ContasReceberContent = () => {
               <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todas origens</SelectItem>
-                <SelectItem value="fatura">Faturas Industrial</SelectItem>
-                <SelectItem value="pdv_loja">PDV Loja</SelectItem>
+                <SelectItem value="fatura">Faturas</SelectItem>
+                <SelectItem value="pdv_loja">PDV Residencial</SelectItem>
+                <SelectItem value="pdv_industrial">PDV Industrial</SelectItem>
                 <SelectItem value="asaas">Asaas</SelectItem>
                 <SelectItem value="contrato">Contratos</SelectItem>
               </SelectContent>
@@ -127,6 +129,7 @@ const ContasReceberContent = () => {
                 <SelectItem value="parcial">Parcial</SelectItem>
                 <SelectItem value="recebido">Recebido</SelectItem>
                 <SelectItem value="cancelado">Cancelado</SelectItem>
+                <SelectItem value="estornado">Estornado</SelectItem>
               </SelectContent>
             </Select>
           </div>

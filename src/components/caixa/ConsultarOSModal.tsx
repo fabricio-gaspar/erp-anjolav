@@ -57,8 +57,11 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 
 interface ConsultarOSModalProps {
+  recent?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReceberPagamento?: (ordem: OrdemServicoConsulta) => void;
@@ -317,14 +320,17 @@ export function ConsultarOSModal({
   onReceberPagamento,
   onImprimirROL,
   onImprimirEtiquetas,
+  recent = false,
 }: ConsultarOSModalProps) {
+  const { activeArea } = useWorkspace();
+  const { allowed: canOperateCaixa } = usePermissaoModulo("caixa");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [expandedOS, setExpandedOS] = useState<string | null>(null);
   const [editingPosition, setEditingPosition] = useState<EditingPosition | null>(null);
   const [isSavingPosition, setIsSavingPosition] = useState(false);
 
-  const { data: ordens, isLoading } = useConsultaOS(searchTerm, statusFilter);
+  const { data: ordens, isLoading, isError, refetch } = useConsultaOS(searchTerm, statusFilter, { enabled: open, recent });
   const queryClient = useQueryClient();
 
   const toggleExpand = (ordemId: string) => {
@@ -406,9 +412,10 @@ export function ConsultarOSModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            Consultar ROL / Ordem de Serviço
+            {recent ? "Histórico de atendimentos" : "Consultar ROL / Ordem de Serviço"} · {activeArea === "industrial" ? "Industrial" : "Residencial"}
           </DialogTitle>
         </DialogHeader>
+        <DialogDescription>{recent ? "Até 100 atendimentos mais recentes deste setor. Use a busca para localizar um ROL." : "Busque pelo número do ROL ou pelo nome do cliente deste setor."}</DialogDescription>
 
         {/* Search and Filters */}
         <div className="flex gap-3">
@@ -443,7 +450,9 @@ export function ConsultarOSModal({
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
-          ) : searchTerm.length < 2 ? (
+          ) : isError ? (
+            <div role="alert" className="py-8 text-center"><p>Não foi possível carregar as ordens deste setor.</p><Button variant="outline" onClick={() => void refetch()}>Tentar novamente</Button></div>
+          ) : !recent && searchTerm.length < 2 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>Digite pelo menos 2 caracteres para buscar</p>
@@ -699,7 +708,7 @@ export function ConsultarOSModal({
                           </div>
                         </div>
 
-                        <PaymentHistory orderId={ordem.id} />
+                        {canOperateCaixa && <PaymentHistory orderId={ordem.id} />}
 
                         {/* Payment Info (if pending) */}
                         {isPendente && (
@@ -713,7 +722,7 @@ export function ConsultarOSModal({
                                     {formatCurrency(pendente)}
                                   </p>
                                 </div>
-                                {onReceberPagamento && (
+                                {canOperateCaixa && ordem.condicao_pagamento !== "faturado" && onReceberPagamento && (
                                   <Button
                                     onClick={() => onReceberPagamento(ordem)}
                                     className="bg-amber-600 hover:bg-amber-700"

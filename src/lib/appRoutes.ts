@@ -162,11 +162,19 @@ export const APP_ROUTES = [
     navigationGroup: "industrial-operations",
   },
   {
+    path: "/industrial/caixa",
+    area: "industrial",
+    requiredModules: ["caixa", "faturamento"],
+    adminOnly: false,
+    label: "PDV Atendimento",
+    navigationGroup: "industrial-operations",
+  },
+  {
     path: "/industrial/lancamentos",
     area: "industrial",
     requiredModules: ["faturamento"],
     adminOnly: false,
-    label: "Faturamento/Lançamentos",
+    label: "Fechamento e histórico",
     navigationGroup: "industrial-billing",
   },
   {
@@ -212,9 +220,9 @@ export const APP_ROUTES = [
   {
     path: "/residencial/caixa",
     area: "residencial",
-    requiredModules: ["caixa"],
+    requiredModules: ["caixa", "faturamento"],
     adminOnly: false,
-    label: "PDV Loja",
+    label: "PDV Atendimento",
     navigationGroup: "residential-service",
   },
   {
@@ -248,6 +256,14 @@ export const APP_ROUTES = [
     adminOnly: false,
     label: "Produção Residencial",
     navigationGroup: "residential-operations",
+  },
+  {
+    path: "/residencial/lancamentos",
+    area: "residencial",
+    requiredModules: ["faturamento"],
+    adminOnly: false,
+    label: "Fechamento e histórico",
+    navigationGroup: "residential-billing",
   },
   {
     path: "/residencial/financeiro",
@@ -320,6 +336,7 @@ export const LEGACY_ROUTE_REDIRECTS: readonly LegacyRouteRedirect[] = [
   { from: "/configuracoes", to: "/central/configuracoes" },
   { from: "/financeiro", to: "/central/financeiro" },
   { from: "/caixa", to: "/residencial/caixa" },
+  { from: "/pdv", to: "/residencial/caixa" },
   { from: "/lancamentos", to: "/industrial/lancamentos" },
   { from: "/contas", to: "/central/contas" },
   { from: "/clientes", to: "/industrial/clientes" },
@@ -394,7 +411,7 @@ export function getSearchResultRoute(
     produto: `/${area}/produtos`,
     fornecedor: "/industrial/fornecedores",
     ordem: `/${area}/ordens`,
-    lancamento: area === "industrial" ? "/industrial/lancamentos" : null,
+    lancamento: `/${area}/lancamentos`,
   };
 
   const path = pathByType[type];

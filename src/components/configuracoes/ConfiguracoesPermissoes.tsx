@@ -38,6 +38,7 @@ interface ModuloConfig {
 }
 
 const MODULOS: ModuloConfig[] = [
+  { key: 'alterar_condicoes_comerciais', nome: 'Condições comerciais', descricao: 'Alterar tabelas de preços, condições de pagamento e conceder descontos', icon: Shield, iconColor: 'text-amber-600', iconBg: 'bg-amber-100', categoria: 'FINANCEIRO' },
   { key: 'dashboard', nome: 'Painel Geral', descricao: 'Visão geral do sistema e métricas', icon: LayoutDashboard, iconColor: 'text-blue-600', iconBg: 'bg-blue-100', categoria: 'OPERACIONAL' },
   { key: 'clientes', nome: 'Clientes', descricao: 'Cadastro e gestão de clientes', icon: Users, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100', categoria: 'OPERACIONAL' },
   { key: 'ordens', nome: 'Ordens de Serviço', descricao: 'Gerenciamento de OS', icon: ClipboardList, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100', categoria: 'OPERACIONAL' },

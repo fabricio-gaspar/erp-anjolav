@@ -52,12 +52,42 @@ test("todo redirecionamento legado termina em uma rota autorizada", () => {
   };
   for (const redirect of LEGACY_ROUTE_REDIRECTS) {
     const destination = resolveLegacyRouteRedirect(redirect, access);
+    if (redirect.from === "/caixa" || redirect.from === "/pdv") {
+      assert.equal(destination, null, `${redirect.from} exige um PDV autorizado`);
+      continue;
+    }
     assert.ok(destination, `${redirect.from} deve ter fallback residencial autorizado`);
     assert.equal(
       isRouteAccessible(getAppRoute(destination ?? ""), access),
       true,
       `${redirect.from} não pode apontar para uma rota negada`,
     );
+  }
+});
+
+test("aliases de PDV escolhem apenas um PDV autorizado, sem fallback de dashboard", () => {
+  for (const alias of ["/pdv", "/caixa"]) {
+    const redirect = LEGACY_ROUTE_REDIRECTS.find(item => item.from === alias);
+    assert.ok(redirect);
+    for (const area of ["industrial", "residencial"] as const) {
+      for (const moduleKey of ["caixa", "faturamento"]) {
+        assert.equal(resolveLegacyRouteRedirect(redirect, {
+          accessibleAreas: { central: true, [area]: true },
+          modulePermissions: { dashboard: true, [moduleKey]: true },
+          isAdmin: false,
+        }), `/${area}/caixa`);
+      }
+    }
+    assert.equal(resolveLegacyRouteRedirect(redirect, {
+      accessibleAreas: { central: true, industrial: true, residencial: true },
+      modulePermissions: { dashboard: true },
+      isAdmin: false,
+    }), null);
+    assert.equal(resolveLegacyRouteRedirect(redirect, {
+      accessibleAreas: { industrial: true, residencial: true },
+      modulePermissions: { faturamento: true },
+      isAdmin: false,
+    }), "/residencial/caixa");
   }
 });
 

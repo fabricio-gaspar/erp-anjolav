@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +47,7 @@ import { SuprimentoModal } from "@/components/caixa/SuprimentoModal";
 import { ConsultarOSModal } from "@/components/caixa/ConsultarOSModal";
 import { ReceberPagamentoModal, type PixRecebimentoRequest } from "@/components/caixa/ReceberPagamentoModal";
 import { PixPagamentoModal } from "@/components/caixa/PixPagamentoModal";
-import { HistoricoVendasModal } from "@/components/caixa/HistoricoVendasModal";
+
 import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
 import { ClientePagamentoDialog } from "@/components/caixa/ClientePagamentoDialog";
 import { OrdemServicoConsulta } from "@/hooks/useConsultaOS";
@@ -57,6 +57,15 @@ import { ptBR } from "date-fns/locale";
 import { usePrintOS } from "@/hooks/usePrintOS";
 import { useCreatePdvSale, usePdvCustomerLoyaltySummary, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
 import { createPdvIdempotencyKey, type PdvPixPayment } from "@/lib/pdvPayment";
+
+
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { buildClientPriceCatalog } from "@/lib/clientPricing";
+import { parseCustomerPaymentTerms, customerPaymentTermsLabels, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
+import { ClienteContrato } from "@/components/clientes/ClienteContrato";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface CartItem {
   id: string;
@@ -102,11 +111,38 @@ const getUnidadeLabel = (unidade: string | null) => {
   }
 };
 
+
+const isValidQuantity = (value: number, unidade: string) =>
+  Number.isFinite(value) && value > 0 && value <= 999 &&
+  (["Kg", "Mt"].includes(unidade) || Number.isInteger(value));
+
+// Remount the sale and its dialogs whenever the security context changes.
 const CaixaPDV = () => {
+  const { activeArea } = useWorkspace();
+  const { activeTenant, user } = useAuth();
+  const { pathname } = useLocation();
+  if (!activeTenant || !user || !pathname.startsWith("/" + activeArea + "/")) {
+    return <AppLayout title="PDV Atendimento"><p>Carregando contexto do atendimento...</p></AppLayout>;
+  }
+  return <PdvAtendimento key={[activeTenant.id, user.id, activeArea].join(":")} />;
+};
+
+const PdvAtendimento = () => {
+
   const navigate = useNavigate();
-  const { produtos, isLoading: isLoadingProdutos } = useProdutos();
-  const { clientes, isLoading: isLoadingClientes } = useClientes();
-  const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto();
+  const { activeArea } = useWorkspace();
+  const area = activeArea === "industrial" ? "industrial" : "residencial";
+  const areaLabel = area === "industrial" ? "Industrial" : "Residencial";
+  const { canAccessRoute } = useNavigationAccess();
+  const { allowed: canOperateCaixa } = usePermissaoModulo("caixa");
+  const canUseLoyalty = area === "residencial" && canOperateCaixa;
+  const { allowed: canManageCommercialTerms } = usePermissaoModulo("alterar_condicoes_comerciais");
+  const canManageContracts = canAccessRoute("/" + area + "/clientes");
+  const canCreateSale = canAccessRoute("/" + area + "/caixa");
+  const { produtos, isLoading: isLoadingProdutos, isError: productsError, refetch: refetchProducts } = useProdutos();
+  const { clientes, isLoading: isLoadingClientes, isError: clientsError, refetch: refetchClients } = useClientes();
+  const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto(canOperateCaixa);
+  const canReceivePayments = canOperateCaixa && !!caixaAberto;
   const createPdvSale = useCreatePdvSale();
   const redeemLoyalty = useRedeemPdvLoyalty();
   const { printROL, printEtiqueta } = usePrintOS();
@@ -119,6 +155,8 @@ const CaixaPDV = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showProductList, setShowProductList] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
+  const [showContracts, setShowContracts] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showClientList, setShowClientList] = useState(false);
@@ -135,6 +173,7 @@ const CaixaPDV = () => {
   const [isProcessingVenda, setIsProcessingVenda] = useState(false);
   const [pixContext, setPixContext] = useState<PixFlowContext | null>(null);
   const saleIdempotencyRef = useRef<string | null>(null);
+  const submittingRef = useRef(false);
   
   // Estados para modais de caixa
   const [showAbrirCaixaModal, setShowAbrirCaixaModal] = useState(false);
@@ -152,44 +191,32 @@ const CaixaPDV = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  const { precos: precosEspeciais } = usePrecosEspeciais(selectedClientId);
-  
-  // Último cliente usado (persistido no localStorage)
-  const [ultimoClienteId, setUltimoClienteId] = useState<string | null>(() => {
-    return localStorage.getItem("pdv_ultimo_cliente");
+
+  const { precos: precosEspeciais, isLoading: pricesLoading, isError: pricesError, refetch: refetchPrices } = usePrecosEspeciais(selectedClientId);
+  // Session-only shortcut; never restore a customer from global browser storage.
+  const [ultimoClienteId, setUltimoClienteId] = useState<string | null>(null);
+  const clientesFiltradosPorTipo = useMemo(() => clientes.filter(c => c.ativo && c.classificacao === area), [clientes, area]);
+  const selectedClient = useMemo(() => clientesFiltradosPorTipo.find(c => c.id === selectedClientId), [clientesFiltradosPorTipo, selectedClientId]);
+  const { configuracao: configuracaoPagamento, isLoading: termsLoading, isError: termsError, refetch: refetchTerms } = useConfiguracaoPagamentoCliente(selectedClient?.id ?? null);
+  const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(selectedClient?.id ?? null, canUseLoyalty);
+  const catalogLoading = isLoadingProdutos || isLoadingClientes || pricesLoading || termsLoading;
+  const catalogError = pricesError || termsError || productsError || clientsError;
+  const catalogReady = canCreateSale && !!selectedClient && !catalogLoading && !catalogError;
+  const isFaturado = configuracaoPagamento?.condicao_pagamento === "faturado";
+  const paymentTerms = parseCustomerPaymentTerms(configuracaoPagamento);
+  const paymentLabels = customerPaymentTermsLabels(paymentTerms);
+  const produtosAtivos = useMemo(() => catalogReady ? buildClientPriceCatalog(
+    produtos, precosEspeciais, selectedClient?.tabela_preco_tipo ?? "padrao", area,
+  ) : [], [catalogReady, produtos, precosEspeciais, selectedClient?.tabela_preco_tipo, area]);
+  const getPrecoForProduto = useCallback((produto: Produto): number =>
+    produtosAtivos.find(p => p.id === produto.id)?.precoAplicado ?? NaN, [produtosAtivos]);
+  const invalidQuantity = cart.some(item => {
+    const raw = quantityDrafts[item.id];
+    return raw !== undefined && (!/^\d+(?:[.,]\d+)?$/.test(raw) || !isValidQuantity(Number(raw.replace(",", ".")), item.unidade));
   });
-
-  const selectedClient = useMemo(() => {
-    return clientes.find(c => c.id === selectedClientId);
-  }, [clientes, selectedClientId]);
-  const { configuracao: configuracaoPagamento } = useConfiguracaoPagamentoCliente(selectedClientId);
-  const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(selectedClientId);
-
-  // Filter only active products with ID2 (Residencial) or ambos
-  const produtosAtivos = useMemo(() => {
-    return produtos.filter(p => 
-      p.status === "ativo" && 
-      (p.unidade_negocio === "ID2" || p.unidade_negocio === "ambos" || !p.unidade_negocio)
-    );
-  }, [produtos]);
-
-  // Filter only residential clients for PDV
-  const clientesFiltradosPorTipo = useMemo(() => {
-    return clientes.filter(c => c.classificacao === "residencial");
-  }, [clientes]);
-
-  // Get price for product (special price or default)
-  const getPrecoForProduto = useCallback((produto: Produto): number => {
-    if (selectedClient?.tabela_preco_tipo === "personalizada" && precosEspeciais.length > 0) {
-      const precoEspecial = precosEspeciais.find(
-        (pe) => pe.produto_id === produto.id
-      );
-      if (precoEspecial) {
-        return precoEspecial.preco_especial;
-      }
-    }
-    return produto.preco;
-  }, [precosEspeciais, selectedClient]);
+  const cartValid = catalogReady && cart.length > 0 && !invalidQuantity && cart.every(item =>
+    isValidQuantity(item.quantidade, item.unidade) && Number.isFinite(item.preco) && item.preco >= 0 &&
+    produtosAtivos.some(p => p.id === item.id && p.precoAplicado === item.preco && getUnidadeLabel(p.unidade) === item.unidade));
 
   const filteredProdutos = useMemo(() => {
     return produtosAtivos.filter((produto) => {
@@ -220,18 +247,20 @@ const CaixaPDV = () => {
   }, [clientesFiltradosPorTipo, clientSearch]);
 
   const addToCart = useCallback((produto: Produto) => {
-    if (!caixaAberto) {
-      toast.error("Abra o caixa para iniciar vendas");
+    if (!catalogReady || !produtosAtivos.some(p => p.id === produto.id)) {
+      toast.error("Selecione um cliente e aguarde a tabela e a condição de pagamento");
       return;
     }
     
     const preco = getPrecoForProduto(produto);
+    if (!Number.isFinite(preco) || preco < 0) return;
+    setQuantityDrafts(prev => { const next = { ...prev }; delete next[produto.id]; return next; });
     setCart((prev) => {
       const existing = prev.find((item) => item.id === produto.id);
       if (existing) {
         return prev.map((item) =>
           item.id === produto.id
-            ? { ...item, quantidade: item.quantidade + 1 }
+            ? { ...item, quantidade: Math.min(999, item.quantidade + 1) }
             : item
         );
       }
@@ -246,7 +275,7 @@ const CaixaPDV = () => {
     });
     setSearchTerm("");
     setShowProductList(false);
-  }, [caixaAberto, getPrecoForProduto]);
+  }, [catalogReady, produtosAtivos, getPrecoForProduto]);
 
   const handleAddCurrentProduct = () => {
     if (!produtoProntoParaAdicionar) {
@@ -259,11 +288,12 @@ const CaixaPDV = () => {
   };
 
   const updateQuantity = useCallback((id: string, delta: number) => {
+    setQuantityDrafts(prev => { const next = { ...prev }; delete next[id]; return next; });
     setCart((prev) =>
       prev
         .map((item) =>
           item.id === id
-            ? { ...item, quantidade: Math.max(0, item.quantidade + delta) }
+            ? { ...item, quantidade: isValidQuantity(item.quantidade + delta, item.unidade) ? item.quantidade + delta : item.quantidade }
             : item
         )
         .filter((item) => item.quantidade > 0)
@@ -272,11 +302,21 @@ const CaixaPDV = () => {
 
   const removeFromCart = (id: string) => {
     setCart((prev) => prev.filter((item) => item.id !== id));
+    setQuantityDrafts(prev => { const next = { ...prev }; delete next[id]; return next; });
   };
 
   const clearCart = useCallback(() => {
     setCart([]);
+    setQuantityDrafts({});
   }, []);
+
+  const editQuantity = (item: CartItem, raw: string) => {
+    setQuantityDrafts(prev => ({ ...prev, [item.id]: raw }));
+    const value = Number(raw.replace(",", "."));
+    if (/^\d+(?:[.,]\d+)?$/.test(raw) && isValidQuantity(value, item.unidade)) {
+      setCart(prev => prev.map(current => current.id === item.id ? { ...current, quantidade: value } : current));
+    }
+  };
 
   const openDetalhesModal = (item: CartItem) => {
     setSelectedCartItem(item);
@@ -304,39 +344,40 @@ const CaixaPDV = () => {
   };
 
   const selectClient = useCallback((clientId: string) => {
+    if (!clientesFiltradosPorTipo.some(c => c.id === clientId)) return;
+    clearCart();
     setSelectedClientId(clientId);
     setShowClientList(false);
     setClientSearch("");
-  }, []);
+  }, [clientesFiltradosPorTipo, clearCart]);
 
   useEffect(() => {
-    if (!selectedClientId) return;
+    if (!catalogReady) return;
 
     // Recalcula somente quando os preços do cliente selecionado estiverem disponíveis.
-    setCart(prev => prev.map(item => {
-      const produto = produtos.find(p => p.id === item.id);
-      if (produto) {
-        const newPrice = getPrecoForProduto(produto);
-        return { ...item, preco: newPrice };
-      }
-      return item;
+    setCart(prev => prev.flatMap(item => {
+      const produto = produtosAtivos.find(p => p.id === item.id);
+      if (!produto || !Number.isFinite(produto.precoAplicado) || produto.precoAplicado < 0) return [];
+      const unidade = getUnidadeLabel(produto.unidade);
+      if (!isValidQuantity(item.quantidade, unidade)) return [];
+      return [{ ...item, preco: produto.precoAplicado, unidade }];
     }));
-  }, [getPrecoForProduto, produtos, selectedClientId]);
+  }, [catalogReady, produtosAtivos]);
 
   const clearClient = () => {
     setSelectedClientId(null);
     setClientSearch("");
-    // Reset to original prices
-    setCart(prev => prev.map(item => ({
-      ...item,
-      preco: item.precoOriginal
-    })));
+    clearCart();
   };
 
   // Função para abrir modal de pagamento
   const handleOpenPagamento = useCallback(() => {
-    if (!caixaAberto) {
-      toast.error("Abra o caixa primeiro");
+    if (osRecemCriada) {
+      setShowImpressaoModal(true);
+      return;
+    }
+    if (!catalogReady || !cartValid) {
+      toast.error("Confira cliente, tabela, condição e quantidades antes de finalizar");
       return;
     }
     if (cart.length === 0) {
@@ -347,17 +388,18 @@ const CaixaPDV = () => {
       toast.error("Selecione um cliente");
       return;
     }
-    saleIdempotencyRef.current = createPdvIdempotencyKey("sale");
+    saleIdempotencyRef.current ??= createPdvIdempotencyKey("sale");
     setShowPagamentoModal(true);
-  }, [caixaAberto, cart.length, selectedClientId]);
+  }, [catalogReady, cartValid, cart.length, selectedClientId, osRecemCriada]);
 
   const handleOpenClientePagamento = useCallback(() => {
+    if (!canManageCommercialTerms) return;
     if (!selectedClientId) {
       toast.error("Selecione um cliente para configurar o pagamento");
       return;
     }
     setShowClientePagamentoDialog(true);
-  }, [selectedClientId]);
+  }, [selectedClientId, canManageCommercialTerms]);
 
   const handleEditClientePagamento = useCallback(() => {
     setShowPagamentoModal(false);
@@ -366,8 +408,24 @@ const CaixaPDV = () => {
 
   // Função para finalizar venda
   const handleFinalizarVenda = async (dados: DadosPagamento) => {
-    if (!selectedClientId || !caixaAberto) return;
+    if (submittingRef.current || osRecemCriada || !selectedClient || !cartValid) {
+      toast.error("Revise o cliente, a tabela e as quantidades antes de finalizar");
+      return;
+    }
+    if (dados.pagoAgora && (!canReceivePayments || isFaturado || !dados.formaPagamento)) {
+      toast.error(isFaturado ? "Cliente faturado: o recebimento será feito no fechamento" : "Recebimento exige permissão de caixa e caixa aberto");
+      return;
+    }
+    if (!isCustomerPaymentAllowed(paymentTerms, { ...dados, canReceivePayments }) || (!canManageCommercialTerms && dados.valorDesconto > 0) || (dados.formaPagamento === "FIDELIDADE" && !canUseLoyalty)) {
+      toast.error("O pagamento deve respeitar a condição do cliente e suas permissões");
+      return;
+    }
+    if (!Number.isFinite(dados.valorTotal) || dados.valorTotal <= 0 || !Number.isFinite(dados.valorDesconto) || dados.valorDesconto < 0 || (isFaturado && (dados.urgente || dados.valorDesconto > 0))) {
+      toast.error("Revise os valores do atendimento; faturado deve manter o valor da OS igual ao lançamento");
+      return;
+    }
     
+    submittingRef.current = true;
     setIsProcessingVenda(true);
     
     try {
@@ -387,7 +445,7 @@ const CaixaPDV = () => {
             };
       const result = await createPdvSale.mutateAsync({
         clientId: selectedClientId,
-        cashRegisterId: caixaAberto.id,
+        cashRegisterId: dados.pagoAgora ? caixaAberto?.id ?? null : null,
         deliveryDate: dados.previsaoEntrega.toISOString().split("T")[0],
         urgent: dados.urgente,
         urgencyPercentage: dados.percentualUrgencia,
@@ -415,7 +473,7 @@ const CaixaPDV = () => {
       });
 
       setShowPagamentoModal(false);
-      if (dados.pagoAgora && dados.formaPagamento === "FIDELIDADE" && dados.pontosResgate) {
+      if (dados.pagoAgora && caixaAberto && dados.formaPagamento === "FIDELIDADE" && dados.pontosResgate) {
         try {
           const redeemed = await redeemLoyalty.mutateAsync({
             orderId: result.order.id,
@@ -429,8 +487,8 @@ const CaixaPDV = () => {
           toast.error(loyaltyError instanceof Error ? loyaltyError.message : "A OS foi criada, mas não foi possível resgatar os pontos");
         }
       }
-      if (dados.pagoAgora && dados.formaPagamento === "PIX") {
-        if (result.pixError) toast.error(result.pixError);
+      if (dados.pagoAgora && caixaAberto && dados.formaPagamento === "PIX") {
+        if (result.pixError) toast.error(`ROL ${result.order.number} criado; PIX pendente. Retome o pagamento nesta OS, sem criar outro atendimento. ${result.pixError}`);
         setPixContext({
           orderId: result.order.id,
           orderNumber: result.order.number,
@@ -450,6 +508,7 @@ const CaixaPDV = () => {
       console.error("Erro ao finalizar venda:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao finalizar venda");
     } finally {
+      submittingRef.current = false;
       setIsProcessingVenda(false);
     }
   };
@@ -458,18 +517,19 @@ const CaixaPDV = () => {
   const handleImpressaoComplete = () => {
     // Salvar último cliente usado
     if (selectedClientId) {
-      localStorage.setItem("pdv_ultimo_cliente", selectedClientId);
       setUltimoClienteId(selectedClientId);
     }
     setOsRecemCriada(null);
     saleIdempotencyRef.current = null;
     setCart([]);
+    setQuantityDrafts({});
     setSelectedClientId(null);
     setClientSearch("");
     toast.success("Venda finalizada com sucesso!");
   };
 
   const handlePixRecebimento = (request: PixRecebimentoRequest) => {
+    if (!canReceivePayments) return;
     setPixContext({
       ...request,
       moment: "RETIRADA",
@@ -501,7 +561,7 @@ const CaixaPDV = () => {
   useEffect(() => {
     const handleBarcodeInput = (e: KeyboardEvent) => {
       // Ignorar se um modal está aberto ou se está em um input
-      if (showPagamentoModal || showConsultarOSModal || showAjudaAtalhos) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
       if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") return;
 
       // Detectar digitação rápida de números (scanner)
@@ -513,10 +573,9 @@ const CaixaPDV = () => {
         }
         barcodeTimeoutRef.current = setTimeout(() => {
           if (nextBuffer.length >= 3) {
-            const produto = produtos.find((p) => p.codigo === nextBuffer);
+            const produto = produtosAtivos.find((p) => p.codigo === nextBuffer);
             if (produto) {
               addToCart(produto);
-              toast.success(`${produto.nome} adicionado`);
             } else {
               toast.error(`Produto não encontrado: ${nextBuffer}`);
             }
@@ -536,7 +595,7 @@ const CaixaPDV = () => {
       }
       barcodeBufferRef.current = "";
     };
-  }, [addToCart, produtos, showPagamentoModal, showConsultarOSModal, showAjudaAtalhos]);
+  }, [addToCart, produtosAtivos]);
 
   // Toggle fullscreen
   const toggleFullscreen = useCallback(() => {
@@ -551,16 +610,17 @@ const CaixaPDV = () => {
 
   // Usar último cliente
   const selectLastClient = useCallback(() => {
-    if (ultimoClienteId) {
+    if (ultimoClienteId && clientesFiltradosPorTipo.some(c => c.id === ultimoClienteId)) {
       selectClient(ultimoClienteId);
       toast.success("Último cliente selecionado");
     } else {
       toast.info("Nenhum cliente anterior disponível");
     }
-  }, [ultimoClienteId, selectClient]);
+  }, [ultimoClienteId, selectClient, clientesFiltradosPorTipo]);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
     // Ignorar se está digitando em um input (exceto para F-keys)
     const isTyping = document.activeElement?.tagName === "INPUT" || 
                      document.activeElement?.tagName === "TEXTAREA";
@@ -588,16 +648,12 @@ const CaixaPDV = () => {
     // F6 - Histórico de vendas
     if (e.key === "F6") {
       e.preventDefault();
-      if (caixaAberto) {
-        setShowHistoricoVendas(true);
-      } else {
-        toast.error("Abra o caixa para ver o histórico");
-      }
+      if (canCreateSale) setShowHistoricoVendas(true);
     }
     // F7 - Sangria/Suprimento (abre sangria por padrão)
     if (e.key === "F7") {
       e.preventDefault();
-      if (caixaAberto) {
+      if (canReceivePayments) {
         setShowSangriaModal(true);
       }
     }
@@ -614,7 +670,7 @@ const CaixaPDV = () => {
     // F10 - Fechar caixa
     if (e.key === "F10") {
       e.preventDefault();
-      if (caixaAberto) {
+      if (canReceivePayments) {
         setShowFecharCaixaModal(true);
       }
     }
@@ -645,7 +701,8 @@ const CaixaPDV = () => {
       if (showOperations) setShowOperations(false);
     }
   }, [
-    caixaAberto,
+    canCreateSale,
+    canReceivePayments,
     cart,
     clearCart,
     handleOpenPagamento,
@@ -691,12 +748,13 @@ const CaixaPDV = () => {
   };
 
   const openQuickCadastro = (path: string) => {
+    if (!canAccessRoute(path)) return;
     setShowOperations(false);
     navigate(path);
   };
 
   return (
-    <AppLayout title="Caixa PDV">
+    <AppLayout title="PDV Atendimento" subtitle={`Setor ${areaLabel}`}>
       <section className="pdv-shell mx-[-1rem] flex w-[calc(100%+2rem)] max-w-none min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-muted/20 shadow-lg sm:mx-[-1.5rem] sm:w-[calc(100%+3rem)] xl:h-[calc(100vh-118px)]">
         <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
@@ -710,8 +768,8 @@ const CaixaPDV = () => {
             </p>
           </div>
           <div className="flex items-center justify-end gap-2">
-            <p className="hidden text-sm font-black uppercase tracking-[0.14em] lg:block">Caixa vendas</p>
-            {isLoadingCaixa ? (
+            <p className="hidden text-sm font-black uppercase tracking-[0.14em] lg:block">{areaLabel}</p>
+            {!canOperateCaixa ? <Badge variant="outline">Sem recebimento</Badge> : isLoadingCaixa ? (
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             ) : caixaAberto ? (
               <Badge variant="outline" className="border-success text-success">Aberto</Badge>
@@ -723,13 +781,31 @@ const CaixaPDV = () => {
             )}
           </div>
         </header>
+        <nav aria-label="Atalhos do atendimento" className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-2">
+          <Badge variant="secondary">Setor {areaLabel}</Badge>
+          {canAccessRoute("/" + area + "/lancamentos") && <>
+            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=pendentes")}>Fechamento</Button>
+            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=faturas")}>Faturas</Button>
+            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=historico")}>Histórico de ROLs faturados</Button>
+          </>}
+          {canManageContracts && <Button variant="outline" size="sm" disabled={!selectedClient} onClick={() => { if (selectedClient && canManageContracts) setShowContracts(true); }}>Contrato do cliente</Button>}
+          {canAccessRoute("/" + area + "/clientes") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/clientes?novo=1")}><UserPlus className="mr-2 h-4 w-4" />Novo cliente</Button>}
+          {canAccessRoute("/" + area + "/produtos") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/produtos?novo=1")}><PackagePlus className="mr-2 h-4 w-4" />Novo produto/serviço</Button>}
+          {canAccessRoute("/" + area + "/ordens") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/ordens")}><ClipboardPlus className="mr-2 h-4 w-4" />Ordens de serviço</Button>}
+          {canAccessRoute("/" + area + "/agenda") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/agenda?novo=1")}><CalendarPlus className="mr-2 h-4 w-4" />Agendamento</Button>}
+        </nav>
+        {(catalogError || (selectedClient && catalogLoading)) && <div role="status" className="border-b p-3 text-sm">
+          {catalogError ? <>Não foi possível carregar clientes, tabela ou condição de pagamento. <Button variant="outline" size="sm" onClick={() => { void refetchPrices(); void refetchTerms(); void refetchProducts(); void refetchClients(); }}>Tentar novamente</Button></> : "Carregando tabela e condição de pagamento..."}
+        </div>}
+        {invalidQuantity && <p role="alert" className="px-4 py-2 text-sm text-destructive">Quantidade deve ser maior que zero e até 999. Use decimais apenas para kg ou metro; peças exigem inteiros.</p>}
+
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 sm:p-4 xl:grid-cols-[minmax(350px,410px)_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
           <aside className="relative flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5">
-            {!isLoadingCaixa && !caixaAberto && (
+            {!isLoadingCaixa && !canReceivePayments && (
               <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                Abra o caixa para lançar itens.
+                Atendimento sem recebimento disponível. Pagar agora exige permissão de caixa e caixa aberto.
               </div>
             )}
 
@@ -749,9 +825,11 @@ const CaixaPDV = () => {
                       <p className="mt-1 text-[11px] font-semibold text-primary">
                         {selectedClient.tabela_preco_tipo === "personalizada" ? "Tabela personalizada ativa" : "Tabela padrão ativa"}
                       </p>
-                      {isLoadingCustomerLoyalty ? (
+                      <p className="mt-1 text-xs">Condição: {termsLoading ? "Carregando..." : termsError ? "Não foi possível carregar" : paymentLabels.condition}</p>
+                      {!termsLoading && !termsError && <p className="mt-1 text-xs text-muted-foreground">Forma preferida: {paymentLabels.preferredMethod}{paymentLabels.frequency ? ` · Fechamento: ${paymentLabels.frequency}` : ""}</p>}
+                      {canUseLoyalty && isLoadingCustomerLoyalty ? (
                         <p className="mt-1 text-xs text-muted-foreground">Consultando pontos...</p>
-                      ) : customerLoyalty?.programaAtivo ? (
+                      ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
                         <p className="mt-1 text-xs text-primary">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
                       ) : null}
                     </div>
@@ -759,10 +837,10 @@ const CaixaPDV = () => {
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                  <Button type="button" variant="outline" size="sm" className="mt-2 h-7 w-full gap-1 text-xs" onClick={handleOpenClientePagamento}>
+                  {canManageCommercialTerms && <Button type="button" variant="outline" size="sm" className="mt-2 h-7 w-full gap-1 text-xs" onClick={handleOpenClientePagamento}>
                     <Settings2 className="h-3.5 w-3.5" />
                     {configuracaoPagamento ? "Editar pagamento" : "Configurar pagamento"}
-                  </Button>
+                  </Button>}
                 </div>
               ) : (
                 <>
@@ -771,7 +849,7 @@ const CaixaPDV = () => {
                     <Input
                       id="pdv-client-search"
                       ref={clientSearchRef}
-                      placeholder="Buscar cliente (nome, CPF, telefone)..."
+                      placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
                       value={clientSearch}
                       onChange={(event) => {
                         setClientSearch(event.target.value);
@@ -799,15 +877,6 @@ const CaixaPDV = () => {
                   </div>
                 </>
               )}
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-2 h-9 w-full justify-center gap-2 border-primary/40 text-xs font-bold text-primary hover:bg-primary/10"
-                onClick={() => openQuickCadastro("/residencial/clientes?novo=1")}
-              >
-                <UserPlus className="h-4 w-4" />
-                Novo cliente
-              </Button>
             </div>
 
             <div className="pdv-entry-card relative z-10 rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
@@ -846,7 +915,7 @@ const CaixaPDV = () => {
                           <button
                             key={produto.id}
                             type="button"
-                            disabled={!caixaAberto}
+                            disabled={!catalogReady}
                             onClick={() => addToCart(produto)}
                             className="flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
                           >
@@ -862,7 +931,7 @@ const CaixaPDV = () => {
                   </div>
                 )}
               </div>
-              <Button type="button" className="mt-3 h-10 w-full gap-2 font-bold" disabled={!caixaAberto} onClick={handleAddCurrentProduct}>
+              <Button type="button" className="mt-3 h-10 w-full gap-2 font-bold" disabled={!catalogReady} onClick={handleAddCurrentProduct}>
                 <ShoppingCart className="h-4 w-4" />
                 Adicionar item
                 <span className="text-primary-foreground/70">↵</span>
@@ -874,8 +943,8 @@ const CaixaPDV = () => {
                     <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem} onClick={() => currentItem && updateQuantity(currentItem.id, -1)} aria-label="Diminuir quantidade do item atual">
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="flex-1 text-center text-lg font-semibold tabular-nums">{currentItem?.quantidade ?? 0}</span>
-                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem || !caixaAberto} onClick={() => currentItem && updateQuantity(currentItem.id, 1)} aria-label="Aumentar quantidade do item atual">
+                    <Input aria-label="Quantidade do item atual" inputMode="decimal" className="flex-1 min-w-0 border-0 text-center" disabled={!currentItem} value={currentItem ? quantityDrafts[currentItem.id] ?? String(currentItem.quantidade) : ""} onChange={e => currentItem && editQuantity(currentItem, e.target.value)} />
+                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem || !catalogReady} onClick={() => currentItem && updateQuantity(currentItem.id, 1)} aria-label="Aumentar quantidade do item atual">
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
@@ -932,35 +1001,15 @@ const CaixaPDV = () => {
                 </Button>
               </div>
               {showOperations && (
-                <div className="absolute bottom-3 left-3 right-3 z-40 grid max-h-[min(70vh,420px)] grid-cols-1 gap-1 overflow-y-auto rounded-lg border border-strong bg-card p-2 shadow-xl sm:grid-cols-2">
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => {
-                    if (!caixaAberto) {
-                      toast.error("Abra o caixa antes de fechá-lo");
-                      return;
-                    }
-                    setShowFecharCaixaModal(true);
-                  }}><Lock className="h-4 w-4" /> Fechar caixa</Button>
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2 text-warning" onClick={() => {
-                    if (!caixaAberto) {
-                      toast.error("Abra o caixa para registrar uma sangria");
-                      return;
-                    }
-                    setShowSangriaModal(true);
-                  }}><ArrowDownCircle className="h-4 w-4" /> Sangria (F7)</Button>
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2 text-success" onClick={() => {
-                    if (!caixaAberto) {
-                      toast.error("Abra o caixa para registrar um suprimento");
-                      return;
-                    }
-                    setShowSuprimentoModal(true);
-                  }}><ArrowUpCircle className="h-4 w-4" /> Suprimento de caixa</Button>
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => navigate("/relatorios/caixa")}><BarChart3 className="h-4 w-4" /> Relatórios</Button>
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => setShowAjudaAtalhos(true)}><Keyboard className="h-4 w-4" /> Atalhos</Button>
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/clientes?novo=1")}><UserPlus className="h-4 w-4" /> Novo cliente</Button>
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/produtos?novo=1")}><PackagePlus className="h-4 w-4" /> Novo produto/serviço</Button>
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/ordens?novo=1")}><ClipboardPlus className="h-4 w-4" /> Nova ordem de serviço</Button>
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={() => openQuickCadastro("/residencial/agenda?novo=1")}><CalendarPlus className="h-4 w-4" /> Novo agendamento</Button>
-                  <Button type="button" variant="outline" size="sm" className="justify-start gap-2" onClick={toggleFullscreen}>{isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}{isFullscreen ? "Sair da tela cheia" : "Tela cheia"}</Button>
+                <div className="grid grid-cols-1 gap-2 mt-2 sm:grid-cols-2">
+                  {canOperateCaixa && <>
+                    <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowFecharCaixaModal(true); }}><Lock className="mr-2 h-4 w-4" /> Fechar caixa (F10)</Button>
+                    <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowSangriaModal(true); }}><ArrowDownCircle className="mr-2 h-4 w-4" /> Sangria (F7)</Button>
+                    <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowSuprimentoModal(true); }}><ArrowUpCircle className="mr-2 h-4 w-4" /> Suprimento</Button>
+                  </>}
+                  {canAccessRoute("/residencial/relatorios/caixa") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/residencial/relatorios/caixa")}><BarChart3 className="mr-2 h-4 w-4" /> Relatório de caixa</Button>}
+                  <Button variant="outline" size="sm" onClick={() => setShowAjudaAtalhos(true)}><Keyboard className="mr-2 h-4 w-4" /> Atalhos</Button>
+                  <Button variant="outline" size="sm" onClick={toggleFullscreen}>{isFullscreen ? <Minimize className="mr-2 h-4 w-4" /> : <Maximize className="mr-2 h-4 w-4" />}Tela cheia</Button>
                 </div>
               )}
             </div>
@@ -1026,7 +1075,7 @@ const CaixaPDV = () => {
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}>
                                 <Minus className="h-3.5 w-3.5" />
                               </Button>
-                              <span className="w-8 text-center font-semibold tabular-nums">{item.quantidade}</span>
+                              <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} className="h-8 w-16 border-0 px-1 text-center" value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={e => editQuantity(item, e.target.value)} />
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}>
                                 <Plus className="h-3.5 w-3.5" />
                               </Button>
@@ -1069,7 +1118,7 @@ const CaixaPDV = () => {
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(180px,1fr)_minmax(240px,1.6fr)]">
                 <Button type="button" variant="outline" className="h-11 gap-2 font-semibold" onClick={() => setShowConsultarOSModal(true)}><FileSearch className="h-4 w-4" /> Consultar ROL (F5)</Button>
-                <Button type="button" className="h-11 gap-2 bg-success text-success-foreground hover:bg-success/90" onClick={handleOpenPagamento}><CreditCard className="h-5 w-5" /> Receber pagamento <span className="text-success-foreground/75">F4</span></Button>
+                <Button type="button" className="h-11 gap-2 bg-success text-success-foreground hover:bg-success/90" disabled={!cartValid || isProcessingVenda} onClick={handleOpenPagamento}><CreditCard className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar atendimento"} <span className="text-success-foreground/75">F4</span></Button>
               </div>
             </div>
           </section>
@@ -1107,19 +1156,23 @@ const CaixaPDV = () => {
         } : null}
         totalOriginal={totalValue}
         totalItems={totalItems}
-        loyalty={customerLoyalty ?? null}
+        loyalty={canUseLoyalty ? customerLoyalty ?? null : null}
+        canManageCommercialTerms={canManageCommercialTerms}
+        canReceivePayments={canReceivePayments}
+        termsLoading={catalogLoading}
+        termsError={catalogError || !cartValid}
         loyaltyLoading={isLoadingCustomerLoyalty}
         configuracaoPagamento={configuracaoPagamento ?? null}
-        onEditConfiguracaoPagamento={handleEditClientePagamento}
+        onEditConfiguracaoPagamento={canManageCommercialTerms ? handleEditClientePagamento : undefined}
         onConfirm={handleFinalizarVenda}
         isLoading={isProcessingVenda}
       />
 
-      <ClientePagamentoDialog
+      {canManageCommercialTerms && <ClientePagamentoDialog
         open={showClientePagamentoDialog}
         onOpenChange={setShowClientePagamentoDialog}
         clienteId={selectedClientId}
-      />
+      />}
 
       {/* Modal de Impressão Pós-Venda */}
       {osRecemCriada && (
@@ -1138,12 +1191,12 @@ const CaixaPDV = () => {
       )}
 
       {/* Modais de Caixa */}
-      <AbrirCaixaModal
+      {canOperateCaixa && <AbrirCaixaModal
         open={showAbrirCaixaModal}
         onOpenChange={setShowAbrirCaixaModal}
-      />
+      />}
 
-      {caixaAberto && (
+      {canOperateCaixa && caixaAberto && (
         <>
           <FecharCaixaModal
             open={showFecharCaixaModal}
@@ -1167,10 +1220,11 @@ const CaixaPDV = () => {
       <ConsultarOSModal
         open={showConsultarOSModal}
         onOpenChange={setShowConsultarOSModal}
-        onReceberPagamento={(ordem) => {
+        onReceberPagamento={canReceivePayments ? (ordem) => {
+          if (!canReceivePayments || ordem.condicao_pagamento === "faturado") return;
           setOsParaReceber(ordem);
           setShowReceberPagamentoModal(true);
-        }}
+        } : undefined}
         onImprimirROL={(osId) => {
           void printROL(osId);
         }}
@@ -1180,8 +1234,9 @@ const CaixaPDV = () => {
       />
 
       {/* Modal Receber Pagamento */}
-      {osParaReceber && (
+      {canReceivePayments && osParaReceber && (
         <ReceberPagamentoModal
+          canUseLoyalty={canUseLoyalty}
           open={showReceberPagamentoModal}
           onOpenChange={setShowReceberPagamentoModal}
           osId={osParaReceber.id}
@@ -1196,7 +1251,7 @@ const CaixaPDV = () => {
         />
       )}
 
-      {pixContext && (
+      {canReceivePayments && pixContext && (
         <PixPagamentoModal
           open
           onOpenChange={() => undefined}
@@ -1212,20 +1267,22 @@ const CaixaPDV = () => {
         />
       )}
 
-      {/* Modal Histórico de Vendas */}
-      {caixaAberto && (
-        <HistoricoVendasModal
-          open={showHistoricoVendas}
-          onOpenChange={setShowHistoricoVendas}
-          caixaId={caixaAberto.id}
-          onImprimirROL={(osId) => {
-            void printROL(osId);
-          }}
-          onImprimirEtiquetas={(osId) => {
-            void printEtiqueta(osId);
-          }}
-        />
-      )}
+      <ConsultarOSModal
+        open={showHistoricoVendas}
+        onOpenChange={setShowHistoricoVendas}
+        recent
+        onImprimirROL={osId => { void printROL(osId); }}
+        onImprimirEtiquetas={osId => { void printEtiqueta(osId); }}
+      />
+
+      {canManageContracts && selectedClient && <Dialog open={showContracts} onOpenChange={setShowContracts}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Contrato · {selectedClient.nome_fantasia || selectedClient.razao_social}</DialogTitle>
+            <DialogDescription>Setor {areaLabel} · Contrato do cliente selecionado.</DialogDescription>
+          </DialogHeader>
+          {showContracts && <ClienteContrato clienteId={selectedClient.id} />}
+        </DialogContent>
+      </Dialog>}
 
       {/* Modal Ajuda Atalhos */}
       <AjudaAtalhosModal

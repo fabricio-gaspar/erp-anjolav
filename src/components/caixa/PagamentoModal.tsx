@@ -45,6 +45,8 @@ import { validarCpfCnpj } from "@/lib/validacoesFiscais";
 import type { PdvLoyaltySummary } from "@/hooks/usePdvPayments";
 import type { ConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 
+import { parseCustomerPaymentTerms, customerPaymentTermsLabels, initialCustomerPayment, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
+
 interface CartItem {
   id: string;
   nome: string;
@@ -64,6 +66,7 @@ interface Cliente {
   razao_social: string;
   nome_fantasia: string | null;
   cpf_cnpj: string | null;
+  classificacao?: "industrial" | "residencial";
 }
 
 interface PagamentoModalProps {
@@ -77,6 +80,11 @@ interface PagamentoModalProps {
   loyaltyLoading?: boolean;
   configuracaoPagamento?: ConfiguracaoPagamentoCliente | null;
   onEditConfiguracaoPagamento?: () => void;
+  canManageCommercialTerms?: boolean;
+  /** The parent must pass false whenever the cash register is unavailable. */
+  canReceivePayments?: boolean;
+  termsLoading?: boolean;
+  termsError?: boolean;
   onConfirm: (dados: DadosPagamento) => Promise<void>;
   isLoading?: boolean;
 }
@@ -105,24 +113,6 @@ export interface DadosPagamento {
 
 type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE";
 
-function getFormaPagamentoClienteLabel(formaPagamento: string | null | undefined) {
-  switch (formaPagamento) {
-    case "pix":
-      return "PIX";
-    case "transferencia":
-      return "Transferência";
-    case "boleto":
-      return "Boleto";
-    default:
-      return "Não definida";
-  }
-}
-
-function getFechamentoClienteLabel(diaFechamento: number | null | undefined) {
-  if (diaFechamento === null || diaFechamento === undefined) return "Avulso";
-  return diaFechamento === 16 ? "Quinzenal (dia 16)" : "Mensal (dia 1)";
-}
-
 const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; icon: React.ReactNode }[] = [
   { value: "DINHEIRO", label: "Dinheiro", icon: <Banknote className="w-5 h-5" /> },
   { value: "PIX", label: "PIX", icon: <Smartphone className="w-5 h-5" /> },
@@ -136,7 +126,19 @@ const PARCELAS_OPCOES = [1, 2, 3, 4, 5, 6, 10, 12];
 const DIAS_ENTREGA_PADRAO = 3;
 const PERCENTUAL_URGENCIA_PADRAO = 30;
 
-export function PagamentoModal({
+export function PagamentoModal(props: PagamentoModalProps) {
+  // Reset payment evidence and adjustments whenever the customer or terms change.
+  const config = props.configuracaoPagamento;
+  const formKey = JSON.stringify([
+    props.open, props.cliente?.id, props.termsLoading, props.termsError,
+    config?.cliente_id, config?.condicao_pagamento, config?.forma_pagamento,
+    config?.tipo_faturamento, config?.dia_fechamento, config?.dia_vencimento,
+    props.canReceivePayments, props.canManageCommercialTerms,
+  ]);
+  return <PagamentoModalForm key={formKey} {...props} />;
+}
+
+function PagamentoModalForm({
   open,
   onOpenChange,
   cart,
@@ -147,11 +149,21 @@ export function PagamentoModal({
   loyaltyLoading = false,
   configuracaoPagamento = null,
   onEditConfiguracaoPagamento,
+  canManageCommercialTerms = false,
+  canReceivePayments = true,
+  termsLoading = false,
+  termsError = false,
   onConfirm,
   isLoading = false,
 }: PagamentoModalProps) {
-  const [pagoAgora, setPagoAgora] = useState(false);
-  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(null);
+  const termsMismatch = !!configuracaoPagamento && configuracaoPagamento.cliente_id !== cliente?.id;
+  const terms = parseCustomerPaymentTerms(termsMismatch ? null : configuracaoPagamento);
+  const termsLabels = customerPaymentTermsLabels(terms);
+  const initialPayment = initialCustomerPayment(terms);
+  const isBilled = terms.condition === "faturado";
+  const isEntry = terms.condition === "entrada";
+  const [pagoAgora, setPagoAgora] = useState(initialPayment.pagoAgora);
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(initialPayment.formaPagamento);
   const [urgente, setUrgente] = useState(false);
   const [descontoTipo, setDescontoTipo] = useState<"percentual" | "valor">("percentual");
   const [descontoInput, setDescontoInput] = useState("");
@@ -170,29 +182,6 @@ export function PagamentoModal({
   const [nsu, setNsu] = useState("");
   const [codigoAutorizacao, setCodigoAutorizacao] = useState("");
   const [pontosResgate, setPontosResgate] = useState("");
-
-  // Reset form when modal opens
-  useEffect(() => {
-    if (open) {
-      setPagoAgora(false);
-      setFormaPagamento(null);
-      setUrgente(false);
-      setDescontoTipo("percentual");
-      setDescontoInput("");
-      setTipoLogistica("buscar");
-      setMotoristaId("");
-      setVeiculoId("");
-      setParcelas(1);
-      setValorRecebido("");
-      setBandeira("");
-      setNsu("");
-      setCodigoAutorizacao("");
-      setPontosResgate("");
-      // Reset delivery date
-      const data = addDays(new Date(), DIAS_ENTREGA_PADRAO);
-      setPrevisaoEntrega(isWeekend(data) ? nextMonday(data) : data);
-    }
-  }, [open]);
 
   // Update delivery date when urgency changes
   useEffect(() => {
@@ -264,14 +253,18 @@ export function PagamentoModal({
     }).format(value);
   };
 
-  const canSubmit = useMemo(() => {
-    if (pagoAgora && !formaPagamento) return false;
+  const canSubmit = (() => {
+    if (termsLoading || termsError || termsMismatch || !cliente || isLoading) return false;
+    if (!isCustomerPaymentAllowed(terms, { pagoAgora, formaPagamento: pagoAgora ? formaPagamento : null, canReceivePayments })) return false;
+    if (isBilled && (urgente || calculos.valorDesconto > 0)) return false;
+    if (!canManageCommercialTerms && calculos.valorDesconto > 0) return false;
+    if (!Number.isFinite(calculos.valorTotal) || !Number.isFinite(calculos.valorDesconto)) return false;
     if (calculos.valorDesconto > totalOriginal || calculos.valorTotal <= 0) return false;
     if (tipoLogistica === "entregar" && (!motoristaId || !veiculoId)) return false;
     // Para dinheiro, verificar se valor recebido é suficiente
     if (pagoAgora && formaPagamento === "DINHEIRO") {
       const recebido = parseCurrencyToNumber(valorRecebido);
-      if (recebido < calculos.valorTotal) return false;
+      if (!Number.isFinite(recebido) || recebido < calculos.valorTotal) return false;
     }
     if (pagoAgora && formaPagamento === "PIX") {
       if (!cliente?.cpf_cnpj || !validarCpfCnpj(cliente.cpf_cnpj).valid) return false;
@@ -287,24 +280,7 @@ export function PagamentoModal({
       if (valorResgate <= 0 || valorResgate > calculos.valorTotal + 0.009) return false;
     }
     return true;
-  }, [
-    pagoAgora,
-    formaPagamento,
-    valorRecebido,
-    calculos.valorDesconto,
-    calculos.valorTotal,
-    totalOriginal,
-    cliente?.cpf_cnpj,
-    bandeira,
-    nsu,
-    codigoAutorizacao,
-    tipoLogistica,
-    motoristaId,
-    veiculoId,
-    pontosResgate,
-    loyalty,
-    loyaltyLoading,
-  ]);
+  })();
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -322,15 +298,15 @@ export function PagamentoModal({
       tipoLogistica,
       motoristaId: tipoLogistica === "entregar" ? motoristaId : undefined,
       veiculoId: tipoLogistica === "entregar" ? veiculoId : undefined,
-      parcelas: formaPagamento === "CARTAO_CREDITO" ? parcelas : 1,
-      valorRecebido: formaPagamento === "DINHEIRO" ? recebido : undefined,
-      troco: formaPagamento === "DINHEIRO" ? troco : undefined,
-      bandeira: formaPagamento?.startsWith("CARTAO_") ? bandeira : undefined,
-      nsu: formaPagamento?.startsWith("CARTAO_") ? nsu.trim() || undefined : undefined,
-      codigoAutorizacao: formaPagamento?.startsWith("CARTAO_")
+      parcelas: pagoAgora && formaPagamento === "CARTAO_CREDITO" ? parcelas : 1,
+      valorRecebido: pagoAgora && formaPagamento === "DINHEIRO" ? recebido : undefined,
+      troco: pagoAgora && formaPagamento === "DINHEIRO" ? troco : undefined,
+      bandeira: pagoAgora && formaPagamento?.startsWith("CARTAO_") ? bandeira : undefined,
+      nsu: pagoAgora && formaPagamento?.startsWith("CARTAO_") ? nsu.trim() || undefined : undefined,
+      codigoAutorizacao: pagoAgora && formaPagamento?.startsWith("CARTAO_")
         ? codigoAutorizacao.trim() || undefined
         : undefined,
-      pontosResgate: formaPagamento === "FIDELIDADE" ? Number(pontosResgate) : undefined,
+      pontosResgate: pagoAgora && formaPagamento === "FIDELIDADE" ? Number(pontosResgate) : undefined,
     });
   };
 
@@ -399,25 +375,28 @@ export function PagamentoModal({
               <Settings2 className="mt-0.5 h-7 w-7 shrink-0 text-foreground" />
               <div className="min-w-0">
                 <p className="text-lg font-black">Configuração de pagamento do cliente</p>
-                {configuracaoPagamento ? (
-                  <div className="mt-1 grid grid-cols-2 gap-x-5 gap-y-1 text-sm text-muted-foreground sm:grid-cols-4">
-                    <span>Forma: <strong className="text-foreground">{getFormaPagamentoClienteLabel(configuracaoPagamento.forma_pagamento)}</strong></span>
-                    <span>Fechamento: <strong className="text-foreground">{getFechamentoClienteLabel(configuracaoPagamento.dia_fechamento)}</strong></span>
-                    <span>Vencimento: <strong className="text-foreground">Dia {configuracaoPagamento.dia_vencimento ?? "-"}</strong></span>
-                    <span>Faturamento: <strong className="text-foreground">{configuracaoPagamento.tipo_faturamento || "Mensal"}</strong></span>
-                  </div>
-                ) : (
-                  <p className="mt-1 text-sm text-muted-foreground">Ainda não configurada para este cliente.</p>
-                )}
+                <div className="mt-1 space-y-1 text-sm text-muted-foreground">
+                  <p>Condição: <strong className="text-foreground">{termsLabels.condition}</strong></p>
+                  <p>Método preferido: <strong className="text-foreground">{termsLabels.preferredMethod}</strong>. A preferência não comprova pagamento.</p>
+                  {isBilled && <p>Periodicidade: {termsLabels.frequency}. Fechamento: {terms.closingDay ? "dia " + terms.closingDay : "sob demanda / não definido"}. Vencimento: {terms.dueDay ? "dia " + terms.dueDay : "não definido"}.</p>}
+                </div>
               </div>
             </div>
-            {onEditConfiguracaoPagamento && (
-              <Button type="button" variant="outline" className="h-11 shrink-0 gap-2 px-5 text-base font-bold" onClick={onEditConfiguracaoPagamento}>
+            {canManageCommercialTerms && onEditConfiguracaoPagamento && (
+              <Button type="button" variant="outline" className="h-11 shrink-0 gap-2 px-5 text-base font-bold" disabled={termsLoading || isLoading} onClick={onEditConfiguracaoPagamento}>
                 <Settings2 className="h-5 w-5" />
                 {configuracaoPagamento ? "Editar" : "Configurar"}
               </Button>
             )}
           </div>
+
+          {termsLoading && <p role="status" className="text-sm text-muted-foreground">Carregando condições de pagamento. Aguarde para finalizar.</p>}
+          {(termsError || termsMismatch) && <p role="alert" className="text-sm text-destructive">Não foi possível validar as condições deste cliente. Recarregue os dados antes de finalizar.</p>}
+          {isBilled && <p className="text-sm text-muted-foreground">Será gerada uma pendência para fechamento no faturamento, sem recebimento imediato. Desconto e urgência estão indisponíveis neste fluxo para manter o valor da OS igual ao lançamento. Nenhum boleto ou nota é emitido automaticamente aqui.</p>}
+          {!canManageCommercialTerms && <p className="text-xs text-muted-foreground">Alterar configurações e conceder desconto exige permissão para gerenciar condições comerciais.</p>}
+          {!canReceivePayments && <p role="alert" className="text-sm text-warning">Recebimentos indisponíveis: é necessário caixa disponível e permissão para receber. {isEntry ? "A condição de entrada exige recebimento; a finalização está bloqueada." : "Você pode finalizar sem recebimento imediato conforme a condição do cliente."}</p>}
+          {isEntry && <p className="text-sm text-muted-foreground">Entrada exige o pagamento integral. Fidelidade está desabilitada porque o resgate pode deixar saldo pendente.</p>}
+          {!isBilled && initialPayment.unsupportedPreference && <p role="alert" className="text-sm text-warning">O método preferido ({termsLabels.preferredMethod}) não possui cobrança ou confirmação imediata neste PDV. Para receber agora, escolha PIX, dinheiro ou cartão e siga o fluxo de confirmação. A preferência não registra pagamento.</p>}
 
           {/* Previsão, desconto e urgência */}
           <div className="grid gap-3 lg:grid-cols-[1.18fr_1fr_0.9fr]">
@@ -440,13 +419,13 @@ export function PagamentoModal({
               <Label className="flex items-center gap-2 text-base font-bold"><Percent className="h-5 w-5 text-primary" /> Desconto</Label>
               <div className="flex gap-2">
                 <div className="flex shrink-0 overflow-hidden rounded-lg border border-strong">
-                  <button type="button" onClick={() => setDescontoTipo("percentual")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "percentual" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>%</button>
-                  <button type="button" onClick={() => setDescontoTipo("valor")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "valor" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>R$</button>
+                  <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("percentual")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "percentual" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>%</button>
+                  <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("valor")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "valor" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>R$</button>
                 </div>
                 {descontoTipo === "valor" ? (
-                  <CurrencyInput value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} className="h-12 flex-1" />
+                  <CurrencyInput disabled={!canManageCommercialTerms || isBilled} value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} className="h-12 flex-1" />
                 ) : (
-                  <Input type="text" value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} placeholder="0" className="h-12 flex-1" />
+                  <Input disabled={!canManageCommercialTerms || isBilled} type="text" value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} placeholder="0" className="h-12 flex-1" />
                 )}
               </div>
             </div>
@@ -459,7 +438,7 @@ export function PagamentoModal({
                   <p className="text-sm text-muted-foreground">Entrega prioritária</p>
                 </div>
               </div>
-              <Switch checked={urgente} onCheckedChange={setUrgente} />
+              <Switch disabled={isBilled} checked={urgente} onCheckedChange={setUrgente} />
             </div>
           </div>
 
@@ -478,7 +457,7 @@ export function PagamentoModal({
           />
 
           <Separator className="my-1" />
-          <div className="space-y-2">
+          {!isBilled && <div className="space-y-2">
             <Label className="flex items-center gap-2 text-lg font-black">
               <CreditCard className="h-5 w-5 text-primary" />
               Momento do pagamento
@@ -486,9 +465,10 @@ export function PagamentoModal({
             <div className="grid gap-3 md:grid-cols-2">
               <button
                 type="button"
-                onClick={() => setPagoAgora(false)}
+                disabled={isEntry}
+                onClick={() => { setPagoAgora(false); setFormaPagamento(null); }}
                 className={cn(
-                  "flex items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all",
+                  "flex items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50",
                   !pagoAgora
                     ? "border-primary bg-primary/5"
                     : "border-muted hover:border-muted-foreground/30",
@@ -512,9 +492,10 @@ export function PagamentoModal({
               </button>
               <button
                 type="button"
+                disabled={!canReceivePayments}
                 onClick={() => setPagoAgora(true)}
                 className={cn(
-                  "flex items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all",
+                  "flex items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50",
                   pagoAgora
                     ? "border-primary bg-primary/5"
                     : "border-muted hover:border-muted-foreground/30",
@@ -533,24 +514,25 @@ export function PagamentoModal({
                   "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
                   pagoAgora ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/50",
                 )}>
-                  {pagoAgora && <Check className="h-4 w-4" />}
+                  {!isBilled && pagoAgora && <Check className="h-4 w-4" />}
                 </span>
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Forma de Pagamento (se pagar agora) */}
-          {pagoAgora && (
+          {!isBilled && pagoAgora && (
             <div className="space-y-3">
               <Label>Forma de Pagamento</Label>
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
-                {FORMAS_PAGAMENTO.map((forma) => (
+                {FORMAS_PAGAMENTO.filter((forma) => forma.value !== "FIDELIDADE" || (cliente?.classificacao !== "industrial" && loyalty?.programaAtivo)).map((forma) => (
                   <button
                     key={forma.value}
                     type="button"
+                    disabled={!canReceivePayments || (isEntry && forma.value === "FIDELIDADE")}
                     onClick={() => setFormaPagamento(forma.value)}
                     className={cn(
-                      "flex flex-col items-center gap-1 rounded-lg border-2 p-2 transition-all",
+                      "flex flex-col items-center gap-1 rounded-lg border-2 p-2 transition-all disabled:cursor-not-allowed disabled:opacity-50",
                       formaPagamento === forma.value
                         ? "border-primary bg-primary/5 text-primary"
                         : "border-muted hover:border-muted-foreground/30"
@@ -565,7 +547,7 @@ export function PagamentoModal({
           )}
 
           {/* Parcelamento (apenas para crédito) */}
-          {pagoAgora && formaPagamento === "CARTAO_CREDITO" && (
+          {!isBilled && pagoAgora && formaPagamento === "CARTAO_CREDITO" && (
             <div className="space-y-3">
               <Label className="flex items-center gap-2">
                 <Calculator className="w-4 h-4" />
@@ -594,7 +576,7 @@ export function PagamentoModal({
             </div>
           )}
 
-          {pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO") && (
+          {!isBilled && pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO") && (
             <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
               <div>
                 <Label>Bandeira</Label>
@@ -640,7 +622,7 @@ export function PagamentoModal({
             </div>
           )}
 
-          {pagoAgora && formaPagamento === "PIX" && (
+          {!isBilled && pagoAgora && formaPagamento === "PIX" && (
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
               {cliente?.cpf_cnpj && validarCpfCnpj(cliente.cpf_cnpj).valid ? (
                 <p>Será gerado um QR Code dinâmico com a conta e o valor exato. A baixa ocorrerá somente após a confirmação do provedor.</p>
@@ -650,7 +632,7 @@ export function PagamentoModal({
             </div>
           )}
 
-          {pagoAgora && formaPagamento === "FIDELIDADE" && (
+          {!isBilled && pagoAgora && formaPagamento === "FIDELIDADE" && (
             <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
               <Label htmlFor="sale-loyalty-points" className="flex items-center gap-2"><Gift className="h-4 w-4" /> Pontos para resgatar</Label>
               {loyaltyLoading ? (
@@ -675,7 +657,7 @@ export function PagamentoModal({
           )}
 
           {/* Gaveta de Troco (apenas para dinheiro) */}
-          {pagoAgora && formaPagamento === "DINHEIRO" && (
+          {!isBilled && pagoAgora && formaPagamento === "DINHEIRO" && (
             <div className="rounded-lg border border-success/30 bg-success/5 p-3 space-y-2">
               <Label className="flex items-center gap-2 text-success">
                 <Banknote className="w-4 h-4" />
@@ -735,7 +717,7 @@ export function PagamentoModal({
               {calculos.valorUrgencia > 0 && (
                 <p className="text-xs font-semibold text-warning">Urgência +{formatCurrency(calculos.valorUrgencia)}</p>
               )}
-              {pagoAgora && formaPagamento === "CARTAO_CREDITO" && parcelas > 1 && (
+              {!isBilled && pagoAgora && formaPagamento === "CARTAO_CREDITO" && parcelas > 1 && (
                 <p className="text-xs text-muted-foreground">{parcelas}x de {formatCurrency(valorParcela)}</p>
               )}
             </div>
@@ -769,7 +751,7 @@ export function PagamentoModal({
             ) : (
               <>
                 <Check className="h-5 w-5" />
-                {formaPagamento === "PIX" ? "Criar OS e gerar PIX" : "Finalizar Venda"}
+                {isBilled ? "Gerar pendência para fechamento" : pagoAgora && formaPagamento === "PIX" ? "Criar OS e gerar PIX" : "Finalizar Venda"}
               </>
             )}
           </Button>
