@@ -143,7 +143,7 @@ const FluxoProducao = () => {
             <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
             <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">PRODUÇÃO INDUSTRIAL</span>
           </div>
-          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+          <h1 className="page-title">
             Fluxo de Produção
           </h1>
           <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">

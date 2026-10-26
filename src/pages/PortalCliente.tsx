@@ -22,6 +22,7 @@ import { LancarProdutosModal } from "@/components/portal/LancarProdutosModal";
 import { usePortalAlertas, usePortalBootstrap } from "@/hooks/usePortalData";
 import { AlertasPortal } from "@/components/portal/AlertasPortal";
 import { EstatisticasCliente } from "@/components/portal/EstatisticasCliente";
+import { FidelidadeClienteCard } from "@/components/portal/FidelidadeClienteCard";
 import { AcompanhamentoProducao } from "@/components/portal/AcompanhamentoProducao";
 import { CentralDocumentos } from "@/components/portal/CentralDocumentos";
 
@@ -170,6 +171,8 @@ const PortalCliente = () => {
               estatisticas={estatisticas} 
               isLoading={false}
             />
+
+            <FidelidadeClienteCard loyalty={portalData.loyalty} />
 
             <Separator />
 

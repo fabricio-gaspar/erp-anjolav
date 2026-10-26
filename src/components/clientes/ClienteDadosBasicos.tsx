@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Building2, Home, Check, Loader2, Search } from "lucide-react";
 import { useClientes, useClienteById } from "@/hooks/useClientes";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { buscarCnpj, BrasilApiCnpjResponse } from "@/services/apiServices";
 import { toast } from "sonner";
 import { useConfiguracaoAutomatica } from "@/hooks/useConfiguracaoAutomatica";
@@ -24,12 +25,15 @@ export const ClienteDadosBasicos = ({
   onClienteSaved,
   onCnpjDataLoaded 
 }: ClienteDadosBasicosProps) => {
+  const { activeArea } = useWorkspace();
   const { createCliente, updateCliente } = useClientes();
   const { data: clienteExistente, isLoading: isLoadingCliente } = useClienteById(clienteId);
   const { criarConfiguracaoComAgendamentos } = useConfiguracaoAutomatica();
 
   const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>("cnpj");
-  const [classificacao, setClassificacao] = useState<Classificacao>("industrial");
+  const [classificacao, setClassificacao] = useState<Classificacao>(
+    activeArea === "residencial" ? "residencial" : "industrial",
+  );
   const [regimeTributario, setRegimeTributario] = useState<RegimeTributario>("nao_contribuinte");
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
 
@@ -71,7 +75,7 @@ export const ClienteDadosBasicos = ({
   useEffect(() => {
     if (!clienteId) {
       setTipoPessoa("cnpj");
-      setClassificacao("industrial");
+      setClassificacao(activeArea === "residencial" ? "residencial" : "industrial");
       setRegimeTributario("nao_contribuinte");
       setFormData({
         cpf_cnpj: "",
@@ -86,7 +90,7 @@ export const ClienteDadosBasicos = ({
         observacoes: "",
       });
     }
-  }, [clienteId]);
+  }, [clienteId, activeArea]);
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -152,9 +156,12 @@ export const ClienteDadosBasicos = ({
       return;
     }
 
+    const effectiveClassificacao: Classificacao =
+      activeArea === "central" ? classificacao : activeArea;
+
     const clienteData = {
       tipo_pessoa: tipoPessoa,
-      classificacao: classificacao,
+      classificacao: effectiveClassificacao,
       regime_tributario: regimeTributario,
       cpf_cnpj: formData.cpf_cnpj || null,
       razao_social: formData.razao_social,
@@ -184,7 +191,7 @@ export const ClienteDadosBasicos = ({
           onClienteSaved(data.id);
           
           // Criar configuração padrão e agendamentos automaticamente
-          await criarConfiguracaoComAgendamentos(data.id, classificacao);
+          await criarConfiguracaoComAgendamentos(data.id, effectiveClassificacao);
           
           if (goNext) onNext();
         },
@@ -237,6 +244,7 @@ export const ClienteDadosBasicos = ({
             type="button"
             variant={classificacao === "residencial" ? "default" : "outline"}
             className={`rounded-r-none gap-2 ${classificacao === "residencial" ? "" : "border-r-0"}`}
+            disabled={activeArea !== "central"}
             onClick={() => setClassificacao("residencial")}
           >
             <Home className="w-4 h-4" />
@@ -246,6 +254,7 @@ export const ClienteDadosBasicos = ({
             type="button"
             variant={classificacao === "industrial" ? "default" : "outline"}
             className="rounded-l-none gap-2"
+            disabled={activeArea !== "central"}
             onClick={() => setClassificacao("industrial")}
           >
             <Building2 className="w-4 h-4" />

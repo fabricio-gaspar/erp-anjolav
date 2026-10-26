@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,11 +25,17 @@ import {
   Keyboard,
   Clock,
   BarChart3,
+  Settings2,
+  UserRound,
+  UserPlus,
+  PackagePlus,
+  ClipboardPlus,
+  CalendarPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
-import { useClientes } from "@/hooks/useClientes";
+import { useClientes, useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import { useCaixaAberto } from "@/hooks/useCaixa";
 import { ItemDetalhesModal } from "@/components/caixa/ItemDetalhesModal";
 import { PagamentoModal, DadosPagamento } from "@/components/caixa/PagamentoModal";
@@ -41,15 +47,25 @@ import { SuprimentoModal } from "@/components/caixa/SuprimentoModal";
 import { ConsultarOSModal } from "@/components/caixa/ConsultarOSModal";
 import { ReceberPagamentoModal, type PixRecebimentoRequest } from "@/components/caixa/ReceberPagamentoModal";
 import { PixPagamentoModal } from "@/components/caixa/PixPagamentoModal";
-import { HistoricoVendasModal } from "@/components/caixa/HistoricoVendasModal";
+
 import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
+import { ClientePagamentoDialog } from "@/components/caixa/ClientePagamentoDialog";
 import { OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePrintOS } from "@/hooks/usePrintOS";
-import { useCreatePdvSale } from "@/hooks/usePdvPayments";
+import { useCreatePdvSale, usePdvCustomerLoyaltySummary, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
 import { createPdvIdempotencyKey, type PdvPixPayment } from "@/lib/pdvPayment";
+
+
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { buildClientPriceCatalog } from "@/lib/clientPricing";
+import { parseCustomerPaymentTerms, customerPaymentTermsLabels, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
+import { ClienteContrato } from "@/components/clientes/ClienteContrato";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface CartItem {
   id: string;
@@ -85,8 +101,6 @@ interface PixFlowContext {
   source: "sale" | "receivable";
 }
 
-const alphabet = ["TODOS", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"];
-
 const getUnidadeLabel = (unidade: string | null) => {
   switch (unidade) {
     case "kg": return "Kg";
@@ -97,12 +111,40 @@ const getUnidadeLabel = (unidade: string | null) => {
   }
 };
 
+
+const isValidQuantity = (value: number, unidade: string) =>
+  Number.isFinite(value) && value > 0 && value <= 999 &&
+  (["Kg", "Mt"].includes(unidade) || Number.isInteger(value));
+
+// Remount the sale and its dialogs whenever the security context changes.
 const CaixaPDV = () => {
+  const { activeArea } = useWorkspace();
+  const { activeTenant, user } = useAuth();
+  const { pathname } = useLocation();
+  if (!activeTenant || !user || !pathname.startsWith("/" + activeArea + "/")) {
+    return <AppLayout title="PDV Atendimento"><p>Carregando contexto do atendimento...</p></AppLayout>;
+  }
+  return <PdvAtendimento key={[activeTenant.id, user.id, activeArea].join(":")} />;
+};
+
+const PdvAtendimento = () => {
+
   const navigate = useNavigate();
-  const { produtos, isLoading: isLoadingProdutos } = useProdutos();
-  const { clientes, isLoading: isLoadingClientes } = useClientes();
-  const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto();
+  const { activeArea } = useWorkspace();
+  const area = activeArea === "industrial" ? "industrial" : "residencial";
+  const areaLabel = area === "industrial" ? "Industrial" : "Residencial";
+  const { canAccessRoute } = useNavigationAccess();
+  const { allowed: canOperateCaixa } = usePermissaoModulo("caixa");
+  const canUseLoyalty = area === "residencial" && canOperateCaixa;
+  const { allowed: canManageCommercialTerms } = usePermissaoModulo("alterar_condicoes_comerciais");
+  const canManageContracts = canAccessRoute("/" + area + "/clientes");
+  const canCreateSale = canAccessRoute("/" + area + "/caixa");
+  const { produtos, isLoading: isLoadingProdutos, isError: productsError, refetch: refetchProducts } = useProdutos();
+  const { clientes, isLoading: isLoadingClientes, isError: clientsError, refetch: refetchClients } = useClientes();
+  const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto(canOperateCaixa);
+  const canReceivePayments = canOperateCaixa && !!caixaAberto;
   const createPdvSale = useCreatePdvSale();
+  const redeemLoyalty = useRedeemPdvLoyalty();
   const { printROL, printEtiqueta } = usePrintOS();
   
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -111,8 +153,10 @@ const CaixaPDV = () => {
   const barcodeBufferRef = useRef("");
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedLetter, setSelectedLetter] = useState("TODOS");
+  const [showProductList, setShowProductList] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
+  const [showContracts, setShowContracts] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showClientList, setShowClientList] = useState(false);
@@ -123,11 +167,13 @@ const CaixaPDV = () => {
   
   // Estados para modais de pagamento e impressão
   const [showPagamentoModal, setShowPagamentoModal] = useState(false);
+  const [showClientePagamentoDialog, setShowClientePagamentoDialog] = useState(false);
   const [showImpressaoModal, setShowImpressaoModal] = useState(false);
   const [osRecemCriada, setOsRecemCriada] = useState<OSRecemCriada | null>(null);
   const [isProcessingVenda, setIsProcessingVenda] = useState(false);
   const [pixContext, setPixContext] = useState<PixFlowContext | null>(null);
   const saleIdempotencyRef = useRef<string | null>(null);
+  const submittingRef = useRef(false);
   
   // Estados para modais de caixa
   const [showAbrirCaixaModal, setShowAbrirCaixaModal] = useState(false);
@@ -141,55 +187,53 @@ const CaixaPDV = () => {
   // Novos estados para funcionalidades profissionais
   const [showHistoricoVendas, setShowHistoricoVendas] = useState(false);
   const [showAjudaAtalhos, setShowAjudaAtalhos] = useState(false);
+  const [showOperations, setShowOperations] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  const { precos: precosEspeciais } = usePrecosEspeciais(selectedClientId);
-  
-  // Último cliente usado (persistido no localStorage)
-  const [ultimoClienteId, setUltimoClienteId] = useState<string | null>(() => {
-    return localStorage.getItem("pdv_ultimo_cliente");
+
+  const { precos: precosEspeciais, isLoading: pricesLoading, isError: pricesError, refetch: refetchPrices } = usePrecosEspeciais(selectedClientId);
+  // Session-only shortcut; never restore a customer from global browser storage.
+  const [ultimoClienteId, setUltimoClienteId] = useState<string | null>(null);
+  const clientesFiltradosPorTipo = useMemo(() => clientes.filter(c => c.ativo && c.classificacao === area), [clientes, area]);
+  const selectedClient = useMemo(() => clientesFiltradosPorTipo.find(c => c.id === selectedClientId), [clientesFiltradosPorTipo, selectedClientId]);
+  const { configuracao: configuracaoPagamento, isLoading: termsLoading, isError: termsError, refetch: refetchTerms } = useConfiguracaoPagamentoCliente(selectedClient?.id ?? null);
+  const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(selectedClient?.id ?? null, canUseLoyalty);
+  const catalogLoading = isLoadingProdutos || isLoadingClientes || pricesLoading || termsLoading;
+  const catalogError = pricesError || termsError || productsError || clientsError;
+  const catalogReady = canCreateSale && !!selectedClient && !catalogLoading && !catalogError;
+  const isFaturado = configuracaoPagamento?.condicao_pagamento === "faturado";
+  const paymentTerms = parseCustomerPaymentTerms(configuracaoPagamento);
+  const paymentLabels = customerPaymentTermsLabels(paymentTerms);
+  const produtosAtivos = useMemo(() => catalogReady ? buildClientPriceCatalog(
+    produtos, precosEspeciais, selectedClient?.tabela_preco_tipo ?? "padrao", area,
+  ) : [], [catalogReady, produtos, precosEspeciais, selectedClient?.tabela_preco_tipo, area]);
+  const getPrecoForProduto = useCallback((produto: Produto): number =>
+    produtosAtivos.find(p => p.id === produto.id)?.precoAplicado ?? NaN, [produtosAtivos]);
+  const invalidQuantity = cart.some(item => {
+    const raw = quantityDrafts[item.id];
+    return raw !== undefined && (!/^\d+(?:[.,]\d+)?$/.test(raw) || !isValidQuantity(Number(raw.replace(",", ".")), item.unidade));
   });
-
-  const selectedClient = useMemo(() => {
-    return clientes.find(c => c.id === selectedClientId);
-  }, [clientes, selectedClientId]);
-
-  // Filter only active products with ID2 (Residencial) or ambos
-  const produtosAtivos = useMemo(() => {
-    return produtos.filter(p => 
-      p.status === "ativo" && 
-      (p.unidade_negocio === "ID2" || p.unidade_negocio === "ambos" || !p.unidade_negocio)
-    );
-  }, [produtos]);
-
-  // Filter only residential clients for PDV
-  const clientesFiltradosPorTipo = useMemo(() => {
-    return clientes.filter(c => c.classificacao === "residencial");
-  }, [clientes]);
-
-  // Get price for product (special price or default)
-  const getPrecoForProduto = useCallback((produto: Produto): number => {
-    if (selectedClientId && precosEspeciais.length > 0) {
-      const precoEspecial = precosEspeciais.find(
-        (pe) => pe.produto_id === produto.id
-      );
-      if (precoEspecial) {
-        return precoEspecial.preco_especial;
-      }
-    }
-    return produto.preco;
-  }, [precosEspeciais, selectedClientId]);
+  const cartValid = catalogReady && cart.length > 0 && !invalidQuantity && cart.every(item =>
+    isValidQuantity(item.quantidade, item.unidade) && Number.isFinite(item.preco) && item.preco >= 0 &&
+    produtosAtivos.some(p => p.id === item.id && p.precoAplicado === item.preco && getUnidadeLabel(p.unidade) === item.unidade));
 
   const filteredProdutos = useMemo(() => {
     return produtosAtivos.filter((produto) => {
       const matchesSearch = 
         produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         produto.codigo?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesLetter = selectedLetter === "TODOS" || produto.nome.toUpperCase().startsWith(selectedLetter);
-      return matchesSearch && matchesLetter;
+      return matchesSearch;
     });
-  }, [produtosAtivos, searchTerm, selectedLetter]);
+  }, [produtosAtivos, searchTerm]);
+
+  const produtoProntoParaAdicionar = useMemo(() => {
+    const termo = searchTerm.trim().toLowerCase();
+    if (!termo) return null;
+    return filteredProdutos.find((produto) =>
+      produto.codigo?.toLowerCase() === termo || produto.nome.toLowerCase() === termo
+    ) ?? (filteredProdutos.length === 1 ? filteredProdutos[0] : null);
+  }, [filteredProdutos, searchTerm]);
 
   const filteredClientes = useMemo(() => {
     if (!clientSearch) return clientesFiltradosPorTipo.slice(0, 10);
@@ -203,18 +247,20 @@ const CaixaPDV = () => {
   }, [clientesFiltradosPorTipo, clientSearch]);
 
   const addToCart = useCallback((produto: Produto) => {
-    if (!caixaAberto) {
-      toast.error("Abra o caixa para iniciar vendas");
+    if (!catalogReady || !produtosAtivos.some(p => p.id === produto.id)) {
+      toast.error("Selecione um cliente e aguarde a tabela e a condição de pagamento");
       return;
     }
     
     const preco = getPrecoForProduto(produto);
+    if (!Number.isFinite(preco) || preco < 0) return;
+    setQuantityDrafts(prev => { const next = { ...prev }; delete next[produto.id]; return next; });
     setCart((prev) => {
       const existing = prev.find((item) => item.id === produto.id);
       if (existing) {
         return prev.map((item) =>
           item.id === produto.id
-            ? { ...item, quantidade: item.quantidade + 1 }
+            ? { ...item, quantidade: Math.min(999, item.quantidade + 1) }
             : item
         );
       }
@@ -227,14 +273,27 @@ const CaixaPDV = () => {
         quantidade: 1 
       }];
     });
-  }, [caixaAberto, getPrecoForProduto]);
+    setSearchTerm("");
+    setShowProductList(false);
+  }, [catalogReady, produtosAtivos, getPrecoForProduto]);
+
+  const handleAddCurrentProduct = () => {
+    if (!produtoProntoParaAdicionar) {
+      setShowProductList(true);
+      searchInputRef.current?.focus();
+      toast.info("Selecione um produto ou serviço na lista");
+      return;
+    }
+    addToCart(produtoProntoParaAdicionar);
+  };
 
   const updateQuantity = useCallback((id: string, delta: number) => {
+    setQuantityDrafts(prev => { const next = { ...prev }; delete next[id]; return next; });
     setCart((prev) =>
       prev
         .map((item) =>
           item.id === id
-            ? { ...item, quantidade: Math.max(0, item.quantidade + delta) }
+            ? { ...item, quantidade: isValidQuantity(item.quantidade + delta, item.unidade) ? item.quantidade + delta : item.quantidade }
             : item
         )
         .filter((item) => item.quantidade > 0)
@@ -243,11 +302,21 @@ const CaixaPDV = () => {
 
   const removeFromCart = (id: string) => {
     setCart((prev) => prev.filter((item) => item.id !== id));
+    setQuantityDrafts(prev => { const next = { ...prev }; delete next[id]; return next; });
   };
 
   const clearCart = useCallback(() => {
     setCart([]);
+    setQuantityDrafts({});
   }, []);
+
+  const editQuantity = (item: CartItem, raw: string) => {
+    setQuantityDrafts(prev => ({ ...prev, [item.id]: raw }));
+    const value = Number(raw.replace(",", "."));
+    if (/^\d+(?:[.,]\d+)?$/.test(raw) && isValidQuantity(value, item.unidade)) {
+      setCart(prev => prev.map(current => current.id === item.id ? { ...current, quantidade: value } : current));
+    }
+  };
 
   const openDetalhesModal = (item: CartItem) => {
     setSelectedCartItem(item);
@@ -275,39 +344,40 @@ const CaixaPDV = () => {
   };
 
   const selectClient = useCallback((clientId: string) => {
+    if (!clientesFiltradosPorTipo.some(c => c.id === clientId)) return;
+    clearCart();
     setSelectedClientId(clientId);
     setShowClientList(false);
     setClientSearch("");
-  }, []);
+  }, [clientesFiltradosPorTipo, clearCart]);
 
   useEffect(() => {
-    if (!selectedClientId) return;
+    if (!catalogReady) return;
 
     // Recalcula somente quando os preços do cliente selecionado estiverem disponíveis.
-    setCart(prev => prev.map(item => {
-      const produto = produtos.find(p => p.id === item.id);
-      if (produto) {
-        const newPrice = getPrecoForProduto(produto);
-        return { ...item, preco: newPrice };
-      }
-      return item;
+    setCart(prev => prev.flatMap(item => {
+      const produto = produtosAtivos.find(p => p.id === item.id);
+      if (!produto || !Number.isFinite(produto.precoAplicado) || produto.precoAplicado < 0) return [];
+      const unidade = getUnidadeLabel(produto.unidade);
+      if (!isValidQuantity(item.quantidade, unidade)) return [];
+      return [{ ...item, preco: produto.precoAplicado, unidade }];
     }));
-  }, [getPrecoForProduto, produtos, selectedClientId]);
+  }, [catalogReady, produtosAtivos]);
 
   const clearClient = () => {
     setSelectedClientId(null);
     setClientSearch("");
-    // Reset to original prices
-    setCart(prev => prev.map(item => ({
-      ...item,
-      preco: item.precoOriginal
-    })));
+    clearCart();
   };
 
   // Função para abrir modal de pagamento
   const handleOpenPagamento = useCallback(() => {
-    if (!caixaAberto) {
-      toast.error("Abra o caixa primeiro");
+    if (osRecemCriada) {
+      setShowImpressaoModal(true);
+      return;
+    }
+    if (!catalogReady || !cartValid) {
+      toast.error("Confira cliente, tabela, condição e quantidades antes de finalizar");
       return;
     }
     if (cart.length === 0) {
@@ -318,20 +388,50 @@ const CaixaPDV = () => {
       toast.error("Selecione um cliente");
       return;
     }
-    saleIdempotencyRef.current = createPdvIdempotencyKey("sale");
+    saleIdempotencyRef.current ??= createPdvIdempotencyKey("sale");
     setShowPagamentoModal(true);
-  }, [caixaAberto, cart.length, selectedClientId]);
+  }, [catalogReady, cartValid, cart.length, selectedClientId, osRecemCriada]);
+
+  const handleOpenClientePagamento = useCallback(() => {
+    if (!canManageCommercialTerms) return;
+    if (!selectedClientId) {
+      toast.error("Selecione um cliente para configurar o pagamento");
+      return;
+    }
+    setShowClientePagamentoDialog(true);
+  }, [selectedClientId, canManageCommercialTerms]);
+
+  const handleEditClientePagamento = useCallback(() => {
+    setShowPagamentoModal(false);
+    handleOpenClientePagamento();
+  }, [handleOpenClientePagamento]);
 
   // Função para finalizar venda
   const handleFinalizarVenda = async (dados: DadosPagamento) => {
-    if (!selectedClientId || !caixaAberto) return;
+    if (submittingRef.current || osRecemCriada || !selectedClient || !cartValid) {
+      toast.error("Revise o cliente, a tabela e as quantidades antes de finalizar");
+      return;
+    }
+    if (dados.pagoAgora && (!canReceivePayments || isFaturado || !dados.formaPagamento)) {
+      toast.error(isFaturado ? "Cliente faturado: o recebimento será feito no fechamento" : "Recebimento exige permissão de caixa e caixa aberto");
+      return;
+    }
+    if (!isCustomerPaymentAllowed(paymentTerms, { ...dados, canReceivePayments }) || (!canManageCommercialTerms && dados.valorDesconto > 0) || (dados.formaPagamento === "FIDELIDADE" && !canUseLoyalty)) {
+      toast.error("O pagamento deve respeitar a condição do cliente e suas permissões");
+      return;
+    }
+    if (!Number.isFinite(dados.valorTotal) || dados.valorTotal <= 0 || !Number.isFinite(dados.valorDesconto) || dados.valorDesconto < 0 || (isFaturado && (dados.urgente || dados.valorDesconto > 0))) {
+      toast.error("Revise os valores do atendimento; faturado deve manter o valor da OS igual ao lançamento");
+      return;
+    }
     
+    submittingRef.current = true;
     setIsProcessingVenda(true);
     
     try {
       const saleKey = saleIdempotencyRef.current ?? createPdvIdempotencyKey("sale");
       saleIdempotencyRef.current = saleKey;
-      const payment = !dados.pagoAgora || !dados.formaPagamento
+      const payment = !dados.pagoAgora || !dados.formaPagamento || dados.formaPagamento === "FIDELIDADE"
         ? null
         : dados.formaPagamento === "PIX"
           ? { method: "PIX" as const }
@@ -345,7 +445,7 @@ const CaixaPDV = () => {
             };
       const result = await createPdvSale.mutateAsync({
         clientId: selectedClientId,
-        cashRegisterId: caixaAberto.id,
+        cashRegisterId: dados.pagoAgora ? caixaAberto?.id ?? null : null,
         deliveryDate: dados.previsaoEntrega.toISOString().split("T")[0],
         urgent: dados.urgente,
         urgencyPercentage: dados.percentualUrgencia,
@@ -373,8 +473,22 @@ const CaixaPDV = () => {
       });
 
       setShowPagamentoModal(false);
-      if (dados.pagoAgora && dados.formaPagamento === "PIX") {
-        if (result.pixError) toast.error(result.pixError);
+      if (dados.pagoAgora && caixaAberto && dados.formaPagamento === "FIDELIDADE" && dados.pontosResgate) {
+        try {
+          const redeemed = await redeemLoyalty.mutateAsync({
+            orderId: result.order.id,
+            cashRegisterId: caixaAberto.id,
+            moment: "ENTRADA",
+            points: dados.pontosResgate,
+            idempotencyKey: `${saleKey}:loyalty`,
+          });
+          toast.success(`${dados.pontosResgate} pontos resgatados (${Number(redeemed.redeemedValue ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`);
+        } catch (loyaltyError) {
+          toast.error(loyaltyError instanceof Error ? loyaltyError.message : "A OS foi criada, mas não foi possível resgatar os pontos");
+        }
+      }
+      if (dados.pagoAgora && caixaAberto && dados.formaPagamento === "PIX") {
+        if (result.pixError) toast.error(`ROL ${result.order.number} criado; PIX pendente. Retome o pagamento nesta OS, sem criar outro atendimento. ${result.pixError}`);
         setPixContext({
           orderId: result.order.id,
           orderNumber: result.order.number,
@@ -394,6 +508,7 @@ const CaixaPDV = () => {
       console.error("Erro ao finalizar venda:", error);
       toast.error(error instanceof Error ? error.message : "Erro ao finalizar venda");
     } finally {
+      submittingRef.current = false;
       setIsProcessingVenda(false);
     }
   };
@@ -402,18 +517,19 @@ const CaixaPDV = () => {
   const handleImpressaoComplete = () => {
     // Salvar último cliente usado
     if (selectedClientId) {
-      localStorage.setItem("pdv_ultimo_cliente", selectedClientId);
       setUltimoClienteId(selectedClientId);
     }
     setOsRecemCriada(null);
     saleIdempotencyRef.current = null;
     setCart([]);
+    setQuantityDrafts({});
     setSelectedClientId(null);
     setClientSearch("");
     toast.success("Venda finalizada com sucesso!");
   };
 
   const handlePixRecebimento = (request: PixRecebimentoRequest) => {
+    if (!canReceivePayments) return;
     setPixContext({
       ...request,
       moment: "RETIRADA",
@@ -445,7 +561,7 @@ const CaixaPDV = () => {
   useEffect(() => {
     const handleBarcodeInput = (e: KeyboardEvent) => {
       // Ignorar se um modal está aberto ou se está em um input
-      if (showPagamentoModal || showConsultarOSModal || showAjudaAtalhos) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
       if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") return;
 
       // Detectar digitação rápida de números (scanner)
@@ -457,10 +573,9 @@ const CaixaPDV = () => {
         }
         barcodeTimeoutRef.current = setTimeout(() => {
           if (nextBuffer.length >= 3) {
-            const produto = produtos.find((p) => p.codigo === nextBuffer);
+            const produto = produtosAtivos.find((p) => p.codigo === nextBuffer);
             if (produto) {
               addToCart(produto);
-              toast.success(`${produto.nome} adicionado`);
             } else {
               toast.error(`Produto não encontrado: ${nextBuffer}`);
             }
@@ -480,7 +595,7 @@ const CaixaPDV = () => {
       }
       barcodeBufferRef.current = "";
     };
-  }, [addToCart, produtos, showPagamentoModal, showConsultarOSModal, showAjudaAtalhos]);
+  }, [addToCart, produtosAtivos]);
 
   // Toggle fullscreen
   const toggleFullscreen = useCallback(() => {
@@ -495,16 +610,17 @@ const CaixaPDV = () => {
 
   // Usar último cliente
   const selectLastClient = useCallback(() => {
-    if (ultimoClienteId) {
+    if (ultimoClienteId && clientesFiltradosPorTipo.some(c => c.id === ultimoClienteId)) {
       selectClient(ultimoClienteId);
       toast.success("Último cliente selecionado");
     } else {
       toast.info("Nenhum cliente anterior disponível");
     }
-  }, [ultimoClienteId, selectClient]);
+  }, [ultimoClienteId, selectClient, clientesFiltradosPorTipo]);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
     // Ignorar se está digitando em um input (exceto para F-keys)
     const isTyping = document.activeElement?.tagName === "INPUT" || 
                      document.activeElement?.tagName === "TEXTAREA";
@@ -513,11 +629,6 @@ const CaixaPDV = () => {
     if (e.key === "F1") {
       e.preventDefault();
       setShowAjudaAtalhos(true);
-    }
-    // F2 - Foco no cliente
-    if (e.key === "F2") {
-      e.preventDefault();
-      clientSearchRef.current?.focus();
     }
     // F3 - Foco na busca de produtos
     if (e.key === "F3") {
@@ -537,16 +648,12 @@ const CaixaPDV = () => {
     // F6 - Histórico de vendas
     if (e.key === "F6") {
       e.preventDefault();
-      if (caixaAberto) {
-        setShowHistoricoVendas(true);
-      } else {
-        toast.error("Abra o caixa para ver o histórico");
-      }
+      if (canCreateSale) setShowHistoricoVendas(true);
     }
     // F7 - Sangria/Suprimento (abre sangria por padrão)
     if (e.key === "F7") {
       e.preventDefault();
-      if (caixaAberto) {
+      if (canReceivePayments) {
         setShowSangriaModal(true);
       }
     }
@@ -563,7 +670,7 @@ const CaixaPDV = () => {
     // F10 - Fechar caixa
     if (e.key === "F10") {
       e.preventDefault();
-      if (caixaAberto) {
+      if (canReceivePayments) {
         setShowFecharCaixaModal(true);
       }
     }
@@ -591,9 +698,11 @@ const CaixaPDV = () => {
       if (showConsultarOSModal) setShowConsultarOSModal(false);
       if (showHistoricoVendas) setShowHistoricoVendas(false);
       if (showAjudaAtalhos) setShowAjudaAtalhos(false);
+      if (showOperations) setShowOperations(false);
     }
   }, [
-    caixaAberto,
+    canCreateSale,
+    canReceivePayments,
     cart,
     clearCart,
     handleOpenPagamento,
@@ -602,6 +711,7 @@ const CaixaPDV = () => {
     showConsultarOSModal,
     showHistoricoVendas,
     showPagamentoModal,
+    showOperations,
     toggleFullscreen,
     updateQuantity,
   ]);
@@ -622,6 +732,7 @@ const CaixaPDV = () => {
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantidade, 0);
   const totalValue = cart.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
+  const currentItem = cart[cart.length - 1] ?? null;
 
   const today = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -636,426 +747,383 @@ const CaixaPDV = () => {
     }).format(value);
   };
 
+  const openQuickCadastro = (path: string) => {
+    if (!canAccessRoute(path)) return;
+    setShowOperations(false);
+    navigate(path);
+  };
+
   return (
-    <AppLayout title="Dashboard">
-      <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-120px)] gap-4">
-        {/* Left Panel - Products */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* PDV Header */}
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-4 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                  <span className="text-primary-foreground font-black text-sm">A</span>
-                </div>
-                <div>
-                  <h2 className="font-semibold text-primary">Caixa PDV</h2>
-                  <p className="text-xs text-muted-foreground capitalize">{today}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                {isLoadingCaixa ? (
-                  <Badge variant="outline" className="gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Carregando...
-                  </Badge>
-                ) : caixaAberto ? (
-                  <>
-                    <Badge variant="outline" className="border-success text-success gap-1">
-                      <span className="w-2 h-2 rounded-full bg-success" />
-                      Caixa Aberto
-                    </Badge>
-                    <span className="text-sm text-muted-foreground hidden sm:inline">| {caixaAberto.operador}</span>
-                    <div className="bg-success text-success-foreground px-3 py-1 rounded-lg">
-                      <span className="text-xs">Vendas Hoje</span>
-                      <p className="font-black">{formatCurrency(caixaAberto.valor_vendas)}</p>
-                    </div>
-                  </>
-                ) : (
-                  <Badge variant="outline" className="border-destructive text-destructive gap-1">
-                    <span className="w-2 h-2 rounded-full bg-destructive" />
-                    Caixa Fechado
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {caixaAberto ? (
-                <>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1"
-                    onClick={() => setShowConsultarOSModal(true)}
-                  >
-                    <FileSearch className="w-4 h-4" />
-                    <span className="hidden sm:inline">Consultar OS (F5)</span>
-                    <span className="sm:hidden">OS</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1 text-warning border-warning"
-                    onClick={() => setShowSangriaModal(true)}
-                  >
-                    <ArrowDownCircle className="w-4 h-4" />
-                    <span className="hidden sm:inline">Sangria</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1 text-success border-success"
-                    onClick={() => setShowSuprimentoModal(true)}
-                  >
-                    <ArrowUpCircle className="w-4 h-4" />
-                    <span className="hidden sm:inline">Suprimento</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1 text-destructive border-destructive"
-                    onClick={() => setShowFecharCaixaModal(true)}
-                  >
-                    <Lock className="w-4 h-4" />
-                    <span className="hidden sm:inline">Fechar Caixa</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-1"
-                    onClick={() => navigate("/relatorios/caixa")}
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    <span className="hidden sm:inline">Relatórios</span>
-                  </Button>
-                </>
-              ) : (
-                <Button 
-                  size="sm" 
-                  className="gap-1"
-                  onClick={() => setShowAbrirCaixaModal(true)}
-                >
-                  <DoorOpen className="w-4 h-4" />
-                  Abrir Caixa
-                </Button>
-              )}
-            </div>
+    <AppLayout title="PDV Atendimento" subtitle={`Setor ${areaLabel}`}>
+      <section className="pdv-shell mx-[-1rem] flex w-[calc(100%+2rem)] max-w-none min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-muted/20 shadow-lg sm:mx-[-1.5rem] sm:w-[calc(100%+3rem)] xl:h-[calc(100vh-118px)]">
+        <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            <Clock className="h-4 w-4 shrink-0 text-primary" />
+            <span className="hidden lg:inline capitalize">{today}</span>
+            <span>{format(currentTime, "HH:mm")}</span>
           </div>
-
-          {/* Aviso de caixa fechado */}
-          {!isLoadingCaixa && !caixaAberto && (
-            <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-warning" />
-                <div>
-                  <p className="font-medium text-warning">Caixa Fechado</p>
-                  <p className="text-sm text-muted-foreground">Abra o caixa para iniciar as vendas do dia</p>
-                </div>
-              </div>
-              <Button onClick={() => setShowAbrirCaixaModal(true)}>
-                <DoorOpen className="w-4 h-4 mr-2" />
-                Abrir Caixa
-              </Button>
-            </div>
-          )}
-
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar produto por nome ou código..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+          <div className="text-center">
+            <p className="text-sm font-bold tracking-wide sm:text-base">
+              Atendente: {caixaAberto?.operador || "—"}
+            </p>
           </div>
-
-          {/* Alphabet Filter */}
-          <div className="flex gap-0.5 flex-wrap mb-4">
-            {alphabet.map((letter) => (
-              <button
-                key={letter}
-                onClick={() => setSelectedLetter(letter)}
-                className={cn(
-                  "min-w-[28px] h-6 px-1 rounded text-xs font-medium transition-colors",
-                  selectedLetter === letter
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {letter}
-              </button>
-            ))}
-          </div>
-
-          {/* Products Grid */}
-          <div className="flex-1 overflow-y-auto">
-            {isLoadingProdutos ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                <span className="ml-2 text-muted-foreground">Carregando produtos...</span>
-              </div>
-            ) : filteredProdutos.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                Nenhum produto encontrado
-              </div>
+          <div className="flex items-center justify-end gap-2">
+            <p className="hidden text-sm font-black uppercase tracking-[0.14em] lg:block">{areaLabel}</p>
+            {!canOperateCaixa ? <Badge variant="outline">Sem recebimento</Badge> : isLoadingCaixa ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : caixaAberto ? (
+              <Badge variant="outline" className="border-success text-success">Aberto</Badge>
             ) : (
-              <div className="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-10 gap-2">
-                {filteredProdutos.map((produto) => {
-                  const preco = getPrecoForProduto(produto);
-                  const hasSpecialPrice = preco !== produto.preco;
-                  
-                  return (
-                    <button
-                      key={produto.id}
-                      onClick={() => addToCart(produto)}
-                      disabled={!caixaAberto}
-                      className={cn(
-                        "bg-card border rounded-lg p-2 text-left hover:shadow-md hover:border-primary transition-all relative aspect-square flex flex-col justify-between",
-                        !caixaAberto && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      {produto.codigo && (
-                        <span className="absolute top-1 right-1 text-[10px] font-mono bg-muted px-1 rounded text-muted-foreground">
-                          {produto.codigo}
-                        </span>
-                      )}
-                      <h3 className="font-semibold text-xs text-foreground line-clamp-2 pr-8">
-                        {produto.nome}
-                      </h3>
-                      <div>
-                        <span className={cn(
-                          "text-sm font-black",
-                          hasSpecialPrice ? "text-success" : "text-primary"
-                        )}>
-                          R$ {preco.toFixed(2).replace(".", ",")}
-                        </span>
-                        {hasSpecialPrice && (
-                          <span className="text-[10px] text-muted-foreground line-through ml-1">
-                            R$ {produto.preco.toFixed(2).replace(".", ",")}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <Button size="sm" className="h-8 gap-1" onClick={() => setShowAbrirCaixaModal(true)}>
+                <DoorOpen className="h-3.5 w-3.5" />
+                Abrir caixa
+              </Button>
             )}
           </div>
-        </div>
+        </header>
+        <nav aria-label="Atalhos do atendimento" className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-2">
+          <Badge variant="secondary">Setor {areaLabel}</Badge>
+          {canAccessRoute("/" + area + "/lancamentos") && <>
+            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=pendentes")}>Fechamento</Button>
+            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=faturas")}>Faturas</Button>
+            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=historico")}>Histórico de ROLs faturados</Button>
+          </>}
+          {canManageContracts && <Button variant="outline" size="sm" disabled={!selectedClient} onClick={() => { if (selectedClient && canManageContracts) setShowContracts(true); }}>Contrato do cliente</Button>}
+          {canAccessRoute("/" + area + "/clientes") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/clientes?novo=1")}><UserPlus className="mr-2 h-4 w-4" />Novo cliente</Button>}
+          {canAccessRoute("/" + area + "/produtos") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/produtos?novo=1")}><PackagePlus className="mr-2 h-4 w-4" />Novo produto/serviço</Button>}
+          {canAccessRoute("/" + area + "/ordens") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/ordens")}><ClipboardPlus className="mr-2 h-4 w-4" />Ordens de serviço</Button>}
+          {canAccessRoute("/" + area + "/agenda") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/agenda?novo=1")}><CalendarPlus className="mr-2 h-4 w-4" />Agendamento</Button>}
+        </nav>
+        {(catalogError || (selectedClient && catalogLoading)) && <div role="status" className="border-b p-3 text-sm">
+          {catalogError ? <>Não foi possível carregar clientes, tabela ou condição de pagamento. <Button variant="outline" size="sm" onClick={() => { void refetchPrices(); void refetchTerms(); void refetchProducts(); void refetchClients(); }}>Tentar novamente</Button></> : "Carregando tabela e condição de pagamento..."}
+        </div>}
+        {invalidQuantity && <p role="alert" className="px-4 py-2 text-sm text-destructive">Quantidade deve ser maior que zero e até 999. Use decimais apenas para kg ou metro; peças exigem inteiros.</p>}
 
-        {/* Right Panel - Cart */}
-        <div className="w-full lg:w-96 flex flex-col bg-card border rounded-lg overflow-hidden lg:max-h-full max-h-[50vh]">
-          {/* Client Search */}
-          <div className="p-4 border-b relative">
-            {selectedClient ? (
-              <div className="flex items-center justify-between bg-primary/10 rounded-lg p-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-primary truncate">
-                    {selectedClient.nome_fantasia || selectedClient.razao_social}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{selectedClient.cpf_cnpj}</p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={clearClient}>
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 sm:p-4 xl:grid-cols-[minmax(350px,410px)_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
+          <aside className="relative flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5">
+            {!isLoadingCaixa && !canReceivePayments && (
+              <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Atendimento sem recebimento disponível. Pagar agora exige permissão de caixa e caixa aberto.
               </div>
-            ) : (
+            )}
+
+            <div className="pdv-entry-card relative z-20 rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <label htmlFor="pdv-client-search" className="flex items-center gap-2 text-base font-bold">
+                  <UserRound className="h-5 w-5 text-primary" /> Cliente
+                </label>
+                <span className="rounded-md bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">1º passo</span>
+              </div>
+              {selectedClient ? (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-primary">{selectedClient.nome_fantasia || selectedClient.razao_social}</p>
+                      <p className="text-xs text-muted-foreground">{selectedClient.cpf_cnpj}</p>
+                      <p className="mt-1 text-[11px] font-semibold text-primary">
+                        {selectedClient.tabela_preco_tipo === "personalizada" ? "Tabela personalizada ativa" : "Tabela padrão ativa"}
+                      </p>
+                      <p className="mt-1 text-xs">Condição: {termsLoading ? "Carregando..." : termsError ? "Não foi possível carregar" : paymentLabels.condition}</p>
+                      {!termsLoading && !termsError && <p className="mt-1 text-xs text-muted-foreground">Forma preferida: {paymentLabels.preferredMethod}{paymentLabels.frequency ? ` · Fechamento: ${paymentLabels.frequency}` : ""}</p>}
+                      {canUseLoyalty && isLoadingCustomerLoyalty ? (
+                        <p className="mt-1 text-xs text-muted-foreground">Consultando pontos...</p>
+                      ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
+                        <p className="mt-1 text-xs text-primary">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
+                      ) : null}
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={clearClient} title="Trocar cliente">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  {canManageCommercialTerms && <Button type="button" variant="outline" size="sm" className="mt-2 h-7 w-full gap-1 text-xs" onClick={handleOpenClientePagamento}>
+                    <Settings2 className="h-3.5 w-3.5" />
+                    {configuracaoPagamento ? "Editar pagamento" : "Configurar pagamento"}
+                  </Button>}
+                </div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="pdv-client-search"
+                      ref={clientSearchRef}
+                      placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
+                      value={clientSearch}
+                      onChange={(event) => {
+                        setClientSearch(event.target.value);
+                        setShowClientList(true);
+                      }}
+                      onFocus={() => setShowClientList(true)}
+                      className="h-10 pl-9 text-sm"
+                    />
+                    {showClientList && (
+                      <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-strong bg-card shadow-xl">
+                        {isLoadingClientes ? (
+                          <p className="p-3 text-center text-sm text-muted-foreground">Carregando...</p>
+                        ) : filteredClientes.length === 0 ? (
+                          <p className="p-3 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</p>
+                        ) : (
+                          filteredClientes.map((cliente) => (
+                            <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)} className="w-full border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5">
+                              <p className="truncate text-sm font-medium">{cliente.nome_fantasia || cliente.razao_social}</p>
+                              <p className="text-xs text-muted-foreground">{cliente.cpf_cnpj} · {cliente.telefone}</p>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="pdv-entry-card relative z-10 rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <label htmlFor="pdv-product-search" className="flex items-center gap-2 text-base font-bold">
+                  <ShoppingCart className="h-5 w-5 text-primary" /> Produto / Serviço
+                </label>
+                <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-bold text-muted-foreground">2º passo</span>
+              </div>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
-                  value={clientSearch}
-                  onChange={(e) => {
-                    setClientSearch(e.target.value);
-                    setShowClientList(true);
+                  id="pdv-product-search"
+                  ref={searchInputRef}
+                  placeholder="Digite código ou nome do produto/serviço"
+                  value={searchTerm}
+                  onChange={(event) => {
+                    setSearchTerm(event.target.value);
+                    setShowProductList(true);
                   }}
-                  onFocus={() => setShowClientList(true)}
-                  className="pl-9 text-sm"
+                  onFocus={() => setShowProductList(true)}
+                  className="h-11 pl-9 pr-3"
                 />
-                
-                {/* Client Dropdown */}
-                {showClientList && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
-                    {isLoadingClientes ? (
-                      <div className="p-3 text-center text-muted-foreground text-sm">
-                        Carregando...
+                {showProductList && (
+                  <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-strong bg-card shadow-xl">
+                    {isLoadingProdutos ? (
+                      <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Carregando produtos...
                       </div>
-                    ) : filteredClientes.length === 0 ? (
-                      <div className="p-3 text-center text-muted-foreground text-sm">
-                        Nenhum cliente encontrado
-                      </div>
+                    ) : filteredProdutos.length === 0 ? (
+                      <p className="p-3 text-center text-sm text-muted-foreground">Nenhum produto ou serviço encontrado.</p>
                     ) : (
-                      filteredClientes.map(cliente => (
-                        <button
-                          key={cliente.id}
-                          onClick={() => selectClient(cliente.id)}
-                          className="w-full p-2 text-left hover:bg-muted transition-colors border-b last:border-b-0"
-                        >
-                          <p className="text-sm font-medium truncate">
-                            {cliente.nome_fantasia || cliente.razao_social}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {cliente.cpf_cnpj} • {cliente.telefone}
-                          </p>
-                        </button>
-                      ))
+                      filteredProdutos.slice(0, 8).map((produto) => {
+                        const preco = getPrecoForProduto(produto);
+                        return (
+                          <button
+                            key={produto.id}
+                            type="button"
+                            disabled={!catalogReady}
+                            onClick={() => addToCart(produto)}
+                            className="flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-medium">{produto.nome}</span>
+                              <span className="block text-[11px] text-muted-foreground">{produto.codigo || "Sem código"}</span>
+                            </span>
+                            <span className="shrink-0 text-sm font-bold text-primary">{formatCurrency(preco)}</span>
+                          </button>
+                        );
+                      })
                     )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-
-          {/* Cart Items */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <ShoppingCart className="w-12 h-12 mb-2 opacity-50" />
-                <p className="font-medium">Carrinho vazio</p>
-                <p className="text-xs">Adicione produtos para iniciar a venda</p>
+              <Button type="button" className="mt-3 h-10 w-full gap-2 font-bold" disabled={!catalogReady} onClick={handleAddCurrentProduct}>
+                <ShoppingCart className="h-4 w-4" />
+                Adicionar item
+                <span className="text-primary-foreground/70">↵</span>
+              </Button>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Quantidade</p>
+                  <div className="flex h-10 items-center rounded-md border bg-background">
+                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem} onClick={() => currentItem && updateQuantity(currentItem.id, -1)} aria-label="Diminuir quantidade do item atual">
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <Input aria-label="Quantidade do item atual" inputMode="decimal" className="flex-1 min-w-0 border-0 text-center" disabled={!currentItem} value={currentItem ? quantityDrafts[currentItem.id] ?? String(currentItem.quantidade) : ""} onChange={e => currentItem && editQuantity(currentItem, e.target.value)} />
+                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem || !catalogReady} onClick={() => currentItem && updateQuantity(currentItem.id, 1)} aria-label="Aumentar quantidade do item atual">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Preço unitário</p>
+                  <div className="flex h-10 items-center justify-end rounded-md border bg-background px-3 text-base font-semibold tabular-nums">{formatCurrency(currentItem?.preco ?? 0)}</div>
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Subtotal</p>
+                  <div className="flex h-10 items-center justify-end rounded-md border bg-background px-3 text-base font-semibold tabular-nums">{formatCurrency(currentItem ? currentItem.preco * currentItem.quantidade : 0)}</div>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {cart.map((item) => {
-                  const temDetalhes = hasItemDetalhes(item);
-                  const temAvarias = !!item.avarias;
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        "p-2 rounded-lg transition-colors",
-                        temAvarias 
-                          ? "bg-warning/10 border border-warning/30" 
-                          : "bg-muted/50"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1">
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {item.nome}
-                            </p>
-                            {temDetalhes && (
-                              <FileText className="w-3 h-3 text-primary flex-shrink-0" />
-                            )}
-                            {temAvarias && (
-                              <AlertTriangle className="w-3 h-3 text-warning flex-shrink-0" />
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            R$ {item.preco.toFixed(2)} × {item.quantidade}
-                          </p>
-                          {/* Resumo de detalhes */}
-                          {temDetalhes && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {item.cor_item && (
-                                <span className="text-[10px] bg-primary/10 text-primary px-1.5 rounded">
-                                  🎨 {item.cor_item}
-                                </span>
-                              )}
-                              {item.posicao_prateleira && (
-                                <span className="text-[10px] bg-muted text-muted-foreground px-1.5 rounded">
-                                  📍 {item.posicao_prateleira}
-                                </span>
-                              )}
-                              {item.marca_item && (
-                                <span className="text-[10px] bg-muted text-muted-foreground px-1.5 rounded">
-                                  🏷️ {item.marca_item}
-                                </span>
-                              )}
-                              {item.avarias && (
-                                <span className="text-[10px] bg-warning/20 text-warning px-1.5 rounded truncate max-w-[100px]">
-                                  ⚠️ {item.avarias}
-                                </span>
-                              )}
+              <div className="mt-3 flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs">
+                <span className="font-semibold text-muted-foreground">Item atual</span>
+                <span className="max-w-[65%] truncate font-bold">{currentItem?.nome || "Aguardando item"}</span>
+              </div>
+            </div>
+
+            <div className="pdv-entry-card rounded-xl border border-strong bg-card p-2.5 shadow-sm sm:p-3">
+              <div className="mb-3 flex items-center gap-2 text-base font-bold">
+                <Keyboard className="h-5 w-5 text-primary" /> Ações rápidas
+              </div>
+              <div className="pdv-shortcuts-grid grid grid-cols-3 gap-1.5">
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
+                  <span className="flex flex-col items-center justify-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowConsultarOSModal(true)}>
+                  <span className="flex flex-col items-center justify-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
+                  <span className="flex flex-col items-center justify-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => {
+                  if (!currentItem) {
+                    toast.info("Adicione ou selecione um item para editar os detalhes");
+                    return;
+                  }
+                  openDetalhesModal(currentItem);
+                }}>
+                  <span className="flex flex-col items-center justify-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight text-destructive" onClick={() => {
+                  if (cart.length === 0) {
+                    toast.info("Não há itens para cancelar");
+                    return;
+                  }
+                  clearCart();
+                }}>
+                  <span className="flex flex-col items-center justify-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
+                </Button>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
+                  <span className="flex flex-col items-center justify-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
+                </Button>
+              </div>
+              {showOperations && (
+                <div className="grid grid-cols-1 gap-2 mt-2 sm:grid-cols-2">
+                  {canOperateCaixa && <>
+                    <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowFecharCaixaModal(true); }}><Lock className="mr-2 h-4 w-4" /> Fechar caixa (F10)</Button>
+                    <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowSangriaModal(true); }}><ArrowDownCircle className="mr-2 h-4 w-4" /> Sangria (F7)</Button>
+                    <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowSuprimentoModal(true); }}><ArrowUpCircle className="mr-2 h-4 w-4" /> Suprimento</Button>
+                  </>}
+                  {canAccessRoute("/residencial/relatorios/caixa") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/residencial/relatorios/caixa")}><BarChart3 className="mr-2 h-4 w-4" /> Relatório de caixa</Button>}
+                  <Button variant="outline" size="sm" onClick={() => setShowAjudaAtalhos(true)}><Keyboard className="mr-2 h-4 w-4" /> Atalhos</Button>
+                  <Button variant="outline" size="sm" onClick={toggleFullscreen}>{isFullscreen ? <Minimize className="mr-2 h-4 w-4" /> : <Maximize className="mr-2 h-4 w-4" />}Tela cheia</Button>
+                </div>
+              )}
+            </div>
+          </aside>
+
+          <section className="flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-card shadow-sm xl:min-h-0">
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5 text-primary" />
+                <p className="text-base font-bold uppercase tracking-wide">Itens da venda</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <p className="hidden text-xs text-muted-foreground sm:block">{cart.length} produtos · {totalItems} unidades</p>
+                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-destructive" onClick={() => {
+                  if (cart.length === 0) {
+                    toast.info("Não há itens para limpar");
+                    return;
+                  }
+                  clearCart();
+                }}><Trash2 className="h-3.5 w-3.5" /> Limpar venda</Button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto">
+              <table className="w-full min-w-[720px] table-fixed text-sm">
+                <thead className="sticky top-0 z-10 bg-muted/60 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="w-12 border-b px-3 py-2 text-center">Item</th>
+                    <th className="border-b px-3 py-2">Descrição</th>
+                    <th className="w-32 border-b px-3 py-2 text-right">Preço unit.</th>
+                    <th className="w-36 border-b px-3 py-2 text-center">Qtd.</th>
+                    <th className="w-32 border-b px-3 py-2 text-right">Total</th>
+                    <th className="w-24 border-b px-3 py-2 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cart.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="h-56 px-4 text-center text-muted-foreground">
+                        <ShoppingCart className="mx-auto mb-3 h-10 w-10 opacity-30" />
+                        <p className="font-medium">Nenhum item lançado</p>
+                        <p className="mt-1 text-xs">Selecione primeiro o cliente e pesquise um produto ou serviço para iniciar a venda.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    cart.map((item, index) => {
+                      const temDetalhes = hasItemDetalhes(item);
+                      return (
+                        <tr key={item.id} className={cn("border-b align-top hover:bg-muted/30", item.avarias && "bg-warning/5")}>
+                          <td className="px-3 py-3 text-center font-semibold text-muted-foreground">{index + 1}</td>
+                          <td className="min-w-0 px-3 py-3">
+                            <div className="flex items-start gap-1.5">
+                              <p className="min-w-0 flex-1 truncate font-semibold">{item.nome}</p>
+                              {item.avarias ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" /> : null}
                             </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-primary"
-                            onClick={() => openDetalhesModal(item)}
-                            title="Detalhes do item"
-                          >
-                            <FileText className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateQuantity(item.id, -1)}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-6 text-center text-sm font-medium">
-                            {item.quantidade}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateQuantity(item.id, 1)}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive"
-                            onClick={() => removeFromCart(item.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                              <span>{item.unidade}</span>
+                              {temDetalhes ? <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3 text-primary" />Detalhes</span> : null}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-right font-medium tabular-nums">{formatCurrency(item.preco)}</td>
+                          <td className="px-3 py-2">
+                            <div className="mx-auto flex w-fit items-center border bg-background">
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}>
+                                <Minus className="h-3.5 w-3.5" />
+                              </Button>
+                              <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} className="h-8 w-16 border-0 px-1 text-center" value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={e => editQuantity(item, e.target.value)} />
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}>
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            <span className="font-bold tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-center gap-1">
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openDetalhesModal(item)} title="Editar detalhes do item"><FileText className="h-3.5 w-3.5" /></Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromCart(item.id)} title="Remover item"><Trash2 className="h-3.5 w-3.5" /></Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="border-t bg-card p-3 sm:p-4">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_minmax(220px,280px)] sm:items-center">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{totalItems} itens · {cart.length} produtos</p>
+                  <p className="mt-1 truncate text-sm font-semibold">{selectedClient ? `Cliente: ${selectedClient.nome_fantasia || selectedClient.razao_social}` : "Nenhum cliente selecionado"}</p>
+                </div>
+                <div className="border-l pl-3 sm:min-w-[120px]">
+                  <p className="text-xs text-muted-foreground">Subtotal</p>
+                  <p className="text-lg font-bold tabular-nums">{formatCurrency(totalValue)}</p>
+                </div>
+                <div className="border-l pl-3 sm:min-w-[100px]">
+                  <p className="text-xs text-muted-foreground">Desconto</p>
+                  <p className="text-lg font-bold tabular-nums">{formatCurrency(0)}</p>
+                </div>
+                <div className="rounded-lg bg-primary/10 px-4 py-2 sm:text-right">
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Total</p>
+                  <p className="text-3xl font-black tabular-nums text-primary sm:text-4xl">{formatCurrency(totalValue)}</p>
+                </div>
               </div>
-            )}
-          </div>
-
-          {/* Cart Footer */}
-          <div className="p-4 border-t bg-muted/30">
-            <div className="flex justify-between text-sm text-muted-foreground mb-1">
-              <span>Itens: {totalItems}</span>
-              <span>Qtd. Produtos: {cart.length}</span>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(180px,1fr)_minmax(240px,1.6fr)]">
+                <Button type="button" variant="outline" className="h-11 gap-2 font-semibold" onClick={() => setShowConsultarOSModal(true)}><FileSearch className="h-4 w-4" /> Consultar ROL (F5)</Button>
+                <Button type="button" className="h-11 gap-2 bg-success text-success-foreground hover:bg-success/90" disabled={!cartValid || isProcessingVenda} onClick={handleOpenPagamento}><CreditCard className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar atendimento"} <span className="text-success-foreground/75">F4</span></Button>
+              </div>
             </div>
-            <div className="flex justify-between items-baseline mb-4">
-              <span className="text-lg font-semibold">TOTAL:</span>
-              <span className="text-2xl font-black text-success">
-                R$ {totalValue.toFixed(2).replace(".", ",")}
-              </span>
-            </div>
-
-            <div className="flex gap-3 justify-center">
-              <Button
-                variant="outline"
-                className="flex-1 max-w-[45%] text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                disabled={cart.length === 0}
-                onClick={clearCart}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Cancelar (F8)
-              </Button>
-              <Button
-                className="flex-1 max-w-[45%] bg-primary hover:bg-primary/90"
-                disabled={cart.length === 0 || !caixaAberto}
-                onClick={handleOpenPagamento}
-              >
-                <CreditCard className="w-4 h-4 mr-2" />
-                Pagamento (F4)
-              </Button>
-            </div>
-          </div>
+          </section>
         </div>
-      </div>
+      </section>
 
       {/* Modal de Detalhes do Item */}
       {selectedCartItem && (
@@ -1088,9 +1156,23 @@ const CaixaPDV = () => {
         } : null}
         totalOriginal={totalValue}
         totalItems={totalItems}
+        loyalty={canUseLoyalty ? customerLoyalty ?? null : null}
+        canManageCommercialTerms={canManageCommercialTerms}
+        canReceivePayments={canReceivePayments}
+        termsLoading={catalogLoading}
+        termsError={catalogError || !cartValid}
+        loyaltyLoading={isLoadingCustomerLoyalty}
+        configuracaoPagamento={configuracaoPagamento ?? null}
+        onEditConfiguracaoPagamento={canManageCommercialTerms ? handleEditClientePagamento : undefined}
         onConfirm={handleFinalizarVenda}
         isLoading={isProcessingVenda}
       />
+
+      {canManageCommercialTerms && <ClientePagamentoDialog
+        open={showClientePagamentoDialog}
+        onOpenChange={setShowClientePagamentoDialog}
+        clienteId={selectedClientId}
+      />}
 
       {/* Modal de Impressão Pós-Venda */}
       {osRecemCriada && (
@@ -1109,12 +1191,12 @@ const CaixaPDV = () => {
       )}
 
       {/* Modais de Caixa */}
-      <AbrirCaixaModal
+      {canOperateCaixa && <AbrirCaixaModal
         open={showAbrirCaixaModal}
         onOpenChange={setShowAbrirCaixaModal}
-      />
+      />}
 
-      {caixaAberto && (
+      {canOperateCaixa && caixaAberto && (
         <>
           <FecharCaixaModal
             open={showFecharCaixaModal}
@@ -1138,10 +1220,11 @@ const CaixaPDV = () => {
       <ConsultarOSModal
         open={showConsultarOSModal}
         onOpenChange={setShowConsultarOSModal}
-        onReceberPagamento={(ordem) => {
+        onReceberPagamento={canReceivePayments ? (ordem) => {
+          if (!canReceivePayments || ordem.condicao_pagamento === "faturado") return;
           setOsParaReceber(ordem);
           setShowReceberPagamentoModal(true);
-        }}
+        } : undefined}
         onImprimirROL={(osId) => {
           void printROL(osId);
         }}
@@ -1151,8 +1234,9 @@ const CaixaPDV = () => {
       />
 
       {/* Modal Receber Pagamento */}
-      {osParaReceber && (
+      {canReceivePayments && osParaReceber && (
         <ReceberPagamentoModal
+          canUseLoyalty={canUseLoyalty}
           open={showReceberPagamentoModal}
           onOpenChange={setShowReceberPagamentoModal}
           osId={osParaReceber.id}
@@ -1167,7 +1251,7 @@ const CaixaPDV = () => {
         />
       )}
 
-      {pixContext && (
+      {canReceivePayments && pixContext && (
         <PixPagamentoModal
           open
           onOpenChange={() => undefined}
@@ -1183,20 +1267,22 @@ const CaixaPDV = () => {
         />
       )}
 
-      {/* Modal Histórico de Vendas */}
-      {caixaAberto && (
-        <HistoricoVendasModal
-          open={showHistoricoVendas}
-          onOpenChange={setShowHistoricoVendas}
-          caixaId={caixaAberto.id}
-          onImprimirROL={(osId) => {
-            void printROL(osId);
-          }}
-          onImprimirEtiquetas={(osId) => {
-            void printEtiqueta(osId);
-          }}
-        />
-      )}
+      <ConsultarOSModal
+        open={showHistoricoVendas}
+        onOpenChange={setShowHistoricoVendas}
+        recent
+        onImprimirROL={osId => { void printROL(osId); }}
+        onImprimirEtiquetas={osId => { void printEtiqueta(osId); }}
+      />
+
+      {canManageContracts && selectedClient && <Dialog open={showContracts} onOpenChange={setShowContracts}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Contrato · {selectedClient.nome_fantasia || selectedClient.razao_social}</DialogTitle>
+            <DialogDescription>Setor {areaLabel} · Contrato do cliente selecionado.</DialogDescription>
+          </DialogHeader>
+          {showContracts && <ClienteContrato clienteId={selectedClient.id} />}
+        </DialogContent>
+      </Dialog>}
 
       {/* Modal Ajuda Atalhos */}
       <AjudaAtalhosModal

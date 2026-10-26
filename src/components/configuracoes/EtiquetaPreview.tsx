@@ -1,5 +1,5 @@
 import { generateCode128BPattern } from "@/lib/code128";
-import { escapeHtml, openPrintDocument } from "@/lib/safePrint";
+import { escapeHtml, openPrintDocument, printDocumentWhenReady } from "@/lib/safePrint";
 
 export interface EtiquetaPreviewConfig {
   tamanhoEtiqueta: string;
@@ -291,14 +291,5 @@ export const generateEtiquetaHTML = (config: EtiquetaPreviewConfig) => {
 
 export const printEtiqueta = (config: EtiquetaPreviewConfig) => {
   const html = generateEtiquetaHTML(config);
-  const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
-  
-  if (printWindow) {
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
-    };
-  }
+  return printDocumentWhenReady(openPrintDocument(html, 'width=400,height=600,noopener,noreferrer'));
 };

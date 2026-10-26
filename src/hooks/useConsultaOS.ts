@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface ItemOS {
   id: string;
@@ -30,6 +32,7 @@ export interface OrdemServicoConsulta {
   valor_pago: number | null;
   status_pagamento: string | null;
   forma_pagamento: string | null;
+  condicao_pagamento?: string | null;
   urgente: boolean | null;
   observacoes: string | null;
   cliente: {
@@ -41,11 +44,14 @@ export interface OrdemServicoConsulta {
   itens: ItemOS[];
 }
 
-export function useConsultaOS(searchTerm: string, statusFilter?: string) {
+export function useConsultaOS(searchTerm: string, statusFilter?: string, options: { enabled?: boolean; recent?: boolean } = {}) {
+  const { activeArea } = useWorkspace();
+  const { activeTenant, user } = useAuth();
+  const term = searchTerm.trim();
   return useQuery({
-    queryKey: ["consulta-os", searchTerm, statusFilter],
+    queryKey: ["consulta-os", activeTenant?.id, user?.id, activeArea, term, statusFilter, options.recent],
     queryFn: async () => {
-      if (!searchTerm || searchTerm.length < 2) {
+      if (!activeTenant || !user || activeArea === "central" || (!options.recent && term.length < 2)) {
         return [];
       }
 
@@ -53,28 +59,19 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string) {
       let query = supabase
         .from("ordens_servico")
         .select(`
-          id,
-          numero,
-          status,
-          data_retirada,
-          data_previsao_entrega,
-          data_entrega,
-          valor_total,
-          valor_desconto,
-          valor_pago,
-          status_pagamento,
-          forma_pagamento,
-          urgente,
-          observacoes,
-          cliente:clientes (
+          *,
+          cliente:clientes!ordens_servico_cliente_id_fkey!inner (
             id,
             razao_social,
             nome_fantasia,
-            telefone
+            telefone,
+            classificacao
           )
         `)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .eq("cliente.classificacao", activeArea)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(options.recent ? 100 : 20);
 
       // Apply status filter if provided
       if (statusFilter && statusFilter !== "todos") {
@@ -82,16 +79,21 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string) {
       }
 
       // Search by OS number or client name
-      const isNumeroOS = /^\d+$/.test(searchTerm) || searchTerm.includes("-");
+      const isNumeroOS = /^\d+$/.test(term) || /^(?:OS|ROL)?[-\s]*\d/i.test(term);
       
       if (isNumeroOS) {
-        query = query.ilike("numero", `%${searchTerm}%`);
-      } else {
+        query = query.ilike("numero", `%${term}%`);
+      } else if (term) {
         // Need to search by client name - first get matching clients
-        const { data: clientesData } = await supabase
+        const safeTerm = term.replace(/[%_(),.\\"]/g, " ").trim();
+        if (!safeTerm) return [];
+        const { data: clientesData, error: clientesError } = await supabase
           .from("clientes")
           .select("id")
-          .or(`razao_social.ilike.%${searchTerm}%,nome_fantasia.ilike.%${searchTerm}%`);
+          .filter("tenant_id", "eq", activeTenant.id)
+          .eq("classificacao", activeArea)
+          .or(`razao_social.ilike.%${safeTerm}%,nome_fantasia.ilike.%${safeTerm}%`);
+        if (clientesError) throw clientesError;
         
         if (clientesData && clientesData.length > 0) {
           const clienteIds = clientesData.map(c => c.id);
@@ -109,7 +111,7 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string) {
       // Fetch items for each order
       const ordensComItens: OrdemServicoConsulta[] = await Promise.all(
         ordensData.map(async (ordem) => {
-          const { data: itensData } = await supabase
+          const { data: itensData, error: itensError } = await supabase
             .from("itens_ordem_servico")
             .select(`
               id,
@@ -122,12 +124,13 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string) {
               avarias,
               observacoes,
               posicao_prateleira,
-              produto:produtos (
+              produto:produtos!itens_ordem_servico_produto_id_fkey (
                 nome,
                 codigo
               )
             `)
             .eq("ordem_servico_id", ordem.id);
+          if (itensError) throw itensError;
 
           return {
             ...ordem,
@@ -142,7 +145,7 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string) {
 
       return ordensComItens;
     },
-    enabled: searchTerm.length >= 2,
+    enabled: options.enabled !== false && !!activeTenant && !!user && activeArea !== "central" && (term.length >= 2 || !!options.recent),
     staleTime: 30000,
   });
 }

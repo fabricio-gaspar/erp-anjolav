@@ -12,6 +12,7 @@ export interface Produto {
   unidade: string | null;
   unidade_negocio: string | null;
   categoria: string | null;
+  porte: "pequeno" | "medio" | "grande" | null;
   status: string;
   codigo: string | null;
   peso_medio_kg: number | null;
@@ -34,7 +35,7 @@ export function useProdutos() {
   const { activeArea } = useWorkspace();
   const allowedBusinessUnits = getAllowedProductUnits(activeArea);
 
-  const { data: produtos = [], isLoading, error } = useQuery({
+  const { data: produtos = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["produtos", activeArea],
     queryFn: async () => {
       let query = supabase
@@ -120,7 +121,9 @@ export function useProdutos() {
   return {
     produtos,
     isLoading,
+    isError,
     error,
+    refetch,
     createProduto,
     updateProduto,
     deleteProduto,
@@ -142,6 +145,7 @@ export interface PrecoEspecialComProduto extends PrecoEspecial {
   produto: {
     nome: string;
     unidade: string | null;
+    preco: number;
   } | null;
 }
 
@@ -150,7 +154,13 @@ const EMPTY_PRECOS_ESPECIAIS: PrecoEspecialComProduto[] = [];
 export function usePrecosEspeciais(clienteId: string | null) {
   const queryClient = useQueryClient();
 
-  const { data: precos = EMPTY_PRECOS_ESPECIAIS, isLoading } = useQuery({
+  const {
+    data: precos = EMPTY_PRECOS_ESPECIAIS,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["precos_especiais", clienteId],
     queryFn: async () => {
       if (!clienteId) return EMPTY_PRECOS_ESPECIAIS;
@@ -158,7 +168,7 @@ export function usePrecosEspeciais(clienteId: string | null) {
         .from("precos_especiais")
         .select(`
           *,
-          produto:produtos(nome, unidade)
+          produto:produtos!fk_precos_especiais_produto(nome, unidade, preco)
         `)
         .eq("cliente_id", clienteId);
       if (error) throw error;
@@ -169,37 +179,24 @@ export function usePrecosEspeciais(clienteId: string | null) {
 
   const upsertPrecoEspecial = useMutation({
     mutationFn: async (preco: Omit<PrecoEspecial, "id" | "created_at" | "updated_at">) => {
-      const { data: existing } = await supabase
+      const { data, error } = await supabase
         .from("precos_especiais")
-        .select("id")
-        .eq("cliente_id", preco.cliente_id)
-        .eq("produto_id", preco.produto_id)
-        .maybeSingle();
-
-      if (existing) {
-        const { data, error } = await supabase
-          .from("precos_especiais")
-          .update(preco)
-          .eq("id", existing.id)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
-      } else {
-        const { data, error } = await supabase
-          .from("precos_especiais")
-          .insert(preco)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
-      }
+        .upsert(preco, { onConflict: "cliente_id,produto_id" })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["precos_especiais"] });
       toast.success("Preço especial salvo!");
     },
     onError: (error) => {
+      const message = error.message.toLowerCase();
+      if (message.includes("row-level security") || message.includes("permission")) {
+        toast.error("Você não tem autorização para alterar os preços deste cliente.");
+        return;
+      }
       toast.error("Erro ao salvar preço: " + error.message);
     },
   });
@@ -266,6 +263,9 @@ export function usePrecosEspeciais(clienteId: string | null) {
   return {
     precos,
     isLoading,
+    isError,
+    error,
+    refetch,
     upsertPrecoEspecial,
     deletePrecoEspecial,
     copyPrecosEspeciais,

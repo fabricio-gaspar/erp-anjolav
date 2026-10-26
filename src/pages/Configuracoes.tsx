@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, Shield, FileText, Tag, Receipt, Database, Wrench,
-  Settings as SettingsIcon, MessageSquare, Building2, FolderTree,
+  Settings as SettingsIcon, MessageSquare, Building2, FolderTree, Gift,
 } from "lucide-react";
 import { ConfiguracoesEquipe } from "@/components/configuracoes/ConfiguracoesEquipe";
 import { ConfiguracoesPermissoes } from "@/components/configuracoes/ConfiguracoesPermissoes";
@@ -17,6 +17,7 @@ import { ConfiguracoesGeral } from "@/components/configuracoes/ConfiguracoesGera
 import { ConfiguracoesWhatsApp } from "@/components/configuracoes/ConfiguracoesWhatsApp";
 import { ConfiguracoesCategorias } from "@/components/configuracoes/ConfiguracoesCategorias";
 import { ConfiguracoesCentrosCusto } from "@/components/configuracoes/ConfiguracoesCentrosCusto";
+import { ConfiguracoesFidelidade } from "@/components/configuracoes/ConfiguracoesFidelidade";
 
 const Configuracoes = () => {
   const [searchParams] = useSearchParams();
@@ -38,7 +39,7 @@ const Configuracoes = () => {
             <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
             <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">SISTEMA E PARÂMETROS</span>
           </div>
-          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+          <h1 className="page-title">
             Configurações
           </h1>
           <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
@@ -70,6 +71,10 @@ const Configuracoes = () => {
               >
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">ROL</span>
+              </TabsTrigger>
+              <TabsTrigger value="fidelidade" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 sm:px-4 py-3 gap-2">
+                <Gift className="w-4 h-4" />
+                <span className="hidden sm:inline">Fidelidade</span>
               </TabsTrigger>
               <TabsTrigger
                 value="etiquetas"
@@ -126,6 +131,10 @@ const Configuracoes = () => {
 
           <TabsContent value="rol" className="mt-4">
             <ConfiguracoesROL />
+          </TabsContent>
+
+          <TabsContent value="fidelidade" className="mt-4">
+            <ConfiguracoesFidelidade />
           </TabsContent>
 
           <TabsContent value="etiquetas" className="mt-4">

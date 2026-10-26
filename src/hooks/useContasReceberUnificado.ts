@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type OrigemReceita = "fatura" | "pdv_loja" | "asaas" | "contrato" | "manual";
+export type OrigemReceita = "fatura" | "pdv_loja" | "pdv_industrial" | "asaas" | "contrato" | "manual";
 
 export interface ContaReceberUnificada {
   id: string;

@@ -95,6 +95,53 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          entity_id: string | null
+          entity_schema: string
+          entity_table: string
+          id: string
+          new_data: Json | null
+          occurred_at: string
+          old_data: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          entity_id?: string | null
+          entity_schema: string
+          entity_table: string
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          entity_id?: string | null
+          entity_schema?: string
+          entity_table?: string
+          id?: string
+          new_data?: Json | null
+          occurred_at?: string
+          old_data?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asaas_charges: {
         Row: {
           asaas_id: string | null
@@ -530,6 +577,7 @@ export type Database = {
           observacoes: string | null
           razao_social: string
           regime_tributario: string | null
+          tabela_preco_tipo: string
           telefone: string | null
           telefone2: string | null
           tipo_pessoa: string
@@ -549,6 +597,7 @@ export type Database = {
           observacoes?: string | null
           razao_social: string
           regime_tributario?: string | null
+          tabela_preco_tipo?: string
           telefone?: string | null
           telefone2?: string | null
           tipo_pessoa?: string
@@ -568,6 +617,7 @@ export type Database = {
           observacoes?: string | null
           razao_social?: string
           regime_tributario?: string | null
+          tabela_preco_tipo?: string
           telefone?: string | null
           telefone2?: string | null
           tipo_pessoa?: string
@@ -1354,6 +1404,71 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fidelidade_configuracoes: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          portal_exibir_fidelidade: boolean
+          pontos_minimos_resgate: number
+          reais_por_ponto: number
+          tenant_id: string
+          updated_at: string
+          valor_minimo_acumulo: number
+          valor_por_ponto: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          portal_exibir_fidelidade?: boolean
+          pontos_minimos_resgate?: number
+          reais_por_ponto?: number
+          tenant_id: string
+          updated_at?: string
+          valor_minimo_acumulo?: number
+          valor_por_ponto?: number
+        }
+        Update: {
+          ativo?: boolean
+          portal_exibir_fidelidade?: boolean
+          pontos_minimos_resgate?: number
+          reais_por_ponto?: number
+          valor_minimo_acumulo?: number
+          valor_por_ponto?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fidelidade_lancamentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          criado_por: string | null
+          descricao: string
+          id: string
+          idempotency_key: string
+          ordem_servico_id: string | null
+          pontos: number
+          tenant_id: string
+          tipo: string
+          valor_referencia: number | null
+        }
+        Insert: {
+          cliente_id: string
+          criado_por?: string | null
+          descricao: string
+          id?: string
+          idempotency_key: string
+          ordem_servico_id?: string | null
+          pontos: number
+          tenant_id: string
+          tipo: string
+          valor_referencia?: number | null
+        }
+        Update: never
+        Relationships: []
       }
       folha_beneficios: {
         Row: {
@@ -3077,6 +3192,7 @@ export type Database = {
           id: string
           instrucoes_especiais: string | null
           nome: string
+          porte: string | null
           peso_medio_kg: number | null
           preco: number
           processo_lavagem: string | null
@@ -3098,6 +3214,7 @@ export type Database = {
           id?: string
           instrucoes_especiais?: string | null
           nome: string
+          porte?: string | null
           peso_medio_kg?: number | null
           preco?: number
           processo_lavagem?: string | null
@@ -3119,6 +3236,7 @@ export type Database = {
           id?: string
           instrucoes_especiais?: string | null
           nome?: string
+          porte?: string | null
           peso_medio_kg?: number | null
           preco?: number
           processo_lavagem?: string | null
@@ -3142,6 +3260,7 @@ export type Database = {
           created_at: string
           email: string | null
           endereco: string | null
+          exibir_fidelidade: boolean
           exibir_logo: boolean | null
           fonte_principal: string | null
           id: string
@@ -3173,6 +3292,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           endereco?: string | null
+          exibir_fidelidade?: boolean
           exibir_logo?: boolean | null
           fonte_principal?: string | null
           id?: string
@@ -3204,6 +3324,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           endereco?: string | null
+          exibir_fidelidade?: boolean
           exibir_logo?: boolean | null
           fonte_principal?: string | null
           id?: string
@@ -3436,6 +3557,10 @@ export type Database = {
       }
       cancelar_intencao_pagamento_pdv: {
         Args: { _pagamento_id: string; _status_provedor: string }
+        Returns: Json
+      }
+      consultar_dashboard_financeiro: {
+        Args: { _fim: string; _inicio: string; _setor: string }
         Returns: Json
       }
       criar_venda_pdv: {

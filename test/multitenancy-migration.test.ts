@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 
 const migrationPath = new URL(
@@ -7,6 +7,15 @@ const migrationPath = new URL(
   import.meta.url,
 );
 const migration = readFileSync(migrationPath, "utf8");
+
+function migrationBlock(source: string, start: string, end: string): string {
+  const normalized = source.replace(/\r\n/g, "\n");
+  const startIndex = normalized.indexOf(start);
+  assert.notEqual(startIndex, -1, `missing ${start}`);
+  const endIndex = normalized.indexOf(end, startIndex);
+  assert.notEqual(endIndex, -1, `missing ${end}`);
+  return normalized.slice(startIndex, endIndex + "    END;".length);
+}
 
 test("migration comercial cobre todas as tabelas de negócio existentes", () => {
   const match = /tenant_tables constant text\[\] := ARRAY\[(.*?)\];/s.exec(migration);
@@ -22,9 +31,41 @@ test("migration comercial cobre todas as tabelas de negócio existentes", () => 
     }
   }
 
-  const infrastructure = new Set(["audit_events", "portal_rate_limits", "tenant_memberships", "tenants"]);
-  const missing = [...created].filter((table) => !listed.has(table) && !infrastructure.has(table)).sort();
+  const platformInfrastructure = new Set([
+    "platform_administrators",
+    "saas_plan_catalog",
+    "tenant_service_subscriptions",
+  ]);
+  const infrastructure = new Set([
+    "audit_events",
+    "portal_rate_limits",
+    "tenant_memberships",
+    "tenants",
+    ...platformInfrastructure,
+  ]);
+  // Tabelas introduzidas após o hardening criam tenant_id e RLS na própria
+  // migração; incluí-las na migração histórica faria o bootstrap falhar.
+  const laterTenantAware = new Set(["fidelidade_configuracoes", "fidelidade_lancamentos"]);
+  const missing = [...created].filter((table) => !listed.has(table) && !infrastructure.has(table) && !laterTenantAware.has(table)).sort();
   assert.deepEqual(missing, []);
+
+  const platformMigration = readFileSync(
+    new URL("../supabase/migrations/20261015119000_platform_administration.sql", import.meta.url),
+    "utf8",
+  );
+  for (const table of platformInfrastructure) {
+    assert.match(platformMigration, new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY`));
+  }
+  assert.match(platformMigration, /REVOKE ALL ON TABLE public\.saas_plan_catalog, public\.tenant_service_subscriptions\s*\nFROM PUBLIC, anon, authenticated/);
+  assert.match(platformMigration, /GRANT ALL ON TABLE public\.saas_plan_catalog, public\.tenant_service_subscriptions TO service_role/);
+});
+
+test("fidelidade nasce isolada por empresa e com RLS", () => {
+  const loyalty = readFileSync(new URL("../supabase/migrations/20261008110000_customer_loyalty_program.sql", import.meta.url), "utf8");
+  assert.match(loyalty, /CREATE TABLE IF NOT EXISTS public\.fidelidade_configuracoes[\s\S]+tenant_id uuid NOT NULL/);
+  assert.match(loyalty, /CREATE TABLE IF NOT EXISTS public\.fidelidade_lancamentos[\s\S]+tenant_id uuid NOT NULL/);
+  assert.match(loyalty, /ALTER TABLE public\.fidelidade_configuracoes ENABLE ROW LEVEL SECURITY/);
+  assert.match(loyalty, /ALTER TABLE public\.fidelidade_lancamentos ENABLE ROW LEVEL SECURITY/);
 });
 
 test("migration remove policies antigas e recria isolamento, grants e auditoria", () => {
@@ -54,6 +95,23 @@ test("RLS combina empresa, módulo e área de negócio", () => {
   assert.doesNotMatch(migration, /tenant_billing_read_fiscal_config/);
   assert.match(migration, /access_check := format\('\(%s\) AND \(%s\)'/);
   assert.match(migration, /tenant_id = private\.current_tenant_id\(\) AND %s/);
+});
+
+test("hardening mantém a matriz gerada de módulos e áreas ao otimizar contexto estável", () => {
+  const hardeningPath = new URL(
+    "../supabase/migrations/20261015113000_security_performance_hardening.sql",
+    import.meta.url,
+  );
+  assert.equal(existsSync(hardeningPath), true, "migration de hardening ausente");
+  const hardening = readFileSync(hardeningPath, "utf8").replace(/\r\n/g, "\n");
+  const allowedModules = migrationBlock(migration, "allowed_modules := CASE", "    END;\n    module_check");
+  const areaCheck = migrationBlock(migration, "area_check := CASE", "    END;\n    access_check");
+
+  assert.ok(hardening.includes(allowedModules));
+  assert.ok(hardening.includes(areaCheck));
+  assert.match(hardening, /tenant_id = \(select private\.current_tenant_id\(\)\)/);
+  assert.match(hardening, /\(select private\.has_any_module_access\(/);
+  assert.doesNotMatch(hardening, /\(select private\.can_access_(?:area|client|order|product|appointment|invoice|launch|portal_launch|contract)\(/);
 });
 
 test("migration preserva pagamentos e oferece operações transacionais", () => {

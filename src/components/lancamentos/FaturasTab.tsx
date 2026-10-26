@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -34,6 +35,7 @@ const getStatusConfig = (status: string) => {
 };
 
 export function FaturasTab() {
+  const { activeArea } = useWorkspace();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [faturamentoModalOpen, setFaturamentoModalOpen] = useState(false);
   const [wizardDados, setWizardDados] = useState<DadosFaturamento | null>(null);
@@ -51,7 +53,7 @@ export function FaturasTab() {
 
   const formatCurrency = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
-  const reconstruirDadosFaturamento = (fatura: Fatura): DadosFaturamento => {
+  const reconstruirDadosFaturamento = useCallback((fatura: Fatura): DadosFaturamento => {
     const itensSnapshot = (fatura.itens_snapshot as Array<{ id: string; produto: string; quantidade: number; unidade: string; valor_unitario: number; valor_total: number }>) || [];
     const itens: FaturaLancamentoItem[] = itensSnapshot.map(item => ({
       id: item.id, produto: item.produto, quantidade: item.quantidade, unidade: item.unidade,
@@ -68,7 +70,7 @@ export function FaturasTab() {
       clienteInscricaoMunicipal: cli?.inscricao_municipal || null,
       clienteInscricaoEstadual: cli?.inscricao_estadual || null,
       clienteRegimeTributario: cli?.regime_tributario || null,
-      clienteClassificacao: cli?.classificacao || "industrial",
+      clienteClassificacao: fatura.cliente?.classificacao || activeArea,
       clienteEndereco: dadosClienteCompletos.endereco || null,
       configPagamento: dadosClienteCompletos.configPagamento || null,
       configCliente: dadosClienteCompletos.configCliente || null,
@@ -78,17 +80,19 @@ export function FaturasTab() {
       periodoFim: fatura.periodo_fim,
       observacao: fatura.observacao_fatura || undefined,
     };
-  };
+  }, [dadosClienteCompletos, activeArea]);
 
   const handleContinuarFatura = (fatura: Fatura) => {
+    if (fatura.cliente?.classificacao !== activeArea) return;
     setClienteIdParaContinuar(fatura.cliente_id);
-    // We need a small delay to let the hook fetch before reconstructing
-    setTimeout(() => {
-      setWizardDados(reconstruirDadosFaturamento(fatura));
-      setFaturaParaContinuar(fatura);
-      setFaturamentoModalOpen(true);
-    }, 100);
+    setFaturaParaContinuar(fatura);
   };
+
+  useEffect(() => {
+    if (!faturaParaContinuar || faturamentoModalOpen || dadosClienteCompletos.cliente?.id !== faturaParaContinuar.cliente_id || dadosClienteCompletos.cliente.classificacao !== activeArea) return;
+    setWizardDados(reconstruirDadosFaturamento(faturaParaContinuar));
+    setFaturamentoModalOpen(true);
+  }, [faturaParaContinuar, faturamentoModalOpen, dadosClienteCompletos.cliente, activeArea, reconstruirDadosFaturamento]);
 
   return (
     <div className="space-y-4">

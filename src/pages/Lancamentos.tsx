@@ -1,53 +1,60 @@
-import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { FileText, Package, Receipt, History } from "lucide-react";
 import { useLancamentosPendentes } from "@/hooks/useLancamentos";
-import { NovoLancamentoTab } from "@/components/lancamentos/NovoLancamentoTab";
+import { Button } from "@/components/ui/button";
+import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { PendentesTab } from "@/components/lancamentos/PendentesTab";
 import { FaturasTab } from "@/components/lancamentos/FaturasTab";
 import { HistoricoROLsTab } from "@/components/lancamentos/HistoricoROLsTab";
 
 const Lancamentos = () => {
+  const { activeArea } = useWorkspace();
+  const { activeTenant, user } = useAuth();
+  const { pathname } = useLocation();
+  if (!activeTenant || !user || !pathname.startsWith("/" + activeArea + "/")) {
+    return <AppLayout title="Fechamento e histórico"><p>Carregando contexto...</p></AppLayout>;
+  }
+  return <FechamentoAtendimento key={[activeTenant?.id, user?.id, activeArea].join(":")} />;
+};
+
+const FechamentoAtendimento = () => {
+  const { activeArea } = useWorkspace();
+  const areaLabel = activeArea === "industrial" ? "Industrial" : "Residencial";
+  const pdvPath = "/" + activeArea + "/caixa";
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromUrl = searchParams.get("tab") || "novo";
-  const [activeTab, setActiveTab] = useState(tabFromUrl);
+  const navigate = useNavigate();
+  const { canAccessRoute } = useNavigationAccess();
+  const { allowed: canManageBilling } = usePermissaoModulo("faturamento");
+  const requestedTab = searchParams.get("tab");
+  const activeTab = requestedTab && ["novo", "pendentes", "faturas", "historico"].includes(requestedTab) ? requestedTab : "pendentes";
+  const setActiveTab = (tab: string) => setSearchParams(current => { const next = new URLSearchParams(current); next.set("tab", tab); return next; }, { replace: true });
   const { lancamentos: todosLancamentosPendentes } = useLancamentosPendentes();
-  const lancamentosPendentes = todosLancamentosPendentes.filter((l: any) => l.cliente?.classificacao === "industrial");
+  const lancamentosPendentes = todosLancamentosPendentes.filter(l => l.cliente?.classificacao === activeArea);
 
-  useEffect(() => {
-    setSearchParams((currentParams) => {
-      const newParams = new URLSearchParams(currentParams);
-      if (activeTab !== "novo") newParams.set("tab", activeTab);
-      else newParams.delete("tab");
-      return newParams;
-    }, { replace: true });
-  }, [activeTab, setSearchParams]);
-
-  useEffect(() => {
-    if (tabFromUrl && ["novo", "pendentes", "faturas", "historico"].includes(tabFromUrl)) {
-      setActiveTab(tabFromUrl);
-    }
-  }, [tabFromUrl]);
+  if (!canManageBilling) return <AppLayout title="Fechamento e histórico"><p>Sem permissão para faturamento.</p></AppLayout>;
 
   return (
-    <AppLayout title="Lançamentos" subtitle="Registre a produção diária e gerencie o faturamento">
+    <AppLayout title="Fechamento e histórico" subtitle={"Fechamento de faturamento e histórico · " + areaLabel}>
       <div className="w-full space-y-8">
         {/* Visual Content Header mirroring high-fidelity layout */}
         <div className="flex flex-col gap-2 px-1">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">REGISTRO DE PRODUÇÃO</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">FATURAMENTO {areaLabel.toUpperCase()}</span>
           </div>
-          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
-            PDV Industrial
+          <h1 className="page-title">
+            Fechamento e histórico
           </h1>
           <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
-            Lançamentos de ROLs e fechamento de faturamento
+            ROLs pendentes, faturas e histórico de atendimento
           </p>
         </div>
 
+        {canAccessRoute(pdvPath) && <Button onClick={() => navigate(pdvPath)}>Novo ROL no PDV Atendimento</Button>}
         <div className="content-panel">
         <div className="space-y-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -72,7 +79,8 @@ const Lancamentos = () => {
             </div>
 
             <TabsContent value="novo" className="mt-4">
-              <NovoLancamentoTab onNavigateTab={setActiveTab} />
+              <p className="mb-4 text-muted-foreground">Novos ROLs são registrados no PDV Atendimento, com a tabela e a condição de pagamento do cliente.</p>
+              {canAccessRoute(pdvPath) && <Button onClick={() => navigate(pdvPath)}>Abrir PDV Atendimento</Button>}
             </TabsContent>
 
             <TabsContent value="pendentes" className="mt-4">

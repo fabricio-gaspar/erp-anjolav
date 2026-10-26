@@ -1,4 +1,5 @@
-import { escapeHtml, openPrintDocument, safeHttpsUrl } from "@/lib/safePrint";
+import { getFontFamily, generateROLCommercialHTML } from "@/lib/rolPrint";
+import { escapeHtml, openPrintDocument, printDocumentWhenReady, safeHttpsUrl } from "@/lib/safePrint";
 
 export interface ROLPreviewConfig {
   nomeCurto: string;
@@ -23,6 +24,7 @@ export interface ROLPreviewConfig {
   assinaturaCliente: boolean;
   tipoPreco: boolean;
   linhaDesconto: boolean;
+  exibirFidelidade: boolean;
   textoRodape: string;
   margemSuperior: number;
   margemLateral: number;
@@ -32,15 +34,7 @@ interface ROLPreviewProps {
   config: ROLPreviewConfig;
 }
 
-export const getFontFamily = (font: string) => {
-  switch (font) {
-    case 'courier': return 'Courier New, monospace';
-    case 'arial': return 'Arial, sans-serif';
-    case 'times': return 'Times New Roman, serif';
-    case 'consolas': return 'Consolas, monospace';
-    default: return 'Courier New, monospace';
-  }
-};
+export { getFontFamily } from "@/lib/rolPrint";
 
 const boundedNumber = (value: unknown, fallback: number, min: number, max: number) => {
   const numericValue = Number(value);
@@ -249,6 +243,8 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
         ${config.previsaoEntrega ? `<div class="client-info previsao"><strong>Previsão:</strong> ${sampleDelivery.toLocaleDateString('pt-BR')}</div>` : ''}
       </div>
 
+      ${generateROLCommercialHTML({ valorTotal: total, condicaoPagamento: "retirada", condicoesComerciais: { tabela_preco_tipo: "padrao" }, valorPago: 0, statusPagamento: "pendente" }, config.tipoPreco)}
+
       <div class="section">
         <div class="items-header">
           <span class="item-qty">QTD</span>
@@ -313,17 +309,7 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
 
 export const printROL = (config: ROLPreviewConfig) => {
   const html = generateROLHTML(config);
-  const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
-  
-  if (printWindow) {
-    // Wait for images to load before printing
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
-    };
-  }
+  return printDocumentWhenReady(openPrintDocument(html, 'width=400,height=600,noopener,noreferrer'));
 };
 
 export function ROLPreview({ config }: ROLPreviewProps) {
@@ -480,6 +466,14 @@ export function ROLPreview({ config }: ROLPreviewProps) {
           <p className="text-[9px] text-gray-600">
             <strong>Obs:</strong> OBSERVAÇÃO DE EXEMPLO.
           </p>
+        </div>
+      )}
+
+      {config.exibirFidelidade && (
+        <div className="border border-dashed border-primary/60 rounded p-2 mb-2 text-[9px] text-center text-gray-600">
+          <strong>FIDELIDADE</strong><br />
+          Você ganhou 12 pontos nesta compra.<br />
+          Saldo: 128 pontos (R$ 12,80)
         </div>
       )}
 

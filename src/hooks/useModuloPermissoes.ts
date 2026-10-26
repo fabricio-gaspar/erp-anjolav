@@ -48,6 +48,8 @@ export const useSavePermissoes = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["modulo-permissoes"] });
+      queryClient.invalidateQueries({ queryKey: ["permissoes-usuario"] });
+      queryClient.invalidateQueries({ queryKey: ["accessible-workspaces"] });
       toast({
         title: "Sucesso",
         description: "Permissões salvas com sucesso!",

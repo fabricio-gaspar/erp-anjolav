@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ type ViewType = "semanal" | "quinzenal" | "mensal";
 const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export default function Agenda() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeArea } = useWorkspace();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>("semanal");
@@ -39,6 +41,14 @@ export default function Agenda() {
   const [observacaoModalOpen, setObservacaoModalOpen] = useState(false);
   const [reagendarModalOpen, setReagendarModalOpen] = useState(false);
   const [selectedAgendamento, setSelectedAgendamento] = useState<Agendamento | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("novo") !== "1") return;
+    setNovoModalOpen(true);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("novo");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const getWeeksToShow = () => {
     switch (viewType) {
@@ -196,7 +206,7 @@ export default function Agenda() {
             <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
             <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">LOGÍSTICA E AGENDAMENTOS</span>
           </div>
-          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+          <h1 className="page-title">
             Agenda Operacional
           </h1>
           <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">

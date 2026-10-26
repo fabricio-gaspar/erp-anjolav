@@ -5,6 +5,11 @@ import {
   readJsonBody,
   requireJsonPost,
 } from "../_shared/http.ts";
+import {
+  buildPortalLoyalty,
+  isPortalLoyaltyVisible,
+  type PortalLoyaltyConfig,
+} from "../_shared/portal-loyalty.ts";
 
 const PORTAL_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{32}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -156,6 +161,9 @@ Deno.serve(async (req) => {
   try {
     const context = await resolveContext();
     if (!context) return jsonResponse(req, { error: "Acesso inválido ou expirado" }, 404);
+    if (context.config.cliente_id !== context.cliente.id) {
+      return jsonResponse(req, { error: "Acesso inválido ou expirado" }, 404);
+    }
 
     const forwardedFor = (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim().slice(0, 64);
     const userAgent = (req.headers.get("user-agent") ?? "unknown").slice(0, 256);
@@ -176,6 +184,52 @@ Deno.serve(async (req) => {
     const action = body.action ?? "bootstrap";
 
     if (action === "bootstrap") {
+      const tenantId = context.config.tenant_id;
+      const clientId = context.cliente.id;
+      const { data: loyaltyConfigData, error: loyaltyConfigError } = await supabase
+        .from("fidelidade_configuracoes")
+        .select("ativo, portal_exibir_fidelidade, valor_por_ponto, pontos_minimos_resgate")
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (loyaltyConfigError) {
+        console.error("Falha ao carregar fidelidade do portal", { errorCode: loyaltyConfigError.code });
+        return jsonResponse(req, { error: "Não foi possível carregar o portal" }, 500);
+      }
+
+      const loyaltyConfig = loyaltyConfigData as PortalLoyaltyConfig | null;
+      const loyaltyVisible = isPortalLoyaltyVisible(loyaltyConfig);
+      let loyalty = buildPortalLoyalty(loyaltyConfig, [], []);
+
+      if (loyaltyVisible) {
+        const loyaltyBalanceQuery = supabase
+          .from("fidelidade_lancamentos")
+          .select("pontos")
+          .eq("tenant_id", tenantId)
+          .eq("cliente_id", clientId);
+        const loyaltyHistoryQuery = supabase
+          .from("fidelidade_lancamentos")
+          .select("descricao, pontos, tipo, created_at")
+          .eq("tenant_id", tenantId)
+          .eq("cliente_id", clientId)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        const [loyaltyBalanceResult, loyaltyHistoryResult] = await Promise.all([
+          loyaltyBalanceQuery,
+          loyaltyHistoryQuery,
+        ]);
+        const loyaltyError = loyaltyBalanceResult.error ?? loyaltyHistoryResult.error;
+        if (loyaltyError) {
+          console.error("Falha ao carregar fidelidade do portal", { errorCode: loyaltyError.code });
+          return jsonResponse(req, { error: "Não foi possível carregar o portal" }, 500);
+        }
+
+        loyalty = buildPortalLoyalty(
+          loyaltyConfig,
+          loyaltyBalanceResult.data ?? [],
+          loyaltyHistoryResult.data ?? [],
+        );
+      }
+
       const now = new Date();
       const hoje = now.toISOString().slice(0, 10);
       const inicioMes = `${hoje.slice(0, 7)}-01`;
@@ -381,8 +435,17 @@ Deno.serve(async (req) => {
             razao_social: context.cliente.razao_social,
             nome_fantasia: context.cliente.nome_fantasia,
           },
-          config: context.config,
+          config: {
+            cliente_id: context.config.cliente_id,
+            frequencia: context.config.frequencia,
+            dias_retirada: context.config.dias_retirada,
+            dias_entrega: context.config.dias_entrega,
+            horario_retirada: context.config.horario_retirada,
+            horario_entrega: context.config.horario_entrega,
+            tipo_relatorio: context.config.tipo_relatorio,
+          },
           empresa,
+          loyalty,
           ordens: ordensResult.data ?? [],
           faturas,
           agendamentos: agendamentosResult.data ?? [],

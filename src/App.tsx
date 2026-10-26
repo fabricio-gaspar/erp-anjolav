@@ -1,15 +1,25 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, type ComponentType, type LazyExoticComponent } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { dashboardQueryDefaults } from "@/lib/queryDefaults";
 import { aplicarTema, getTemaIdFromCorPrimaria } from "@/lib/themeUtils";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { ThemeModeProvider } from "@/contexts/ThemeModeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { useNavigationAccess } from "@/hooks/usePermissoesUsuario";
+import {
+  APP_ROUTES,
+  LEGACY_ROUTE_REDIRECTS,
+  type AppRouteDefinition,
+  type AppRoutePath,
+  type LegacyRouteRedirect,
+} from "@/lib/appRoutes";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clientes = lazy(() => import("./pages/Clientes"));
@@ -35,12 +45,12 @@ const HistoricoCaixas = lazy(() => import("./pages/HistoricoCaixas"));
 const AgendaEventos = lazy(() => import("./pages/AgendaEventos"));
 const RelatorioKilometragem = lazy(() => import("./pages/RelatorioKilometragem"));
 const RelatorioMensal = lazy(() => import("./pages/RelatorioMensal"));
+const Auditoria = lazy(() => import("./pages/Auditoria"));
+const AdministracaoSaas = lazy(() => import("./pages/AdministracaoSaas"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      refetchOnMount: "always",
-    },
+    queries: dashboardQueryDefaults,
   },
 });
 
@@ -54,14 +64,101 @@ function ThemeLoader({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+const ROUTE_COMPONENTS = {
+  "/central": Dashboard,
+  "/central/financeiro": DashboardFinanceiro,
+  "/central/contas": Contas,
+  "/central/agenda-eventos": AgendaEventos,
+  "/central/relatorios/quilometragem": RelatorioKilometragem,
+  "/central/relatorios/mensal": RelatorioMensal,
+  "/central/configuracoes": Configuracoes,
+  "/central/auditoria": Auditoria,
+  "/central/administracao-saas": AdministracaoSaas,
+  "/industrial": Dashboard,
+  "/industrial/clientes": Clientes,
+  "/industrial/produtos": Produtos,
+  "/industrial/fornecedores": Fornecedores,
+  "/industrial/agenda": Agenda,
+  "/industrial/ordens": OrdensServico,
+  "/industrial/producao": FluxoProducao,
+  "/industrial/caixa": CaixaPDV,
+  "/industrial/lancamentos": Lancamentos,
+  "/industrial/financeiro": DashboardFinanceiro,
+  "/industrial/estoque": Estoque,
+  "/industrial/relatorios/clientes": RelatoriosCliente,
+  "/industrial/relatorios/proximidade": RelatorioProximidade,
+  "/residencial": Dashboard,
+  "/residencial/caixa": CaixaPDV,
+  "/residencial/lancamentos": Lancamentos,
+  "/residencial/clientes": Clientes,
+  "/residencial/agenda": Agenda,
+  "/residencial/ordens": OrdensServico,
+  "/residencial/producao": FluxoProducao,
+  "/residencial/financeiro": DashboardFinanceiro,
+  "/residencial/produtos": Produtos,
+  "/residencial/relatorios/caixa": HistoricoCaixas,
+} as const satisfies Record<AppRoutePath, LazyExoticComponent<ComponentType>>;
+
+function requiresPlatformAdmin(route: AppRouteDefinition): boolean {
+  return route.platformAdminOnly === true;
+}
+
+function AuthorizedRouteRedirect({ redirect }: { redirect?: LegacyRouteRedirect }) {
+  const {
+    isError,
+    isLoading,
+    resolveDefaultRoute,
+    resolveLegacyRoute,
+  } = useNavigationAccess();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" role="status" aria-live="polite">
+        Carregando ambientes autorizados…
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4" role="alert">
+        Não foi possível verificar os ambientes autorizados. Tente novamente.
+      </div>
+    );
+  }
+
+  const destination = redirect ? resolveLegacyRoute(redirect) : resolveDefaultRoute();
+
+  if (!destination) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4" role="alert">
+        {redirect?.from === "/pdv" || redirect?.from === "/caixa"
+          ? "Sua conta não possui acesso ao PDV de atendimento em nenhum setor."
+          : "Sua conta não possui acesso a um ambiente de trabalho."}
+      </div>
+    );
+  }
+
+  return <Navigate to={destination} replace />;
+}
+
+function WorkspaceRootRedirect() {
+  return <AuthorizedRouteRedirect />;
+}
+
+function LegacyRouteRedirect({ redirect }: { redirect: LegacyRouteRedirect }) {
+  return <AuthorizedRouteRedirect redirect={redirect} />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
-        <AuthProvider>
-          <WorkspaceProvider>
-            <ThemeLoader>
-            <SidebarProvider>
+        <ThemeModeProvider>
+          <AuthProvider>
+            <WorkspaceProvider>
+              <ThemeLoader>
+              <SidebarProvider>
             <Toaster />
             <Sonner />
             <Suspense
@@ -78,68 +175,39 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
 
-              {/* Central Panel Routes */}
-              <Route path="/central" element={<ProtectedRoute requiredArea="central" requiredModule="dashboard"><Dashboard /></ProtectedRoute>} />
-              <Route path="/central/financeiro" element={<ProtectedRoute requiredArea="central" requiredModule="faturamento"><DashboardFinanceiro /></ProtectedRoute>} />
-              <Route path="/central/contas" element={<ProtectedRoute requiredArea="central" requiredModule={["contas_receber", "contas_pagar"]}><Contas /></ProtectedRoute>} />
-              <Route path="/central/agenda-eventos" element={<ProtectedRoute requiredArea="central" requiredModule="agenda"><AgendaEventos /></ProtectedRoute>} />
-              <Route path="/central/relatorios/quilometragem" element={<ProtectedRoute requiredArea="central" requiredModule="relatorios"><RelatorioKilometragem /></ProtectedRoute>} />
-              <Route path="/central/relatorios/mensal" element={<ProtectedRoute requiredArea="central" requiredModule="relatorios"><RelatorioMensal /></ProtectedRoute>} />
-              <Route path="/central/configuracoes" element={<ProtectedRoute requiredArea="central" requiredModule="configuracoes" adminOnly><Configuracoes /></ProtectedRoute>} />
-
-              {/* Industrial Panel Routes */}
-              <Route path="/industrial" element={<ProtectedRoute requiredArea="industrial" requiredModule="dashboard"><Dashboard /></ProtectedRoute>} />
-              <Route path="/industrial/clientes" element={<ProtectedRoute requiredArea="industrial" requiredModule="clientes"><Clientes /></ProtectedRoute>} />
-              <Route path="/industrial/produtos" element={<ProtectedRoute requiredArea="industrial" requiredModule="produtos"><Produtos /></ProtectedRoute>} />
-              <Route path="/industrial/fornecedores" element={<ProtectedRoute requiredArea="industrial" requiredModule="clientes"><Fornecedores /></ProtectedRoute>} />
-              <Route path="/industrial/agenda" element={<ProtectedRoute requiredArea="industrial" requiredModule="agenda"><Agenda /></ProtectedRoute>} />
-              <Route path="/industrial/ordens" element={<ProtectedRoute requiredArea="industrial" requiredModule="ordens"><OrdensServico /></ProtectedRoute>} />
-              <Route path="/industrial/producao" element={<ProtectedRoute requiredArea="industrial" requiredModule="producao"><FluxoProducao /></ProtectedRoute>} />
-              <Route path="/industrial/lancamentos" element={<ProtectedRoute requiredArea="industrial" requiredModule="faturamento"><Lancamentos /></ProtectedRoute>} />
-              <Route path="/industrial/financeiro" element={<ProtectedRoute requiredArea="industrial" requiredModule="faturamento"><DashboardFinanceiro /></ProtectedRoute>} />
-              <Route path="/industrial/estoque" element={<ProtectedRoute requiredArea="industrial" requiredModule="produtos"><Estoque /></ProtectedRoute>} />
-              <Route path="/industrial/relatorios/clientes" element={<ProtectedRoute requiredArea="industrial" requiredModule="relatorios"><RelatoriosCliente /></ProtectedRoute>} />
-              <Route path="/industrial/relatorios/proximidade" element={<ProtectedRoute requiredArea="industrial" requiredModule="relatorios"><RelatorioProximidade /></ProtectedRoute>} />
-
-              {/* Residencial Panel Routes */}
-              <Route path="/residencial" element={<ProtectedRoute requiredArea="residencial" requiredModule="dashboard"><Dashboard /></ProtectedRoute>} />
-              <Route path="/residencial/caixa" element={<ProtectedRoute requiredArea="residencial" requiredModule="caixa"><CaixaPDV /></ProtectedRoute>} />
-              <Route path="/residencial/clientes" element={<ProtectedRoute requiredArea="residencial" requiredModule="clientes"><Clientes /></ProtectedRoute>} />
-              <Route path="/residencial/agenda" element={<ProtectedRoute requiredArea="residencial" requiredModule="agenda"><Agenda /></ProtectedRoute>} />
-              <Route path="/residencial/ordens" element={<ProtectedRoute requiredArea="residencial" requiredModule="ordens"><OrdensServico /></ProtectedRoute>} />
-              <Route path="/residencial/producao" element={<ProtectedRoute requiredArea="residencial" requiredModule="producao"><FluxoProducao /></ProtectedRoute>} />
-              <Route path="/residencial/financeiro" element={<ProtectedRoute requiredArea="residencial" requiredModule="faturamento"><DashboardFinanceiro /></ProtectedRoute>} />
-              <Route path="/residencial/produtos" element={<ProtectedRoute requiredArea="residencial" requiredModule="produtos"><Produtos /></ProtectedRoute>} />
-              <Route path="/residencial/relatorios/caixa" element={<ProtectedRoute requiredArea="residencial" requiredModule="relatorios"><HistoricoCaixas /></ProtectedRoute>} />
+              {APP_ROUTES.map((route) => {
+                const Page = ROUTE_COMPONENTS[route.path];
+                return (
+                  <Route
+                    key={route.path}
+                    path={route.path}
+                    element={(
+                      <ProtectedRoute
+                        requiredArea={route.area}
+                        requiredModule={route.requiredModules}
+                        adminOnly={route.adminOnly}
+                        platformAdminOnly={requiresPlatformAdmin(route)}
+                      >
+                        <Page />
+                      </ProtectedRoute>
+                    )}
+                  />
+                );
+              })}
 
               {/* Legacy and Redirects */}
-              <Route path="/" element={<ProtectedRoute><Navigate to="/central" replace /></ProtectedRoute>} />
-              <Route path="/dashboard" element={<Navigate to="/central" replace />} />
-              <Route path="/configuracoes" element={<Navigate to="/central/configuracoes" replace />} />
-              <Route path="/financeiro" element={<Navigate to="/central/financeiro" replace />} />
-              <Route path="/caixa" element={<Navigate to="/residencial/caixa" replace />} />
-              <Route path="/lancamentos" element={<Navigate to="/industrial/lancamentos" replace />} />
-              <Route path="/contas" element={<Navigate to="/central/contas" replace />} />
-              <Route path="/clientes" element={<Navigate to="/industrial/clientes" replace />} />
-              <Route path="/produtos" element={<Navigate to="/industrial/produtos" replace />} />
-              <Route path="/producao" element={<Navigate to="/industrial/producao" replace />} />
-              <Route path="/ordens" element={<Navigate to="/industrial/ordens" replace />} />
-              <Route path="/agenda" element={<Navigate to="/industrial/agenda" replace />} />
-              <Route path="/fornecedores" element={<Navigate to="/industrial/fornecedores" replace />} />
-              <Route path="/estoque" element={<Navigate to="/industrial/estoque" replace />} />
-              <Route path="/relatorios/clientes" element={<Navigate to="/industrial/relatorios/clientes" replace />} />
-              <Route path="/relatorios/proximidade" element={<Navigate to="/industrial/relatorios/proximidade" replace />} />
-              <Route path="/relatorios/caixa" element={<Navigate to="/residencial/relatorios/caixa" replace />} />
-              <Route path="/agenda-eventos" element={<Navigate to="/central/agenda-eventos" replace />} />
-              <Route path="/relatorios/quilometragem" element={<Navigate to="/central/relatorios/quilometragem" replace />} />
-              <Route path="/relatorios/mensal" element={<Navigate to="/central/relatorios/mensal" replace />} />
-
-              {/* Redirects for old routes */}
-              <Route path="/faturamento" element={<Navigate to="/lancamentos?tab=faturas" replace />} />
-              <Route path="/receber" element={<Navigate to="/contas?tab=receber" replace />} />
-              <Route path="/pagar" element={<Navigate to="/contas?tab=pagar" replace />} />
-              <Route path="/asaas" element={<Navigate to="/contas?tab=receber" replace />} />
-              <Route path="/relatorios/financeiro" element={<Navigate to="/financeiro" replace />} />
+              <Route path="/" element={<ProtectedRoute><WorkspaceRootRedirect /></ProtectedRoute>} />
+              {LEGACY_ROUTE_REDIRECTS.map((redirect) => (
+                <Route
+                  key={redirect.from}
+                  path={redirect.from}
+                  element={(
+                    <ProtectedRoute>
+                      <LegacyRouteRedirect redirect={redirect} />
+                    </ProtectedRoute>
+                  )}
+                />
+              ))}
 
               {/* Portal do Cliente - Rota pública */}
               <Route path="/portal/:codigo" element={<PortalCliente />} />
@@ -147,10 +215,11 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             </Suspense>
-            </SidebarProvider>
-            </ThemeLoader>
-          </WorkspaceProvider>
-        </AuthProvider>
+              </SidebarProvider>
+              </ThemeLoader>
+            </WorkspaceProvider>
+          </AuthProvider>
+        </ThemeModeProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

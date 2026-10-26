@@ -40,6 +40,7 @@ interface LogisticaSectionProps {
   onMotoristaChange: (id: string) => void;
   veiculoId: string;
   onVeiculoChange: (id: string) => void;
+  mostrarDataEntrega?: boolean;
 }
 
 export function LogisticaSection({
@@ -52,6 +53,7 @@ export function LogisticaSection({
   onMotoristaChange,
   veiculoId,
   onVeiculoChange,
+  mostrarDataEntrega = true,
 }: LogisticaSectionProps) {
   const { motoristasAtivos } = useMotoristas();
   const { veiculosAtivos } = useVeiculos();
@@ -135,34 +137,36 @@ export function LogisticaSection({
       {/* Campos adicionais quando entregar */}
       {tipoLogistica === "entregar" && (
         <>
-          {/* Data de Entrega */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4" />
-              Data de Entrega
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(dataEntrega, "EEEE, dd 'de' MMMM", { locale: ptBR })}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dataEntrega}
-                  onSelect={(d) => d && onDataEntregaChange(d)}
-                  disabled={(date) => date < new Date()}
-                  initialFocus
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+          {mostrarDataEntrega && (
+            /* Data de Entrega */
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4" />
+                Data de Entrega
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(dataEntrega, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dataEntrega}
+                    onSelect={(d) => d && onDataEntregaChange(d)}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
 
           {/* Motorista e Veículo em linha */}
           <div className="grid grid-cols-2 gap-3">

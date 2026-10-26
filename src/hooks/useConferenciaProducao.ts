@@ -36,6 +36,7 @@ export interface OSConferencia {
     telefone: string | null;
     cpf_cnpj: string | null;
     classificacao: string;
+    tabela_preco_tipo: "padrao" | "personalizada";
   };
   dataRetirada: string;
   dataPrevisaoEntrega: string | null;
@@ -140,7 +141,7 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
           observacoes,
           data_retirada,
           data_previsao_entrega,
-          cliente:clientes(id, razao_social, telefone, cpf_cnpj, classificacao),
+          cliente:clientes(id, razao_social, telefone, cpf_cnpj, classificacao, tabela_preco_tipo),
           historico_producao(id, etapa_nova, etapa_anterior, created_at, dados_formulario, observacoes),
           itens_ordem_servico(
             id,
@@ -226,6 +227,7 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
               telefone: cliente?.telefone || null,
               cpf_cnpj: cliente?.cpf_cnpj || null,
               classificacao: cliente?.classificacao || "industrial",
+              tabela_preco_tipo: cliente?.tabela_preco_tipo === "personalizada" ? "personalizada" : "padrao",
             },
             dataRetirada: os.data_retirada,
             dataPrevisaoEntrega: os.data_previsao_entrega,

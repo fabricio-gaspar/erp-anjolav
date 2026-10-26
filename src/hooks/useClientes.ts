@@ -18,6 +18,7 @@ export interface Cliente {
   inscricao_municipal: string | null;
   regime_tributario: string | null;
   observacoes: string | null;
+  tabela_preco_tipo: "padrao" | "personalizada";
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -71,14 +72,16 @@ export interface ConfiguracaoCliente {
   updated_at: string;
 }
 
-export type ClienteInsert = Omit<Cliente, "id" | "created_at" | "updated_at">;
+export type ClienteInsert = Omit<Cliente, "id" | "created_at" | "updated_at" | "tabela_preco_tipo"> & {
+  tabela_preco_tipo?: Cliente["tabela_preco_tipo"];
+};
 export type ClienteUpdate = Partial<ClienteInsert>;
 
 export function useClientes() {
   const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
 
-  const { data: clientes = [], isLoading, error } = useQuery({
+  const { data: clientes = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["clientes", activeArea],
     queryFn: async () => {
       let query = supabase
@@ -177,7 +180,9 @@ export function useClientes() {
   return {
     clientes,
     isLoading,
+    isError,
     error,
+    refetch,
     createCliente,
     updateCliente,
     deleteCliente,
@@ -265,7 +270,7 @@ export function useEnderecoCliente(clienteId: string | null) {
 export function useConfiguracaoPagamentoCliente(clienteId: string | null) {
   const queryClient = useQueryClient();
 
-  const { data: configuracao, isLoading } = useQuery({
+  const { data: configuracao, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["configuracao_pagamento_cliente", clienteId],
     queryFn: async () => {
       if (!clienteId) return null;
@@ -316,7 +321,7 @@ export function useConfiguracaoPagamentoCliente(clienteId: string | null) {
     },
   });
 
-  return { configuracao, isLoading, upsertConfiguracao };
+  return { configuracao, isLoading, isError, error, refetch, upsertConfiguracao };
 }
 
 // Configurações do Cliente (Acesso/Agenda)

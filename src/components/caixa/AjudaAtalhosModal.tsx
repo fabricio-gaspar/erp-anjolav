@@ -14,7 +14,6 @@ interface AjudaAtalhosModalProps {
 
 const ATALHOS = [
   { tecla: "F1", descricao: "Ajuda / Lista de atalhos", grupo: "Sistema" },
-  { tecla: "F2", descricao: "Selecionar cliente", grupo: "Cliente" },
   { tecla: "F3", descricao: "Foco na busca de produtos", grupo: "Produtos" },
   { tecla: "F4", descricao: "Abrir pagamento", grupo: "Venda" },
   { tecla: "F5", descricao: "Consultar OS", grupo: "Consulta" },

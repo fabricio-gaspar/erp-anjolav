@@ -2,6 +2,11 @@
   "environment": "production",
   "projectRef": "uomhckyqghkcnctbdwvp",
   "releaseCommit": "PREENCHA_COM_O_SHA_COMPLETO_DO_COMMIT_DE_RELEASE",
+  "migrationVersion": "PREENCHA_COM_O_MESMO_SHA_DO_COMMIT_DE_RELEASE",
+  "edgeFunctionCommit": "PREENCHA_COM_O_MESMO_SHA_DO_COMMIT_DE_RELEASE",
+  "frontendCommit": "PREENCHA_COM_O_MESMO_SHA_DO_COMMIT_DE_RELEASE",
+  "e2eCriticalFlows": "PREENCHA_COM_A_URL_OU_IDENTIFICADOR_DA_EVIDENCIA_E2E",
+  "performanceBudget": "PREENCHA_COM_A_URL_OU_IDENTIFICADOR_DO_ORCAMENTO_APROVADO",
   "approvedBy": "PREENCHA_COM_O_RESPONSAVEL",
   "approvedAt": "PREENCHA_EM_ISO_8601",
   "gates": {
@@ -14,6 +19,8 @@
     "transactionalEmail": { "passed": false, "evidence": "Provedor de e-mail transacional, entrega, bounce e retry comprovados." },
     "observability": { "passed": false, "evidence": "Alertas, logs, retenção, indicadores e resposta a incidentes aprovados." },
     "securityReview": { "passed": false, "evidence": "RLS, grants, MFA, WAF/rate limit, secrets e varreduras revisados." },
-    "legalCommercial": { "passed": false, "evidence": "LGPD, contratos, política de privacidade, suporte, SLA e treinamento aprovados." }
+    "legalCommercial": { "passed": false, "evidence": "LGPD, contratos, política de privacidade, suporte, SLA e treinamento aprovados." },
+    "releaseProvenance": { "passed": false, "evidence": "Migration, Edge Functions e frontend publicados a partir do mesmo SHA completo." },
+    "postDeploySmoke": { "passed": false, "evidence": "Smoke autenticado pós-publicação, isolamento de tenant e monitoramento inicial aprovados." }
   }
 }

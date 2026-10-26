@@ -4,9 +4,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   getRoutePermissionRequirement,
   hasAnyModulePermission,
+  isRouteAccessible,
+  resolveDefaultAccessibleRoute,
+  resolveFirstAccessibleRouteInArea,
+  resolveLegacyRouteRedirect,
   type ModulePermissionKey,
   type RoutePermissionRequirement,
 } from "@/lib/authorization";
+import {
+  getAppRoute,
+  type AppRouteDefinition,
+  type LegacyRouteRedirect,
+  type WorkspaceArea,
+} from "@/lib/appRoutes";
+import { useAccessibleWorkspaces } from "@/hooks/useAccessibleWorkspaces";
 
 export const usePermissoesUsuario = () => {
   const { funcionario } = useAuth();
@@ -117,4 +128,66 @@ export const useTemPermissao = (route: string): boolean => {
 
 export const useTemPermissaoModulo = (moduleKey: ModulePermissionKey): boolean => {
   return usePermissaoModulo(moduleKey).allowed;
+};
+
+export interface NavigationAccessState {
+  canAccessRoute: (route: string | AppRouteDefinition) => boolean;
+  resolveWorkspaceRoute: (area: WorkspaceArea) => string | null;
+  resolveDefaultRoute: () => string | null;
+  resolveLegacyRoute: (redirect: LegacyRouteRedirect) => string | null;
+  isError: boolean;
+  isLoading: boolean;
+}
+
+export const useNavigationAccess = (): NavigationAccessState => {
+  const { isPlatformAdmin } = useAuth();
+  const accessibleWorkspaces = useAccessibleWorkspaces();
+  const permissionsQuery = usePermissoesUsuario();
+  const adminQuery = useIsAdmin();
+  const isLoading = (
+    accessibleWorkspaces.isLoading
+    || permissionsQuery.isLoading
+    || adminQuery.isLoading
+  );
+  const isError = (
+    accessibleWorkspaces.isError
+    || permissionsQuery.isError
+    || adminQuery.isError
+  );
+  const access = {
+    accessibleAreas: accessibleWorkspaces.areas,
+    modulePermissions: permissionsQuery.data,
+    isAdmin: adminQuery.data === true,
+    isPlatformAdmin,
+  };
+
+  const canAccessRoute = (route: string | AppRouteDefinition): boolean => {
+    if (isLoading || isError) return false;
+    const definition = typeof route === "string" ? getAppRoute(route) : route;
+    return isRouteAccessible(definition, access);
+  };
+
+  const resolveDefaultRoute = (): string | null => {
+    if (isLoading || isError) return null;
+    return resolveDefaultAccessibleRoute(access)?.path ?? null;
+  };
+
+  const resolveWorkspaceRoute = (area: WorkspaceArea): string | null => {
+    if (isLoading || isError) return null;
+    return resolveFirstAccessibleRouteInArea(area, access)?.path ?? null;
+  };
+
+  const resolveLegacyRoute = (redirect: LegacyRouteRedirect): string | null => {
+    if (isLoading || isError) return null;
+    return resolveLegacyRouteRedirect(redirect, access);
+  };
+
+  return {
+    canAccessRoute,
+    resolveWorkspaceRoute,
+    resolveDefaultRoute,
+    resolveLegacyRoute,
+    isError,
+    isLoading,
+  };
 };

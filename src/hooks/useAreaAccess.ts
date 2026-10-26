@@ -1,26 +1,11 @@
-import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useAccessibleWorkspaces } from "@/hooks/useAccessibleWorkspaces";
+import type { WorkspaceArea } from "@/lib/appRoutes";
 
-export const useAreaAccess = (area?: string) => {
-  const { session } = useAuth();
-  const userId = session?.user?.id;
+export const useAreaAccess = (area?: WorkspaceArea) => {
+  const accessibleWorkspaces = useAccessibleWorkspaces();
 
-  return useQuery({
-    queryKey: ["area-access", userId, area],
-    queryFn: async () => {
-      if (!userId) return false;
-      if (!area) return true;
-
-      const { data, error } = await supabase.rpc("has_area_access", {
-        _user_id: userId,
-        _area: area
-      });
-
-      if (error) throw error;
-      return !!data;
-    },
-    enabled: !!userId,
-    retry: false,
-  });
+  return {
+    ...accessibleWorkspaces,
+    data: area ? accessibleWorkspaces.areas[area] === true : true,
+  };
 };

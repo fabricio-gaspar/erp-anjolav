@@ -2,10 +2,23 @@ import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,16 +47,21 @@ import {
   Pencil,
   Check,
   X,
+  Undo2,
 } from "lucide-react";
 import { useConsultaOS, getStatusConfig, OrdemServicoConsulta } from "@/hooks/useConsultaOS";
+import { useEditPdvPayment, usePdvPaymentsForOrder, useReversePdvPayment, type PdvPaymentSummary } from "@/hooks/usePdvPayments";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 
 interface ConsultarOSModalProps {
+  recent?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReceberPagamento?: (ordem: OrdemServicoConsulta) => void;
@@ -58,20 +76,261 @@ interface EditingPosition {
   prateleira: string;
 }
 
+const paymentMethodLabels: Record<string, string> = {
+  DINHEIRO: "Dinheiro",
+  PIX: "PIX",
+  CARTAO_CREDITO: "Cartão de crédito",
+  CARTAO_DEBITO: "Cartão de débito",
+  FIDELIDADE: "Fidelidade",
+  OUTRO: "Outro",
+};
+
+const paymentStatusLabels: Record<string, string> = {
+  CONFIRMADO: "Confirmado",
+  EM_REVISAO: "Em revisão",
+  ESTORNADO: "Estornado",
+  CANCELADO: "Cancelado",
+  PENDENTE: "Pendente",
+  PROCESSANDO: "Processando",
+  FALHOU: "Falhou",
+};
+
+function PaymentHistory({ orderId }: { orderId: string }) {
+  const [paymentToReverse, setPaymentToReverse] = useState<PdvPaymentSummary | null>(null);
+  const [paymentToEdit, setPaymentToEdit] = useState<PdvPaymentSummary | null>(null);
+  const [reason, setReason] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editMethod, setEditMethod] = useState("DINHEIRO");
+  const { data: payments = [], isLoading, isError, refetch } = usePdvPaymentsForOrder(orderId, true);
+  const reversePayment = useReversePdvPayment();
+  const editPayment = useEditPdvPayment();
+
+  const formatPaymentCurrency = (value: number) => new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value) || 0);
+
+  const openReverseDialog = (payment: PdvPaymentSummary) => {
+    setPaymentToReverse(payment);
+    setReason("");
+  };
+
+  const openEditDialog = (payment: PdvPaymentSummary) => {
+    setPaymentToEdit(payment);
+    setEditAmount(Number(payment.valor).toFixed(2).replace(".", ","));
+    setEditMethod(payment.metodo);
+    setEditReason("");
+  };
+
+  const handleReverse = async () => {
+    if (!paymentToReverse || reason.trim().length < 5) return;
+    try {
+      await reversePayment.mutateAsync({ paymentId: paymentToReverse.id, reason: reason.trim() });
+      toast.success("Pagamento estornado e saldo da OS recalculado.");
+      setPaymentToReverse(null);
+      setReason("");
+      await refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível estornar o pagamento.");
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!paymentToEdit || editReason.trim().length < 5) return;
+    const normalizedAmount = Number(editAmount.replace(/\./g, "").replace(",", "."));
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) return;
+    try {
+      await editPayment.mutateAsync({
+        paymentId: paymentToEdit.id,
+        newValue: normalizedAmount,
+        newMethod: editMethod,
+        reason: editReason.trim(),
+      });
+      toast.success("Pagamento corrigido e histórico preservado.");
+      setPaymentToEdit(null);
+      setEditReason("");
+      await refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível corrigir o pagamento.");
+    }
+  };
+
+  return (
+    <>
+      <Separator />
+      <div className="p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h4 className="font-medium flex items-center gap-2">
+            <CreditCard className="w-4 h-4" />
+            Histórico de pagamentos
+          </h4>
+          {isError && (
+            <Button variant="ghost" size="sm" onClick={() => void refetch()}>
+              Tentar novamente
+            </Button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" /> Consultando pagamentos...
+          </div>
+        ) : isError ? (
+          <p className="text-sm text-destructive">Não foi possível carregar o histórico de pagamentos.</p>
+        ) : payments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum pagamento registrado nesta OS.</p>
+        ) : (
+          <div className="space-y-2">
+            {payments.map((payment) => (
+              <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-background p-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{paymentMethodLabels[payment.metodo] || payment.metodo}</span>
+                    <Badge variant={payment.status === "ESTORNADO" ? "destructive" : payment.status === "CONFIRMADO" || payment.status === "EM_REVISAO" ? "default" : "secondary"}>
+                      {paymentStatusLabels[payment.status] || payment.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {payment.momento === "ENTRADA" ? "Na entrada" : "Na retirada"} · {payment.provedor} · {format(new Date(payment.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                  </p>
+                  {payment.reversalUnavailableReason && payment.status !== "ESTORNADO" && (
+                    <p className="text-xs text-muted-foreground mt-1">{payment.reversalUnavailableReason}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{formatPaymentCurrency(payment.valor)}</span>
+                  {payment.canEdit && (
+                    <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditDialog(payment)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                      Editar
+                    </Button>
+                  )}
+                  {payment.canReverse && (
+                    <Button variant="outline" size="sm" className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => openReverseDialog(payment)}>
+                      <Undo2 className="w-3.5 h-3.5" />
+                      Estornar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <AlertDialog open={!!paymentToReverse} onOpenChange={(open) => !open && setPaymentToReverse(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Estornar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O pagamento original será mantido no histórico, uma movimentação inversa será registrada e o saldo da OS será recalculado. Esta ação não pode ser desfeita automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="payment-reversal-reason" className="text-sm font-medium">Motivo do estorno *</label>
+            <Textarea
+              id="payment-reversal-reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Ex.: baixa registrada na OS incorreta"
+              maxLength={1000}
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">Informe pelo menos 5 caracteres.</p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reversePayment.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(event) => { event.preventDefault(); void handleReverse(); }} disabled={reason.trim().length < 5 || reversePayment.isPending}>
+              {reversePayment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar estorno
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={!!paymentToEdit} onOpenChange={(open) => !open && setPaymentToEdit(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar pagamento</DialogTitle>
+            <DialogDescription>
+              A baixa original será mantida como estornada e uma nova baixa de correção será registrada. Isso preserva o histórico e recalcula o saldo da OS.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label htmlFor="payment-edit-amount" className="text-sm font-medium">Novo valor *</label>
+                <Input
+                  id="payment-edit-amount"
+                  inputMode="decimal"
+                  value={editAmount}
+                  onChange={(event) => setEditAmount(event.target.value)}
+                  placeholder="0,00"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="payment-edit-method" className="text-sm font-medium">Forma *</label>
+                <Select value={editMethod} onValueChange={setEditMethod}>
+                  <SelectTrigger id="payment-edit-method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="CARTAO_CREDITO">Cartão de crédito</SelectItem>
+                    <SelectItem value="CARTAO_DEBITO">Cartão de débito</SelectItem>
+                    <SelectItem value="OUTRO">Outro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="payment-edit-reason" className="text-sm font-medium">Motivo da correção *</label>
+              <Textarea
+                id="payment-edit-reason"
+                value={editReason}
+                onChange={(event) => setEditReason(event.target.value)}
+                placeholder="Ex.: forma de pagamento informada incorretamente"
+                maxLength={1000}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">Informe pelo menos 5 caracteres.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentToEdit(null)} disabled={editPayment.isPending}>Cancelar</Button>
+            <Button
+              onClick={(event) => { event.preventDefault(); void handleEdit(); }}
+              disabled={editReason.trim().length < 5 || !Number.isFinite(Number(editAmount.replace(/\./g, "").replace(",", "."))) || Number(editAmount.replace(/\./g, "").replace(",", ".")) <= 0 || editPayment.isPending}
+            >
+              {editPayment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar correção
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export function ConsultarOSModal({
   open,
   onOpenChange,
   onReceberPagamento,
   onImprimirROL,
   onImprimirEtiquetas,
+  recent = false,
 }: ConsultarOSModalProps) {
+  const { activeArea } = useWorkspace();
+  const { allowed: canOperateCaixa } = usePermissaoModulo("caixa");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [expandedOS, setExpandedOS] = useState<string | null>(null);
   const [editingPosition, setEditingPosition] = useState<EditingPosition | null>(null);
   const [isSavingPosition, setIsSavingPosition] = useState(false);
 
-  const { data: ordens, isLoading } = useConsultaOS(searchTerm, statusFilter);
+  const { data: ordens, isLoading, isError, refetch } = useConsultaOS(searchTerm, statusFilter, { enabled: open, recent });
   const queryClient = useQueryClient();
 
   const toggleExpand = (ordemId: string) => {
@@ -153,9 +412,10 @@ export function ConsultarOSModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            Consultar ROL / Ordem de Serviço
+            {recent ? "Histórico de atendimentos" : "Consultar ROL / Ordem de Serviço"} · {activeArea === "industrial" ? "Industrial" : "Residencial"}
           </DialogTitle>
         </DialogHeader>
+        <DialogDescription>{recent ? "Até 100 atendimentos mais recentes deste setor. Use a busca para localizar um ROL." : "Busque pelo número do ROL ou pelo nome do cliente deste setor."}</DialogDescription>
 
         {/* Search and Filters */}
         <div className="flex gap-3">
@@ -190,7 +450,9 @@ export function ConsultarOSModal({
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
-          ) : searchTerm.length < 2 ? (
+          ) : isError ? (
+            <div role="alert" className="py-8 text-center"><p>Não foi possível carregar as ordens deste setor.</p><Button variant="outline" onClick={() => void refetch()}>Tentar novamente</Button></div>
+          ) : !recent && searchTerm.length < 2 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>Digite pelo menos 2 caracteres para buscar</p>
@@ -238,7 +500,15 @@ export function ConsultarOSModal({
                             </Badge>
                             {isPendente && (
                               <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
-                                Pagamento Pendente
+                                Pagamento Pendente · {formatCurrency(pendente)}
+                              </Badge>
+                            )}
+                            <Badge variant="secondary">
+                              Retirada {format(new Date(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
+                            </Badge>
+                            {!isPendente && (
+                              <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">
+                                Pagamento em dia
                               </Badge>
                             )}
                           </div>
@@ -438,6 +708,8 @@ export function ConsultarOSModal({
                           </div>
                         </div>
 
+                        {canOperateCaixa && <PaymentHistory orderId={ordem.id} />}
+
                         {/* Payment Info (if pending) */}
                         {isPendente && (
                           <>
@@ -450,7 +722,7 @@ export function ConsultarOSModal({
                                     {formatCurrency(pendente)}
                                   </p>
                                 </div>
-                                {onReceberPagamento && (
+                                {canOperateCaixa && ordem.condicao_pagamento !== "faturado" && onReceberPagamento && (
                                   <Button
                                     onClick={() => onReceberPagamento(ordem)}
                                     className="bg-amber-600 hover:bg-amber-700"

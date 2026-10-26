@@ -36,6 +36,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
   const { configuracao } = useConfiguracoesGerais();
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [locationSource, setLocationSource] = useState<"cep" | "geocode" | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState({
@@ -56,11 +57,11 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
   const empresaLongitude = configuracao?.endereco_longitude ?? null;
   const hasEmpresaCoordinates = empresaLatitude !== null && empresaLongitude !== null;
 
-  const geocodeAddress = useCallback(async (data: GeocodeAddressData) => {
+  const geocodeAddress = useCallback(async (data: GeocodeAddressData): Promise<boolean> => {
     const enderecoCompleto = montarEnderecoCompleto(data);
 
     if (!enderecoCompleto || enderecoCompleto === "Brasil") {
-      return;
+      return false;
     }
 
     setIsGeocoding(true);
@@ -72,13 +73,17 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
           latitude: result.latitude,
           longitude: result.longitude,
         }));
+        setLocationSource("geocode");
         toast.success("Localização encontrada no mapa!");
+        return true;
       }
     } catch (error) {
       console.error("Erro ao geocodificar:", error);
     } finally {
       setIsGeocoding(false);
     }
+
+    return false;
   }, []);
 
   // Calcular distância
@@ -106,6 +111,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
         latitude: endereco.latitude || null,
         longitude: endereco.longitude || null,
       });
+      setLocationSource(null);
     }
   }, [endereco]);
 
@@ -152,6 +158,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
         latitude: null,
         longitude: null,
       });
+      setLocationSource(null);
     }
   }, [clienteId]);
 
@@ -160,7 +167,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
     const { logradouro, cidade, uf, numero } = formData;
     
     // Só auto-geocodificar se tiver os campos principais e não tiver coordenadas
-    if (logradouro && cidade && uf && numero && !formData.latitude) {
+    if (logradouro && cidade && uf && numero && locationSource !== "geocode") {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }
@@ -182,10 +189,16 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
         clearTimeout(debounceRef.current);
       }
     };
-  }, [formData, geocodeAddress]);
+  }, [formData, geocodeAddress, locationSource]);
 
   const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    const addressFields = ["logradouro", "numero", "bairro", "cidade", "uf"];
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(addressFields.includes(field) ? { latitude: null, longitude: null } : {}),
+    }));
+    if (addressFields.includes(field)) setLocationSource(null);
   };
 
   const handleCepSearch = async () => {
@@ -210,13 +223,18 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
         bairro: data.bairro || "",
         cidade: data.localidade || "",
         uf: data.uf || "",
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
       };
 
       setFormData(newFormData);
+      const hasCepCoordinates = data.latitude !== null && data.latitude !== undefined
+        && data.longitude !== null && data.longitude !== undefined;
+      setLocationSource(hasCepCoordinates ? "cep" : null);
       toast.success("Endereço encontrado!");
 
       // Auto-geocodificar após buscar CEP
-      await geocodeAddress({
+      const geocoded = await geocodeAddress({
         logradouro: data.logradouro,
         numero: formData.numero,
         bairro: data.bairro,
@@ -224,11 +242,23 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
         uf: data.uf,
         cep: cepLimpo,
       });
+      if (!geocoded && hasCepCoordinates) {
+        toast.info("O mapa mostra uma localização aproximada do CEP. Informe o número para refinar.");
+      } else if (!geocoded) {
+        toast.warning("Localização indisponível. Complemente o endereço e tente localizar no mapa.");
+      }
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
       toast.error("Erro ao buscar CEP.");
     } finally {
       setIsSearchingCep(false);
+    }
+  };
+
+  const handleManualGeocode = async () => {
+    const geocoded = await geocodeAddress(formData);
+    if (!geocoded) {
+      toast.warning("Localização indisponível. Confira o endereço e tente novamente.");
     }
   };
 
@@ -379,7 +409,7 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
             type="button"
             variant="outline"
             className="w-full gap-2"
-            onClick={() => void geocodeAddress(formData)}
+            onClick={() => void handleManualGeocode()}
             disabled={isGeocoding || !hasAddress}
           >
             {isGeocoding ? (
@@ -410,6 +440,17 @@ export const ClienteEndereco = ({ clienteId, onNext, onSave, cnpjData }: Cliente
               </Badge>
             )}
           </div>
+
+          {locationSource === "cep" && (
+            <p className="text-xs text-amber-700" role="status">
+              Localização aproximada pelo CEP. Informe o número e use “Localizar no Mapa” para refinar.
+            </p>
+          )}
+          {hasAddress && !formData.latitude && !formData.longitude && !isGeocoding && (
+            <p className="text-xs text-muted-foreground" role="status">
+              Localização indisponível. Complemente o número e o endereço para tentar novamente.
+            </p>
+          )}
 
           {/* Dica */}
           <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">

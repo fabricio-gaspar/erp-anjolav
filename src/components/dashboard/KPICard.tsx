@@ -44,15 +44,15 @@ export function KPICard({ title, value, icon: Icon, iconColor = "primary", subti
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           {/* Title */}
-          <p className="text-[10.5px] font-black text-slate-400 group-hover:text-slate-500 transition-colors uppercase tracking-[0.15em] leading-tight mb-1">{title}</p>
+          <p className="text-[11px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-[0.08em] leading-tight mb-2">{title}</p>
           
-          <span className="text-[34px] font-black text-[#0f172a] tracking-[-0.05em] leading-[0.9] block uppercase">
+          <span className="text-[28px] font-bold text-foreground tracking-[-0.04em] leading-none block">
             {value}
           </span>
           
           {/* Subtitle */}
           {subtitle && (
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1.5 line-clamp-1">{subtitle}</p>
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mt-2 line-clamp-1">{subtitle}</p>
           )}
 
           {/* Trend */}
@@ -61,7 +61,7 @@ export function KPICard({ title, value, icon: Icon, iconColor = "primary", subti
               "kpi-card-trend",
               trend.direction === "up" && "text-success",
               trend.direction === "down" && "text-destructive",
-              trend.direction === "neutral" && "text-slate-400"
+              trend.direction === "neutral" && "text-muted-foreground"
             )}>
               {trend.direction === "up" && "↗"}
               {trend.direction === "down" && "↘"}

@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Download, TrendingUp, TrendingDown, Wallet, Users } from "lucide-react";
+import { Loader2, Download, RefreshCw, TrendingUp, TrendingDown, Wallet, Users } from "lucide-react";
 import { useRelatorioMensal, type SetorRelatorio } from "@/hooks/useRelatorioMensal";
 import { formatNumberToCurrency } from "@/lib/currencyUtils";
 import { format, parseISO } from "date-fns";
@@ -32,7 +32,7 @@ const RelatorioMensal = () => {
   const [setor, setSetor] = useState<SetorRelatorio>("todos");
 
   const mesRef = parseISO(`${mes}-01`);
-  const { data, isLoading } = useRelatorioMensal(mesRef, setor);
+  const { data, error, isLoading, refetch } = useRelatorioMensal(mesRef, setor);
 
   const exportCSV = () => {
     if (!data) return;
@@ -109,8 +109,24 @@ const RelatorioMensal = () => {
           </div>
         </Card>
 
-        {isLoading || !data ? (
+        {isLoading ? (
           <div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto" /></div>
+        ) : error && !data ? (
+          <Card className="p-8 text-center" role="alert">
+            <h2 className="font-semibold">Não foi possível carregar o relatório mensal</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Verifique os dados do período e tente novamente.</p>
+            <Button type="button" variant="outline" className="mt-4" onClick={() => void refetch()}>
+              <RefreshCw className="w-4 h-4 mr-2" /> Tentar novamente
+            </Button>
+          </Card>
+        ) : !data ? (
+          <Card className="p-8 text-center" role="status">
+            <h2 className="font-semibold">Nenhum dado disponível</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Não há informações para o período selecionado.</p>
+            <Button type="button" variant="outline" className="mt-4" onClick={() => void refetch()}>
+              <RefreshCw className="w-4 h-4 mr-2" /> Tentar novamente
+            </Button>
+          </Card>
         ) : (
           <>
             {/* Cards resumo */}

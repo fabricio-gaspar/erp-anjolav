@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -28,8 +29,10 @@ import {
 } from "@/components/ui/table";
 import { Copy, Plus, Trash2, Loader2, ChevronsUpDown, Check, Search } from "lucide-react";
 import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
-import { useClientes } from "@/hooks/useClientes";
+import { useClientes, type Cliente } from "@/hooks/useClientes";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 
 interface ClienteTabelaPrecosProps {
   clienteId: string | null;
@@ -47,11 +50,27 @@ interface PrecoEspecialLocal {
 }
 
 export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => {
-  const { produtos, isLoading: isLoadingProdutos } = useProdutos();
-  const { clientes } = useClientes();
+  const navigate = useNavigate();
+  const { allowed: canManageTerms } = usePermissaoModulo("alterar_condicoes_comerciais");
+  const { activeArea } = useWorkspace();
+  const {
+    produtos,
+    isLoading: isLoadingProdutos,
+    isError: isProdutosError,
+    refetch: refetchProdutos,
+  } = useProdutos();
+  const {
+    clientes,
+    isLoading: isLoadingClientes,
+    isError: isClientesError,
+    refetch: refetchClientes,
+    updateCliente,
+  } = useClientes();
   const {
     precos: precosEspeciais,
     isLoading: isLoadingPrecos,
+    isError: isPrecosError,
+    refetch: refetchPrecos,
     upsertPrecoEspecial,
     deletePrecoEspecial,
     copyPrecosEspeciais,
@@ -62,6 +81,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   const [produtoSelecionado, setProdutoSelecionado] = useState("");
   const [produtoSearchOpen, setProdutoSearchOpen] = useState(false);
   const [novoPreco, setNovoPreco] = useState("");
+  const produtoRoute = activeArea === "residencial" ? "/residencial/produtos" : "/industrial/produtos";
 
   // Sincronizar preços do banco com estado local
   useEffect(() => {
@@ -95,23 +115,22 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
 
   // Buscar dados do cliente atual para filtrar por classificação
   const clienteAtual = clientes.find((c) => c.id === clienteId);
+  const tabelaPrecoTipo: Cliente["tabela_preco_tipo"] = clienteAtual?.tabela_preco_tipo ?? "padrao";
+  const isTabelaPersonalizada = tabelaPrecoTipo === "personalizada";
 
-  // Produtos disponíveis (não cadastrados ainda e compatíveis com a classificação do cliente)
-  const produtosDisponiveis = produtos.filter((p) => {
-    // Já está na tabela de preços? Ignora
-    if (precosLocais.some((pl) => pl.produto_id === p.id)) return false;
-    
-    // Produto deve estar ativo
+  const produtosCompativeis = useMemo(() => produtos.filter((p) => {
     if (p.status !== "ativo") return false;
-    
-    // Verificar compatibilidade de unidade de negócio com classificação do cliente
-    // ID1 = Industrial, ID2 = Residencial, ambos = todos
-    if (p.unidade_negocio === "ambos") return true;
-    
+    if (p.unidade_negocio === "ambos" || !p.unidade_negocio) return true;
     if (clienteAtual?.classificacao === "industrial" && p.unidade_negocio === "ID1") return true;
     if (clienteAtual?.classificacao === "residencial" && p.unidade_negocio === "ID2") return true;
-    
     return false;
+  }), [clienteAtual?.classificacao, produtos]);
+
+  // Produtos disponíveis (não cadastrados ainda e compatíveis com a classificação do cliente)
+  const produtosDisponiveis = produtosCompativeis.filter((p) => {
+    // Já está na tabela de preços? Ignora
+    if (precosLocais.some((pl) => pl.produto_id === p.id)) return false;
+    return true;
   });
 
   // Outros clientes para importação
@@ -120,6 +139,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   );
 
   const handleImportar = async () => {
+    if (!canManageTerms) return;
     if (!clienteImportar || !clienteId) return;
 
     await copyPrecosEspeciais.mutateAsync(
@@ -129,7 +149,12 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleAdicionarProduto = () => {
-    if (!produtoSelecionado || !clienteId) return;
+    if (!canManageTerms) return;
+    if (!clienteId) return;
+    if (!produtoSelecionado) {
+      navigate(`${produtoRoute}?novo=1`);
+      return;
+    }
 
     const produto = produtos.find((p) => p.id === produtoSelecionado);
     if (!produto) return;
@@ -158,6 +183,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleUpdatePreco = (id: string, produtoId: string, valor: string) => {
+    if (!canManageTerms) return;
     const precoNum = parseCurrencyToNumber(valor);
     if (isNaN(precoNum)) return;
 
@@ -173,6 +199,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleRemover = (id: string) => {
+    if (!canManageTerms) return;
     deletePrecoEspecial.mutate(id);
   };
 
@@ -182,7 +209,13 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
     return "normal";
   };
 
-  const isLoading = isLoadingProdutos || isLoadingPrecos;
+  const handleTabelaPrecoChange = (value: string) => {
+    if (!canManageTerms) return;
+    if (!clienteId || (value !== "padrao" && value !== "personalizada")) return;
+    updateCliente.mutate({ id: clienteId, tabela_preco_tipo: value });
+  };
+
+  const isLoading = isLoadingClientes || isLoadingProdutos || (isTabelaPersonalizada && isLoadingPrecos);
 
   if (!clienteId) {
     return (
@@ -201,10 +234,58 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
     );
   }
 
+  if (isClientesError || isProdutosError) {
+    return (
+      <div role="alert" className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <p className="font-medium">Não foi possível carregar os dados da tabela de preços.</p>
+        <p className="text-sm text-muted-foreground">Verifique a conexão e tente novamente.</p>
+        <Button
+          variant="outline"
+          onClick={() => void Promise.all([refetchClientes(), refetchProdutos()])}
+        >
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
+  if (isTabelaPersonalizada && isPrecosError) {
+    return (
+      <div role="alert" className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <p className="font-medium">Não foi possível carregar a tabela personalizada.</p>
+        <p className="text-sm text-muted-foreground">Tente novamente para consultar os preços salvos.</p>
+        <Button variant="outline" onClick={() => void refetchPrecos()}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 mt-6">
-      {/* Barra de ações */}
-      <div className="flex flex-col lg:flex-row gap-4">
+      {!canManageTerms && <p className="text-sm text-muted-foreground">Consulta permitida. Para alterar preços ou a tabela, solicite a permissão de condições comerciais ao administrador.</p>}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border rounded-lg bg-muted/20">
+        <div>
+          <p className="font-medium">Tabela de preços do cliente</p>
+          <p className="text-sm text-muted-foreground">
+            {isTabelaPersonalizada
+              ? "Defina preços específicos para este cliente."
+              : "Os produtos usam os preços padrão cadastrados."}
+          </p>
+        </div>
+        <Select value={tabelaPrecoTipo} onValueChange={handleTabelaPrecoChange} disabled={!canManageTerms || updateCliente.isPending}>
+          <SelectTrigger className="w-full sm:w-[220px] bg-background" aria-label="Tipo de tabela de preços">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-background">
+            <SelectItem value="padrao">Tabela padrão</SelectItem>
+            <SelectItem value="personalizada">Tabela personalizada</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {isTabelaPersonalizada && canManageTerms && (
+        <div className="flex flex-col lg:flex-row gap-4">
         {/* Importar de outro cliente */}
         <div className="flex-1 flex gap-2 items-center p-3 border rounded-lg bg-muted/20">
           <Copy className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -285,7 +366,9 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
           <Button 
             size="icon" 
             onClick={handleAdicionarProduto} 
-            disabled={!produtoSelecionado || upsertPrecoEspecial.isPending}
+            disabled={upsertPrecoEspecial.isPending}
+            aria-label={produtoSelecionado ? "Adicionar produto à tabela de preços" : "Cadastrar novo produto"}
+            title={produtoSelecionado ? "Adicionar produto à tabela de preços" : "Cadastrar novo produto"}
           >
             {upsertPrecoEspecial.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -295,9 +378,11 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
           </Button>
         </div>
       </div>
+      )}
 
       {/* Tabela de Preços */}
-      <div className="border rounded-lg overflow-hidden">
+      {isTabelaPersonalizada ? (
+        <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -327,6 +412,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <CurrencyInput
+                        disabled={!canManageTerms}
                         defaultValue={item.preco_especial}
                         onBlur={(e) => handleUpdatePreco(item.id, item.produto_id, e.target.value)}
                         className="w-32"
@@ -353,7 +439,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => handleRemover(item.id)}
-                        disabled={deletePrecoEspecial.isPending}
+                        disabled={!canManageTerms || deletePrecoEspecial.isPending}
                       >
                         {deletePrecoEspecial.isPending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -368,7 +454,42 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
             )}
           </TableBody>
         </Table>
-      </div>
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="font-semibold text-primary">Produto</TableHead>
+                <TableHead className="font-semibold">Preço padrão</TableHead>
+                <TableHead className="font-semibold">Preço aplicado</TableHead>
+                <TableHead className="font-semibold text-right">Origem</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {produtosCompativeis.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    Nenhum produto padrão disponível para este cliente.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                produtosCompativeis.map((produto) => (
+                  <TableRow key={produto.id}>
+                    <TableCell>
+                      <span className="font-medium">{produto.nome}</span>
+                      <span className="text-muted-foreground ml-2">({produto.unidade})</span>
+                    </TableCell>
+                    <TableCell>R$ {produto.preco.toFixed(2)}</TableCell>
+                    <TableCell>R$ {produto.preco.toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">Preço padrão</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 };

@@ -107,6 +107,24 @@ export interface EstatisticasPortal {
   totalFaturas: number;
 }
 
+export type LoyaltyEntryType = "CREDITO" | "RESGATE" | "ESTORNO" | "EXPIRACAO";
+
+export interface LoyaltyEntry {
+  description: string;
+  points: number;
+  type: LoyaltyEntryType;
+  timestamp: string;
+}
+
+export interface PortalLoyalty {
+  active: boolean;
+  visible: boolean;
+  balancePoints: number;
+  balanceValue: number;
+  minimumRedemptionPoints: number;
+  recentEntries: LoyaltyEntry[];
+}
+
 export interface PortalBootstrap {
   cliente: {
     id: string;
@@ -133,6 +151,7 @@ export interface PortalBootstrap {
   lancamentos: LancamentoClientePortal[];
   produtos: ProdutoPortal[];
   estatisticas: EstatisticasPortal;
+  loyalty: PortalLoyalty;
 }
 
 export interface LancamentoComItensPortal {

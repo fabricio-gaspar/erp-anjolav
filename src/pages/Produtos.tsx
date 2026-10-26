@@ -8,6 +8,7 @@ import { ProdutoFilters } from "@/components/produtos/ProdutoFilters";
 import { ProdutoCard } from "@/components/produtos/ProdutoCard";
 import { ProdutoForm, ProdutoFormData } from "@/components/produtos/ProdutoForm";
 import { ProdutoStats } from "@/components/produtos/ProdutoStats";
+import { useSearchParams } from "react-router-dom";
 
 const defaultFormData: ProdutoFormData = {
   codigo: "",
@@ -16,6 +17,7 @@ const defaultFormData: ProdutoFormData = {
   preco: 0,
   unidade: "peca",
   unidade_negocio: "ambos",
+  porte: "",
   status: "ativo",
   descricao: "",
   peso_medio_kg: 0,
@@ -29,6 +31,7 @@ const defaultFormData: ProdutoFormData = {
 };
 
 const Produtos = () => {
+  const [searchParams] = useSearchParams();
   const { produtos, isLoading, createProduto, updateProduto, deleteProduto } = useProdutos();
   
   // Filters state
@@ -39,7 +42,7 @@ const Produtos = () => {
   const [selectedStatus, setSelectedStatus] = useState("todos");
   
   // Form state
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(searchParams.get("novo") === "1");
   const [editingProduto, setEditingProduto] = useState<Produto | null>(null);
   const [formData, setFormData] = useState<ProdutoFormData>(defaultFormData);
 
@@ -65,6 +68,7 @@ const Produtos = () => {
       preco: formData.preco,
       unidade: formData.unidade,
       unidade_negocio: formData.unidade_negocio,
+      porte: formData.porte || null,
       status: formData.status,
       descricao: formData.descricao || null,
       categoria: formData.categoria || null,
@@ -97,6 +101,7 @@ const Produtos = () => {
       preco: produto.preco,
       unidade: produto.unidade || "peca",
       unidade_negocio: produto.unidade_negocio || "ambos",
+      porte: produto.porte || "",
       status: produto.status || "ativo",
       descricao: produto.descricao || "",
       peso_medio_kg: produto.peso_medio_kg || 0,
@@ -120,6 +125,7 @@ const Produtos = () => {
       preco: produto.preco,
       unidade: produto.unidade || "peca",
       unidade_negocio: produto.unidade_negocio || "ambos",
+      porte: produto.porte || "",
       status: "ativo",
       descricao: produto.descricao || "",
       peso_medio_kg: produto.peso_medio_kg || 0,
@@ -147,7 +153,7 @@ const Produtos = () => {
       return;
     }
 
-    const headers = ["Código", "Nome", "Categoria", "Preço", "Unidade", "Un. Negócio", "Status", "Peso Médio", "Processo", "Temperatura"];
+    const headers = ["Código", "Nome", "Categoria", "Preço", "Unidade", "Un. Negócio", "Porte", "Status", "Peso Médio", "Processo", "Temperatura"];
     const rows = produtos.map(p => [
       p.codigo || "",
       p.nome,
@@ -155,6 +161,7 @@ const Produtos = () => {
       p.preco.toFixed(2),
       p.unidade || "",
       p.unidade_negocio || "",
+      p.porte || "",
       p.status,
       p.peso_medio_kg || "",
       p.processo_lavagem || "",
@@ -216,7 +223,7 @@ const Produtos = () => {
             <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
             <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">CATÁLOGO TÉCNICO</span>
           </div>
-          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+          <h1 className="page-title">
             Produtos & Serviços
           </h1>
           <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">

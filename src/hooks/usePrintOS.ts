@@ -12,7 +12,7 @@ import {
   type PrintOSData,
   type EtiquetaData,
 } from "@/services/printService";
-import { openPrintDocument } from "@/lib/safePrint";
+import { reserveAndPrintPreparedDocument, reservePrintWindow } from "@/lib/safePrint";
 
 export function usePrintOS(ordemServicoId?: string) {
   const { toast } = useToast();
@@ -27,7 +27,12 @@ export function usePrintOS(ordemServicoId?: string) {
 
     setIsLoading(true);
     try {
-      const success = await printROLFromOS(targetId);
+      const printWindow = reservePrintWindow('width=400,height=600,noopener,noreferrer');
+      if (!printWindow) {
+        toast({ title: "Impressão bloqueada", description: "Permita janelas pop-up para este sistema e tente novamente.", variant: "destructive" });
+        return false;
+      }
+      const success = await printROLFromOS(targetId, printWindow);
       if (!success) {
         toast({ title: "Erro", description: "Não foi possível gerar o ROL", variant: "destructive" });
       }
@@ -50,7 +55,12 @@ export function usePrintOS(ordemServicoId?: string) {
 
     setIsLoading(true);
     try {
-      const success = await printEtiquetaFromOS(targetId);
+      const printWindow = reservePrintWindow('width=400,height=600,noopener,noreferrer');
+      if (!printWindow) {
+        toast({ title: "Impressão bloqueada", description: "Permita janelas pop-up para este sistema e tente novamente.", variant: "destructive" });
+        return false;
+      }
+      const success = await printEtiquetaFromOS(targetId, printWindow);
       if (!success) {
         toast({ title: "Erro", description: "Não foi possível gerar a etiqueta", variant: "destructive" });
       }
@@ -73,7 +83,12 @@ export function usePrintOS(ordemServicoId?: string) {
 
     setIsLoading(true);
     try {
-      const success = await printMultipleEtiquetas(targetId, quantidade);
+      const printWindow = reservePrintWindow('width=400,height=600,noopener,noreferrer');
+      if (!printWindow) {
+        toast({ title: "Impressão bloqueada", description: "Permita janelas pop-up para este sistema e tente novamente.", variant: "destructive" });
+        return false;
+      }
+      const success = await printMultipleEtiquetas(targetId, quantidade, printWindow);
       if (!success) {
         toast({ title: "Erro", description: "Não foi possível gerar as etiquetas", variant: "destructive" });
       }
@@ -141,14 +156,7 @@ export function usePrintOS(ordemServicoId?: string) {
 }
 
 // Hook for printing from Lancamentos with custom data
-export interface LancamentosPrintData {
-  clienteNome: string;
-  clienteTelefone?: string;
-  itens: { nome: string; quantidade: number; precoUnitario: number; subtotal: number }[];
-  valorTotal: number;
-  dataEmissao: Date;
-  previsaoEntrega?: Date;
-  observacoes?: string;
+export interface LancamentosPrintData extends Omit<PrintOSData, "numero"> {
   numeroRol?: string;
 }
 
@@ -157,38 +165,35 @@ export function usePrintLancamento() {
   const [isLoading, setIsLoading] = useState(false);
 
   const printROLFromData = useCallback(async (data: LancamentosPrintData) => {
-    setIsLoading(true);
-    try {
+    let configNotFound = false;
+    const printAttempt = reserveAndPrintPreparedDocument(async () => {
       const config = await fetchROLConfig();
       if (!config) {
-        toast({ title: "Erro", description: "Configurações do ROL não encontradas", variant: "destructive" });
-        return false;
+        configNotFound = true;
+        return null;
       }
 
       // Use numero_rol if provided, otherwise generate temporary
       const tempNumero = data.numeroRol || `L${Date.now().toString().slice(-6)}`;
 
       const osData: PrintOSData = {
+        ...data,
         numero: tempNumero,
-        clienteNome: data.clienteNome,
-        clienteTelefone: data.clienteTelefone,
-        itens: data.itens,
-        valorTotal: data.valorTotal,
-        dataEmissao: data.dataEmissao,
-        previsaoEntrega: data.previsaoEntrega,
-        observacoes: data.observacoes,
       };
 
-      const html = generateROLHTMLWithData(config, osData);
-      
-      const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
-      if (printWindow) {
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-          }, 250);
-        };
+      return generateROLHTMLWithData(config, osData);
+    }, { features: 'width=400,height=600,noopener,noreferrer' });
+
+    setIsLoading(true);
+    try {
+      const success = await printAttempt;
+      if (!success) {
+        if (configNotFound) {
+          toast({ title: "Erro", description: "Configurações do ROL não encontradas", variant: "destructive" });
+        } else {
+          toast({ title: "Impressão bloqueada", description: "Permita janelas pop-up para este sistema e tente novamente.", variant: "destructive" });
+        }
+        return false;
       }
 
       return true;
@@ -202,12 +207,12 @@ export function usePrintLancamento() {
   }, [toast]);
 
   const printEtiquetaFromData = useCallback(async (data: LancamentosPrintData, _quantidade: number = 1) => {
-    setIsLoading(true);
-    try {
+    let configNotFound = false;
+    const printAttempt = reserveAndPrintPreparedDocument(async () => {
       const config = await fetchEtiquetaConfig();
       if (!config) {
-        toast({ title: "Erro", description: "Configurações de etiqueta não encontradas", variant: "destructive" });
-        return false;
+        configNotFound = true;
+        return null;
       }
 
       const tempNumero = data.numeroRol || `L${Date.now().toString().slice(-6)}`;
@@ -235,23 +240,27 @@ export function usePrintLancamento() {
         const headMatch = labels[0].match(/<head[^>]*>([\s\S]*)<\/head>/i);
         const head = headMatch ? headMatch[1] : '';
 
-        const combinedHTML = `<!DOCTYPE html><html><head>${head}</head><body>${bodyContents}</body></html>`;
-        
-        const printWindow = openPrintDocument(combinedHTML, 'width=400,height=600,noopener,noreferrer');
-        if (printWindow) {
-          printWindow.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); };
+        return `<!DOCTYPE html><html><head>${head}</head><body>${bodyContents}</body></html>`;
+      }
+
+      const etiquetaData: EtiquetaData = {
+        osNumero: tempNumero,
+        clienteNome: data.clienteNome,
+        data: data.dataEmissao,
+      };
+      return generateEtiquetaHTMLWithData(config, etiquetaData);
+    }, { features: 'width=400,height=600,noopener,noreferrer' });
+
+    setIsLoading(true);
+    try {
+      const success = await printAttempt;
+      if (!success) {
+        if (configNotFound) {
+          toast({ title: "Erro", description: "Configurações de etiqueta não encontradas", variant: "destructive" });
+        } else {
+          toast({ title: "Impressão bloqueada", description: "Permita janelas pop-up para este sistema e tente novamente.", variant: "destructive" });
         }
-      } else {
-        const etiquetaData: EtiquetaData = {
-          osNumero: tempNumero,
-          clienteNome: data.clienteNome,
-          data: data.dataEmissao,
-        };
-        const singleLabel = generateEtiquetaHTMLWithData(config, etiquetaData);
-        const printWindow = openPrintDocument(singleLabel, 'width=400,height=600,noopener,noreferrer');
-        if (printWindow) {
-          printWindow.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 250); };
-        }
+        return false;
       }
 
       return true;

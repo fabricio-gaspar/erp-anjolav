@@ -1,23 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
-import { ROLPreviewConfig, getFontFamily } from "@/components/configuracoes/ROLPreview";
+import type { ROLPreviewConfig } from "@/components/configuracoes/ROLPreview";
+import { generateROLHTMLWithData, buildRolOrderDetails, type PrintOSData, type RolOrderCommercialSnapshot } from "@/lib/rolPrint";
+export { generateROLHTMLWithData, type PrintOSData } from "@/lib/rolPrint";
 import { generateCode128BPattern } from "@/lib/code128";
-import { escapeHtml, openPrintDocument, safeHttpsUrl } from "@/lib/safePrint";
+import { escapeHtml, openPrintDocument, printDocumentWhenReady, reservePrintWindow, safeHttpsUrl, writePrintDocument } from "@/lib/safePrint";
 
 // ===== INTERFACES =====
-
-export interface PrintOSData {
-  numero: string;
-  clienteNome: string;
-  clienteTelefone?: string;
-  clienteEmail?: string;
-  itens: { nome: string; quantidade: number; precoUnitario: number; subtotal: number }[];
-  valorTotal: number;
-  dataEmissao: Date;
-  previsaoEntrega?: Date;
-  observacoes?: string;
-  bloco?: string;
-  posicao?: string;
-}
 
 export interface EtiquetaData {
   osNumero: string;
@@ -44,12 +32,6 @@ function boundedNumber(value: unknown, fallback: number, min: number, max: numbe
   const numericValue = Number(value);
   return Number.isFinite(numericValue)
     ? Math.min(max, Math.max(min, numericValue))
-    : fallback;
-}
-
-function safeColor(value: unknown, fallback: string): string {
-  return typeof value === "string" && /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(value)
-    ? value
     : fallback;
 }
 
@@ -81,37 +63,67 @@ export function generateBarcodeSVG(text: string, height: number = 50): string {
 
 export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSData | null> {
   try {
-    // Fetch OS with client
+    // Fetch the records independently. The schema keeps both a direct FK and
+    // a tenant-scoped composite FK for these relations; PostgREST embeds can
+    // therefore fail with HTTP 300 even when an explicit FK hint is present.
     const { data: ordem, error: osError } = await supabase
       .from("ordens_servico")
-      .select(`
-        *,
-        cliente:clientes(razao_social, telefone, email)
-      `)
+      .select("*")
       .eq("id", ordemServicoId)
       .single();
 
-    if (osError || !ordem) return null;
+    if (osError || !ordem) {
+      console.error("Error fetching OS for ROL:", osError);
+      return null;
+    }
 
-    // Fetch items
-    const { data: itens, error: itensError } = await supabase
-      .from("itens_ordem_servico")
-      .select(`
-        *,
-        produto:produtos(nome, unidade)
-      `)
-      .eq("ordem_servico_id", ordemServicoId);
+    const [clienteResult, itensResult] = await Promise.all([
+      ordem.cliente_id
+        ? supabase
+            .from("clientes")
+            .select("razao_social, telefone, email, tabela_preco_tipo")
+            .eq("id", ordem.cliente_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from("itens_ordem_servico")
+        .select("*")
+        .eq("ordem_servico_id", ordemServicoId),
+    ]);
 
-    if (itensError) return null;
+    const { data: cliente, error: clienteError } = clienteResult;
+    const { data: itens, error: itensError } = itensResult;
+    if (clienteError || itensError) {
+      console.error("Error fetching ROL relations:", { clienteError, itensError });
+      return null;
+    }
+
+    const produtoIds = [...new Set((itens || []).map(item => item.produto_id).filter(Boolean))];
+    const { data: produtos, error: produtosError } = produtoIds.length > 0
+      ? await supabase
+          .from("produtos")
+          .select("id, nome, unidade")
+          .in("id", produtoIds)
+      : { data: [], error: null };
+
+    if (produtosError) {
+      console.error("Error fetching ROL products:", produtosError);
+      return null;
+    }
+
+    const produtoById = new Map((produtos || []).map(produto => [produto.id, produto]));
 
     const itensFormatted = (itens || []).map(item => ({
-      nome: item.produto?.nome || "Produto",
+      nome: produtoById.get(item.produto_id)?.nome || "Produto",
+      unidade: produtoById.get(item.produto_id)?.unidade || undefined,
       quantidade: Number(item.quantidade),
       precoUnitario: Number(item.preco_unitario),
       subtotal: Number(item.subtotal),
     }));
 
-    const valorTotal = itensFormatted.reduce((acc, item) => acc + item.subtotal, 0);
+    // The new columns are returned by select("*") until generated types catch up.
+    const commercialSnapshot = ordem as typeof ordem & RolOrderCommercialSnapshot;
+    const orderDetails = buildRolOrderDetails(commercialSnapshot, itensFormatted, cliente?.tabela_preco_tipo);
 
     // Extrair prateleira/posição do primeiro item que tenha posicao_prateleira
     let bloco: string | undefined;
@@ -130,18 +142,34 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       }
     }
 
+    type LoyaltyResponse = PrintOSData["fidelidade"];
+    let fidelidade: LoyaltyResponse | null = null;
+    try {
+      const typedRpc = supabase.rpc.bind(supabase) as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: LoyaltyResponse | null; error: unknown }>;
+      const loyaltyResult = await typedRpc("consultar_fidelidade_rol", { _ordem_servico_id: ordemServicoId });
+      fidelidade = loyaltyResult.data;
+    } catch (error) {
+      // Loyalty is optional for the ROL. A missing/temporarily unavailable RPC
+      // must not prevent printing the OS, customer and item data already loaded.
+      console.warn("Loyalty data unavailable for ROL:", error);
+    }
+
     return {
       numero: ordem.numero,
-      clienteNome: ordem.cliente?.razao_social || "Cliente",
-      clienteTelefone: ordem.cliente?.telefone || undefined,
-      clienteEmail: ordem.cliente?.email || undefined,
+      clienteNome: cliente?.razao_social || "Cliente",
+      clienteTelefone: cliente?.telefone || undefined,
+      clienteEmail: cliente?.email || undefined,
       itens: itensFormatted,
-      valorTotal,
+      ...orderDetails,
       dataEmissao: new Date(ordem.created_at),
       previsaoEntrega: ordem.data_previsao_entrega ? new Date(ordem.data_previsao_entrega + 'T00:00:00') : undefined,
       observacoes: ordem.observacoes || undefined,
       bloco,
       posicao,
+      fidelidade: fidelidade ?? undefined,
     };
   } catch (error) {
     console.error("Error fetching OS print data:", error);
@@ -184,6 +212,7 @@ export async function fetchROLConfig(): Promise<ROLPreviewConfig | null> {
       assinaturaCliente: data.assinatura_cliente ?? true,
       tipoPreco: data.tipo_preco ?? true,
       linhaDesconto: data.linha_desconto ?? true,
+      exibirFidelidade: data.exibir_fidelidade ?? true,
       textoRodape: data.texto_rodape || "Obrigado pela preferência!",
       margemSuperior: data.margem_superior || 10,
       margemLateral: data.margem_lateral || 8,
@@ -224,136 +253,6 @@ export async function fetchEtiquetaConfig(): Promise<EtiquetaConfig | null> {
 }
 
 // ===== GENERATE ROL HTML WITH REAL DATA =====
-
-export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSData): string {
-  const width = config.larguraPapel === '58mm' ? '58mm' : '80mm';
-  const fontFamily = getFontFamily(config.fontePrincipal);
-  const margemSuperior = boundedNumber(config.margemSuperior, 10, 0, 100);
-  const margemLateral = boundedNumber(config.margemLateral, 8, 0, 100);
-  const tamanhoNome = boundedNumber(config.tamanhoNome, 14, 6, 72);
-  const tamanhoItem = boundedNumber(config.tamanhoItem, 11, 6, 72);
-  const tamanhoTotal = boundedNumber(config.tamanhoTotal, 14, 6, 72);
-  const corPrimaria = safeColor(config.corPrimaria, "#3c62f6");
-  const corSecundaria = safeColor(config.corSecundaria, "#2583eb");
-  const logoUrl = safeHttpsUrl(config.logoUrl);
-  const osNumero = escapeHtml(data.numero);
-
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>ROL - ${osNumero}</title>
-      <style>
-        @page { size: ${width} auto; margin: 0; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-          font-family: ${fontFamily};
-          width: ${width};
-          padding: ${margemSuperior}px ${margemLateral}px;
-          font-size: 10px;
-          line-height: 1.3;
-        }
-        .header { text-align: center; border-bottom: 1px dashed #666; padding-bottom: 8px; margin-bottom: 8px; }
-        .logo { max-height: 40px; margin-bottom: 8px; }
-        .company-name { font-size: ${tamanhoNome}px; font-weight: bold; color: ${corPrimaria}; text-transform: uppercase; }
-        .cnpj, .address, .contact { font-size: 9px; color: #666; margin-top: 2px; }
-        .rol-info { text-align: center; margin-bottom: 8px; }
-        .rol-title { font-size: 10px; font-weight: bold; color: ${corSecundaria}; }
-        .rol-number { font-size: 9px; color: #666; }
-        .section { border-top: 1px dashed #666; padding-top: 8px; margin-bottom: 8px; }
-        .client-info { font-size: 10px; }
-        .previsao { color: #d97706; font-weight: 500; }
-        .items-header { display: flex; justify-content: space-between; font-size: 9px; font-weight: bold; color: ${corPrimaria}; margin-bottom: 4px; }
-        .item-row { display: flex; justify-content: space-between; font-size: ${tamanhoItem}px; padding: 2px 0; }
-        .item-qty { width: 25px; }
-        .item-name { flex: 1; text-align: left; }
-        .item-unit { width: 45px; text-align: right; }
-        .item-total { width: 50px; text-align: right; }
-        .totals { border-top: 1px dashed #666; padding-top: 8px; margin-bottom: 8px; }
-        .total-row { display: flex; justify-content: space-between; font-size: 10px; }
-        .grand-total { font-size: ${tamanhoTotal}px; font-weight: bold; color: ${corPrimaria}; margin-top: 4px; }
-        .obs { font-size: 9px; color: #666; }
-        .bloco { font-size: 9px; text-align: center; color: #888; }
-        .signature { padding-top: 20px; margin-bottom: 8px; }
-        .signature-line { border-bottom: 1px solid #666; margin: 0 20px 4px 20px; }
-        .signature-label { font-size: 9px; text-align: center; color: #888; }
-        .footer { border-top: 1px dashed #666; padding-top: 8px; text-align: center; }
-        .footer-text { font-size: 9px; color: #888; }
-        .footer-slogan { font-size: 8px; color: #aaa; margin-top: 4px; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        ${config.exibirLogo && logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="Logo" class="logo" />` : ''}
-        <div class="company-name">${escapeHtml(config.nomeCompleto || config.nomeCurto)}</div>
-        ${config.cnpj ? `<div class="cnpj">CNPJ: ${escapeHtml(config.cnpj)}</div>` : ''}
-        ${config.endereco ? `<div class="address">${escapeHtml(config.endereco)}</div>` : ''}
-        ${config.telefone || config.email ? `<div class="contact">${escapeHtml(config.telefone)}${config.telefone && config.email ? ' | ' : ''}${escapeHtml(config.email)}</div>` : ''}
-      </div>
-
-      <div class="rol-info">
-        <div class="rol-title">RECIBO DE LAVANDERIA</div>
-        <div class="rol-number">Nº ${osNumero} - ${escapeHtml(data.dataEmissao.toLocaleDateString('pt-BR'))} ${escapeHtml(data.dataEmissao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))}</div>
-      </div>
-
-      <div class="section">
-        <div class="client-info"><strong>Cliente:</strong> ${escapeHtml(data.clienteNome)}</div>
-        ${data.clienteTelefone ? `<div class="client-info"><strong>Tel:</strong> ${escapeHtml(data.clienteTelefone)}</div>` : ''}
-        ${config.previsaoEntrega && data.previsaoEntrega ? `<div class="client-info previsao"><strong>Previsão:</strong> ${data.previsaoEntrega.toLocaleDateString('pt-BR')}</div>` : ''}
-      </div>
-
-      <div class="section">
-        <div class="items-header">
-          <span class="item-qty">QTD</span>
-          <span class="item-name">ITEM</span>
-          ${config.tipoPreco ? '<span class="item-unit">UNIT</span><span class="item-total">TOTAL</span>' : ''}
-        </div>
-        ${data.itens.map(item => `
-          <div class="item-row">
-            <span class="item-qty">${item.quantidade}x</span>
-            <span class="item-name">${escapeHtml(item.nome)}</span>
-            ${config.tipoPreco ? `<span class="item-unit">${item.precoUnitario.toFixed(2)}</span><span class="item-total">${item.subtotal.toFixed(2)}</span>` : ''}
-          </div>
-        `).join('')}
-      </div>
-
-      ${config.tipoPreco ? `
-        <div class="totals">
-          <div class="total-row grand-total">
-            <span>TOTAL:</span>
-            <span>R$ ${data.valorTotal.toFixed(2)}</span>
-          </div>
-        </div>
-      ` : ''}
-
-      ${config.observacoes && data.observacoes ? `
-        <div class="section">
-          <div class="obs"><strong>Obs:</strong> ${escapeHtml(data.observacoes)}</div>
-        </div>
-      ` : ''}
-
-      ${config.bloco && (data.bloco || data.posicao) ? `
-        <div class="section">
-          <div class="bloco">${data.bloco ? `Bloco: ${escapeHtml(data.bloco)}` : ''} ${data.bloco && data.posicao ? '|' : ''} ${data.posicao ? `Posição: ${escapeHtml(data.posicao)}` : ''}</div>
-        </div>
-      ` : ''}
-
-      ${config.assinaturaCliente ? `
-        <div class="section signature">
-          <div class="signature-line"></div>
-          <div class="signature-label">Assinatura do Cliente</div>
-        </div>
-      ` : ''}
-
-      <div class="footer">
-        <div class="footer-text">${escapeHtml(config.textoRodape || 'Obrigado pela preferência!')}</div>
-        <div class="footer-slogan">${escapeHtml(config.slogan)}</div>
-      </div>
-    </body>
-    </html>
-  `;
-}
 
 // ===== GENERATE ETIQUETA HTML WITH REAL DATA =====
 
@@ -432,44 +331,49 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
 
 // ===== PRINT FUNCTIONS =====
 
-function openPrintWindow(html: string) {
-  const printWindow = openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
-  
-  if (printWindow) {
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
-    };
-  }
+function openPrintWindow(html: string, reservedWindow?: Window | null): boolean {
+  const printWindow = reservedWindow ?? openPrintDocument(html, 'width=400,height=600,noopener,noreferrer');
+  if (!printWindow) return false;
+  if (reservedWindow) writePrintDocument(printWindow, html);
+  return printDocumentWhenReady(printWindow);
 }
 
-export async function printROLFromOS(ordemServicoId: string): Promise<boolean> {
+export async function printROLFromOS(ordemServicoId: string, reservedWindow?: Window | null): Promise<boolean> {
+  const printWindow = reservedWindow ?? reservePrintWindow('width=400,height=600,noopener,noreferrer');
+  if (!printWindow) return false;
+
   const [config, osData] = await Promise.all([
     fetchROLConfig(),
     fetchOSPrintData(ordemServicoId),
   ]);
 
-  if (!config || !osData) return false;
+  if (!config || !osData) {
+    printWindow.close();
+    return false;
+  }
 
   const html = generateROLHTMLWithData(config, osData);
-  openPrintWindow(html);
-  return true;
+  return openPrintWindow(html, printWindow);
 }
 
-export async function printEtiquetaFromOS(ordemServicoId: string): Promise<boolean> {
+export async function printEtiquetaFromOS(ordemServicoId: string, reservedWindow?: Window | null): Promise<boolean> {
+  const printWindow = reservedWindow ?? reservePrintWindow('width=400,height=600,noopener,noreferrer');
+  if (!printWindow) return false;
+
   const [config, osData] = await Promise.all([
     fetchEtiquetaConfig(),
     fetchOSPrintData(ordemServicoId),
   ]);
 
-  if (!config || !osData) return false;
+  if (!config || !osData) {
+    printWindow.close();
+    return false;
+  }
 
   // Generate one label per item type
   if (osData.itens.length > 0) {
     const html = generateMultipleItemLabelsHTML(config, osData);
-    openPrintWindow(html);
+    return openPrintWindow(html, printWindow);
   } else {
     const etiquetaData: EtiquetaData = {
       osNumero: osData.numero,
@@ -479,23 +383,28 @@ export async function printEtiquetaFromOS(ordemServicoId: string): Promise<boole
       data: osData.dataEmissao,
     };
     const html = generateEtiquetaHTMLWithData(config, etiquetaData);
-    openPrintWindow(html);
+    return openPrintWindow(html, printWindow);
   }
-  return true;
 }
 
-export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade: number): Promise<boolean> {
+export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade: number, reservedWindow?: Window | null): Promise<boolean> {
+  const printWindow = reservedWindow ?? reservePrintWindow('width=400,height=600,noopener,noreferrer');
+  if (!printWindow) return false;
+
   const [config, osData] = await Promise.all([
     fetchEtiquetaConfig(),
     fetchOSPrintData(ordemServicoId),
   ]);
 
-  if (!config || !osData) return false;
+  if (!config || !osData) {
+    printWindow.close();
+    return false;
+  }
 
   // Generate one label per item type (ignoring manual quantidade, using actual items)
   if (osData.itens.length > 0) {
     const html = generateMultipleItemLabelsHTML(config, osData);
-    openPrintWindow(html);
+    return openPrintWindow(html, printWindow);
   } else {
     // Fallback: single generic label
     const etiquetaData: EtiquetaData = {
@@ -506,9 +415,8 @@ export async function printMultipleEtiquetas(ordemServicoId: string, _quantidade
       data: osData.dataEmissao,
     };
     const html = generateEtiquetaHTMLWithData(config, etiquetaData);
-    openPrintWindow(html);
+    return openPrintWindow(html, printWindow);
   }
-  return true;
 }
 
 // Generate a print page with one label per item type

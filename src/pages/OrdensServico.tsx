@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListaOS } from "@/components/ordens/ListaOS";
@@ -6,8 +7,17 @@ import { NovaOS } from "@/components/ordens/NovaOS";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export default function OrdensServico() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeArea } = useWorkspace();
   const [activeTab, setActiveTab] = useState("lista");
+
+  useEffect(() => {
+    if (searchParams.get("novo") !== "1") return;
+    setActiveTab("nova");
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("novo");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleNovaOS = () => {
     setActiveTab("nova");
@@ -29,7 +39,7 @@ export default function OrdensServico() {
             <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
             <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">PEDIDOS E SERVIÇOS</span>
           </div>
-          <h1 className="text-5xl font-black tracking-tightest text-slate-900 leading-[0.95] uppercase">
+          <h1 className="page-title">
             Ordens de Serviço
           </h1>
           <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">

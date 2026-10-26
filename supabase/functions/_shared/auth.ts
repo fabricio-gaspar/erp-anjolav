@@ -92,6 +92,35 @@ export async function requireAdmin(
   return authorization;
 }
 
+export async function requirePlatformAdmin(
+  req: Request,
+  supabase: SupabaseClient,
+): Promise<AuthorizationResult> {
+  const authorization = await requireUser(req, supabase);
+  if (!authorization.ok) return authorization;
+
+  const { data: administrator, error } = await supabase
+    .from("platform_administrators")
+    .select("user_id")
+    .eq("user_id", authorization.user.id)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Falha ao validar administrador da plataforma", { userId: authorization.user.id });
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
+    };
+  }
+
+  if (!administrator) {
+    return { ok: false, response: jsonResponse(req, { error: "Acesso negado" }, 403) };
+  }
+
+  return authorization;
+}
+
 export async function requireModule(
   req: Request,
   supabase: SupabaseClient,

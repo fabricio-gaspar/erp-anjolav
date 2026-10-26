@@ -23,6 +23,13 @@ Configure no host somente:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 
+Em hospedagens estáticas, essas variáveis precisam estar disponíveis no
+processo de build — não apenas como variáveis de runtime — porque o Vite
+incorpora a URL e a chave publicável no bundle do navegador. Execute o
+`preflight:production` com o mesmo arquivo de ambiente antes de empacotar o
+artefato. Nunca publique um bundle que contenha `undefined` nessas variáveis:
+o cliente Supabase falha antes de renderizar a tela de login.
+
 O host deve servir a SPA com fallback para `index.html`, HTTPS obrigatório, headers de segurança e domínio exato incluído em `ALLOWED_ORIGINS`. Não use segredo, service role ou chave de provedor em uma variável `VITE_*`.
 
 ## 3. Banco Supabase
@@ -99,16 +106,26 @@ O faturamento ainda usa `mailto:` apenas para preparar uma mensagem manual, sem 
 
 O workflow manual `.github/workflows/deploy-edge-functions-production.yml` também está preparado. Crie o Environment `production` no GitHub com aprovação obrigatória e os secrets `SUPABASE_ACCESS_TOKEN` e `SUPABASE_PROJECT_REF`; ele não executa migrations, não cadastra secrets e não publica o frontend automaticamente.
 
-## 6. Ordem de promoção
+## 6. Ordem de promoção controlada
 
-1. Backup verificado do banco e configuração atual.
-2. Migrations aditivas em staging.
-3. Testes RLS, integrações e E2E em staging.
-4. Edge Functions em staging.
-5. Frontend em staging e UAT.
-6. Janela de mudança aprovada, backup de produção e plano de rollback.
-7. Migrations, functions e frontend em produção.
-8. Smoke tests sem dados fictícios e observação reforçada.
+Não altere a ordem abaixo e pare no primeiro gate reprovado. Cada resultado deve ser anotado em `ops/release-evidence.json`, que é local e não versionado.
+
+1. Commit e push do SHA de release — gere um commit limpo, faça push e use este SHA completo como `releaseCommit`.
+2. CI aprova o mesmo SHA — typecheck, testes, lint, Edge syntax, build, E2E e orçamento de desempenho devem estar verdes no provedor Git.
+3. Migration em staging — confirme backup/restauração, compare o histórico, aplique somente as migrations pendentes e valide contagens/FKs/RLS com dados sanitizados.
+4. Edge Functions em staging — publique as funções a partir do mesmo SHA, com secrets de staging no cofre e sem ativar um provedor não homologado.
+5. Smoke tests autenticados em staging — teste isolamento de tenant, permissões, financeiro, fidelidade/Portal, PDV/PIX, retry de webhook e os fluxos públicos com dados não produtivos.
+6. Migration em produção — após janela de mudança aprovada, backup/PITR comprovado e plano de rollback revisado, aplique migrations aditivas; nunca reescreva migration já aplicada.
+7. Edge Functions em produção — publique as funções do mesmo SHA e confirme health checks sem imprimir secrets, payloads ou certificados.
+8. Publicação do frontend — publique o artefato criado pelo mesmo SHA, com URLs publicáveis do Supabase e headers de segurança no host.
+9. Smoke tests pós-publicação — execute fluxos autenticados com contas autorizadas, confirme RLS/tenant, responda ao estado de integração indisponível e registre a evidência.
+10. Janela de monitoramento reforçado — acompanhe erros, latência, filas, webhooks e alertas; pare a promoção e aplique rollback seguro se qualquer isolamento, conciliação ou auditoria divergir do staging.
+
+### NFS-e e demais provedores externos
+
+`nfse-adapter` deve continuar com `NFSE_ENABLED=false` até existir um adaptador específico para o município e o provedor contratados. Não encaminhe payload fiscal para uma URL genérica. Mesmo quando for selecionada uma plataforma como NFE.io, a ativação exige contrato/credenciais no cofre, cadastro municipal, certificado quando aplicável, códigos de serviço, fluxo assíncrono de emissão/cancelamento, validação de webhook e homologação documentada. Esta documentação não instala SDK, não cadastra contas e não realiza chamada fiscal.
+
+Asaas, e-mail transacional, Evolution/WhatsApp, n8n e qualquer ponte de impressão local seguem a mesma regra: permanecem indisponíveis comercialmente até o responsável registrar a homologação independente no arquivo de evidências.
 
 ## 7. Rollback
 

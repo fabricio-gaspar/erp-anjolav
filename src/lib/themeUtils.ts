@@ -9,16 +9,16 @@ export const TEMAS_DISPONIVEIS: TemaConfig[] = [
   {
     id: "padrao",
     nome: "Padrão",
-    preview: ["#0098DA", "#1a2332", "#FFFFFF", "#64748B", "#F5F5F5"],
+    preview: ["#000000", "#1a2332", "#FFFFFF", "#64748B", "#F5F5F5"],
     variaveis: {
-      "--primary": "197 100% 43%",
+      "--primary": "0 0% 0%",
       "--primary-foreground": "0 0% 100%",
-      "--ring": "197 100% 43%",
+      "--ring": "0 0% 0%",
       "--sidebar-background": "0 0% 100%",
       "--sidebar-hover": "210 20% 96%",
       "--sidebar-muted": "215 15% 60%",
-      "--sidebar-primary": "197 100% 43%",
-      "--sidebar-ring": "197 100% 43%",
+      "--sidebar-primary": "0 0% 0%",
+      "--sidebar-ring": "0 0% 0%",
     },
   },
   {

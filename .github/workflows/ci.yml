@@ -29,11 +29,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Typecheck
         run: npm run typecheck
 
       - name: Unit tests
         run: npm test
+
+      - name: Commercial release contract
+        run: node --test test/commercial-readiness-contract.test.ts
 
       - name: Lint
         run: npm run lint
@@ -43,3 +49,9 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+      - name: Visual smoke and responsive tests
+        run: npm run test:e2e
+
+      - name: Performance budget
+        run: npm run check:performance

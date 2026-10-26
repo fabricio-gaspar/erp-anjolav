@@ -30,6 +30,7 @@ export interface ROLConfig {
   assinatura_cliente: boolean | null;
   tipo_preco: boolean | null;
   linha_desconto: boolean | null;
+  exibir_fidelidade: boolean | null;
   texto_rodape: string | null;
   created_at: string;
   updated_at: string;
@@ -61,6 +62,7 @@ export interface ROLConfigUpdate {
   assinatura_cliente?: boolean;
   tipo_preco?: boolean;
   linha_desconto?: boolean;
+  exibir_fidelidade?: boolean;
   texto_rodape?: string;
 }
 

@@ -39,7 +39,8 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { usePrecosEspeciais } from "@/hooks/useProdutos";
+import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
+import { buildClientPriceCatalog } from "@/lib/clientPricing";
 import { useGerarLancamento, type OSConferencia, type ItemOS } from "@/hooks/useConferenciaProducao";
 import { usePrintOS } from "@/hooks/usePrintOS";
 
@@ -76,19 +77,25 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
   // Estado para edição de quantidades dos itens da OS
   const [quantidadesEditadas, setQuantidadesEditadas] = useState<Record<string, number>>({});
 
+  const { produtos } = useProdutos();
   const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(os?.cliente?.id || null);
   const { mutate: gerarLancamento, isPending: isGerando } = useGerarLancamento();
   const { printROL, printEtiquetas, isLoading: isPrinting } = usePrintOS(os?.id);
 
   const produtosDoCliente = useMemo(() => {
-    if (!precosEspeciais) return [];
-    return precosEspeciais.map((pe) => ({
-      id: pe.produto_id,
-      nome: pe.produto?.nome || "Produto",
-      unidade: pe.produto?.unidade || "un",
-      precoEspecial: pe.preco_especial,
+    if (!os?.cliente) return [];
+    return buildClientPriceCatalog(
+      produtos,
+      precosEspeciais,
+      os.cliente.tabela_preco_tipo,
+      os.cliente.classificacao === "residencial" ? "residencial" : "industrial",
+    ).map((produto) => ({
+      id: produto.id,
+      nome: produto.nome,
+      unidade: produto.unidade || "un",
+      precoEspecial: produto.precoAplicado,
     }));
-  }, [precosEspeciais]);
+  }, [os?.cliente, precosEspeciais, produtos]);
 
   const valorTotal = useMemo(() => {
     return itensLancamento.reduce((sum, item) => sum + item.subtotal, 0);

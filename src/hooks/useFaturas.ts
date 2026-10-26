@@ -144,7 +144,12 @@ export interface FaturaUpdate {
   mensagem_enviada?: string | null;
 }
 
-export function useFaturas(periodoInicio?: string, periodoFim?: string, enabled = true) {
+export function useFaturas(
+  periodoInicio?: string,
+  periodoFim?: string,
+  enabled = true,
+  incluirPeriodosSobrepostos = false,
+) {
   const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
 
@@ -152,7 +157,7 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string, enabled 
     if (activeArea === "central") return;
     const { data, error } = await supabase
       .from("faturas")
-      .select("id, cliente:clientes!inner(classificacao)")
+      .select("id, cliente:clientes!faturas_cliente_id_fkey!inner(classificacao)")
       .eq("id", id)
       .eq("cliente.classificacao", activeArea)
       .maybeSingle();
@@ -161,21 +166,25 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string, enabled 
   };
 
   const { data: faturas = [], isLoading, error } = useQuery({
-    queryKey: ["faturas", activeArea, periodoInicio, periodoFim],
+    queryKey: ["faturas", activeArea, periodoInicio, periodoFim, incluirPeriodosSobrepostos],
     queryFn: async () => {
       let query = supabase
         .from("faturas")
         .select(`
           *,
-          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .order("created_at", { ascending: false });
 
-      if (periodoInicio) {
-        query = query.gte("periodo_inicio", periodoInicio);
-      }
-      if (periodoFim) {
-        query = query.lte("periodo_fim", periodoFim);
+      if (incluirPeriodosSobrepostos && periodoInicio && periodoFim) {
+        query = query.lte("periodo_inicio", periodoFim).gte("periodo_fim", periodoInicio);
+      } else {
+        if (periodoInicio) {
+          query = query.gte("periodo_inicio", periodoInicio);
+        }
+        if (periodoFim) {
+          query = query.lte("periodo_fim", periodoFim);
+        }
       }
       if (activeArea !== "central") {
         query = query.eq("cliente.classificacao", activeArea);
@@ -205,7 +214,7 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string, enabled 
         .insert(fatura)
         .select(`
           *,
-          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .single();
       if (error) throw error;
@@ -228,7 +237,7 @@ export function useFaturas(periodoInicio?: string, periodoFim?: string, enabled 
         .eq("id", id)
         .select(`
           *,
-          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .single();
       if (error) throw error;
@@ -297,7 +306,7 @@ export function useFaturaById(faturaId: string | null) {
         .from("faturas")
         .select(`
           *,
-          cliente:clientes!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
         `)
         .eq("id", faturaId);
       if (activeArea !== "central") query = query.eq("cliente.classificacao", activeArea);

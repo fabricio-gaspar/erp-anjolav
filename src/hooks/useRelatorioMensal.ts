@@ -80,7 +80,7 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
 
       const faturasQuery = supabase
         .from("faturas")
-        .select("id, valor_total, status, created_at, cliente:clientes(razao_social, classificacao)")
+        .select("id, valor_total, status, created_at, cliente:clientes!faturas_cliente_id_fkey(razao_social, classificacao)")
         .eq("status", "pago")
         .gte("created_at", inicioStr + "T00:00:00")
         .lte("created_at", fimStr + "T23:59:59");
@@ -96,7 +96,7 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
       // 3. Folha do mês
       const folhaQuery = supabase
         .from("folha_pagamento" as any)
-        .select("*, funcionario:funcionarios(nome, cargo, empregador_cnpj, empregador_nome)")
+        .select("*, funcionario:funcionarios!folha_pagamento_funcionario_id_fkey(nome, cargo, empregador_cnpj, empregador_nome)")
         .eq("competencia", competencia);
 
       // 4. Contas a pagar do mês (por vencimento)
