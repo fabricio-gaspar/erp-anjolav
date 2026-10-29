@@ -178,6 +178,22 @@ test("PDV mobile mantém ações visíveis sem overflow horizontal da página", 
   expect(dimensions.mainWidth).toBeLessThanOrEqual(dimensions.mainClientWidth + 1);
 });
 
+test("PDV concentra os atalhos de operação e abre o fluxo de posição", async ({ page }) => {
+  await prepareAuthenticatedWorkspace(page, { isAdmin: true });
+  await page.goto("/residencial/caixa");
+
+  await expect(page.getByRole("button", { name: "Posição do ROL", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Agendar cliente", exact: true })).toBeVisible();
+  await expect(page.getByTitle("Abrir as ordens de serviço")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Faturas do setor", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Fechamento e pendências", exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Posição do ROL", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: /Posição de peças \/ ROL/ })).toBeVisible();
+  await expect(dialog.getByText(/use o ícone de edição no item/)).toBeVisible();
+});
+
 test("configurações gerais não concedem edição de condições comerciais", async ({ page }) => {
   await preparePdv(page, "residencial");
   await page.route("http://127.0.0.1:54321/rest/v1/modulo_permissoes**", route => fulfill(route, [

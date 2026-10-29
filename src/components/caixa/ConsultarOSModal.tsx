@@ -62,6 +62,7 @@ import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 
 interface ConsultarOSModalProps {
   recent?: boolean;
+  positionMode?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onReceberPagamento?: (ordem: OrdemServicoConsulta) => void;
@@ -321,6 +322,7 @@ export function ConsultarOSModal({
   onImprimirROL,
   onImprimirEtiquetas,
   recent = false,
+  positionMode = false,
 }: ConsultarOSModalProps) {
   const { activeArea } = useWorkspace();
   const { allowed: canOperateCaixa } = usePermissaoModulo("caixa");
@@ -411,18 +413,24 @@ export function ConsultarOSModal({
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            {recent ? "Histórico de atendimentos" : "Consultar ROL / Ordem de Serviço"} · {activeArea === "industrial" ? "Industrial" : "Residencial"}
+            {positionMode && !recent ? <MapPin className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+            {recent ? "Histórico de atendimentos" : positionMode ? "Posição de peças / ROL" : "Consultar ROL / Ordem de Serviço"} · {activeArea === "industrial" ? "Industrial" : "Residencial"}
           </DialogTitle>
         </DialogHeader>
-        <DialogDescription>{recent ? "Até 100 atendimentos mais recentes deste setor. Use a busca para localizar um ROL." : "Busque pelo número do ROL ou pelo nome do cliente deste setor."}</DialogDescription>
+        <DialogDescription>
+          {recent
+            ? "Até 100 atendimentos mais recentes deste setor. Use a busca para localizar um ROL."
+            : positionMode
+              ? "Busque o ROL ou cliente, abra a ordem e use o ícone de edição no item para registrar a posição de armazenamento."
+              : "Busque pelo número do ROL ou pelo nome do cliente deste setor."}
+        </DialogDescription>
 
         {/* Search and Filters */}
         <div className="flex gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por número da OS ou nome do cliente..."
+              placeholder={positionMode ? "Buscar ROL ou cliente para atualizar posição..." : "Buscar por número da OS ou nome do cliente..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -576,7 +584,7 @@ export function ConsultarOSModal({
                         <div className="p-4">
                           <h4 className="font-medium mb-3 flex items-center gap-2">
                             <Package className="w-4 h-4" />
-                            Itens da OS ({ordem.itens.length})
+                            {positionMode ? "Itens e posição de armazenamento" : "Itens da OS"} ({ordem.itens.length})
                           </h4>
                           <div className="space-y-2">
                             {ordem.itens.map((item) => {
@@ -585,7 +593,7 @@ export function ConsultarOSModal({
                               return (
                                 <div
                                   key={item.id}
-                                  className="flex items-center justify-between p-3 bg-background rounded-lg border"
+                                  className={cn("flex items-center justify-between rounded-lg border bg-background p-3", positionMode && "border-primary/30")}
                                 >
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">
@@ -661,6 +669,8 @@ export function ConsultarOSModal({
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8"
+                                        aria-label={`Editar posição de ${item.produto?.nome || "item"}`}
+                                        title="Editar posição de armazenamento"
                                         onClick={savePosition}
                                         disabled={isSavingPosition}
                                       >

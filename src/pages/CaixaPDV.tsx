@@ -31,6 +31,7 @@ import {
   PackagePlus,
   ClipboardPlus,
   CalendarPlus,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
@@ -181,6 +182,7 @@ const PdvAtendimento = () => {
   const [showSangriaModal, setShowSangriaModal] = useState(false);
   const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
   const [showConsultarOSModal, setShowConsultarOSModal] = useState(false);
+  const [pdvLookupMode, setPdvLookupMode] = useState<"consulta" | "posicao">("consulta");
   const [showReceberPagamentoModal, setShowReceberPagamentoModal] = useState(false);
   const [osParaReceber, setOsParaReceber] = useState<OrdemServicoConsulta | null>(null);
   
@@ -643,6 +645,7 @@ const PdvAtendimento = () => {
     // F5 - Consultar OS
     if (e.key === "F5") {
       e.preventDefault();
+      setPdvLookupMode("consulta");
       setShowConsultarOSModal(true);
     }
     // F6 - Histórico de vendas
@@ -695,7 +698,10 @@ const PdvAtendimento = () => {
     // ESC - Fechar modais
     if (e.key === "Escape") {
       if (showPagamentoModal) setShowPagamentoModal(false);
-      if (showConsultarOSModal) setShowConsultarOSModal(false);
+      if (showConsultarOSModal) {
+        setShowConsultarOSModal(false);
+        setPdvLookupMode("consulta");
+      }
       if (showHistoricoVendas) setShowHistoricoVendas(false);
       if (showAjudaAtalhos) setShowAjudaAtalhos(false);
       if (showOperations) setShowOperations(false);
@@ -752,6 +758,11 @@ const PdvAtendimento = () => {
     setShowOperations(false);
     navigate(path);
   };
+
+  const openOrderLookup = useCallback((mode: "consulta" | "posicao" = "consulta") => {
+    setPdvLookupMode(mode);
+    setShowConsultarOSModal(true);
+  }, []);
 
   return (
     <AppLayout title="PDV Atendimento" subtitle={`Setor ${areaLabel}`}>
@@ -965,20 +976,39 @@ const PdvAtendimento = () => {
             </div>
 
             <div className="pdv-entry-card rounded-xl border border-strong bg-card p-2.5 shadow-sm sm:p-3">
-              <div className="mb-3 flex items-center gap-2 text-base font-bold">
+              <div className="mb-2 flex items-center gap-2 text-base font-bold">
                 <Keyboard className="h-5 w-5 text-primary" /> Ações rápidas
               </div>
-              <div className="pdv-shortcuts-grid grid grid-cols-3 gap-1.5">
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
+              <p className="mb-2 text-xs text-muted-foreground">Atalhos do atendimento, consulta e operação do ROL.</p>
+              <div className="pdv-shortcuts-grid grid grid-cols-3 gap-1.5 sm:grid-cols-4 xl:grid-cols-4">
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
                   <span className="flex flex-col items-center justify-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowConsultarOSModal(true)}>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openOrderLookup()}>
                   <span className="flex flex-col items-center justify-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
+                <Button type="button" variant="outline" title="Localizar um ROL e registrar a posição da peça" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[10px] leading-tight hover:bg-primary/10" onClick={() => openOrderLookup("posicao")}>
+                  <span className="flex flex-col items-center justify-center gap-1"><MapPin className="h-5 w-5 text-primary" />Posição<span>do ROL</span></span>
+                </Button>
+                {canAccessRoute("/" + area + "/agenda") && <Button type="button" variant="outline" title="Criar um novo agendamento" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[10px] leading-tight hover:bg-primary/10" onClick={() => openQuickCadastro("/" + area + "/agenda?novo=1")}>
+                  <span className="flex flex-col items-center justify-center gap-1"><CalendarPlus className="h-5 w-5 text-primary" />Agendar<span>cliente</span></span>
+                </Button>}
+                {canAccessRoute("/" + area + "/ordens") && <Button type="button" variant="outline" title="Abrir as ordens de serviço" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/ordens")}>
+                  <span className="flex flex-col items-center justify-center gap-1"><ClipboardPlus className="h-5 w-5" />Ordens<span>de serviço</span></span>
+                </Button>}
+                {canAccessRoute("/" + area + "/lancamentos") && <Button type="button" variant="outline" title="Consultar as faturas do setor" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=faturas")}>
+                  <span className="flex flex-col items-center justify-center gap-1"><CreditCard className="h-5 w-5" />Faturas<span>do setor</span></span>
+                </Button>}
+                {canAccessRoute("/" + area + "/lancamentos") && <Button type="button" variant="outline" title="Abrir fechamento e pendências" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=pendentes")}>
+                  <span className="flex flex-col items-center justify-center gap-1"><Lock className="h-5 w-5" />Fechamento<span>e pendências</span></span>
+                </Button>}
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
                   <span className="flex flex-col items-center justify-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => {
+                {canAccessRoute("/" + area + "/clientes") && <Button type="button" variant="outline" title="Cadastrar um novo cliente" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/clientes?novo=1")}>
+                  <span className="flex flex-col items-center justify-center gap-1"><UserPlus className="h-5 w-5" />Novo<span>cliente</span></span>
+                </Button>}
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => {
                   if (!currentItem) {
                     toast.info("Adicione ou selecione um item para editar os detalhes");
                     return;
@@ -987,7 +1017,7 @@ const PdvAtendimento = () => {
                 }}>
                   <span className="flex flex-col items-center justify-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight text-destructive" onClick={() => {
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight text-destructive" onClick={() => {
                   if (cart.length === 0) {
                     toast.info("Não há itens para cancelar");
                     return;
@@ -996,7 +1026,7 @@ const PdvAtendimento = () => {
                 }}>
                   <span className="flex flex-col items-center justify-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[62px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
+                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
                   <span className="flex flex-col items-center justify-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
                 </Button>
               </div>
@@ -1015,8 +1045,8 @@ const PdvAtendimento = () => {
             </div>
           </aside>
 
-          <section className="flex min-h-[520px] min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-card shadow-sm xl:min-h-0">
-            <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+          <section className="flex min-h-[430px] min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-card shadow-sm xl:min-h-0">
+            <div className="flex items-center justify-between gap-3 border-b px-3 py-2.5 sm:px-4">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="h-5 w-5 text-primary" />
                 <p className="text-base font-bold uppercase tracking-wide">Itens da venda</p>
@@ -1036,19 +1066,19 @@ const PdvAtendimento = () => {
               <table className="w-full min-w-[720px] table-fixed text-sm">
                 <thead className="sticky top-0 z-10 bg-muted/60 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="w-12 border-b px-3 py-2 text-center">Item</th>
-                    <th className="border-b px-3 py-2">Descrição</th>
-                    <th className="w-32 border-b px-3 py-2 text-right">Preço unit.</th>
-                    <th className="w-36 border-b px-3 py-2 text-center">Qtd.</th>
-                    <th className="w-32 border-b px-3 py-2 text-right">Total</th>
-                    <th className="w-24 border-b px-3 py-2 text-center">Ações</th>
+                    <th className="w-12 border-b px-3 py-1.5 text-center">Item</th>
+                    <th className="border-b px-3 py-1.5">Descrição</th>
+                    <th className="w-32 border-b px-3 py-1.5 text-right">Preço unit.</th>
+                    <th className="w-36 border-b px-3 py-1.5 text-center">Qtd.</th>
+                    <th className="w-32 border-b px-3 py-1.5 text-right">Total</th>
+                    <th className="w-24 border-b px-3 py-1.5 text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cart.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="h-56 px-4 text-center text-muted-foreground">
-                        <ShoppingCart className="mx-auto mb-3 h-10 w-10 opacity-30" />
+                      <td colSpan={6} className="h-40 px-4 text-center text-muted-foreground">
+                        <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
                         <p className="font-medium">Nenhum item lançado</p>
                         <p className="mt-1 text-xs">Selecione primeiro o cliente e pesquise um produto ou serviço para iniciar a venda.</p>
                       </td>
@@ -1058,8 +1088,8 @@ const PdvAtendimento = () => {
                       const temDetalhes = hasItemDetalhes(item);
                       return (
                         <tr key={item.id} className={cn("border-b align-top hover:bg-muted/30", item.avarias && "bg-warning/5")}>
-                          <td className="px-3 py-3 text-center font-semibold text-muted-foreground">{index + 1}</td>
-                          <td className="min-w-0 px-3 py-3">
+                          <td className="px-3 py-2 text-center font-semibold text-muted-foreground">{index + 1}</td>
+                          <td className="min-w-0 px-3 py-2">
                             <div className="flex items-start gap-1.5">
                               <p className="min-w-0 flex-1 truncate font-semibold">{item.nome}</p>
                               {item.avarias ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" /> : null}
@@ -1069,7 +1099,7 @@ const PdvAtendimento = () => {
                               {temDetalhes ? <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3 text-primary" />Detalhes</span> : null}
                             </div>
                           </td>
-                          <td className="px-3 py-3 text-right font-medium tabular-nums">{formatCurrency(item.preco)}</td>
+                          <td className="px-3 py-2 text-right font-medium tabular-nums">{formatCurrency(item.preco)}</td>
                           <td className="px-3 py-2">
                             <div className="mx-auto flex w-fit items-center border bg-background">
                               <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}>
@@ -1081,7 +1111,7 @@ const PdvAtendimento = () => {
                               </Button>
                             </div>
                           </td>
-                          <td className="px-3 py-3 text-right">
+                          <td className="px-3 py-2 text-right">
                             <span className="font-bold tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
                           </td>
                           <td className="px-3 py-2">
@@ -1097,7 +1127,7 @@ const PdvAtendimento = () => {
                 </tbody>
               </table>
             </div>
-            <div className="border-t bg-card p-3 sm:p-4">
+            <div className="border-t bg-card p-2.5 sm:p-3">
               <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_minmax(220px,280px)] sm:items-center">
                 <div className="min-w-0">
                   <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{totalItems} itens · {cart.length} produtos</p>
@@ -1113,11 +1143,11 @@ const PdvAtendimento = () => {
                 </div>
                 <div className="rounded-lg bg-primary/10 px-4 py-2 sm:text-right">
                   <p className="text-xs font-bold uppercase tracking-wide text-primary">Total</p>
-                  <p className="text-3xl font-black tabular-nums text-primary sm:text-4xl">{formatCurrency(totalValue)}</p>
+                  <p className="text-2xl font-black tabular-nums text-primary sm:text-3xl">{formatCurrency(totalValue)}</p>
                 </div>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(180px,1fr)_minmax(240px,1.6fr)]">
-                <Button type="button" variant="outline" className="h-11 gap-2 font-semibold" onClick={() => setShowConsultarOSModal(true)}><FileSearch className="h-4 w-4" /> Consultar ROL (F5)</Button>
+                <Button type="button" variant="outline" className="h-11 gap-2 font-semibold" onClick={() => openOrderLookup()}><FileSearch className="h-4 w-4" /> Consultar ROL (F5)</Button>
                 <Button type="button" className="h-11 gap-2 bg-success text-success-foreground hover:bg-success/90" disabled={!cartValid || isProcessingVenda} onClick={handleOpenPagamento}><CreditCard className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar atendimento"} <span className="text-success-foreground/75">F4</span></Button>
               </div>
             </div>
@@ -1219,7 +1249,11 @@ const PdvAtendimento = () => {
       {/* Modal Consultar OS */}
       <ConsultarOSModal
         open={showConsultarOSModal}
-        onOpenChange={setShowConsultarOSModal}
+        onOpenChange={(open) => {
+          setShowConsultarOSModal(open);
+          if (!open) setPdvLookupMode("consulta");
+        }}
+        positionMode={pdvLookupMode === "posicao"}
         onReceberPagamento={canReceivePayments ? (ordem) => {
           if (!canReceivePayments || ordem.condicao_pagamento === "faturado") return;
           setOsParaReceber(ordem);
