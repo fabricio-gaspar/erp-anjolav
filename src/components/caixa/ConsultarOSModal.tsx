@@ -49,7 +49,7 @@ import {
   X,
   Undo2,
 } from "lucide-react";
-import { useConsultaOS, getStatusConfig, OrdemServicoConsulta } from "@/hooks/useConsultaOS";
+import { ROL_STATUS_FILTERS, useConsultaOS, getStatusConfig, OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { useEditPdvPayment, usePdvPaymentsForOrder, useReversePdvPayment, type PdvPaymentSummary } from "@/hooks/usePdvPayments";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -358,6 +358,15 @@ export function ConsultarOSModal({
     return total - pago;
   };
 
+  const resumoConsulta = (ordens || []).reduce((resumo, ordem) => {
+    const pendente = Math.max(0, valorPendente(ordem));
+    resumo.rols += 1;
+    resumo.pecas += totalPecas(ordem);
+    resumo.valorPendente += ordem.status === "cancelada" ? 0 : pendente;
+    resumo.prontos += ordem.status === "expedicao" ? 1 : 0;
+    return resumo;
+  }, { rols: 0, pecas: 0, valorPendente: 0, prontos: 0 });
+
   const startEditingPosition = (itemId: string, currentPosition: string | null) => {
     if (currentPosition) {
       const parts = currentPosition.split("-");
@@ -422,7 +431,7 @@ export function ConsultarOSModal({
             ? "Até 100 atendimentos mais recentes deste setor. Use a busca para localizar um ROL."
             : positionMode
               ? "Busque o ROL ou cliente, abra a ordem e use o ícone de edição no item para registrar a posição de armazenamento."
-              : "Busque pelo número do ROL ou pelo nome do cliente deste setor."}
+              : "Busque pelo número, código de barras do ROL ou nome do cliente deste setor."}
         </DialogDescription>
 
         {/* Search and Filters */}
@@ -430,7 +439,7 @@ export function ConsultarOSModal({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder={positionMode ? "Buscar ROL ou cliente para atualizar posição..." : "Buscar por número da OS ou nome do cliente..."}
+              placeholder={positionMode ? "Buscar ROL, código de barras ou cliente para atualizar posição..." : "Buscar por número, código de barras ou cliente..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -438,19 +447,27 @@ export function ConsultarOSModal({
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-56">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              <SelectItem value="pronto_entrega">Pronto Entrega</SelectItem>
-              <SelectItem value="lavagem">Em Lavagem</SelectItem>
-              <SelectItem value="passadoria">Em Passadoria</SelectItem>
-              <SelectItem value="conferencia">Em Conferência</SelectItem>
-              <SelectItem value="entregue">Entregues</SelectItem>
+              {ROL_STATUS_FILTERS.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
+
+        {ordens && ordens.length > 0 && (
+          <div aria-live="polite" className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-2 text-xs sm:grid-cols-4">
+            <div><p className="text-muted-foreground">ROLs</p><p className="font-bold tabular-nums">{resumoConsulta.rols}</p></div>
+            <div><p className="text-muted-foreground">Peças</p><p className="font-bold tabular-nums">{resumoConsulta.pecas}</p></div>
+            <div><p className="text-muted-foreground">Prontos</p><p className="font-bold tabular-nums text-success">{resumoConsulta.prontos}</p></div>
+            <div><p className="text-muted-foreground">Em aberto</p><p className="font-bold tabular-nums text-warning">{formatCurrency(resumoConsulta.valorPendente)}</p></div>
+          </div>
+        )}
 
         {/* Results */}
         <ScrollArea className="flex-1 -mx-6 px-6">
@@ -460,10 +477,10 @@ export function ConsultarOSModal({
             </div>
           ) : isError ? (
             <div role="alert" className="py-8 text-center"><p>Não foi possível carregar as ordens deste setor.</p><Button variant="outline" onClick={() => void refetch()}>Tentar novamente</Button></div>
-          ) : !recent && searchTerm.length < 2 ? (
+          ) : !recent && searchTerm.length < 2 && statusFilter === "todos" ? (
             <div className="text-center py-12 text-muted-foreground">
               <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>Digite pelo menos 2 caracteres para buscar</p>
+              <p>Digite pelo menos 2 caracteres ou selecione um filtro</p>
             </div>
           ) : !ordens || ordens.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -476,7 +493,9 @@ export function ConsultarOSModal({
                 const statusConfig = getStatusConfig(ordem.status);
                 const isExpanded = expandedOS === ordem.id;
                 const pendente = valorPendente(ordem);
-                const isPendente = ordem.status_pagamento === "pendente" && pendente > 0;
+                const isPendente = ["pendente", "parcial"].includes(ordem.status_pagamento || "") && pendente > 0;
+                const isCancelada = ordem.status === "cancelada";
+                const canEditPosition = positionMode && !isCancelada && ordem.status !== "entregue";
 
                 return (
                   <div
@@ -514,7 +533,7 @@ export function ConsultarOSModal({
                             <Badge variant="secondary">
                               Retirada {format(new Date(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
                             </Badge>
-                            {!isPendente && (
+                            {!isPendente && !isCancelada && (
                               <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">
                                 Pagamento em dia
                               </Badge>
@@ -699,17 +718,23 @@ export function ConsultarOSModal({
                                           Sem posição
                                         </span>
                                       )}
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        className="h-8 w-8"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          startEditingPosition(item.id, item.posicao_prateleira);
-                                        }}
-                                      >
-                                        <Pencil className="w-4 h-4 text-muted-foreground" />
-                                      </Button>
+                                      {canEditPosition ? (
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-8 w-8"
+                                          aria-label={`Editar posição de ${item.produto?.nome || "item"}`}
+                                          title="Editar posição de armazenamento"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            startEditingPosition(item.id, item.posicao_prateleira);
+                                          }}
+                                        >
+                                          <Pencil className="w-4 h-4 text-muted-foreground" />
+                                        </Button>
+                                      ) : positionMode ? (
+                                        <span className="text-xs text-muted-foreground">Posição bloqueada após encerramento</span>
+                                      ) : null}
                                     </div>
                                   )}
                                 </div>

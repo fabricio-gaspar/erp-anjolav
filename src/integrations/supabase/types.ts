@@ -2808,6 +2808,8 @@ export type Database = {
         Row: {
           agendamento_id: string | null
           cliente_id: string
+          condicao_pagamento: string | null
+          condicoes_comerciais: Json | null
           created_at: string
           data_entrega: string | null
           data_previsao_entrega: string | null
@@ -2820,10 +2822,12 @@ export type Database = {
           origem: string
           pago_na_entrada: boolean | null
           pdv_idempotency_key: string | null
+          pdv_request_hash: string | null
           percentual_urgencia: number | null
           prioridade: string | null
           status: string
           status_pagamento: string | null
+          tenant_id: string
           updated_at: string
           urgente: boolean | null
           valor_desconto: number | null
@@ -2834,6 +2838,8 @@ export type Database = {
         Insert: {
           agendamento_id?: string | null
           cliente_id: string
+          condicao_pagamento?: string | null
+          condicoes_comerciais?: Json | null
           created_at?: string
           data_entrega?: string | null
           data_previsao_entrega?: string | null
@@ -2846,10 +2852,12 @@ export type Database = {
           origem?: string
           pago_na_entrada?: boolean | null
           pdv_idempotency_key?: string | null
+          pdv_request_hash?: string | null
           percentual_urgencia?: number | null
           prioridade?: string | null
           status?: string
           status_pagamento?: string | null
+          tenant_id?: string
           updated_at?: string
           urgente?: boolean | null
           valor_desconto?: number | null
@@ -2860,6 +2868,8 @@ export type Database = {
         Update: {
           agendamento_id?: string | null
           cliente_id?: string
+          condicao_pagamento?: string | null
+          condicoes_comerciais?: Json | null
           created_at?: string
           data_entrega?: string | null
           data_previsao_entrega?: string | null
@@ -2872,10 +2882,12 @@ export type Database = {
           origem?: string
           pago_na_entrada?: boolean | null
           pdv_idempotency_key?: string | null
+          pdv_request_hash?: string | null
           percentual_urgencia?: number | null
           prioridade?: string | null
           status?: string
           status_pagamento?: string | null
+          tenant_id?: string
           updated_at?: string
           urgente?: boolean | null
           valor_desconto?: number | null

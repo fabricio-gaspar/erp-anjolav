@@ -792,19 +792,18 @@ const PdvAtendimento = () => {
             )}
           </div>
         </header>
-        <nav aria-label="Atalhos do atendimento" className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-2">
-          <Badge variant="secondary">Setor {areaLabel}</Badge>
-          {canAccessRoute("/" + area + "/lancamentos") && <>
-            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=pendentes")}>Fechamento</Button>
-            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=faturas")}>Faturas</Button>
-            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=historico")}>Histórico de ROLs faturados</Button>
-          </>}
-          {canManageContracts && <Button variant="outline" size="sm" disabled={!selectedClient} onClick={() => { if (selectedClient && canManageContracts) setShowContracts(true); }}>Contrato do cliente</Button>}
-          {canAccessRoute("/" + area + "/clientes") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/clientes?novo=1")}><UserPlus className="mr-2 h-4 w-4" />Novo cliente</Button>}
-          {canAccessRoute("/" + area + "/produtos") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/produtos?novo=1")}><PackagePlus className="mr-2 h-4 w-4" />Novo produto/serviço</Button>}
-          {canAccessRoute("/" + area + "/ordens") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/ordens")}><ClipboardPlus className="mr-2 h-4 w-4" />Ordens de serviço</Button>}
-          {canAccessRoute("/" + area + "/agenda") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/agenda?novo=1")}><CalendarPlus className="mr-2 h-4 w-4" />Agendamento</Button>}
-        </nav>
+        <div aria-label="Progresso do atendimento" className="grid grid-cols-3 border-b bg-muted/30 px-4 py-2 text-xs">
+          {[
+            { number: "1", label: "Cliente", complete: !!selectedClient },
+            { number: "2", label: "Itens", complete: cart.length > 0 },
+            { number: "3", label: "Finalizar", complete: false },
+          ].map((step) => (
+            <div key={step.number} className="flex items-center justify-center gap-2 border-r last:border-r-0">
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${step.complete ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}`}>{step.complete ? "✓" : step.number}</span>
+              <span className={step.complete ? "font-bold text-foreground" : "text-muted-foreground"}>{step.label}</span>
+            </div>
+          ))}
+        </div>
         {(catalogError || (selectedClient && catalogLoading)) && <div role="status" className="border-b p-3 text-sm">
           {catalogError ? <>Não foi possível carregar clientes, tabela ou condição de pagamento. <Button variant="outline" size="sm" onClick={() => { void refetchPrices(); void refetchTerms(); void refetchProducts(); void refetchClients(); }}>Tentar novamente</Button></> : "Carregando tabela e condição de pagamento..."}
         </div>}
@@ -984,60 +983,37 @@ const PdvAtendimento = () => {
                 <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
                   <span className="flex flex-col items-center justify-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
                 </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openOrderLookup()}>
-                  <span className="flex flex-col items-center justify-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
-                </Button>
                 <Button type="button" variant="outline" title="Localizar um ROL e registrar a posição da peça" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[10px] leading-tight hover:bg-primary/10" onClick={() => openOrderLookup("posicao")}>
                   <span className="flex flex-col items-center justify-center gap-1"><MapPin className="h-5 w-5 text-primary" />Posição<span>do ROL</span></span>
                 </Button>
                 {canAccessRoute("/" + area + "/agenda") && <Button type="button" variant="outline" title="Criar um novo agendamento" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[10px] leading-tight hover:bg-primary/10" onClick={() => openQuickCadastro("/" + area + "/agenda?novo=1")}>
                   <span className="flex flex-col items-center justify-center gap-1"><CalendarPlus className="h-5 w-5 text-primary" />Agendar<span>cliente</span></span>
                 </Button>}
-                {canAccessRoute("/" + area + "/ordens") && <Button type="button" variant="outline" title="Abrir as ordens de serviço" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/ordens")}>
-                  <span className="flex flex-col items-center justify-center gap-1"><ClipboardPlus className="h-5 w-5" />Ordens<span>de serviço</span></span>
+                {canAccessRoute("/" + area + "/ordens") && <Button type="button" variant="outline" title="Abrir a gestão operacional dos ROLs" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/ordens")}>
+                  <span className="flex flex-col items-center justify-center gap-1"><ClipboardPlus className="h-5 w-5" />Gerenciar<span>ROLs</span></span>
                 </Button>}
-                {canAccessRoute("/" + area + "/lancamentos") && <Button type="button" variant="outline" title="Consultar as faturas do setor" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=faturas")}>
-                  <span className="flex flex-col items-center justify-center gap-1"><CreditCard className="h-5 w-5" />Faturas<span>do setor</span></span>
-                </Button>}
-                {canAccessRoute("/" + area + "/lancamentos") && <Button type="button" variant="outline" title="Abrir fechamento e pendências" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=pendentes")}>
-                  <span className="flex flex-col items-center justify-center gap-1"><Lock className="h-5 w-5" />Fechamento<span>e pendências</span></span>
-                </Button>}
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
-                  <span className="flex flex-col items-center justify-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
-                </Button>
                 {canAccessRoute("/" + area + "/clientes") && <Button type="button" variant="outline" title="Cadastrar um novo cliente" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/clientes?novo=1")}>
                   <span className="flex flex-col items-center justify-center gap-1"><UserPlus className="h-5 w-5" />Novo<span>cliente</span></span>
                 </Button>}
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => {
-                  if (!currentItem) {
-                    toast.info("Adicione ou selecione um item para editar os detalhes");
-                    return;
-                  }
-                  openDetalhesModal(currentItem);
-                }}>
-                  <span className="flex flex-col items-center justify-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
-                </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight text-destructive" onClick={() => {
-                  if (cart.length === 0) {
-                    toast.info("Não há itens para cancelar");
-                    return;
-                  }
-                  clearCart();
-                }}>
-                  <span className="flex flex-col items-center justify-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
-                </Button>
                 <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
                   <span className="flex flex-col items-center justify-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
                 </Button>
               </div>
               {showOperations && (
                 <div className="grid grid-cols-1 gap-2 mt-2 sm:grid-cols-2">
+                  {canManageContracts && <Button variant="outline" size="sm" disabled={!selectedClient} onClick={() => { if (selectedClient && canManageContracts) setShowContracts(true); }}><FileText className="mr-2 h-4 w-4" /> Contrato do cliente</Button>}
+                  {canAccessRoute("/" + area + "/produtos") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/produtos?novo=1")}><PackagePlus className="mr-2 h-4 w-4" /> Novo produto/serviço</Button>}
+                  {canAccessRoute("/" + area + "/lancamentos") && <>
+                    <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=faturas")}><CreditCard className="mr-2 h-4 w-4" /> Faturas do setor</Button>
+                    <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=pendentes")}><Lock className="mr-2 h-4 w-4" /> Fechamento e pendências</Button>
+                  </>}
+                  <Button variant="outline" size="sm" onClick={() => setShowHistoricoVendas(true)}><History className="mr-2 h-4 w-4" /> Histórico de atendimentos</Button>
                   {canOperateCaixa && <>
                     <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowFecharCaixaModal(true); }}><Lock className="mr-2 h-4 w-4" /> Fechar caixa (F10)</Button>
                     <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowSangriaModal(true); }}><ArrowDownCircle className="mr-2 h-4 w-4" /> Sangria (F7)</Button>
                     <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowSuprimentoModal(true); }}><ArrowUpCircle className="mr-2 h-4 w-4" /> Suprimento</Button>
                   </>}
-                  {canAccessRoute("/residencial/relatorios/caixa") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/residencial/relatorios/caixa")}><BarChart3 className="mr-2 h-4 w-4" /> Relatório de caixa</Button>}
+                  {canAccessRoute("/" + area + "/relatorios/caixa") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/relatorios/caixa")}><BarChart3 className="mr-2 h-4 w-4" /> Relatório de caixa</Button>}
                   <Button variant="outline" size="sm" onClick={() => setShowAjudaAtalhos(true)}><Keyboard className="mr-2 h-4 w-4" /> Atalhos</Button>
                   <Button variant="outline" size="sm" onClick={toggleFullscreen}>{isFullscreen ? <Minimize className="mr-2 h-4 w-4" /> : <Maximize className="mr-2 h-4 w-4" />}Tela cheia</Button>
                 </div>
