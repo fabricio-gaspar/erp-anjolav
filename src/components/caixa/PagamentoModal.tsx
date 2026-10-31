@@ -30,7 +30,6 @@ import {
   CalendarIcon,
   Calculator,
   Gift,
-  Settings2,
   MapPin,
   UserRound,
   Check,
@@ -45,7 +44,7 @@ import { validarCpfCnpj } from "@/lib/validacoesFiscais";
 import type { PdvLoyaltySummary } from "@/hooks/usePdvPayments";
 import type { ConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 
-import { parseCustomerPaymentTerms, customerPaymentTermsLabels, initialCustomerPayment, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
+import { parseCustomerPaymentTerms, initialCustomerPayment, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
 
 interface CartItem {
   id: string;
@@ -79,7 +78,6 @@ interface PagamentoModalProps {
   loyalty: PdvLoyaltySummary | null;
   loyaltyLoading?: boolean;
   configuracaoPagamento?: ConfiguracaoPagamentoCliente | null;
-  onEditConfiguracaoPagamento?: () => void;
   canManageCommercialTerms?: boolean;
   /** The parent must pass false whenever the cash register is unavailable. */
   canReceivePayments?: boolean;
@@ -148,7 +146,6 @@ function PagamentoModalForm({
   loyalty,
   loyaltyLoading = false,
   configuracaoPagamento = null,
-  onEditConfiguracaoPagamento,
   canManageCommercialTerms = false,
   canReceivePayments = true,
   termsLoading = false,
@@ -158,7 +155,6 @@ function PagamentoModalForm({
 }: PagamentoModalProps) {
   const termsMismatch = !!configuracaoPagamento && configuracaoPagamento.cliente_id !== cliente?.id;
   const terms = parseCustomerPaymentTerms(termsMismatch ? null : configuracaoPagamento);
-  const termsLabels = customerPaymentTermsLabels(terms);
   const initialPayment = initialCustomerPayment(terms);
   const isBilled = terms.condition === "faturado";
   const isEntry = terms.condition === "entrada";
@@ -369,34 +365,12 @@ function PagamentoModalForm({
             </div>
           </div>
 
-          {/* Configuração de pagamento do cliente */}
-          <div className="flex items-center justify-between gap-4 rounded-xl border border-strong bg-card p-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <Settings2 className="mt-0.5 h-7 w-7 shrink-0 text-foreground" />
-              <div className="min-w-0">
-                <p className="text-lg font-black">Configuração de pagamento do cliente</p>
-                <div className="mt-1 space-y-1 text-sm text-muted-foreground">
-                  <p>Condição: <strong className="text-foreground">{termsLabels.condition}</strong></p>
-                  <p>Método preferido: <strong className="text-foreground">{termsLabels.preferredMethod}</strong>. A preferência não comprova pagamento.</p>
-                  {isBilled && <p>Periodicidade: {termsLabels.frequency}. Fechamento: {terms.closingDay ? "dia " + terms.closingDay : "sob demanda / não definido"}. Vencimento: {terms.dueDay ? "dia " + terms.dueDay : "não definido"}.</p>}
-                </div>
-              </div>
-            </div>
-            {canManageCommercialTerms && onEditConfiguracaoPagamento && (
-              <Button type="button" variant="outline" className="h-11 shrink-0 gap-2 px-5 text-base font-bold" disabled={termsLoading || isLoading} onClick={onEditConfiguracaoPagamento}>
-                <Settings2 className="h-5 w-5" />
-                {configuracaoPagamento ? "Editar" : "Configurar"}
-              </Button>
-            )}
-          </div>
-
           {termsLoading && <p role="status" className="text-sm text-muted-foreground">Carregando condições de pagamento. Aguarde para finalizar.</p>}
           {(termsError || termsMismatch) && <p role="alert" className="text-sm text-destructive">Não foi possível validar as condições deste cliente. Recarregue os dados antes de finalizar.</p>}
           {isBilled && <p className="text-sm text-muted-foreground">Será gerada uma pendência para fechamento no faturamento, sem recebimento imediato. Desconto e urgência estão indisponíveis neste fluxo para manter o valor da OS igual ao lançamento. Nenhum boleto ou nota é emitido automaticamente aqui.</p>}
           {!canManageCommercialTerms && <p className="text-xs text-muted-foreground">Alterar configurações e conceder desconto exige permissão para gerenciar condições comerciais.</p>}
           {!canReceivePayments && <p role="alert" className="text-sm text-warning">Recebimentos indisponíveis: é necessário caixa disponível e permissão para receber. {isEntry ? "A condição de entrada exige recebimento; a finalização está bloqueada." : "Você pode finalizar sem recebimento imediato conforme a condição do cliente."}</p>}
           {isEntry && <p className="text-sm text-muted-foreground">Entrada exige o pagamento integral. Fidelidade está desabilitada porque o resgate pode deixar saldo pendente.</p>}
-          {!isBilled && initialPayment.unsupportedPreference && <p role="alert" className="text-sm text-warning">O método preferido ({termsLabels.preferredMethod}) não possui cobrança ou confirmação imediata neste PDV. Para receber agora, escolha PIX, dinheiro ou cartão e siga o fluxo de confirmação. A preferência não registra pagamento.</p>}
 
           {/* Previsão, desconto e urgência */}
           <div className="grid gap-3 lg:grid-cols-[1.18fr_1fr_0.9fr]">

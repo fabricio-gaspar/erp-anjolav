@@ -50,7 +50,6 @@ import { ReceberPagamentoModal, type PixRecebimentoRequest } from "@/components/
 import { PixPagamentoModal } from "@/components/caixa/PixPagamentoModal";
 
 import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
-import { ClientePagamentoDialog } from "@/components/caixa/ClientePagamentoDialog";
 import { OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -64,7 +63,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { buildClientPriceCatalog } from "@/lib/clientPricing";
-import { parseCustomerPaymentTerms, customerPaymentTermsLabels, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
+import { parseCustomerPaymentTerms, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -168,7 +167,6 @@ const PdvAtendimento = () => {
   
   // Estados para modais de pagamento e impressão
   const [showPagamentoModal, setShowPagamentoModal] = useState(false);
-  const [showClientePagamentoDialog, setShowClientePagamentoDialog] = useState(false);
   const [showImpressaoModal, setShowImpressaoModal] = useState(false);
   const [osRecemCriada, setOsRecemCriada] = useState<OSRecemCriada | null>(null);
   const [isProcessingVenda, setIsProcessingVenda] = useState(false);
@@ -206,7 +204,6 @@ const PdvAtendimento = () => {
   const catalogReady = canCreateSale && !!selectedClient && !catalogLoading && !catalogError;
   const isFaturado = configuracaoPagamento?.condicao_pagamento === "faturado";
   const paymentTerms = parseCustomerPaymentTerms(configuracaoPagamento);
-  const paymentLabels = customerPaymentTermsLabels(paymentTerms);
   const produtosAtivos = useMemo(() => catalogReady ? buildClientPriceCatalog(
     produtos, precosEspeciais, selectedClient?.tabela_preco_tipo ?? "padrao", area,
   ) : [], [catalogReady, produtos, precosEspeciais, selectedClient?.tabela_preco_tipo, area]);
@@ -393,20 +390,6 @@ const PdvAtendimento = () => {
     saleIdempotencyRef.current ??= createPdvIdempotencyKey("sale");
     setShowPagamentoModal(true);
   }, [catalogReady, cartValid, cart.length, selectedClientId, osRecemCriada]);
-
-  const handleOpenClientePagamento = useCallback(() => {
-    if (!canManageCommercialTerms) return;
-    if (!selectedClientId) {
-      toast.error("Selecione um cliente para configurar o pagamento");
-      return;
-    }
-    setShowClientePagamentoDialog(true);
-  }, [selectedClientId, canManageCommercialTerms]);
-
-  const handleEditClientePagamento = useCallback(() => {
-    setShowPagamentoModal(false);
-    handleOpenClientePagamento();
-  }, [handleOpenClientePagamento]);
 
   // Função para finalizar venda
   const handleFinalizarVenda = async (dados: DadosPagamento) => {
@@ -792,18 +775,6 @@ const PdvAtendimento = () => {
             )}
           </div>
         </header>
-        <div aria-label="Progresso do atendimento" className="grid grid-cols-3 border-b bg-muted/30 px-4 py-2 text-xs">
-          {[
-            { number: "1", label: "Cliente", complete: !!selectedClient },
-            { number: "2", label: "Itens", complete: cart.length > 0 },
-            { number: "3", label: "Finalizar", complete: false },
-          ].map((step) => (
-            <div key={step.number} className="flex items-center justify-center gap-2 border-r last:border-r-0">
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${step.complete ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}`}>{step.complete ? "✓" : step.number}</span>
-              <span className={step.complete ? "font-bold text-foreground" : "text-muted-foreground"}>{step.label}</span>
-            </div>
-          ))}
-        </div>
         {(catalogError || (selectedClient && catalogLoading)) && <div role="status" className="border-b p-3 text-sm">
           {catalogError ? <>Não foi possível carregar clientes, tabela ou condição de pagamento. <Button variant="outline" size="sm" onClick={() => { void refetchPrices(); void refetchTerms(); void refetchProducts(); void refetchClients(); }}>Tentar novamente</Button></> : "Carregando tabela e condição de pagamento..."}
         </div>}
@@ -824,7 +795,6 @@ const PdvAtendimento = () => {
                 <label htmlFor="pdv-client-search" className="flex items-center gap-2 text-base font-bold">
                   <UserRound className="h-5 w-5 text-primary" /> Cliente
                 </label>
-                <span className="rounded-md bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">1º passo</span>
               </div>
               {selectedClient ? (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
@@ -835,8 +805,6 @@ const PdvAtendimento = () => {
                       <p className="mt-1 text-[11px] font-semibold text-primary">
                         {selectedClient.tabela_preco_tipo === "personalizada" ? "Tabela personalizada ativa" : "Tabela padrão ativa"}
                       </p>
-                      <p className="mt-1 text-xs">Condição: {termsLoading ? "Carregando..." : termsError ? "Não foi possível carregar" : paymentLabels.condition}</p>
-                      {!termsLoading && !termsError && <p className="mt-1 text-xs text-muted-foreground">Forma preferida: {paymentLabels.preferredMethod}{paymentLabels.frequency ? ` · Fechamento: ${paymentLabels.frequency}` : ""}</p>}
                       {canUseLoyalty && isLoadingCustomerLoyalty ? (
                         <p className="mt-1 text-xs text-muted-foreground">Consultando pontos...</p>
                       ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
@@ -847,10 +815,6 @@ const PdvAtendimento = () => {
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                  {canManageCommercialTerms && <Button type="button" variant="outline" size="sm" className="mt-2 h-7 w-full gap-1 text-xs" onClick={handleOpenClientePagamento}>
-                    <Settings2 className="h-3.5 w-3.5" />
-                    {configuracaoPagamento ? "Editar pagamento" : "Configurar pagamento"}
-                  </Button>}
                 </div>
               ) : (
                 <>
@@ -894,7 +858,6 @@ const PdvAtendimento = () => {
                 <label htmlFor="pdv-product-search" className="flex items-center gap-2 text-base font-bold">
                   <ShoppingCart className="h-5 w-5 text-primary" /> Produto / Serviço
                 </label>
-                <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-bold text-muted-foreground">2º passo</span>
               </div>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -1169,16 +1132,9 @@ const PdvAtendimento = () => {
         termsError={catalogError || !cartValid}
         loyaltyLoading={isLoadingCustomerLoyalty}
         configuracaoPagamento={configuracaoPagamento ?? null}
-        onEditConfiguracaoPagamento={canManageCommercialTerms ? handleEditClientePagamento : undefined}
         onConfirm={handleFinalizarVenda}
         isLoading={isProcessingVenda}
       />
-
-      {canManageCommercialTerms && <ClientePagamentoDialog
-        open={showClientePagamentoDialog}
-        onOpenChange={setShowClientePagamentoDialog}
-        clienteId={selectedClientId}
-      />}
 
       {/* Modal de Impressão Pós-Venda */}
       {osRecemCriada && (
