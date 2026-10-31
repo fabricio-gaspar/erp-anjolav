@@ -25,7 +25,7 @@ const GROUP_LABELS: Record<GlobalSearchResult["type"], string> = {
   cliente: "Clientes",
   produto: "Produtos",
   fornecedor: "Fornecedores",
-  ordem: "Ordens de Serviço",
+  ordem: "ROLs",
   lancamento: "Lançamentos",
 };
 
@@ -80,7 +80,7 @@ export function GlobalSearch() {
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Buscar clientes, OS, produtos, fornecedores..."
+          placeholder="Buscar clientes, ROLs, produtos, fornecedores..."
           value={term}
           onValueChange={setTerm}
         />
