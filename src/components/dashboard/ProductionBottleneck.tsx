@@ -33,7 +33,7 @@ export function ProductionBottleneck({ items, recommendation }: ProductionBottle
                 <span className="font-medium text-sm text-slate-700">{item.stage}</span>
               </div>
               <div className="text-right flex items-center gap-3">
-                <span className="font-semibold text-sm text-slate-800">{item.osCount} OS</span>
+                <span className="font-semibold text-sm text-slate-800">{item.osCount} ROLs</span>
                 <span className="flex items-center gap-1 text-xs text-slate-400">
                   <Clock className="w-3 h-3" />
                   {item.avgTime}
@@ -45,7 +45,7 @@ export function ProductionBottleneck({ items, recommendation }: ProductionBottle
           ))}
         </div>
       ) : (
-        <p className="py-6 text-center text-xs text-slate-400">Nenhuma OS aberta por etapa</p>
+        <p className="py-6 text-center text-xs text-slate-400">Nenhuma ROL aberta por etapa</p>
       )}
 
       {recommendation && (

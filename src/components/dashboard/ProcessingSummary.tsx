@@ -27,17 +27,17 @@ export function ProcessingSummary({ items }: ProcessingSummaryProps) {
   return (
     <div className="card-base p-4">
       <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-        <h3 className="font-semibold text-sm text-slate-800">OS em Processamento</h3>
+        <h3 className="font-semibold text-sm text-slate-800">ROLs em Processamento</h3>
         <span className="text-xs text-slate-400 ml-auto">{items.length} itens</span>
       </div>
 
       {items.length === 0 ? (
-        <p className="py-6 text-center text-xs text-slate-400">Nenhuma OS em processamento</p>
+        <p className="py-6 text-center text-xs text-slate-400">Nenhuma ROL em processamento</p>
       ) : <div className="overflow-x-auto mt-3">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Cliente / OS</th>
+              <th>Cliente / ROL</th>
               <th>Etapa</th>
               <th>Peças / Peso</th>
               <th>Tempo</th>

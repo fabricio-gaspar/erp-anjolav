@@ -295,7 +295,7 @@ const Dashboard = () => {
       : []),
     ...(temOrdens && !metricasError && !isLoadingMetricas
       ? [{
-          title: "OS em aberto",
+          title: "ROLs em aberto",
           value: metricas?.osEmAberto ?? 0,
           icon: FileText,
           iconColor: "primary" as const,
@@ -317,7 +317,7 @@ const Dashboard = () => {
           value: metricas?.clientesAtivos ?? 0,
           icon: Users,
           iconColor: "info" as const,
-          subtitle: "Com OS nos últimos 30 dias",
+          subtitle: "Com ROLs nos últimos 30 dias",
         }]
       : []),
     ...(temProducao && !metricasError && !isLoadingMetricas
@@ -326,7 +326,7 @@ const Dashboard = () => {
           value: metricas?.pecasProcessadasHoje ?? 0,
           icon: Shirt,
           iconColor: "success" as const,
-          subtitle: "Quantidade inserida em itens de OS",
+          subtitle: "Quantidade inserida em itens de ROL",
         }]
       : []),
     ...(temAgenda && !agendaError && !isLoadingAgenda
@@ -460,8 +460,8 @@ const Dashboard = () => {
 
   const maiorGargalo = bottleneckItems[0];
   const recommendation = maiorGargalo
-    ? `A etapa “${maiorGargalo.stage}” concentra ${maiorGargalo.osCount} OS abertas.`
-    : "Nenhuma OS aberta foi identificada no escopo atual.";
+    ? `A etapa “${maiorGargalo.stage}” concentra ${maiorGargalo.osCount} ROLs abertas.`
+    : "Nenhuma ROL aberta foi identificada no escopo atual.";
 
   const financePath = `/${activeArea}/financeiro`;
   const ordersPath = activeArea === "central" ? null : `/${activeArea}/ordens`;
@@ -479,7 +479,7 @@ const Dashboard = () => {
 
   return (
     <AppLayout title={areaLabels[activeArea].title} subtitle={areaLabels[activeArea].subtitle}>
-      <div className="space-y-5 sm:space-y-8">
+      <div className="space-y-4 sm:space-y-6">
         <section className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="page-title px-1">
@@ -549,7 +549,7 @@ const Dashboard = () => {
         )}
 
         {kpis.length > 0 ? (
-          <section aria-label="Indicadores principais" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <section aria-label="Indicadores principais" className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {kpis.map((kpi) => (
               <KPICard key={kpi.title} {...kpi} />
             ))}
@@ -561,7 +561,7 @@ const Dashboard = () => {
         )}
 
         {(temFinanceiro || contasEnabled) && (
-          <section aria-label="Resumo financeiro" className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <section aria-label="Resumo financeiro" className="grid grid-cols-1 gap-3 xl:grid-cols-2">
             {temFinanceiro && !faturasError && !isLoadingFaturas && (
               <FinanceCard
                 title="Contas a receber"
@@ -588,7 +588,7 @@ const Dashboard = () => {
         )}
 
         {(temOrdens || temProducao) && !resumoError && !isLoadingResumo && (
-          <section aria-label="Produção" className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <section aria-label="Produção" className="grid grid-cols-1 gap-3 xl:grid-cols-2">
             {!metricasError && !isLoadingMetricas && (
               <ProductionBottleneck items={bottleneckItems} recommendation={recommendation} />
             )}
@@ -604,7 +604,7 @@ const Dashboard = () => {
         )}
 
         {temAgenda && !agendaError && !isLoadingAgenda && (
-          <section aria-label="Agenda do dia" className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <section aria-label="Agenda do dia" className="grid grid-cols-1 gap-3 xl:grid-cols-2">
             <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
             <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
             <div className="flex justify-end xl:col-span-2">
@@ -615,7 +615,7 @@ const Dashboard = () => {
           </section>
         )}
 
-        <section aria-label="Acompanhamentos" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <section aria-label="Acompanhamentos" className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {activeArea === "central" && temFinanceiro && <BillingClosuresCard />}
           {activeArea === "central" && temContasPagar && <ContasVencendoCard />}
           {activeArea === "central" && temAgenda && <EventosDoDiaCard />}
