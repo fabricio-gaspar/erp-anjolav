@@ -1,6 +1,5 @@
-import { Package, Truck, MoreVertical, CheckCircle, XCircle } from "lucide-react";
+import { Package, Truck, CheckCircle, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Agendamento } from "@/hooks/useAgendamentos";
 import { AgendaEventMenu } from "./AgendaEventMenu";
 
@@ -11,7 +10,6 @@ interface AgendaEventCardProps {
   onReschedule: (agendamento: Agendamento) => void;
   onAssignDriver: (agendamento: Agendamento) => void;
   onAddObservation: (agendamento: Agendamento) => void;
-  onDelete: (agendamento: Agendamento) => void;
   onViewDetails: (agendamento: Agendamento) => void;
 }
 
@@ -22,7 +20,6 @@ export function AgendaEventCard({
   onReschedule,
   onAssignDriver,
   onAddObservation,
-  onDelete,
   onViewDetails,
 }: AgendaEventCardProps) {
   const isRetirada = agendamento.tipo === "retirada";
@@ -103,7 +100,6 @@ export function AgendaEventCard({
           onReschedule={onReschedule}
           onAssignDriver={onAssignDriver}
           onAddObservation={onAddObservation}
-          onDelete={onDelete}
         />
       </div>
     </div>

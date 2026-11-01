@@ -174,17 +174,21 @@ export const useUpdateFichaFuncionario = () => {
       if (!result?.employee) throw new Error("A atualização da ficha não foi confirmada");
       return result.employee;
     },
-    onSuccess: (employee) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
-      queryClient.invalidateQueries({ queryKey: ["funcionario", employee.id] });
+      queryClient.invalidateQueries({ queryKey: ["funcionario"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-directory"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-directory-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["motoristas"] });
+      queryClient.invalidateQueries({ queryKey: ["driver-directory"] });
       toast.success("Ficha atualizada com sucesso!");
     },
     onError: (err: Error) => toast.error(err.message || "Erro ao salvar ficha"),
   });
 };
 
-export function calcularCustoMensal(f: Partial<FichaFuncionarioData>): number {
-  const proventos =
+export function calcularReferenciaOperacional(f: Partial<FichaFuncionarioData>): number {
+  return (
     Number(f.salario_base || 0) +
     Number(f.gratificacao || 0) +
     Number(f.vale_transporte || 0) +
@@ -192,8 +196,6 @@ export function calcularCustoMensal(f: Partial<FichaFuncionarioData>): number {
     Number(f.vale_refeicao || 0) +
     Number(f.plano_saude || 0) +
     Number(f.plano_odontologico || 0) +
-    Number(f.outros_beneficios || 0);
-  // Encargos estimados: ~36% sobre salário base (FGTS+INSS patronal+provisões)
-  const encargos = Number(f.salario_base || 0) * 0.36;
-  return proventos + encargos;
+    Number(f.outros_beneficios || 0)
+  );
 }

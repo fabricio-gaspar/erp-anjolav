@@ -1,8 +1,0 @@
--- Intentionally empty.
---
--- This historical migration previously embedded identifiable employee and
--- payroll records. Production/master data must be imported through the
--- authenticated administration flow and must never be committed to source
--- control. Existing databases that already applied this migration are not
--- modified by this file; any retention or deletion decision for real employee
--- records requires the data controller's documented LGPD process.

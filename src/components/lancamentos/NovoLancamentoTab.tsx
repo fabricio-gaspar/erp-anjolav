@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,12 +41,15 @@ import { format } from "date-fns";
 import { usePrintLancamento, type LancamentosPrintData } from "@/hooks/usePrintOS";
 import { useClientes } from "@/hooks/useClientes";
 import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
-import { useLancamentos, useCreateItemLancamento } from "@/hooks/useLancamentos";
+import { useCreateManualRol } from "@/hooks/usePendingRolQueue";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { buildClientPriceCatalog } from "@/lib/clientPricing";
+import { createIdempotencyKey } from "@/lib/idempotency";
 import { toast } from "sonner";
 
 interface LancamentoItem {
   id: string;
+  produtoId: string;
   produto: string;
   quantidade: number;
   unidade: string;
@@ -59,6 +62,7 @@ interface NovoLancamentoTabProps {
 }
 
 export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
+  const { activeArea } = useWorkspace();
   const [items, setItems] = useState<LancamentoItem[]>([]);
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
   const [clienteSearchOpen, setClienteSearchOpen] = useState(false);
@@ -74,13 +78,13 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
   const [dataEntrega, setDataEntrega] = useState(format(new Date(), "yyyy-MM-dd"));
   const [observacao, setObservacao] = useState("");
   const [isFinalizando, setIsFinalizando] = useState(false);
+  const pendingRequestRef = useRef<{ fingerprint: string; key: string } | null>(null);
 
   const { clientes, isLoading: isLoadingClientes } = useClientes();
   const { produtos, error: produtosError } = useProdutos();
   const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(selectedClienteId);
   const { printROLFromData, printEtiquetaFromData, isLoading: isPrinting } = usePrintLancamento();
-  const { createLancamento } = useLancamentos();
-  const createItemLancamento = useCreateItemLancamento();
+  const createManualRol = useCreateManualRol();
 
   const totalValue = items.reduce((sum, item) => sum + item.valorTotal, 0);
 
@@ -96,27 +100,27 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
     [clientes, selectedClienteId],
   );
 
-  const clientesIndustriais = useMemo(() => {
-    return clientes.filter((c) => c.classificacao?.trim().toLowerCase() === "industrial");
-  }, [clientes]);
+  const clientesDaArea = useMemo(() => clientes.filter((cliente) => (
+    activeArea === "central" || cliente.classificacao?.trim().toLowerCase() === activeArea
+  )), [activeArea, clientes]);
 
   const clientesFiltrados = useMemo(() => {
-    if (!clienteSearch) return clientesIndustriais.slice(0, 20);
+    if (!clienteSearch) return clientesDaArea.slice(0, 20);
     const s = clienteSearch.toLowerCase();
-    return clientesIndustriais.filter(c =>
+    return clientesDaArea.filter(c =>
       c.razao_social.toLowerCase().includes(s) ||
       c.nome_fantasia?.toLowerCase().includes(s) ||
       c.cpf_cnpj?.includes(clienteSearch) ||
       c.telefone?.includes(clienteSearch)
     ).slice(0, 20);
-  }, [clientesIndustriais, clienteSearch]);
+  }, [clientesDaArea, clienteSearch]);
 
   const produtosDoCliente = useMemo(() => {
     return buildClientPriceCatalog(
       produtos,
       precosEspeciais,
       clienteAtual?.tabela_preco_tipo ?? "padrao",
-      "industrial",
+      activeArea === "residencial" ? "residencial" : "industrial",
     ).map((produto) => ({
       id: produto.id,
       nome: produto.nome,
@@ -125,7 +129,7 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
       precoPadrao: produto.preco,
       tipo: produto.override?.tipo || "normal",
     }));
-  }, [clienteAtual?.tabela_preco_tipo, precosEspeciais, produtos]);
+  }, [activeArea, clienteAtual?.tabela_preco_tipo, precosEspeciais, produtos]);
 
   const produtoSelecionado = useMemo(() => {
     if (!selectedProdutoId) return null;
@@ -157,7 +161,7 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
       descricao = `${produtoSelecionado.nome} (${comprimento}m × ${largura}m)`;
     }
     setItems([...items, {
-      id: crypto.randomUUID(), produto: descricao, quantidade: qtd,
+      id: crypto.randomUUID(), produtoId: produtoSelecionado.id, produto: descricao, quantidade: qtd,
       unidade: produtoSelecionado.unidade, valorUnitario: produtoSelecionado.precoEspecial,
       valorTotal: produtoSelecionado.precoEspecial * qtd,
     }]);
@@ -184,18 +188,26 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
     if (!clienteSelecionado || items.length === 0 || !selectedClienteId) return;
     setIsFinalizando(true);
     try {
-      const lancamento = await createLancamento.mutateAsync({
-        cliente_id: selectedClienteId, data_lancamento: dataEmissao,
-        data_entrega: dataEntrega || null, observacao: observacao || null,
-        valor_total: totalValue, status: "pendente",
-      });
-      for (const item of items) {
-        await createItemLancamento.mutateAsync({
-          lancamento_id: lancamento.id, produto_nome: item.produto,
-          quantidade: item.quantidade, unidade: item.unidade,
-          preco_unitario: item.valorUnitario, subtotal: item.valorTotal,
-        });
+      const payload = {
+        clientId: selectedClienteId,
+        date: dataEmissao,
+        deliveryDate: dataEntrega || null,
+        note: observacao.trim() || null,
+        items: items.map((item) => ({
+          produto_id: item.produtoId,
+          descricao: item.produto,
+          quantidade: item.quantidade,
+        })),
+      };
+      const fingerprint = JSON.stringify(payload);
+      if (!pendingRequestRef.current || pendingRequestRef.current.fingerprint !== fingerprint) {
+        pendingRequestRef.current = { fingerprint, key: createIdempotencyKey("manual-rol-create") };
       }
+      const lancamento = await createManualRol.mutateAsync({
+        ...payload,
+        idempotencyKey: pendingRequestRef.current.key,
+      });
+      pendingRequestRef.current = null;
       setItems([]); setSelectedClienteId(null); setObservacao("");
       const rolNum = lancamento.numero_rol || "Lançamento";
       toast.success(`${rolNum} registrado com sucesso!`, {

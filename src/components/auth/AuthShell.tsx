@@ -13,7 +13,7 @@ export function AuthShell({ children, title, subtitle, badge }: AuthShellProps) 
     <main className="min-h-screen bg-background text-foreground font-sans">
       <div className="grid min-h-screen lg:grid-cols-[minmax(320px,38%)_1fr]">
         {/* Left Aside - Desktop Only */}
-        <aside className="hidden flex-col justify-between bg-gradient-to-br from-[#F1F0FE] via-[#FDFCFA] to-[#EBF5FE] px-10 py-12 text-foreground lg:flex xl:px-16">
+        <aside className="hidden flex-col justify-between bg-gradient-to-br from-[#EAF6FB] via-[#F8FBFD] to-[#E5F1F8] px-10 py-12 text-foreground lg:flex xl:px-16">
           <div className="space-y-12">
             {/* Logo Section */}
             <div className="flex items-center gap-3">
@@ -30,10 +30,10 @@ export function AuthShell({ children, title, subtitle, badge }: AuthShellProps) 
             <div className="max-w-md pt-8">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Ambiente Operacional</p>
               <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight xl:text-4xl text-foreground">
-                Central, Industrial e Residencial em uma plataforma segura.
+                Central, Industrial e Doméstico em uma plataforma segura.
               </h1>
               <p className="mt-5 max-w-sm text-sm leading-6 text-muted-foreground">
-                Cada operação mantém seu próprio contexto de trabalho, com visão consolidada reservada ao Painel Central.
+                Cada operação mantém seu próprio contexto de trabalho, com visão consolidada no Painel Administrativo.
               </p>
 
               {/* Checkmarks */}

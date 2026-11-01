@@ -1,1 +1,0 @@
-ALTER TABLE public.configuracoes_pagamento_cliente ADD COLUMN observacao_faturamento TEXT DEFAULT NULL;

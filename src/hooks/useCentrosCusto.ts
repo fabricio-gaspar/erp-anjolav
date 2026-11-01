@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface CentroCusto {
   id: string;
@@ -11,26 +12,43 @@ export interface CentroCusto {
   updated_at: string;
 }
 
-export function useCentrosCusto() {
+interface UseCentrosCustoOptions {
+  enabled?: boolean;
+}
+
+export function useCentrosCusto(options: UseCentrosCustoOptions = {}) {
   const qc = useQueryClient();
+  const { activeTenant, session } = useAuth();
+
+  const requireWorkspace = () => {
+    if (!session?.user.id || !activeTenant?.id) {
+      throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para alterar centros de custo");
+    }
+  };
 
   const { data: centros = [], isLoading } = useQuery({
-    queryKey: ["centros_custo"],
+    queryKey: ["centros_custo", session?.user.id, activeTenant?.id],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      requireWorkspace();
+      const { data, error } = await supabase
         .from("centros_custo")
         .select("*")
-        .order("nome");
+        .filter("tenant_id", "eq", activeTenant!.id)
+        .order("nome")
+        .order("id");
       if (error) throw error;
       return (data || []) as CentroCusto[];
     },
+    enabled: options.enabled !== false && Boolean(session?.user.id && activeTenant?.id),
   });
 
   const createCentro = useMutation({
     mutationFn: async (input: { nome: string; descricao?: string | null }) => {
-      const { data, error } = await (supabase as any)
+      requireWorkspace();
+      if (!input.nome.trim()) throw new Error("Nome é obrigatório");
+      const { data, error } = await supabase
         .from("centros_custo")
-        .insert({ ativo: true, ...input })
+        .insert({ ativo: true, ...input, nome: input.nome.trim(), tenant_id: activeTenant!.id })
         .select()
         .single();
       if (error) throw error;
@@ -40,32 +58,43 @@ export function useCentrosCusto() {
       qc.invalidateQueries({ queryKey: ["centros_custo"] });
       toast.success("Centro de custo criado!");
     },
-    onError: (e: any) => toast.error(`Erro: ${e.message}`),
+    onError: (error: Error) => toast.error(`Erro: ${error.message}`),
   });
 
   const updateCentro = useMutation({
     mutationFn: async ({ id, ...rest }: Partial<CentroCusto> & { id: string }) => {
-      const { error } = await (supabase as any).from("centros_custo").update(rest).eq("id", id);
+      requireWorkspace();
+      const updates = { ...rest, ...(rest.nome ? { nome: rest.nome.trim() } : {}) };
+      const { error } = await supabase
+        .from("centros_custo")
+        .update(updates)
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant!.id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["centros_custo"] });
       toast.success("Centro de custo atualizado!");
     },
-    onError: (e: any) => toast.error(`Erro: ${e.message}`),
+    onError: (error: Error) => toast.error(`Erro: ${error.message}`),
   });
 
-  const deleteCentro = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from("centros_custo").delete().eq("id", id);
+  const setCentroAtivo = useMutation({
+    mutationFn: async ({ id, ativo }: { id: string; ativo: boolean }) => {
+      requireWorkspace();
+      const { error } = await supabase
+        .from("centros_custo")
+        .update({ ativo })
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant!.id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["centros_custo"] });
-      toast.success("Centro de custo excluído!");
+      toast.success("Situação do centro de custo atualizada sem apagar o histórico.");
     },
-    onError: (e: any) => toast.error(`Erro: ${e.message}`),
+    onError: (error: Error) => toast.error(`Erro: ${error.message}`),
   });
 
-  return { centros, isLoading, createCentro, updateCentro, deleteCentro };
+  return { centros, isLoading, createCentro, updateCentro, setCentroAtivo };
 }

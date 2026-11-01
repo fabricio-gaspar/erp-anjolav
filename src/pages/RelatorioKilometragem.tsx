@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -133,10 +134,20 @@ export default function RelatorioKilometragem() {
   };
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
+    <AppLayout title="Relatório de Quilometragem" subtitle="Desempenho de rotas e motoristas">
+      <div className="page-shell">
+        <PageHeader
+          eyebrow="Logística e frota"
+          title="Relatório de Quilometragem"
+          description="Acompanhe distâncias, rotas concluídas e desempenho por motorista"
+          actions={(
+            <Button variant="outline" onClick={exportCSV} className="w-full gap-2 sm:w-auto">
+              <Download className="h-4 w-4" />Exportar CSV
+            </Button>
+          )}
+        />
         {/* Filtros */}
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="page-toolbar flex-wrap items-end">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Período</label>
             <Select value={periodo} onValueChange={(v) => setPeriodo(v as Periodo)}>
@@ -163,9 +174,6 @@ export default function RelatorioKilometragem() {
               </div>
             </>
           )}
-          <Button variant="outline" size="sm" onClick={exportCSV} className="ml-auto">
-            <Download className="h-4 w-4 mr-1" /> Exportar CSV
-          </Button>
         </div>
 
         {/* Cards resumo */}

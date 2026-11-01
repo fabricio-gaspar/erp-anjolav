@@ -1,26 +1,66 @@
 import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, TrendingDown, AlertCircle, Clock, Calendar, Factory, Store } from "lucide-react";
-import { useDashboardFinanceiro, type SetorFinanceiro } from "@/hooks/useDashboardFinanceiro";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertCircle,
+  Calendar,
+  Clock,
+  Factory,
+  FileText,
+  LayoutDashboard,
+  Scale,
+  Store,
+  TrendingDown,
+  TrendingUp,
+  WalletCards,
+} from "lucide-react";
+import {
+  createDefaultFinancialPeriod,
+  useDashboardFinanceiro,
+  type PeriodoFinanceiro,
+  type SetorFinanceiro,
+} from "@/hooks/useDashboardFinanceiro";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { FinanceiroWidgetState } from "@/components/financeiro/FinanceiroWidgetState";
+import ContasReceberContent from "@/components/contas/ContasReceberContent";
+import ContasPagarContent from "@/components/contas/ContasPagarContent";
+import { ConciliacaoFinanceiraContent } from "@/components/financeiro/ConciliacaoFinanceiraContent";
+import { FaturasTab } from "@/components/lancamentos/FaturasTab";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useSearchParams } from "react-router-dom";
 
 const setorLabels: Record<SetorFinanceiro, { title: string; subtitle: string }> = {
-  todos: { title: "Dashboard Financeiro", subtitle: "Visão consolidada — Industrial + Residencial" },
+  todos: { title: "Dashboard Financeiro", subtitle: "Visão consolidada — Industrial + Doméstico" },
   industrial: { title: "Financeiro Industrial", subtitle: "Faturas e recebimentos do PDV — setor industrial" },
-  loja: { title: "Financeiro Residencial", subtitle: "Faturas e recebimentos do PDV — setor residencial" },
+  loja: { title: "Financeiro Doméstico", subtitle: "Faturas e recebimentos do PDV — setor doméstico" },
 };
 
 const DashboardFinanceiro = () => {
   const { activeArea } = useWorkspace();
+  const [searchParams, setSearchParams] = useSearchParams();
   const defaultSetor: SetorFinanceiro =
     activeArea === "industrial" ? "industrial" : activeArea === "residencial" ? "loja" : "todos";
   const [setorSelecionado, setSetorSelecionado] = useState<SetorFinanceiro>(defaultSetor);
+  const [periodo, setPeriodo] = useState<PeriodoFinanceiro>(createDefaultFinancialPeriod);
+  const [periodoDraft, setPeriodoDraft] = useState<PeriodoFinanceiro>(createDefaultFinancialPeriod);
   const setor = activeArea === "central" ? setorSelecionado : defaultSetor;
+  const availableTabs = activeArea === "central"
+    ? ["resumo", "receber", "pagar", "conciliacao", "faturamento"]
+    : ["resumo", "receber", "conciliacao", "faturamento"];
+  const requestedTab = searchParams.get("tab") ?? "resumo";
+  const activeTab = availableTabs.includes(requestedTab) ? requestedTab : "resumo";
+  const setActiveTab = (tab: string) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("tab", tab);
+      return next;
+    }, { replace: true });
+  };
 
   useEffect(() => {
     setSetorSelecionado(defaultSetor);
@@ -35,9 +75,16 @@ const DashboardFinanceiro = () => {
     proximos7Dias, proximos7DiasCount, movimentacoesVencidas,
     receitasLoja, receitasLojaCount, isLoading, error, isRetrying,
     errorReference, retry,
-  } = useDashboardFinanceiro(setor);
+  } = useDashboardFinanceiro(setor, periodo);
 
   const { title, subtitle } = setorLabels[setor];
+  const draftPeriodDays = periodoDraft.inicio && periodoDraft.fim
+    ? (new Date(`${periodoDraft.fim}T00:00:00Z`).getTime()
+      - new Date(`${periodoDraft.inicio}T00:00:00Z`).getTime()) / 86_400_000
+    : Number.NaN;
+  const isDraftPeriodValid = Number.isFinite(draftPeriodDays)
+    && draftPeriodDays >= 0
+    && draftPeriodDays <= 366;
 
   const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
   const formatDate = (dateStr: string) => {
@@ -47,32 +94,76 @@ const DashboardFinanceiro = () => {
 
   return (
     <AppLayout title={title} subtitle={subtitle}>
-      <div className="w-full space-y-8">
-        {/* Visual Content Header mirroring high-fidelity layout */}
-        <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">GESTÃO FINANCEIRA</span>
+      <div className="page-shell">
+        <PageHeader
+          eyebrow="Gestão financeira"
+          title={setor === "todos" ? "Dashboard Financeiro" : title}
+          description="Monitoramento de fluxo de caixa, receitas e despesas"
+        />
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <div className="tabs-scrollable">
+            <TabsList className="page-tabs-list">
+              <TabsTrigger value="resumo" className="page-tab-trigger gap-2">
+                <LayoutDashboard className="h-4 w-4" /> Resumo
+              </TabsTrigger>
+              <TabsTrigger value="receber" className="page-tab-trigger gap-2">
+                <TrendingUp className="h-4 w-4" /> A receber
+              </TabsTrigger>
+              {activeArea === "central" && (
+                <TabsTrigger value="pagar" className="page-tab-trigger gap-2">
+                  <WalletCards className="h-4 w-4" /> A pagar
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="conciliacao" className="page-tab-trigger gap-2">
+                <Scale className="h-4 w-4" /> Conciliação
+              </TabsTrigger>
+              <TabsTrigger value="faturamento" className="page-tab-trigger gap-2">
+                <FileText className="h-4 w-4" /> Faturamento
+              </TabsTrigger>
+            </TabsList>
           </div>
-          <h1 className="page-title">
-            {setor === "todos" ? "Dashboard Financeiro" : title}
-          </h1>
-          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
-            Monitoramento de fluxo de caixa, receitas e despesas
-          </p>
-        </div>
+
+          <TabsContent value="resumo" className="mt-0 space-y-4">
+          <Card className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="financial-period-start">Período inicial</label>
+              <Input
+                id="financial-period-start"
+                type="date"
+                value={periodoDraft.inicio}
+                onChange={(event) => setPeriodoDraft((current) => ({ ...current, inicio: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="financial-period-end">Período final</label>
+              <Input
+                id="financial-period-end"
+                type="date"
+                value={periodoDraft.fim}
+                onChange={(event) => setPeriodoDraft((current) => ({ ...current, fim: event.target.value }))}
+              />
+            </div>
+            <Button
+              className="min-h-11"
+              disabled={!isDraftPeriodValid}
+              onClick={() => setPeriodo(periodoDraft)}
+            >
+              Aplicar período
+            </Button>
+          </Card>
 
         <div className="space-y-4">
         {/* Sector Toggle: only the Central panel can switch across sectors. */}
         {activeArea === "central" && (
           <Tabs value={setorSelecionado} onValueChange={(v) => setSetorSelecionado(v as SetorFinanceiro)}>
-            <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="todos" className="text-xs">Todos</TabsTrigger>
-              <TabsTrigger value="industrial" className="text-xs gap-1">
+            <TabsList className="page-tabs-list">
+              <TabsTrigger value="todos" className="page-tab-trigger text-xs">Todos</TabsTrigger>
+              <TabsTrigger value="industrial" className="page-tab-trigger gap-1 text-xs">
                 <Factory className="w-3.5 h-3.5" /> Industrial
               </TabsTrigger>
-              <TabsTrigger value="loja" className="text-xs gap-1">
-                <Store className="w-3.5 h-3.5" /> Residencial
+              <TabsTrigger value="loja" className="page-tab-trigger gap-1 text-xs">
+                <Store className="w-3.5 h-3.5" /> Doméstico
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -288,6 +379,26 @@ const DashboardFinanceiro = () => {
           )}
         </FinanceiroWidgetState>
         </div>
+          </TabsContent>
+
+          <TabsContent value="receber" className="mt-0">
+            <ContasReceberContent />
+          </TabsContent>
+
+          {activeArea === "central" && (
+            <TabsContent value="pagar" className="mt-0">
+              <ContasPagarContent />
+            </TabsContent>
+          )}
+
+          <TabsContent value="conciliacao" className="mt-0">
+            <ConciliacaoFinanceiraContent />
+          </TabsContent>
+
+          <TabsContent value="faturamento" className="mt-0">
+            <FaturasTab />
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );

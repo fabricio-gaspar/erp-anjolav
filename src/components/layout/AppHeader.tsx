@@ -45,10 +45,10 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
 
   return (
     <header className={cn(
-      "h-16 shadow-none flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 transition-colors border-b border-border bg-background/95 backdrop-blur shrink-0",
+      "h-16 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 transition-colors border-b border-border bg-card/95 backdrop-blur shadow-sm shrink-0",
       activeArea === "central" ? "bg-background/95" : "bg-card/95"
     )}>
-      <div className="flex items-center gap-4 w-full">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
         {showMenuButton && (
           <Button variant="ghost" size="icon" onClick={onMenuClick} aria-label="Abrir menu" className="shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent">
             <Menu className="w-5 h-5" />
@@ -56,15 +56,15 @@ export function AppHeader({ title, subtitle, onMenuClick, showMenuButton }: AppH
         )}
         
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
-          <div className="w-px h-7 shrink-0 bg-border" />
+          <div className="w-0.5 h-7 shrink-0 rounded-full bg-primary/60" />
 
           <div className="flex min-w-0 flex-1 flex-col justify-center">
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-semibold tracking-tight truncate text-foreground">
+              <h1 className="text-base sm:text-lg font-bold tracking-tight truncate text-foreground">
                 {title || getAppRoute(location.pathname)?.label || "AnjoLav"}
               </h1>
             </div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground truncate">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary/80 truncate">
               {subtitle || "AnjoLav ERP"}
             </p>
           </div>

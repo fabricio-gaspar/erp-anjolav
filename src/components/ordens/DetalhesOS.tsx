@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ArrowLeft, Loader2, Package, Clock, Calendar, Truck, User, FileText, Printer, Tag, Send } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { ArrowLeft, Loader2, Package, Clock, Calendar, Truck, FileText, Printer, Tag, Send } from "lucide-react";
+import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,13 @@ import { ImprimirOSModal } from "@/components/ordens/ImprimirOSModal";
 import { usePrintOS } from "@/hooks/usePrintOS";
 import { dispararNotificacao } from "@/services/notificacaoService";
 import { toast } from "@/hooks/use-toast";
+import { OrderStateOverview } from "@/components/ordens/OrderStateOverview";
+import { QualityDeliveryPanel } from "@/components/ordens/QualityDeliveryPanel";
+import { OrderRecordsPanel } from "@/components/ordens/OrderRecordsPanel";
+import { createIdempotencyKey } from "@/lib/idempotency";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 
 interface DetalhesOSProps {
   ordemServicoId: string;
@@ -41,14 +48,27 @@ const statusConfig: Record<string, { label: string; variant: "info" | "success" 
   cancelada: { label: "Cancelada", variant: "danger" },
 };
 
+const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+}).format(value);
+
 export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
   const [showFormulario, setShowFormulario] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+  const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
 
-  const { data: ordem, isLoading } = useQuery({
-    queryKey: ["ordem_servico", ordemServicoId],
+  const { data: ordem, isLoading, error } = useQuery({
+    queryKey: ["ordem_servico", session?.user.id, activeTenant?.id, ordemServicoId, activeArea],
+    enabled: Boolean(session?.user.id && activeTenant?.id && ordemServicoId),
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para abrir o pedido");
+      }
+      let query = supabase
         .from("ordens_servico")
         .select(`
           *,
@@ -57,7 +77,9 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
           veiculo:veiculos(placa, modelo)
         `)
         .eq("id", ordemServicoId)
-        .single();
+        .filter("tenant_id", "eq", activeTenant.id);
+      if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -79,7 +101,9 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
   if (!ordem) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Ordem de serviço não encontrada.</p>
+        <p className="text-muted-foreground">
+          {error ? "Não foi possível carregar o pedido. Tente novamente." : "Ordem de serviço não encontrada."}
+        </p>
         <Button variant="link" onClick={onBack}>
           Voltar
         </Button>
@@ -88,22 +112,30 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
   }
 
   const statusInfo = statusConfig[ordem.status] || { label: ordem.status, variant: "default" as const };
-  const canAdvance = ordem.status !== "entregue" && ordem.status !== "cancelada";
+  const hasFulfillmentContract = typeof ordem.status_qualidade === "string";
+  const qualityBlocksAdvance = hasFulfillmentContract
+    && ordem.status === "passadoria"
+    && ordem.status_qualidade !== "aprovada";
+  const deliveryUsesItemFlow = hasFulfillmentContract && ordem.status === "expedicao";
+  const canAdvance = ordem.status !== "entregue"
+    && ordem.status !== "cancelada"
+    && !qualityBlocksAdvance
+    && !deliveryUsesItemFlow;
 
-  const valorTotal = itens.reduce((acc, item) => acc + Number(item.subtotal), 0);
+  const valorTotal = Number(ordem.valor_total ?? itens.reduce((acc, item) => acc + Number(item.subtotal), 0));
   const quantidadeTotal = itens.reduce((acc, item) => acc + Number(item.quantidade), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={onBack}>
+      <div className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="Voltar para a lista de pedidos" className="shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold font-mono text-primary">{ordem.numero}</h2>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate font-mono text-xl font-bold text-primary">{ordem.numero}</h2>
               <StatusBadge variant={statusInfo.variant}>{statusInfo.label}</StatusBadge>
               {ordem.prioridade && ordem.prioridade !== "normal" && (
                 <Badge variant={ordem.prioridade === "urgente" ? "destructive" : "secondary"}>
@@ -117,30 +149,37 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 pl-12 lg:justify-end lg:pl-0">
           {/* WhatsApp Resend */}
           {ordem.cliente?.telefone && (
             <Button
               variant="outline"
               size="sm"
+              disabled={isSendingWhatsApp}
               onClick={async () => {
-                const evento = ordem.status === "expedicao" ? "os_pronta" : "os_status";
-                const enviado = await dispararNotificacao(evento, {
-                  cliente: ordem.cliente?.razao_social || "",
-                  telefone: ordem.cliente?.telefone || "",
-                  numero: ordem.numero,
-                  ordem_servico_id: ordemServicoId,
-                  cliente_id: ordem.cliente_id,
-                });
-                toast({
-                  title: enviado
-                    ? "WhatsApp confirmado pela Evolution API"
-                    : "Envio de WhatsApp não confirmado",
-                  variant: enviado ? "default" : "destructive",
-                });
+                setIsSendingWhatsApp(true);
+                try {
+                  const evento = ordem.status === "expedicao" ? "os_pronta" : "os_status";
+                  const enviado = await dispararNotificacao(evento, {
+                    cliente: ordem.cliente?.razao_social || "",
+                    telefone: ordem.cliente?.telefone || "",
+                    numero: ordem.numero,
+                    ordem_servico_id: ordemServicoId,
+                    cliente_id: ordem.cliente_id,
+                    idempotencyKey: createIdempotencyKey("whatsapp-manual"),
+                  });
+                  toast({
+                    title: enviado
+                      ? "WhatsApp confirmado pela Evolution API"
+                      : "Envio de WhatsApp não confirmado",
+                    variant: enviado ? "default" : "destructive",
+                  });
+                } finally {
+                  setIsSendingWhatsApp(false);
+                }
               }}
             >
-              <Send className="h-4 w-4" />
+              {isSendingWhatsApp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span className="ml-2 hidden sm:inline">WhatsApp</span>
             </Button>
           )}
@@ -173,12 +212,28 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
           </DropdownMenu>
 
           {canAdvance && (
-            <Button onClick={() => setShowFormulario(true)} className="bg-primary hover:bg-primary/90">
+            <Button onClick={() => setShowFormulario(true)}>
               Avançar para {statusConfig[statusInfo.next || ""]?.label || "Próxima Etapa"}
             </Button>
           )}
         </div>
       </div>
+
+      <OrderStateOverview
+        operationalStatus={ordem.status}
+        paymentStatus={ordem.status_pagamento}
+        qualityStatus={ordem.status_qualidade}
+        logisticsStatus={ordem.status_logistica}
+        fiscalStatus={ordem.status_fiscal}
+        totalValue={ordem.valor_total}
+        paidValue={ordem.valor_pago}
+      />
+
+      {qualityBlocksAdvance && (
+        <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-foreground">
+          Registre a qualidade dos itens antes de avançar o pedido inteiro. Itens aprovados já podem ser entregues separadamente quando aplicável.
+        </div>
+      )}
 
       {/* Formulário de Avanço */}
       {showFormulario && statusInfo.next && (
@@ -194,17 +249,17 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
         />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
         {/* Informações Principais */}
-        <Card className="lg:col-span-2">
+        <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Informações da OS
+              Informações do pedido
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground uppercase">Cliente</p>
                 <p className="font-medium">{ordem.cliente?.razao_social}</p>
@@ -228,7 +283,7 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
                   <Calendar className="h-3 w-3" /> Data Retirada
                 </p>
                 <p className="font-medium">
-                  {format(new Date(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
+                  {format(parseISO(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
                 </p>
               </div>
 
@@ -238,7 +293,7 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
                 </p>
                 <p className="font-medium">
                   {ordem.data_previsao_entrega
-                    ? format(new Date(ordem.data_previsao_entrega), "dd/MM/yyyy", { locale: ptBR })
+                    ? format(parseISO(ordem.data_previsao_entrega), "dd/MM/yyyy", { locale: ptBR })
                     : "Não definida"}
                 </p>
               </div>
@@ -261,10 +316,10 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium flex items-center gap-2">
                   <Package className="h-4 w-4" />
-                  Itens da OS
+                  Itens do pedido
                 </p>
                 <div className="text-sm text-muted-foreground">
-                  {quantidadeTotal} itens • R$ {valorTotal.toFixed(2)}
+                  {quantidadeTotal} itens • {formatCurrency(valorTotal)}
                 </div>
               </div>
 
@@ -286,10 +341,10 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
                       <div>
                         <p className="font-medium text-sm">{item.produto?.nome}</p>
                         <p className="text-xs text-muted-foreground">
-                          {item.quantidade} {item.produto?.unidade} × R$ {Number(item.preco_unitario).toFixed(2)}
+                          {item.quantidade} {item.produto?.unidade} × {formatCurrency(Number(item.preco_unitario))}
                         </p>
                       </div>
-                      <p className="font-medium">R$ {Number(item.subtotal).toFixed(2)}</p>
+                      <p className="font-medium">{formatCurrency(Number(item.subtotal))}</p>
                     </div>
                   ))}
                 </div>
@@ -303,7 +358,7 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              Histórico de Produção
+              Histórico operacional
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -317,6 +372,17 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
           </CardContent>
         </Card>
       </div>
+
+      <OrderRecordsPanel orderId={ordemServicoId} orderStatus={ordem.status} />
+
+      {hasFulfillmentContract && (
+        <QualityDeliveryPanel
+          orderId={ordemServicoId}
+          items={itens}
+          paymentStatus={ordem.status_pagamento}
+          paymentCondition={ordem.condicao_pagamento}
+        />
+      )}
 
       {/* Print Modal */}
       {ordem && (

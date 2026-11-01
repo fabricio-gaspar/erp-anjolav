@@ -1,8 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type StatusConta = "pendente" | "parcial" | "pago" | "cancelado" | "vencido";
+export type StatusConta = "pendente" | "parcial" | "pago" | "cancelado";
 
 export interface ContaPagar {
   id: string;
@@ -18,18 +18,78 @@ export interface ContaPagar {
   categoria_id: string | null;
   centro_custo_id: string | null;
   observacoes: string | null;
+  versao: number;
+  criado_por: string | null;
+  atualizado_por: string | null;
+  cancelado_em: string | null;
+  cancelado_por: string | null;
+  cancelamento_motivo: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export type ContaPagarInsert = Omit<ContaPagar, "id" | "created_at" | "updated_at" | "valor_pago" | "categoria_id" | "centro_custo_id"> & { valor_pago?: number; categoria_id?: string | null; centro_custo_id?: string | null };
+export interface ContaPagarInsert {
+  descricao: string;
+  fornecedor?: string | null;
+  fornecedor_id?: string | null;
+  valor: number;
+  vencimento: string;
+  categoria?: string | null;
+  categoria_id?: string | null;
+  centro_custo_id?: string | null;
+  observacoes?: string | null;
+  idempotencyKey?: string;
+}
 
-export type ContaPagarUpdate = Partial<ContaPagarInsert>;
+export interface ContaPagarUpdate extends ContaPagarInsert {
+  id: string;
+  versao: number;
+}
+
+export interface RegistrarPagamentoContaInput {
+  id: string;
+  valor: number;
+  dataPagamento: string;
+  formaPagamento: "PIX" | "TRANSFERENCIA" | "BOLETO" | "CARTAO" | "DINHEIRO" | "OUTRO";
+  referencia?: string | null;
+  observacoes?: string | null;
+  versao: number;
+  idempotencyKey?: string;
+}
+
+export interface CancelarContaInput {
+  id: string;
+  motivo: string;
+  versao: number;
+  idempotencyKey?: string;
+}
+
+export interface ContaPagarCommandResult {
+  id: string;
+  status: StatusConta;
+  valor: number;
+  valorPago: number;
+  saldo: number;
+  versao: number;
+  pagamentoId?: string;
+  idempotent: boolean;
+}
+
+export function criarChaveOperacaoFinanceira(prefixo: string) {
+  return `${prefixo}:${crypto.randomUUID()}`;
+}
+
+function readCommandResult(data: unknown): ContaPagarCommandResult {
+  if (!data || typeof data !== "object" || !("id" in data)) {
+    throw new Error("A operação financeira não retornou um resultado válido");
+  }
+  return data as ContaPagarCommandResult;
+}
 
 export function useContasPagar(enabled = true) {
   const queryClient = useQueryClient();
 
-  const { data: contas = [], isLoading, error } = useQuery({
+  const { data: contas = [], isLoading, error, refetch } = useQuery({
     queryKey: ["contas_pagar"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -42,103 +102,126 @@ export function useContasPagar(enabled = true) {
     enabled,
   });
 
+  const invalidateFinancialQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["contas_pagar"] }),
+      queryClient.invalidateQueries({ queryKey: ["accounts-payable-directory"] }),
+      queryClient.invalidateQueries({ queryKey: ["fluxo_caixa"] }),
+      queryClient.invalidateQueries({ queryKey: ["financeiro-agregado"] }),
+      queryClient.invalidateQueries({ queryKey: ["relatorio-financeiro"] }),
+    ]);
+  };
+
+  const saveAccount = async (account: ContaPagarInsert | ContaPagarUpdate) => {
+    const isUpdate = "id" in account;
+    const { data, error } = await supabase.rpc("salvar_conta_pagar", {
+      _conta_id: isUpdate ? account.id : null,
+      _descricao: account.descricao,
+      _fornecedor: account.fornecedor ?? null,
+      _fornecedor_id: account.fornecedor_id ?? null,
+      _valor: account.valor,
+      _vencimento: account.vencimento,
+      _categoria: account.categoria ?? null,
+      _categoria_id: account.categoria_id ?? null,
+      _centro_custo_id: account.centro_custo_id ?? null,
+      _observacoes: account.observacoes ?? null,
+      _versao_esperada: isUpdate ? account.versao : null,
+      _idempotency_key: account.idempotencyKey
+        ?? criarChaveOperacaoFinanceira(isUpdate ? "payable-update" : "payable-create"),
+    });
+    if (error) throw error;
+    return readCommandResult(data);
+  };
+
   const createConta = useMutation({
-    mutationFn: async (conta: ContaPagarInsert) => {
-      const { data, error } = await (supabase as any)
-        .from("contas_pagar")
-        .insert(conta)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
+    mutationFn: (conta: ContaPagarInsert) => saveAccount(conta),
+    onSuccess: async () => {
+      await invalidateFinancialQueries();
+      toast.success("Despesa criada com sucesso");
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contas_pagar"] });
-      queryClient.invalidateQueries({ queryKey: ["fluxo_caixa"] });
-      toast.success("Conta criada com sucesso!");
-    },
-    onError: (error: any) => toast.error("Erro ao criar conta: " + error.message),
+    onError: (mutationError: Error) => toast.error(mutationError.message || "Erro ao criar despesa"),
   });
 
   const updateConta = useMutation({
-    mutationFn: async ({ id, ...updates }: ContaPagarUpdate & { id: string }) => {
-      const { data, error } = await (supabase as any)
-        .from("contas_pagar")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
+    mutationFn: (conta: ContaPagarUpdate) => saveAccount(conta),
+    onSuccess: async () => {
+      await invalidateFinancialQueries();
+      toast.success("Despesa atualizada com sucesso");
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contas_pagar"] });
-      queryClient.invalidateQueries({ queryKey: ["fluxo_caixa"] });
-      toast.success("Conta atualizada com sucesso!");
-    },
-    onError: (error: any) => toast.error("Erro ao atualizar conta: " + error.message),
+    onError: (mutationError: Error) => toast.error(mutationError.message || "Erro ao atualizar despesa"),
   });
 
-  const deleteConta = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("contas_pagar").delete().eq("id", id);
+  const registrarPagamento = useMutation({
+    mutationFn: async (input: RegistrarPagamentoContaInput) => {
+      const { data, error } = await supabase.rpc("registrar_pagamento_conta_pagar", {
+        _conta_id: input.id,
+        _valor: input.valor,
+        _data_pagamento: input.dataPagamento,
+        _forma_pagamento: input.formaPagamento,
+        _referencia: input.referencia ?? null,
+        _observacoes: input.observacoes ?? null,
+        _versao_esperada: input.versao,
+        _idempotency_key: input.idempotencyKey
+          ?? criarChaveOperacaoFinanceira("payable-payment"),
+      });
       if (error) throw error;
+      return readCommandResult(data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contas_pagar"] });
-      toast.success("Conta excluída com sucesso!");
+    onSuccess: async (result) => {
+      await invalidateFinancialQueries();
+      toast.success(result.status === "pago" ? "Despesa quitada" : "Pagamento parcial registrado");
     },
-    onError: (error: any) => toast.error("Erro ao excluir conta: " + error.message),
+    onError: (mutationError: Error) => toast.error(mutationError.message || "Erro ao registrar pagamento"),
   });
 
-  const marcarComoPago = useMutation({
-    mutationFn: async (id: string) => {
-      const conta = contas.find(c => c.id === id);
-      const { data, error } = await (supabase as any)
-        .from("contas_pagar")
-        .update({
-          status: "pago",
-          valor_pago: conta?.valor ?? 0,
-          data_pagamento: new Date().toISOString().split("T")[0],
-        })
-        .eq("id", id)
-        .select()
-        .single();
+  const cancelarConta = useMutation({
+    mutationFn: async (input: CancelarContaInput) => {
+      const { data, error } = await supabase.rpc("cancelar_conta_pagar", {
+        _conta_id: input.id,
+        _motivo: input.motivo,
+        _versao_esperada: input.versao,
+        _idempotency_key: input.idempotencyKey
+          ?? criarChaveOperacaoFinanceira("payable-cancel"),
+      });
       if (error) throw error;
-      return data;
+      return readCommandResult(data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contas_pagar"] });
-      queryClient.invalidateQueries({ queryKey: ["fluxo_caixa"] });
-      toast.success("Conta marcada como paga!");
+    onSuccess: async () => {
+      await invalidateFinancialQueries();
+      toast.success("Despesa cancelada com histórico preservado");
     },
-    onError: (error: any) => toast.error("Erro ao marcar como pago: " + error.message),
+    onError: (mutationError: Error) => toast.error(mutationError.message || "Erro ao cancelar despesa"),
   });
 
-  // Status "atrasado" calculado em runtime
   const hoje = new Date().toISOString().split("T")[0];
-  const isAtrasado = (c: ContaPagar) => (c.status === "pendente" || c.status === "parcial") && c.vencimento < hoje;
+  const isAtrasado = (account: ContaPagar) => (
+    (account.status === "pendente" || account.status === "parcial")
+    && account.vencimento < hoje
+  );
 
   const totalPendente = contas
-    .filter((c) => (c.status === "pendente" || c.status === "parcial") && !isAtrasado(c))
-    .reduce((acc, c) => acc + Number(c.valor) - Number(c.valor_pago || 0), 0);
+    .filter((account) => (
+      (account.status === "pendente" || account.status === "parcial")
+      && !isAtrasado(account)
+    ))
+    .reduce((total, account) => total + Number(account.valor) - Number(account.valor_pago || 0), 0);
 
   const totalPago = contas
-    .filter((c) => c.status === "pago" || c.status === "parcial")
-    .reduce((acc, c) => acc + Number(c.valor_pago || 0), 0);
+    .reduce((total, account) => total + Number(account.valor_pago || 0), 0);
 
   const totalVencido = contas
     .filter(isAtrasado)
-    .reduce((acc, c) => acc + Number(c.valor) - Number(c.valor_pago || 0), 0);
+    .reduce((total, account) => total + Number(account.valor) - Number(account.valor_pago || 0), 0);
 
   return {
     contas,
     isLoading,
     error,
+    refetch,
     createConta,
     updateConta,
-    deleteConta,
-    marcarComoPago,
+    registrarPagamento,
+    cancelarConta,
     totalPendente,
     totalPago,
     totalVencido,

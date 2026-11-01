@@ -26,6 +26,7 @@ export type Database = {
           observacoes: string | null
           recorrente: boolean | null
           status: string | null
+          tenant_id: string
           tipo: string
           updated_at: string
         }
@@ -40,6 +41,7 @@ export type Database = {
           observacoes?: string | null
           recorrente?: boolean | null
           status?: string | null
+          tenant_id?: string
           tipo: string
           updated_at?: string
         }
@@ -54,6 +56,7 @@ export type Database = {
           observacoes?: string | null
           recorrente?: boolean | null
           status?: string | null
+          tenant_id?: string
           tipo?: string
           updated_at?: string
         }
@@ -70,6 +73,54 @@ export type Database = {
             columns: ["motorista_id"]
             isOneToOne: false
             referencedRelation: "motoristas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agenda_recorrencia_operacoes: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          criado_por: string
+          id: string
+          idempotency_key: string
+          request_fingerprint: string
+          resultado: Json
+          tenant_id: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          criado_por: string
+          id?: string
+          idempotency_key: string
+          request_fingerprint: string
+          resultado?: Json
+          tenant_id: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          criado_por?: string
+          id?: string
+          idempotency_key?: string
+          request_fingerprint?: string
+          resultado?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_recorrencia_operacoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_recorrencia_operacoes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -106,7 +157,7 @@ export type Database = {
           new_data: Json | null
           occurred_at: string
           old_data: Json | null
-          tenant_id: string
+          tenant_id?: string
         }
         Insert: {
           action: string
@@ -324,7 +375,9 @@ export type Database = {
           id: string
           nome: string
           ordem: number
+          tenant_id: string
           updated_at: string
+          versao: number
         }
         Insert: {
           ativo?: boolean
@@ -333,7 +386,9 @@ export type Database = {
           id?: string
           nome: string
           ordem?: number
+          tenant_id?: string
           updated_at?: string
+          versao?: number
         }
         Update: {
           ativo?: boolean
@@ -342,9 +397,19 @@ export type Database = {
           id?: string
           nome?: string
           ordem?: number
+          tenant_id?: string
           updated_at?: string
+          versao?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "beneficios_catalogo_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       caixa_movimentacoes: {
         Row: {
@@ -352,13 +417,16 @@ export type Database = {
           categoria_id: string | null
           centro_custo_id: string | null
           cliente_id: string | null
+          criado_por: string | null
           created_at: string
           descricao: string | null
           evento_pagamento: string | null
           forma_pagamento: string | null
           id: string
+          idempotency_key: string | null
           ordem_servico_id: string | null
           pdv_pagamento_id: string | null
+          request_fingerprint: string | null
           tipo: string
           valor: number
         }
@@ -367,13 +435,16 @@ export type Database = {
           categoria_id?: string | null
           centro_custo_id?: string | null
           cliente_id?: string | null
+          criado_por?: string | null
           created_at?: string
           descricao?: string | null
           evento_pagamento?: string | null
           forma_pagamento?: string | null
           id?: string
+          idempotency_key?: string | null
           ordem_servico_id?: string | null
           pdv_pagamento_id?: string | null
+          request_fingerprint?: string | null
           tipo: string
           valor: number
         }
@@ -382,13 +453,16 @@ export type Database = {
           categoria_id?: string | null
           centro_custo_id?: string | null
           cliente_id?: string | null
+          criado_por?: string | null
           created_at?: string
           descricao?: string | null
           evento_pagamento?: string | null
           forma_pagamento?: string | null
           id?: string
+          idempotency_key?: string | null
           ordem_servico_id?: string | null
           pdv_pagamento_id?: string | null
+          request_fingerprint?: string | null
           tipo?: string
           valor?: number
         }
@@ -439,11 +513,19 @@ export type Database = {
       }
       caixas: {
         Row: {
+          aberto_por: string | null
+          abertura_idempotency_key: string | null
+          abertura_request_fingerprint: string | null
           created_at: string
           data_abertura: string
           data_fechamento: string | null
           diferenca: number | null
+          fechado_por: string | null
+          fechamento_idempotency_key: string | null
+          fechamento_request_fingerprint: string | null
+          fechamento_resumo: Json
           id: string
+          identificador_caixa: string
           observacoes: string | null
           operador: string
           operador_id: string | null
@@ -457,11 +539,19 @@ export type Database = {
           valor_vendas: number
         }
         Insert: {
+          aberto_por?: string | null
+          abertura_idempotency_key?: string | null
+          abertura_request_fingerprint?: string | null
           created_at?: string
           data_abertura?: string
           data_fechamento?: string | null
           diferenca?: number | null
+          fechado_por?: string | null
+          fechamento_idempotency_key?: string | null
+          fechamento_request_fingerprint?: string | null
+          fechamento_resumo?: Json
           id?: string
+          identificador_caixa?: string
           observacoes?: string | null
           operador: string
           operador_id?: string | null
@@ -475,11 +565,19 @@ export type Database = {
           valor_vendas?: number
         }
         Update: {
+          aberto_por?: string | null
+          abertura_idempotency_key?: string | null
+          abertura_request_fingerprint?: string | null
           created_at?: string
           data_abertura?: string
           data_fechamento?: string | null
           diferenca?: number | null
+          fechado_por?: string | null
+          fechamento_idempotency_key?: string | null
+          fechamento_request_fingerprint?: string | null
+          fechamento_resumo?: Json
           id?: string
+          identificador_caixa?: string
           observacoes?: string | null
           operador?: string
           operador_id?: string | null
@@ -510,6 +608,7 @@ export type Database = {
           id: string
           nome: string
           ordem: number
+          tenant_id: string
           tipo: string
           updated_at: string
         }
@@ -520,6 +619,7 @@ export type Database = {
           id?: string
           nome: string
           ordem?: number
+          tenant_id?: string
           tipo: string
           updated_at?: string
         }
@@ -530,6 +630,7 @@ export type Database = {
           id?: string
           nome?: string
           ordem?: number
+          tenant_id?: string
           tipo?: string
           updated_at?: string
         }
@@ -542,6 +643,7 @@ export type Database = {
           descricao: string | null
           id: string
           nome: string
+          tenant_id: string
           updated_at: string
         }
         Insert: {
@@ -550,6 +652,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome: string
+          tenant_id?: string
           updated_at?: string
         }
         Update: {
@@ -558,6 +661,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome?: string
+          tenant_id?: string
           updated_at?: string
         }
         Relationships: []
@@ -580,6 +684,7 @@ export type Database = {
           tabela_preco_tipo: string
           telefone: string | null
           telefone2: string | null
+          tenant_id: string
           tipo_pessoa: string
           updated_at: string
         }
@@ -600,6 +705,7 @@ export type Database = {
           tabela_preco_tipo?: string
           telefone?: string | null
           telefone2?: string | null
+          tenant_id?: string
           tipo_pessoa?: string
           updated_at?: string
         }
@@ -620,6 +726,7 @@ export type Database = {
           tabela_preco_tipo?: string
           telefone?: string | null
           telefone2?: string | null
+          tenant_id?: string
           tipo_pessoa?: string
           updated_at?: string
         }
@@ -637,6 +744,7 @@ export type Database = {
           horario_retirada: string | null
           id: string
           link_acesso: string | null
+          tenant_id: string
           tipo_relatorio: string | null
           updated_at: string
         }
@@ -651,6 +759,7 @@ export type Database = {
           horario_retirada?: string | null
           id?: string
           link_acesso?: string | null
+          tenant_id?: string
           tipo_relatorio?: string | null
           updated_at?: string
         }
@@ -665,6 +774,7 @@ export type Database = {
           horario_retirada?: string | null
           id?: string
           link_acesso?: string | null
+          tenant_id?: string
           tipo_relatorio?: string | null
           updated_at?: string
         }
@@ -912,10 +1022,15 @@ export type Database = {
       }
       contas_pagar: {
         Row: {
+          atualizado_por: string | null
+          cancelado_em: string | null
+          cancelado_por: string | null
+          cancelamento_motivo: string | null
           categoria: string | null
           categoria_id: string | null
           centro_custo_id: string | null
           created_at: string
+          criado_por: string | null
           data_pagamento: string | null
           descricao: string
           fornecedor: string | null
@@ -923,16 +1038,23 @@ export type Database = {
           id: string
           observacoes: string | null
           status: string
+          tenant_id: string
           updated_at: string
           valor: number
           valor_pago: number
+          versao: number
           vencimento: string
         }
         Insert: {
+          atualizado_por?: string | null
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          cancelamento_motivo?: string | null
           categoria?: string | null
           categoria_id?: string | null
           centro_custo_id?: string | null
           created_at?: string
+          criado_por?: string | null
           data_pagamento?: string | null
           descricao: string
           fornecedor?: string | null
@@ -940,16 +1062,23 @@ export type Database = {
           id?: string
           observacoes?: string | null
           status?: string
+          tenant_id?: string
           updated_at?: string
           valor: number
           valor_pago?: number
+          versao?: number
           vencimento: string
         }
         Update: {
+          atualizado_por?: string | null
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          cancelamento_motivo?: string | null
           categoria?: string | null
           categoria_id?: string | null
           centro_custo_id?: string | null
           created_at?: string
+          criado_por?: string | null
           data_pagamento?: string | null
           descricao?: string
           fornecedor?: string | null
@@ -957,9 +1086,11 @@ export type Database = {
           id?: string
           observacoes?: string | null
           status?: string
+          tenant_id?: string
           updated_at?: string
           valor?: number
           valor_pago?: number
+          versao?: number
           vencimento?: string
         }
         Relationships: [
@@ -986,42 +1117,247 @@ export type Database = {
           },
         ]
       }
+      contas_pagar_operacoes: {
+        Row: {
+          conta_pagar_id: string
+          created_at: string
+          criado_por: string | null
+          dados: Json
+          id: string
+          idempotency_key: string
+          pagamento_id: string | null
+          request_fingerprint: string
+          resultado: Json
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          conta_pagar_id: string
+          created_at?: string
+          criado_por?: string | null
+          dados?: Json
+          id?: string
+          idempotency_key: string
+          pagamento_id?: string | null
+          request_fingerprint: string
+          resultado?: Json
+          tenant_id?: string
+          tipo: string
+        }
+        Update: {
+          conta_pagar_id?: string
+          created_at?: string
+          criado_por?: string | null
+          dados?: Json
+          id?: string
+          idempotency_key?: string
+          pagamento_id?: string | null
+          request_fingerprint?: string
+          resultado?: Json
+          tenant_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_pagar_operacoes_conta_pagar_id_fkey"
+            columns: ["conta_pagar_id"]
+            isOneToOne: false
+            referencedRelation: "contas_pagar"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_pagar_operacoes_pagamento_id_fkey"
+            columns: ["pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "contas_pagar_pagamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contas_pagar_pagamentos: {
+        Row: {
+          conta_pagar_id: string
+          created_at: string
+          criado_por: string | null
+          data_pagamento: string
+          forma_pagamento: string
+          id: string
+          idempotency_key: string
+          observacoes: string | null
+          referencia: string | null
+          request_fingerprint: string
+          status: string
+          tenant_id: string
+          valor: number
+        }
+        Insert: {
+          conta_pagar_id: string
+          created_at?: string
+          criado_por?: string | null
+          data_pagamento: string
+          forma_pagamento: string
+          id?: string
+          idempotency_key: string
+          observacoes?: string | null
+          referencia?: string | null
+          request_fingerprint: string
+          status?: string
+          tenant_id?: string
+          valor: number
+        }
+        Update: {
+          conta_pagar_id?: string
+          created_at?: string
+          criado_por?: string | null
+          data_pagamento?: string
+          forma_pagamento?: string
+          id?: string
+          idempotency_key?: string
+          observacoes?: string | null
+          referencia?: string | null
+          request_fingerprint?: string
+          status?: string
+          tenant_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_pagar_pagamentos_conta_pagar_id_fkey"
+            columns: ["conta_pagar_id"]
+            isOneToOne: false
+            referencedRelation: "contas_pagar"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contrato_operacoes: {
+        Row: {
+          contrato_id: string
+          created_at: string
+          criado_por: string | null
+          dados: Json
+          id: string
+          idempotency_key: string
+          request_fingerprint: string
+          resultado: Json
+          tenant_id: string
+          tipo: string
+          versao_anterior: number | null
+          versao_nova: number
+        }
+        Insert: {
+          contrato_id: string
+          created_at?: string
+          criado_por?: string | null
+          dados?: Json
+          id?: string
+          idempotency_key: string
+          request_fingerprint: string
+          resultado?: Json
+          tenant_id?: string
+          tipo: string
+          versao_anterior?: number | null
+          versao_nova: number
+        }
+        Update: {
+          contrato_id?: string
+          created_at?: string
+          criado_por?: string | null
+          dados?: Json
+          id?: string
+          idempotency_key?: string
+          request_fingerprint?: string
+          resultado?: Json
+          tenant_id?: string
+          tipo?: string
+          versao_anterior?: number | null
+          versao_nova?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrato_operacoes_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_aluguel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contratos_aluguel: {
         Row: {
           ativo: boolean
+          autoriza_faturamento: boolean
           cliente_id: string
           created_at: string
+          criado_por: string | null
           data_fim: string | null
           data_inicio: string
           descricao: string
+          dia_fechamento: number | null
+          dia_vencimento: number
+          encerrado_em: string | null
+          encerrado_por: string | null
+          encerramento_motivo: string | null
+          forma_pagamento: string | null
           id: string
           observacoes: string | null
+          periodicidade_fechamento: string
+          regras_comerciais: string | null
+          tenant_id: string
           updated_at: string
+          atualizado_por: string | null
           valor_servico: number
+          versao: number
         }
         Insert: {
           ativo?: boolean
+          autoriza_faturamento?: boolean
           cliente_id: string
           created_at?: string
+          criado_por?: string | null
           data_fim?: string | null
           data_inicio?: string
           descricao?: string
+          dia_fechamento?: number | null
+          dia_vencimento?: number
+          encerrado_em?: string | null
+          encerrado_por?: string | null
+          encerramento_motivo?: string | null
+          forma_pagamento?: string | null
           id?: string
           observacoes?: string | null
+          periodicidade_fechamento?: string
+          regras_comerciais?: string | null
+          tenant_id?: string
           updated_at?: string
+          atualizado_por?: string | null
           valor_servico?: number
+          versao?: number
         }
         Update: {
           ativo?: boolean
+          autoriza_faturamento?: boolean
           cliente_id?: string
           created_at?: string
+          criado_por?: string | null
           data_fim?: string | null
           data_inicio?: string
           descricao?: string
+          dia_fechamento?: number | null
+          dia_vencimento?: number
+          encerrado_em?: string | null
+          encerrado_por?: string | null
+          encerramento_motivo?: string | null
+          forma_pagamento?: string | null
           id?: string
           observacoes?: string | null
+          periodicidade_fechamento?: string
+          regras_comerciais?: string | null
+          tenant_id?: string
           updated_at?: string
+          atualizado_por?: string | null
           valor_servico?: number
+          versao?: number
         }
         Relationships: [
           {
@@ -1056,6 +1392,7 @@ export type Database = {
       }
       enderecos_clientes: {
         Row: {
+          ativo: boolean
           bairro: string | null
           cep: string | null
           cidade: string | null
@@ -1063,15 +1400,20 @@ export type Database = {
           complemento: string | null
           created_at: string
           id: string
+          instrucoes: string | null
           latitude: number | null
           logradouro: string | null
           longitude: number | null
+          nome: string | null
           numero: string | null
           pais: string | null
+          principal: boolean
+          tipo: string
           uf: string | null
           updated_at: string
         }
         Insert: {
+          ativo?: boolean
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
@@ -1079,15 +1421,20 @@ export type Database = {
           complemento?: string | null
           created_at?: string
           id?: string
+          instrucoes?: string | null
           latitude?: number | null
           logradouro?: string | null
           longitude?: number | null
+          nome?: string | null
           numero?: string | null
           pais?: string | null
+          principal?: boolean
+          tipo?: string
           uf?: string | null
           updated_at?: string
         }
         Update: {
+          ativo?: boolean
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
@@ -1095,11 +1442,15 @@ export type Database = {
           complemento?: string | null
           created_at?: string
           id?: string
+          instrucoes?: string | null
           latitude?: number | null
           logradouro?: string | null
           longitude?: number | null
+          nome?: string | null
           numero?: string | null
           pais?: string | null
+          principal?: boolean
+          tipo?: string
           uf?: string | null
           updated_at?: string
         }
@@ -1125,6 +1476,7 @@ export type Database = {
           preco_custo: number
           quantidade_atual: number
           quantidade_minima: number
+          tenant_id: string
           unidade: string | null
           updated_at: string
         }
@@ -1139,6 +1491,7 @@ export type Database = {
           preco_custo?: number
           quantidade_atual?: number
           quantidade_minima?: number
+          tenant_id?: string
           unidade?: string | null
           updated_at?: string
         }
@@ -1153,6 +1506,7 @@ export type Database = {
           preco_custo?: number
           quantidade_atual?: number
           quantidade_minima?: number
+          tenant_id?: string
           unidade?: string | null
           updated_at?: string
         }
@@ -1250,6 +1604,9 @@ export type Database = {
           boleto_linha_digitavel: string | null
           boleto_url: string | null
           canais_envio: string[] | null
+          cancelado_em: string | null
+          cancelado_por: string | null
+          cancelamento_motivo: string | null
           categoria_id: string | null
           centro_custo_id: string | null
           chave_acesso: string | null
@@ -1258,12 +1615,15 @@ export type Database = {
           dados_transferencia: Json | null
           data_emissao_nf: string | null
           data_envio: string | null
+          data_ultimo_pagamento: string | null
           data_vencimento: string | null
           descricao_servico: string | null
           destinatario_envio: string | null
           erros_sefaz: Json | null
           forma_pagamento: string | null
           id: string
+          criado_por: string | null
+          idempotency_key: string | null
           imposto_calculado: Json | null
           itens_snapshot: Json | null
           link_pdf_nf: string | null
@@ -1278,13 +1638,18 @@ export type Database = {
           protocolo_nfse: string | null
           relatorio_data: string | null
           relatorio_gerado: boolean | null
+          request_fingerprint: string | null
           snapshot_cliente: Json | null
           snapshot_emitente: Json | null
           status: string
+          status_pagamento: string
           status_sefaz: string | null
           tipo_relatorio: string | null
+          tenant_id: string
           updated_at: string
           valor_total: number
+          valor_pago: number
+          versao_financeira: number
           vencimento_ajustado_por: string | null
           xml_nfse: string | null
         }
@@ -1293,6 +1658,9 @@ export type Database = {
           boleto_linha_digitavel?: string | null
           boleto_url?: string | null
           canais_envio?: string[] | null
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          cancelamento_motivo?: string | null
           categoria_id?: string | null
           centro_custo_id?: string | null
           chave_acesso?: string | null
@@ -1301,12 +1669,15 @@ export type Database = {
           dados_transferencia?: Json | null
           data_emissao_nf?: string | null
           data_envio?: string | null
+          data_ultimo_pagamento?: string | null
           data_vencimento?: string | null
           descricao_servico?: string | null
           destinatario_envio?: string | null
           erros_sefaz?: Json | null
           forma_pagamento?: string | null
           id?: string
+          criado_por?: string | null
+          idempotency_key?: string | null
           imposto_calculado?: Json | null
           itens_snapshot?: Json | null
           link_pdf_nf?: string | null
@@ -1321,13 +1692,18 @@ export type Database = {
           protocolo_nfse?: string | null
           relatorio_data?: string | null
           relatorio_gerado?: boolean | null
+          request_fingerprint?: string | null
           snapshot_cliente?: Json | null
           snapshot_emitente?: Json | null
           status?: string
+          status_pagamento?: string
           status_sefaz?: string | null
           tipo_relatorio?: string | null
+          tenant_id?: string
           updated_at?: string
           valor_total?: number
+          valor_pago?: number
+          versao_financeira?: number
           vencimento_ajustado_por?: string | null
           xml_nfse?: string | null
         }
@@ -1336,6 +1712,9 @@ export type Database = {
           boleto_linha_digitavel?: string | null
           boleto_url?: string | null
           canais_envio?: string[] | null
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          cancelamento_motivo?: string | null
           categoria_id?: string | null
           centro_custo_id?: string | null
           chave_acesso?: string | null
@@ -1344,12 +1723,15 @@ export type Database = {
           dados_transferencia?: Json | null
           data_emissao_nf?: string | null
           data_envio?: string | null
+          data_ultimo_pagamento?: string | null
           data_vencimento?: string | null
           descricao_servico?: string | null
           destinatario_envio?: string | null
           erros_sefaz?: Json | null
           forma_pagamento?: string | null
           id?: string
+          criado_por?: string | null
+          idempotency_key?: string | null
           imposto_calculado?: Json | null
           itens_snapshot?: Json | null
           link_pdf_nf?: string | null
@@ -1364,13 +1746,18 @@ export type Database = {
           protocolo_nfse?: string | null
           relatorio_data?: string | null
           relatorio_gerado?: boolean | null
+          request_fingerprint?: string | null
           snapshot_cliente?: Json | null
           snapshot_emitente?: Json | null
           status?: string
+          status_pagamento?: string
           status_sefaz?: string | null
           tipo_relatorio?: string | null
+          tenant_id?: string
           updated_at?: string
           valor_total?: number
+          valor_pago?: number
+          versao_financeira?: number
           vencimento_ajustado_por?: string | null
           xml_nfse?: string | null
         }
@@ -1472,6 +1859,7 @@ export type Database = {
       }
       folha_beneficios: {
         Row: {
+          ativo: boolean
           beneficio_id: string | null
           categoria: string | null
           created_at: string
@@ -1480,11 +1868,14 @@ export type Database = {
           id: string
           nome: string
           observacao: string | null
+          tenant_id: string
           tipo: string
           updated_at: string
           valor: number
+          versao: number
         }
         Insert: {
+          ativo?: boolean
           beneficio_id?: string | null
           categoria?: string | null
           created_at?: string
@@ -1493,11 +1884,14 @@ export type Database = {
           id?: string
           nome: string
           observacao?: string | null
+          tenant_id?: string
           tipo?: string
           updated_at?: string
           valor?: number
+          versao?: number
         }
         Update: {
+          ativo?: boolean
           beneficio_id?: string | null
           categoria?: string | null
           created_at?: string
@@ -1506,9 +1900,11 @@ export type Database = {
           id?: string
           nome?: string
           observacao?: string | null
+          tenant_id?: string
           tipo?: string
           updated_at?: string
           valor?: number
+          versao?: number
         }
         Relationships: [
           {
@@ -1525,6 +1921,9 @@ export type Database = {
           adiantamento_salarial: number | null
           base_fgts: number | null
           base_irrf: number | null
+          cancelado_em: string | null
+          cancelado_por: string | null
+          cancelamento_motivo: string | null
           comissoes: number
           competencia: string
           conta_pagar_id: string | null
@@ -1557,6 +1956,7 @@ export type Database = {
           salario_base: number
           salario_contrib_inss: number | null
           status: string
+          tenant_id: string
           total_descontos: number
           total_proventos: number
           troco_mes: number | null
@@ -1566,11 +1966,15 @@ export type Database = {
           vale_refeicao: number
           vale_transporte: number
           valor_fgts: number | null
+          versao: number
         }
         Insert: {
           adiantamento_salarial?: number | null
           base_fgts?: number | null
           base_irrf?: number | null
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          cancelamento_motivo?: string | null
           comissoes?: number
           competencia: string
           conta_pagar_id?: string | null
@@ -1603,6 +2007,7 @@ export type Database = {
           salario_base?: number
           salario_contrib_inss?: number | null
           status?: string
+          tenant_id?: string
           total_descontos?: number
           total_proventos?: number
           troco_mes?: number | null
@@ -1612,11 +2017,15 @@ export type Database = {
           vale_refeicao?: number
           vale_transporte?: number
           valor_fgts?: number | null
+          versao?: number
         }
         Update: {
           adiantamento_salarial?: number | null
           base_fgts?: number | null
           base_irrf?: number | null
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          cancelamento_motivo?: string | null
           comissoes?: number
           competencia?: string
           conta_pagar_id?: string | null
@@ -1649,6 +2058,7 @@ export type Database = {
           salario_base?: number
           salario_contrib_inss?: number | null
           status?: string
+          tenant_id?: string
           total_descontos?: number
           total_proventos?: number
           troco_mes?: number | null
@@ -1658,6 +2068,7 @@ export type Database = {
           vale_refeicao?: number
           vale_transporte?: number
           valor_fgts?: number | null
+          versao?: number
         }
         Relationships: [
           {
@@ -1668,6 +2079,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      folha_pagamento_operacoes: {
+        Row: {
+          competencia: string
+          created_at: string
+          criado_por: string
+          dados: Json
+          folha_id: string | null
+          id: string
+          idempotency_key: string
+          request_hash: string
+          resultado: Json
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          criado_por: string
+          dados?: Json
+          folha_id?: string | null
+          id?: string
+          idempotency_key: string
+          request_hash: string
+          resultado?: Json
+          tenant_id: string
+          tipo: string
+        }
+        Update: never
+        Relationships: []
       }
       folha_pagamento_historico: {
         Row: {
@@ -1680,6 +2121,7 @@ export type Database = {
           mes_referencia: string
           salario_base: number
           status_pagamento: string | null
+          tenant_id: string
           total_beneficios: number
           total_descontos: number
           valor_liquido: number
@@ -1694,6 +2136,7 @@ export type Database = {
           mes_referencia: string
           salario_base?: number
           status_pagamento?: string | null
+          tenant_id?: string
           total_beneficios?: number
           total_descontos?: number
           valor_liquido?: number
@@ -1708,6 +2151,7 @@ export type Database = {
           mes_referencia?: string
           salario_base?: number
           status_pagamento?: string | null
+          tenant_id?: string
           total_beneficios?: number
           total_descontos?: number
           valor_liquido?: number
@@ -2055,6 +2499,7 @@ export type Database = {
           id: string
           observacoes: string | null
           ordem_servico_id: string
+          tenant_id: string
           tempo_na_etapa_anterior: string | null
         }
         Insert: {
@@ -2066,6 +2511,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           ordem_servico_id: string
+          tenant_id?: string
           tempo_na_etapa_anterior?: string | null
         }
         Update: {
@@ -2077,6 +2523,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           ordem_servico_id?: string
+          tenant_id?: string
           tempo_na_etapa_anterior?: string | null
         }
         Relationships: [
@@ -2104,6 +2551,9 @@ export type Database = {
           id: string
           produto_id: string | null
           quantidade: number
+          tenant_id: string
+          unidade: string
+          updated_at: string
           valor_unitario: number
         }
         Insert: {
@@ -2113,6 +2563,9 @@ export type Database = {
           id?: string
           produto_id?: string | null
           quantidade?: number
+          tenant_id?: string
+          unidade: string
+          updated_at?: string
           valor_unitario?: number
         }
         Update: {
@@ -2122,6 +2575,9 @@ export type Database = {
           id?: string
           produto_id?: string | null
           quantidade?: number
+          tenant_id?: string
+          unidade?: string
+          updated_at?: string
           valor_unitario?: number
         }
         Relationships: [
@@ -2147,9 +2603,11 @@ export type Database = {
           id: string
           lancamento_id: string
           preco_unitario: number
+          produto_id: string | null
           produto_nome: string
           quantidade: number
           subtotal: number
+          tenant_id: string
           unidade: string
         }
         Insert: {
@@ -2157,9 +2615,11 @@ export type Database = {
           id?: string
           lancamento_id: string
           preco_unitario: number
+          produto_id?: string | null
           produto_nome: string
           quantidade: number
           subtotal: number
+          tenant_id?: string
           unidade?: string
         }
         Update: {
@@ -2167,9 +2627,11 @@ export type Database = {
           id?: string
           lancamento_id?: string
           preco_unitario?: number
+          produto_id?: string | null
           produto_nome?: string
           quantidade?: number
           subtotal?: number
+          tenant_id?: string
           unidade?: string
         }
         Relationships: [
@@ -2224,6 +2686,107 @@ export type Database = {
           },
         ]
       }
+      entregas_pedido: {
+        Row: {
+          autorizada_com_saldo: boolean
+          created_at: string
+          criado_por: string
+          documento_recebedor: string | null
+          funcionario_id: string | null
+          id: string
+          idempotency_key: string
+          motivo_autorizacao_saldo: string | null
+          nome_recebedor: string
+          observacoes: string | null
+          ordem_servico_id: string
+          request_fingerprint: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          autorizada_com_saldo?: boolean
+          created_at?: string
+          criado_por: string
+          documento_recebedor?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key: string
+          motivo_autorizacao_saldo?: string | null
+          nome_recebedor: string
+          observacoes?: string | null
+          ordem_servico_id: string
+          request_fingerprint: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          autorizada_com_saldo?: boolean
+          created_at?: string
+          criado_por?: string
+          documento_recebedor?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key?: string
+          motivo_autorizacao_saldo?: string | null
+          nome_recebedor?: string
+          observacoes?: string | null
+          ordem_servico_id?: string
+          request_fingerprint?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entregas_pedido_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entregas_pedido_itens: {
+        Row: {
+          created_at: string
+          entrega_id: string
+          id: string
+          item_ordem_servico_id: string
+          quantidade: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          entrega_id: string
+          id?: string
+          item_ordem_servico_id: string
+          quantidade: number
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          entrega_id?: string
+          id?: string
+          item_ordem_servico_id?: string
+          quantidade?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entregas_pedido_itens_entrega_id_fkey"
+            columns: ["entrega_id"]
+            isOneToOne: false
+            referencedRelation: "entregas_pedido"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entregas_pedido_itens_item_ordem_servico_id_fkey"
+            columns: ["item_ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "itens_ordem_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itens_ordem_servico: {
         Row: {
           avarias: string | null
@@ -2237,6 +2800,10 @@ export type Database = {
           preco_unitario: number
           produto_id: string
           quantidade: number
+          quantidade_aprovada: number
+          quantidade_entregue: number
+          quantidade_retida: number
+          quantidade_retrabalho: number
           subtotal: number
         }
         Insert: {
@@ -2251,6 +2818,10 @@ export type Database = {
           preco_unitario: number
           produto_id: string
           quantidade?: number
+          quantidade_aprovada?: number
+          quantidade_entregue?: number
+          quantidade_retida?: number
+          quantidade_retrabalho?: number
           subtotal: number
         }
         Update: {
@@ -2265,6 +2836,10 @@ export type Database = {
           preco_unitario?: number
           produto_id?: string
           quantidade?: number
+          quantidade_aprovada?: number
+          quantidade_entregue?: number
+          quantidade_retida?: number
+          quantidade_retrabalho?: number
           subtotal?: number
         }
         Relationships: [
@@ -2284,6 +2859,56 @@ export type Database = {
           },
         ]
       }
+      lancamento_revisoes: {
+        Row: {
+          antes: Json | null
+          created_at: string
+          criado_por: string
+          depois: Json
+          id: string
+          idempotency_key: string
+          lancamento_id: string
+          request_hash: string
+          resultado: Json
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          antes?: Json | null
+          created_at?: string
+          criado_por: string
+          depois?: Json
+          id?: string
+          idempotency_key: string
+          lancamento_id: string
+          request_hash: string
+          resultado?: Json
+          tenant_id?: string
+          tipo: string
+        }
+        Update: {
+          antes?: Json | null
+          created_at?: string
+          criado_por?: string
+          depois?: Json
+          id?: string
+          idempotency_key?: string
+          lancamento_id?: string
+          request_hash?: string
+          resultado?: Json
+          tenant_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamento_revisoes_lancamento_tenant_fkey"
+            columns: ["lancamento_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id", "tenant_id"]
+          },
+        ]
+      }
       lancamentos: {
         Row: {
           cliente_id: string
@@ -2293,11 +2918,16 @@ export type Database = {
           etapa: string
           fatura_id: string | null
           id: string
+          manual_idempotency_key: string | null
+          manual_request_hash: string | null
           numero_rol: string | null
           observacao: string | null
+          ordem_servico_id: string | null
           status: string
+          tenant_id: string
           updated_at: string
           valor_total: number
+          versao_financeira: number
         }
         Insert: {
           cliente_id: string
@@ -2307,11 +2937,16 @@ export type Database = {
           etapa?: string
           fatura_id?: string | null
           id?: string
+          manual_idempotency_key?: string | null
+          manual_request_hash?: string | null
           numero_rol?: string | null
           observacao?: string | null
+          ordem_servico_id?: string | null
           status?: string
+          tenant_id?: string
           updated_at?: string
           valor_total?: number
+          versao_financeira?: number
         }
         Update: {
           cliente_id?: string
@@ -2321,11 +2956,16 @@ export type Database = {
           etapa?: string
           fatura_id?: string | null
           id?: string
+          manual_idempotency_key?: string | null
+          manual_request_hash?: string | null
           numero_rol?: string | null
           observacao?: string | null
+          ordem_servico_id?: string | null
           status?: string
+          tenant_id?: string
           updated_at?: string
           valor_total?: number
+          versao_financeira?: number
         }
         Relationships: [
           {
@@ -2398,18 +3038,21 @@ export type Database = {
           fatura_id: string
           id: string
           lancamento_id: string
+          tenant_id: string
         }
         Insert: {
           created_at?: string
           fatura_id: string
           id?: string
           lancamento_id: string
+          tenant_id?: string
         }
         Update: {
           created_at?: string
           fatura_id?: string
           id?: string
           lancamento_id?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -2430,22 +3073,34 @@ export type Database = {
       }
       lotes_ordens: {
         Row: {
+          adicionado_por: string | null
+          ativo: boolean
           created_at: string
           id: string
           lote_id: string
           ordem_servico_id: string
+          removido_em: string | null
+          tenant_id: string
         }
         Insert: {
+          adicionado_por?: string | null
+          ativo?: boolean
           created_at?: string
           id?: string
           lote_id: string
           ordem_servico_id: string
+          removido_em?: string | null
+          tenant_id?: string
         }
         Update: {
+          adicionado_por?: string | null
+          ativo?: boolean
           created_at?: string
           id?: string
           lote_id?: string
           ordem_servico_id?: string
+          removido_em?: string | null
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -2467,32 +3122,61 @@ export type Database = {
       lotes_producao: {
         Row: {
           created_at: string
+          criado_por: string | null
           etapa_atual: string | null
+          finalizado_em: string | null
+          funcionario_responsavel_id: string | null
           id: string
+          iniciado_em: string | null
           numero_lote: string
           observacoes: string | null
+          recurso: string | null
           status: string
+          tenant_id: string
           updated_at: string
+          versao: number
         }
         Insert: {
           created_at?: string
+          criado_por?: string | null
           etapa_atual?: string | null
+          finalizado_em?: string | null
+          funcionario_responsavel_id?: string | null
           id?: string
+          iniciado_em?: string | null
           numero_lote: string
           observacoes?: string | null
+          recurso?: string | null
           status?: string
+          tenant_id?: string
           updated_at?: string
+          versao?: number
         }
         Update: {
           created_at?: string
+          criado_por?: string | null
           etapa_atual?: string | null
+          finalizado_em?: string | null
+          funcionario_responsavel_id?: string | null
           id?: string
+          iniciado_em?: string | null
           numero_lote?: string
           observacoes?: string | null
+          recurso?: string | null
           status?: string
+          tenant_id?: string
           updated_at?: string
+          versao?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lotes_producao_funcionario_responsavel_id_fkey"
+            columns: ["funcionario_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mensagens_log: {
         Row: {
@@ -2632,36 +3316,54 @@ export type Database = {
       }
       movimentacoes_estoque: {
         Row: {
+          actor_user_id: string | null
           created_at: string
           custo_unitario: number | null
           estoque_produto_id: string
           fornecedor_id: string | null
           funcionario_id: string | null
           id: string
+          idempotency_key: string | null
           motivo: string | null
           quantidade: number
+          request_fingerprint: string | null
+          saldo_anterior: number | null
+          saldo_posterior: number | null
+          tenant_id: string
           tipo: string
         }
         Insert: {
+          actor_user_id?: string | null
           created_at?: string
           custo_unitario?: number | null
           estoque_produto_id: string
           fornecedor_id?: string | null
           funcionario_id?: string | null
           id?: string
+          idempotency_key?: string | null
           motivo?: string | null
           quantidade: number
+          request_fingerprint?: string | null
+          saldo_anterior?: number | null
+          saldo_posterior?: number | null
+          tenant_id?: string
           tipo?: string
         }
         Update: {
+          actor_user_id?: string | null
           created_at?: string
           custo_unitario?: number | null
           estoque_produto_id?: string
           fornecedor_id?: string | null
           funcionario_id?: string | null
           id?: string
+          idempotency_key?: string | null
           motivo?: string | null
           quantidade?: number
+          request_fingerprint?: string | null
+          saldo_anterior?: number | null
+          saldo_posterior?: number | null
+          tenant_id?: string
           tipo?: string
         }
         Relationships: [
@@ -2804,16 +3506,256 @@ export type Database = {
           },
         ]
       }
+      producao_operacoes: {
+        Row: {
+          created_at: string
+          criado_por: string
+          dados: Json
+          etapa_anterior: string
+          etapa_nova: string | null
+          funcionario_id: string | null
+          id: string
+          idempotency_key: string
+          lote_id: string | null
+          nova_previsao: string | null
+          ocorrencia: string | null
+          ordens_servico_ids: string[]
+          recurso: string | null
+          request_fingerprint: string
+          resultado: Json
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por: string
+          dados?: Json
+          etapa_anterior: string
+          etapa_nova?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key: string
+          lote_id?: string | null
+          nova_previsao?: string | null
+          ocorrencia?: string | null
+          ordens_servico_ids: string[]
+          recurso?: string | null
+          request_fingerprint: string
+          resultado?: Json
+          tenant_id?: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string
+          dados?: Json
+          etapa_anterior?: string
+          etapa_nova?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key?: string
+          lote_id?: string | null
+          nova_previsao?: string | null
+          ocorrencia?: string | null
+          ordens_servico_ids?: string[]
+          recurso?: string | null
+          request_fingerprint?: string
+          resultado?: Json
+          tenant_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producao_operacoes_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producao_operacoes_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes_producao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qualidade_movimentos: {
+        Row: {
+          created_at: string
+          criado_por: string
+          funcionario_id: string | null
+          id: string
+          item_ordem_servico_id: string
+          motivo: string | null
+          nova_previsao: string | null
+          operacao_id: string
+          ordem_servico_id: string
+          origem: string
+          quantidade: number
+          resultado: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por: string
+          funcionario_id?: string | null
+          id?: string
+          item_ordem_servico_id: string
+          motivo?: string | null
+          nova_previsao?: string | null
+          operacao_id: string
+          ordem_servico_id: string
+          origem: string
+          quantidade: number
+          resultado: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string
+          funcionario_id?: string | null
+          id?: string
+          item_ordem_servico_id?: string
+          motivo?: string | null
+          nova_previsao?: string | null
+          operacao_id?: string
+          ordem_servico_id?: string
+          origem?: string
+          quantidade?: number
+          resultado?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualidade_movimentos_item_ordem_servico_id_fkey"
+            columns: ["item_ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "itens_ordem_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualidade_movimentos_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qualidade_operacoes: {
+        Row: {
+          created_at: string
+          criado_por: string
+          id: string
+          idempotency_key: string
+          ordem_servico_id: string
+          request_fingerprint: string
+          resultado: Json
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por: string
+          id?: string
+          idempotency_key: string
+          ordem_servico_id: string
+          request_fingerprint: string
+          resultado?: Json
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string
+          id?: string
+          idempotency_key?: string
+          ordem_servico_id?: string
+          request_fingerprint?: string
+          resultado?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualidade_operacoes_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ordem_anexos: {
+        Row: {
+          categoria: string
+          content_type: string
+          created_at: string
+          criado_por: string
+          descricao: string | null
+          id: string
+          nome_arquivo: string
+          object_path: string
+          ordem_servico_id: string
+          size_bytes: number
+          tenant_id: string
+        }
+        Insert: {
+          categoria: string
+          content_type: string
+          created_at?: string
+          criado_por: string
+          descricao?: string | null
+          id?: string
+          nome_arquivo: string
+          object_path: string
+          ordem_servico_id: string
+          size_bytes: number
+          tenant_id?: string
+        }
+        Update: {
+          categoria?: string
+          content_type?: string
+          created_at?: string
+          criado_por?: string
+          descricao?: string | null
+          id?: string
+          nome_arquivo?: string
+          object_path?: string
+          ordem_servico_id?: string
+          size_bytes?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ordem_anexos_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ordem_anexos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ordens_servico: {
         Row: {
           agendamento_id: string | null
+          capacidade_excecao: boolean
+          capacidade_limite_snapshot: number | null
+          capacidade_reservada: number
           cliente_id: string
           condicao_pagamento: string | null
-          condicoes_comerciais: Json | null
           created_at: string
           data_entrega: string | null
           data_previsao_entrega: string | null
           data_retirada: string
+          entrega_modalidade: string
+          endereco_atendimento_snapshot: Json
           forma_pagamento: string | null
           id: string
           motorista_id: string | null
@@ -2822,11 +3764,15 @@ export type Database = {
           origem: string
           pago_na_entrada: boolean | null
           pdv_idempotency_key: string | null
-          pdv_request_hash: string | null
           percentual_urgencia: number | null
           prioridade: string | null
+          recebimento_modalidade: string
           status: string
+          status_fiscal: string
+          status_logistica: string
           status_pagamento: string | null
+          status_qualidade: string
+          tabela_preco_tipo_snapshot: string
           tenant_id: string
           updated_at: string
           urgente: boolean | null
@@ -2834,16 +3780,21 @@ export type Database = {
           valor_pago: number | null
           valor_total: number | null
           veiculo_id: string | null
+          versao_producao: number
         }
         Insert: {
           agendamento_id?: string | null
+          capacidade_excecao?: boolean
+          capacidade_limite_snapshot?: number | null
+          capacidade_reservada?: number
           cliente_id: string
           condicao_pagamento?: string | null
-          condicoes_comerciais?: Json | null
           created_at?: string
           data_entrega?: string | null
           data_previsao_entrega?: string | null
           data_retirada?: string
+          entrega_modalidade?: string
+          endereco_atendimento_snapshot?: Json
           forma_pagamento?: string | null
           id?: string
           motorista_id?: string | null
@@ -2852,11 +3803,15 @@ export type Database = {
           origem?: string
           pago_na_entrada?: boolean | null
           pdv_idempotency_key?: string | null
-          pdv_request_hash?: string | null
           percentual_urgencia?: number | null
           prioridade?: string | null
+          recebimento_modalidade?: string
           status?: string
+          status_fiscal?: string
+          status_logistica?: string
           status_pagamento?: string | null
+          status_qualidade?: string
+          tabela_preco_tipo_snapshot?: string
           tenant_id?: string
           updated_at?: string
           urgente?: boolean | null
@@ -2864,16 +3819,21 @@ export type Database = {
           valor_pago?: number | null
           valor_total?: number | null
           veiculo_id?: string | null
+          versao_producao?: number
         }
         Update: {
           agendamento_id?: string | null
+          capacidade_excecao?: boolean
+          capacidade_limite_snapshot?: number | null
+          capacidade_reservada?: number
           cliente_id?: string
           condicao_pagamento?: string | null
-          condicoes_comerciais?: Json | null
           created_at?: string
           data_entrega?: string | null
           data_previsao_entrega?: string | null
           data_retirada?: string
+          entrega_modalidade?: string
+          endereco_atendimento_snapshot?: Json
           forma_pagamento?: string | null
           id?: string
           motorista_id?: string | null
@@ -2882,11 +3842,15 @@ export type Database = {
           origem?: string
           pago_na_entrada?: boolean | null
           pdv_idempotency_key?: string | null
-          pdv_request_hash?: string | null
           percentual_urgencia?: number | null
           prioridade?: string | null
+          recebimento_modalidade?: string
           status?: string
+          status_fiscal?: string
+          status_logistica?: string
           status_pagamento?: string | null
+          status_qualidade?: string
+          tabela_preco_tipo_snapshot?: string
           tenant_id?: string
           updated_at?: string
           urgente?: boolean | null
@@ -2894,6 +3858,7 @@ export type Database = {
           valor_pago?: number | null
           valor_total?: number | null
           veiculo_id?: string | null
+          versao_producao?: number
         }
         Relationships: [
           {
@@ -2923,55 +3888,98 @@ export type Database = {
         Row: {
           agendamento_id: string | null
           assinatura_url: string | null
+          atualizado_por: string | null
           cliente_id: string | null
           created_at: string
+          endereco_snapshot: Json
+          entrega_id: string | null
           foto_comprovante_url: string | null
           hora_chegada: string | null
           hora_saida: string | null
           id: string
+          janela_fim: string | null
+          janela_inicio: string | null
           motivo_nao_entrega: string | null
           observacoes: string | null
           ordem: number
           ordem_servico_id: string | null
+          reagendada_para: string | null
+          recebedor_documento: string | null
+          recebedor_nome: string | null
           rota_id: string
           status: string
+          tenant_id: string
+          tentativas: number
           tipo: string
+          updated_at: string
+          versao: number
         }
         Insert: {
           agendamento_id?: string | null
           assinatura_url?: string | null
+          atualizado_por?: string | null
           cliente_id?: string | null
           created_at?: string
+          endereco_snapshot?: Json
+          entrega_id?: string | null
           foto_comprovante_url?: string | null
           hora_chegada?: string | null
           hora_saida?: string | null
           id?: string
+          janela_fim?: string | null
+          janela_inicio?: string | null
           motivo_nao_entrega?: string | null
           observacoes?: string | null
           ordem: number
           ordem_servico_id?: string | null
+          reagendada_para?: string | null
+          recebedor_documento?: string | null
+          recebedor_nome?: string | null
           rota_id: string
           status?: string
+          tenant_id: string
+          tentativas?: number
           tipo: string
+          updated_at?: string
+          versao?: number
         }
         Update: {
           agendamento_id?: string | null
           assinatura_url?: string | null
+          atualizado_por?: string | null
           cliente_id?: string | null
           created_at?: string
+          endereco_snapshot?: Json
+          entrega_id?: string | null
           foto_comprovante_url?: string | null
           hora_chegada?: string | null
           hora_saida?: string | null
           id?: string
+          janela_fim?: string | null
+          janela_inicio?: string | null
           motivo_nao_entrega?: string | null
           observacoes?: string | null
           ordem?: number
           ordem_servico_id?: string | null
+          reagendada_para?: string | null
+          recebedor_documento?: string | null
+          recebedor_nome?: string | null
           rota_id?: string
           status?: string
+          tenant_id?: string
+          tentativas?: number
           tipo?: string
+          updated_at?: string
+          versao?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "paradas_rota_entrega_id_fkey"
+            columns: ["entrega_id"]
+            isOneToOne: false
+            referencedRelation: "entregas_pedido"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "paradas_rota_agendamento_id_fkey"
             columns: ["agendamento_id"]
@@ -3002,6 +4010,47 @@ export type Database = {
           },
         ]
       }
+      pdv_capacidades_diarias: {
+        Row: {
+          ativo: boolean
+          area: string
+          created_at: string
+          data: string
+          id: string
+          limite_carga: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          area: string
+          created_at?: string
+          data: string
+          id?: string
+          limite_carga: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          area?: string
+          created_at?: string
+          data?: string
+          id?: string
+          limite_carga?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdv_capacidades_diarias_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pdv_pagamentos: {
         Row: {
           asaas_charge_id: string | null
@@ -3023,11 +4072,15 @@ export type Database = {
           parcelas: number
           provedor: string
           provedor_pagamento_id: string | null
+          request_fingerprint: string | null
           status: string
           status_provedor: string | null
+          tenant_id: string
           troco: number
           updated_at: string
           valor: number
+          valor_alocado: number
+          valor_nao_alocado: number
           valor_recebido: number | null
         }
         Insert: {
@@ -3050,11 +4103,15 @@ export type Database = {
           parcelas?: number
           provedor: string
           provedor_pagamento_id?: string | null
+          request_fingerprint?: string | null
           status?: string
           status_provedor?: string | null
+          tenant_id?: string
           troco?: number
           updated_at?: string
           valor: number
+          valor_alocado?: number
+          valor_nao_alocado?: number
           valor_recebido?: number | null
         }
         Update: {
@@ -3077,11 +4134,15 @@ export type Database = {
           parcelas?: number
           provedor?: string
           provedor_pagamento_id?: string | null
+          request_fingerprint?: string | null
           status?: string
           status_provedor?: string | null
+          tenant_id?: string
           troco?: number
           updated_at?: string
           valor?: number
+          valor_alocado?: number
+          valor_nao_alocado?: number
           valor_recebido?: number | null
         }
         Relationships: [
@@ -3364,6 +4425,7 @@ export type Database = {
       rotas_entrega: {
         Row: {
           created_at: string
+          criado_por: string | null
           data: string
           hora_retorno: string | null
           hora_saida: string | null
@@ -3373,11 +4435,13 @@ export type Database = {
           motorista_id: string | null
           observacoes: string | null
           status: string
+          tenant_id: string
           updated_at: string
           veiculo_id: string | null
         }
         Insert: {
           created_at?: string
+          criado_por?: string | null
           data?: string
           hora_retorno?: string | null
           hora_saida?: string | null
@@ -3387,11 +4451,13 @@ export type Database = {
           motorista_id?: string | null
           observacoes?: string | null
           status?: string
+          tenant_id: string
           updated_at?: string
           veiculo_id?: string | null
         }
         Update: {
           created_at?: string
+          criado_por?: string | null
           data?: string
           hora_retorno?: string | null
           hora_saida?: string | null
@@ -3401,6 +4467,7 @@ export type Database = {
           motorista_id?: string | null
           observacoes?: string | null
           status?: string
+          tenant_id?: string
           updated_at?: string
           veiculo_id?: string | null
         }
@@ -3417,6 +4484,69 @@ export type Database = {
             columns: ["veiculo_id"]
             isOneToOne: false
             referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rota_operacoes: {
+        Row: {
+          created_at: string
+          criado_por: string
+          endereco_anterior: Json | null
+          endereco_novo: Json | null
+          id: string
+          idempotency_key: string
+          parada_id: string | null
+          payload: Json
+          request_fingerprint: string
+          resultado: Json
+          rota_id: string | null
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por: string
+          endereco_anterior?: Json | null
+          endereco_novo?: Json | null
+          id?: string
+          idempotency_key: string
+          parada_id?: string | null
+          payload?: Json
+          request_fingerprint: string
+          resultado?: Json
+          rota_id?: string | null
+          tenant_id: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string
+          endereco_anterior?: Json | null
+          endereco_novo?: Json | null
+          id?: string
+          idempotency_key?: string
+          parada_id?: string | null
+          payload?: Json
+          request_fingerprint?: string
+          resultado?: Json
+          rota_id?: string | null
+          tenant_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rota_operacoes_parada_id_fkey"
+            columns: ["parada_id"]
+            isOneToOne: false
+            referencedRelation: "paradas_rota"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rota_operacoes_rota_id_fkey"
+            columns: ["rota_id"]
+            isOneToOne: false
+            referencedRelation: "rotas_entrega"
             referencedColumns: ["id"]
           },
         ]
@@ -3551,6 +4681,42 @@ export type Database = {
       }
     }
     Functions: {
+      adicionar_parada_planejada: {
+        Args: {
+          _agendamento_id: string | null
+          _cliente_id: string | null
+          _idempotency_key: string
+          _janela_fim: string | null
+          _janela_inicio: string | null
+          _observacoes: string | null
+          _ordem_servico_id: string | null
+          _rota_id: string
+          _tipo: string
+        }
+        Returns: Json
+      }
+      abrir_caixa: {
+        Args: {
+          _idempotency_key: string
+          _identificador_caixa: string
+          _valor_abertura: number
+        }
+        Returns: Json
+      }
+      arquivar_endereco_cliente: {
+        Args: { _cliente_id: string; _endereco_id: string }
+        Returns: Json
+      }
+      atualizar_folha_aberta: {
+        Args: {
+          _campo: string
+          _folha_id: string
+          _idempotency_key: string
+          _valor: number
+          _versao_observada: number
+        }
+        Returns: Json
+      }
       avancar_etapa_producao: {
         Args: {
           _dados_formulario: Json
@@ -3571,8 +4737,284 @@ export type Database = {
         Args: { _pagamento_id: string; _status_provedor: string }
         Returns: Json
       }
+      cancelar_conta_pagar: {
+        Args: {
+          _conta_id: string
+          _idempotency_key: string
+          _motivo: string
+          _versao_esperada: number
+        }
+        Returns: Json
+      }
+      cancelar_fatura: {
+        Args: {
+          _fatura_id: string
+          _idempotency_key: string
+          _motivo: string
+          _versao_esperada: number
+        }
+        Returns: Json
+      }
+      cancelar_lancamento_pendente: {
+        Args: {
+          _idempotency_key: string
+          _lancamento_id: string
+          _motivo: string
+          _updated_at_observado: string
+        }
+        Returns: Json
+      }
+      cancelar_folha_aberta: {
+        Args: {
+          _folha_id: string
+          _idempotency_key: string
+          _motivo: string
+          _versao_observada: number
+        }
+        Returns: Json
+      }
+      confirmar_retirada_agendamento: {
+        Args: { _agendamento_id: string; _status_esperado: string }
+        Returns: Json
+      }
+      configurar_capacidade_pdv: {
+        Args: {
+          _area: string
+          _ativo?: boolean
+          _data: string
+          _limite_carga: number
+        }
+        Returns: Json
+      }
+      consultar_metricas_producao: {
+        Args: {
+          _inicio_hoje: string
+          _setor: string
+          _trinta_dias_atras: string
+        }
+        Returns: Json
+      }
+      salvar_endereco_cliente: {
+        Args: {
+          _bairro: string | null
+          _cep: string | null
+          _cidade: string
+          _cliente_id: string
+          _complemento: string | null
+          _endereco_id: string | null
+          _instrucoes: string | null
+          _latitude: number | null
+          _logradouro: string
+          _longitude: number | null
+          _nome: string | null
+          _numero: string | null
+          _pais: string
+          _principal: boolean
+          _tipo: string
+          _uf: string
+        }
+        Returns: Json
+      }
       consultar_dashboard_financeiro: {
         Args: { _fim: string; _inicio: string; _setor: string }
+        Returns: Json
+      }
+      consultar_diretorio_caixas_fechados: {
+        Args: {
+          _busca?: string | null
+          _diferenca?: string
+          _fim_exclusivo: string
+          _inicio: string
+          _pagina?: number
+          _tamanho_pagina?: number
+        }
+        Returns: Json
+      }
+      consultar_clientes_similares: {
+        Args: {
+          _classificacao: string
+          _cliente_id: string | null
+          _cpf_cnpj: string | null
+          _email: string | null
+          _razao_social: string
+          _telefone: string | null
+          _telefone2: string | null
+        }
+        Returns: Json
+      }
+      consultar_ficha_cliente: {
+        Args: { _cliente_id: string }
+        Returns: Json
+      }
+      consultar_diretorio_insumos: {
+        Args: {
+          _busca?: string | null
+          _categoria?: string | null
+          _pagina?: number
+          _situacao?: string
+          _tamanho?: number
+        }
+        Returns: Json
+      }
+      consultar_diretorio_locais_estoque: {
+        Args: {
+          _busca?: string | null
+          _pagina?: number
+          _situacao?: string
+          _tamanho?: number
+        }
+        Returns: Json
+      }
+      consultar_diretorio_movimentacoes_estoque: {
+        Args: {
+          _busca?: string | null
+          _pagina?: number
+          _tamanho?: number
+          _tipo?: string
+        }
+        Returns: Json
+      }
+      consultar_diretorio_pedidos_compra: {
+        Args: {
+          _busca?: string | null
+          _pagina?: number
+          _situacao?: string
+          _tamanho?: number
+        }
+        Returns: Json
+      }
+      consultar_pedido_compra_detalhes: {
+        Args: { _pedido_id: string }
+        Returns: Json
+      }
+      consultar_saldos_local_estoque: {
+        Args: {
+          _busca?: string | null
+          _estoque_local_id: string
+          _pagina?: number
+          _situacao?: string
+          _tamanho?: number
+        }
+        Returns: Json
+      }
+      consultar_diretorio_contas_pagar: {
+        Args: {
+          _busca?: string | null
+          _data_fim?: string | null
+          _data_inicio?: string | null
+          _pagina?: number
+          _situacao?: string
+          _tamanho_pagina?: number
+        }
+        Returns: Json
+      }
+      consultar_diretorio_contas_receber: {
+        Args: {
+          _busca?: string | null
+          _data_fim?: string | null
+          _data_inicio?: string | null
+          _origem?: string
+          _pagina?: number
+          _situacao?: string
+          _tamanho_pagina?: number
+        }
+        Returns: Json
+      }
+      consultar_diretorio_lancamentos: {
+        Args: {
+          _area: string
+          _busca?: string | null
+          _cliente_id?: string | null
+          _data_fim?: string | null
+          _data_inicio?: string | null
+          _pagina?: number
+          _situacao?: string
+          _tamanho_pagina?: number
+        }
+        Returns: Json
+      }
+      consultar_fila_lancamentos_pendentes: {
+        Args: {
+          _area: string
+          _busca?: string | null
+          _ciclo?: string | null
+          _cliente_id?: string | null
+          _data_fim?: string | null
+          _data_inicio?: string | null
+          _etapa?: string | null
+          _pagina?: number
+          _tamanho?: number
+        }
+        Returns: Json
+      }
+      consultar_lancamentos_para_faturamento: {
+        Args: { _area: string; _ids: string[] }
+        Returns: Json
+      }
+      consultar_capacidade_pdv: {
+        Args: { _area: string; _data: string; _tenant_id: string }
+        Returns: Json
+      }
+      consultar_resumo_folha_pagamento: {
+        Args: { _competencia: string }
+        Returns: Json
+      }
+      definir_beneficio_folha: {
+        Args: {
+          _beneficio_id: string
+          _folha_id: string
+          _idempotency_key: string
+          _valor: number
+          _versao_folha_observada: number
+        }
+        Returns: Json
+      }
+      fechar_folha_competencia: {
+        Args: {
+          _competencia: string
+          _idempotency_key: string
+          _vencimento: string
+        }
+        Returns: Json
+      }
+      gerar_folha_competencia: {
+        Args: { _competencia: string; _idempotency_key: string }
+        Returns: Json
+      }
+      criar_fatura_com_lancamentos: {
+        Args: {
+          _cliente_id: string
+          _idempotency_key: string
+          _itens_snapshot: Json
+          _lancamento_ids: string[]
+          _observacao_fatura: string | null
+          _periodo_fim: string
+          _periodo_inicio: string
+          _tipo_relatorio: string
+          _valor_total: number
+        }
+        Returns: Json
+      }
+      criar_lancamento_manual: {
+        Args: {
+          _cliente_id: string
+          _data_entrega: string | null
+          _data_lancamento: string
+          _idempotency_key: string
+          _itens: Json
+          _observacao: string | null
+        }
+        Returns: Json
+      }
+      criar_rota_planejada: {
+        Args: {
+          _data: string
+          _idempotency_key: string
+          _km_inicial: number | null
+          _motorista_id: string | null
+          _observacoes: string | null
+          _veiculo_id: string | null
+        }
         Returns: Json
       }
       criar_venda_pdv: {
@@ -3592,6 +5034,70 @@ export type Database = {
         }
         Returns: Json
       }
+      criar_pedido_atendimento: {
+        Args: {
+          _caixa_id: string | null
+          _cliente_id: string
+          _criado_por: string
+          _data_previsao_entrega: string
+          _data_retirada: string | null
+          _endereco_snapshot: Json
+          _entrega_modalidade: string
+          _idempotency_key: string
+          _itens: Json
+          _motorista_id: string | null
+          _observacoes: string | null
+          _pagamento: Json | null
+          _permitir_excecao_capacidade?: boolean
+          _percentual_urgencia: number
+          _recebimento_modalidade: string
+          _urgente: boolean
+          _valor_desconto: number
+          _veiculo_id: string | null
+        }
+        Returns: Json
+      }
+      editar_lancamento_pendente: {
+        Args: {
+          _data_entrega: string | null
+          _data_lancamento: string
+          _idempotency_key: string
+          _itens: Json
+          _lancamento_id: string
+          _observacao: string | null
+          _updated_at_observado: string
+        }
+        Returns: Json
+      }
+      encerrar_contrato_industrial: {
+        Args: {
+          _contrato_id: string
+          _idempotency_key: string
+          _motivo: string
+          _versao_esperada: number
+        }
+        Returns: Json
+      }
+      fechar_caixa: {
+        Args: {
+          _caixa_id: string
+          _idempotency_key: string
+          _observacoes: string | null
+          _valor_conferido_cartao_credito: number
+          _valor_conferido_cartao_debito: number
+          _valor_conferido_pix: number
+          _valor_contado_dinheiro: number
+        }
+        Returns: Json
+      }
+      finalizar_rota_planejada: {
+        Args: {
+          _idempotency_key: string
+          _km_final: number
+          _rota_id: string
+        }
+        Returns: Json
+      }
       get_employee_email_by_login: {
         Args: { p_login: string }
         Returns: {
@@ -3604,7 +5110,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
+      get_my_access_context: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_my_tenant_context: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      get_my_security_context: {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
@@ -3619,12 +5133,68 @@ export type Database = {
         }
         Returns: boolean
       }
+      iniciar_rota_planejada: {
+        Args: {
+          _idempotency_key: string
+          _km_inicial: number
+          _rota_id: string
+        }
+        Returns: Json
+      }
+      listar_fechamentos_industriais: {
+        Args: { _dias_antecedencia?: number }
+        Returns: Json
+      }
+      listar_capacidades_pdv: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      obter_resumo_caixa: {
+        Args: { _caixa_id: string }
+        Returns: Json
+      }
+      obter_demonstrativo_industrial: {
+        Args: {
+          _cliente_id: string
+          _fatura_id?: string | null
+          _periodo_fim: string
+          _periodo_inicio: string
+        }
+        Returns: Json
+      }
+      obter_previa_refaturamento_industrial: {
+        Args: { _fatura_id: string }
+        Returns: Json
+      }
+      processar_fila_producao: {
+        Args: {
+          _etapa_esperada: string
+          _funcionario_id: string | null
+          _idempotency_key: string
+          _nova_previsao: string | null
+          _ocorrencia: string | null
+          _ordens: Json
+          _proxima_etapa: string
+          _recurso: string | null
+        }
+        Returns: Json
+      }
       reconciliar_pagamento_pdv: {
         Args: {
           _asaas_charge_id: string
           _confirmado_em: string | null
           _evento: string
           _status_provedor: string
+        }
+        Returns: Json
+      }
+      reconciliar_pagamento_fatura_asaas: {
+        Args: {
+          _asaas_charge_id: string
+          _data_evento: string | null
+          _evento: string
+          _status_provedor: string
+          _tenant_id: string
         }
         Returns: Json
       }
@@ -3638,6 +5208,123 @@ export type Database = {
           _ordem_servico_id: string
           _provedor_pagamento_id: string
           _status_provedor: string
+        }
+        Returns: Json
+      }
+      registrar_anexo_ordem: {
+        Args: {
+          _categoria: string
+          _descricao: string | null
+          _nome_arquivo: string
+          _object_path: string
+          _ordem_servico_id: string
+        }
+        Returns: Json
+      }
+      registrar_entrega_parcial_pedido: {
+        Args: {
+          _autorizar_com_saldo: boolean
+          _documento_recebedor: string | null
+          _funcionario_id: string | null
+          _idempotency_key: string
+          _itens: Json
+          _motivo_autorizacao_saldo: string | null
+          _nome_recebedor: string
+          _observacoes: string | null
+          _ordem_servico_id: string
+        }
+        Returns: Json
+      }
+      registrar_evento_parada_rota: {
+        Args: {
+          _assinatura_url: string | null
+          _endereco_corrigido: Json | null
+          _entrega_id: string | null
+          _expected_version: number
+          _foto_comprovante_url: string | null
+          _idempotency_key: string
+          _motivo: string | null
+          _parada_id: string
+          _reagendada_para: string | null
+          _recebedor_documento: string | null
+          _recebedor_nome: string | null
+          _tipo: string
+        }
+        Returns: Json
+      }
+      registrar_movimentacao_estoque: {
+        Args: {
+          _custo_unitario?: number | null
+          _estoque_produto_id: string
+          _fornecedor_id?: string | null
+          _idempotency_key?: string | null
+          _motivo?: string | null
+          _quantidade: number
+          _tipo: string
+        }
+        Returns: Json
+      }
+      registrar_movimentacao_caixa: {
+        Args: {
+          _caixa_id: string
+          _descricao: string
+          _idempotency_key: string
+          _tipo: string
+          _valor: number
+        }
+        Returns: Json
+      }
+      registrar_ocorrencia_producao: {
+        Args: {
+          _etapa_esperada: string
+          _funcionario_id: string | null
+          _idempotency_key: string
+          _nova_previsao: string | null
+          _ocorrencia: string
+          _ordem_ids: string[]
+        }
+        Returns: Json
+      }
+      registrar_pagamento_conta_pagar: {
+        Args: {
+          _conta_id: string
+          _data_pagamento: string
+          _forma_pagamento: string
+          _idempotency_key: string
+          _observacoes: string | null
+          _referencia: string | null
+          _valor: number
+          _versao_esperada: number
+        }
+        Returns: Json
+      }
+      registrar_pagamento_fatura: {
+        Args: {
+          _data_pagamento: string
+          _fatura_id: string
+          _forma_pagamento: string
+          _idempotency_key: string
+          _observacoes: string | null
+          _referencia: string | null
+          _valor: number
+          _versao_esperada: number
+        }
+        Returns: Json
+      }
+      refaturar_fatura_industrial: {
+        Args: {
+          _ajustes: Json
+          _fatura_cancelada_id: string
+          _idempotency_key: string
+          _motivo: string
+        }
+        Returns: Json
+      }
+      regenerar_agendamentos_recorrentes: {
+        Args: {
+          _agendamentos: Json
+          _cliente_id: string
+          _idempotency_key: string
         }
         Returns: Json
       }
@@ -3658,8 +5345,113 @@ export type Database = {
         }
         Returns: Json
       }
+      salvar_conta_pagar: {
+        Args: {
+          _categoria: string | null
+          _categoria_id: string | null
+          _centro_custo_id: string | null
+          _conta_id: string | null
+          _descricao: string
+          _fornecedor: string | null
+          _fornecedor_id: string | null
+          _idempotency_key: string
+          _observacoes: string | null
+          _valor: number
+          _vencimento: string
+          _versao_esperada: number | null
+        }
+        Returns: Json
+      }
+      salvar_cliente: {
+        Args: {
+          _classificacao: string
+          _cliente_id: string | null
+          _contato: string | null
+          _cpf_cnpj: string | null
+          _email: string | null
+          _inscricao_estadual: string | null
+          _inscricao_municipal: string | null
+          _nome_fantasia: string | null
+          _observacoes: string | null
+          _razao_social: string
+          _regime_tributario: string | null
+          _telefone: string | null
+          _telefone2: string | null
+          _tipo_pessoa: string
+        }
+        Returns: Json
+      }
+      salvar_beneficio_catalogo: {
+        Args: {
+          _ativo: boolean
+          _beneficio_id: string | undefined
+          _cor: string
+          _idempotency_key: string
+          _nome: string
+          _ordem: number
+          _versao_observada: number | undefined
+        }
+        Returns: Json
+      }
+      salvar_contrato_industrial: {
+        Args: {
+          _autoriza_faturamento: boolean
+          _cliente_id: string
+          _contrato_id: string | null
+          _data_fim: string | null
+          _data_inicio: string
+          _descricao: string
+          _dia_fechamento: number | null
+          _dia_vencimento: number
+          _forma_pagamento: string | null
+          _idempotency_key: string
+          _itens: Json
+          _observacoes: string | null
+          _periodicidade_fechamento: string
+          _regras_comerciais: string | null
+          _valor_servico: number
+          _versao_esperada: number | null
+        }
+        Returns: Json
+      }
+      registrar_qualidade_pedido: {
+        Args: {
+          _funcionario_id: string | null
+          _idempotency_key: string
+          _movimentos: Json
+          _nova_previsao: string | null
+          _observacoes: string | null
+          _ordem_servico_id: string
+        }
+        Returns: Json
+      }
+      reordenar_paradas_rota: {
+        Args: {
+          _idempotency_key: string
+          _parada_ids: Json
+          _rota_id: string
+        }
+        Returns: Json
+      }
       switch_active_tenant: {
         Args: { _tenant_id: string }
+        Returns: Json
+      }
+      set_admin_mfa_requirement: {
+        Args: { _enabled: boolean }
+        Returns: Json
+      }
+      atualizar_etapa_lancamento_pendente: {
+        Args: {
+          _etapa: string
+          _idempotency_key: string
+          _lancamento_id: string
+          _updated_at_observado: string
+        }
+        Returns: Json
+      }
+      vincular_lancamentos_fatura: {
+        Args: { _fatura_id: string; _lancamento_ids: string[] }
         Returns: Json
       }
     }

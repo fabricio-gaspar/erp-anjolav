@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type {
   PdvManualPayment,
   PdvPaymentMoment,
@@ -29,6 +30,31 @@ export interface CreatePdvSaleInput {
   items: SaleItem[];
   payment: PdvManualPayment | { method: "PIX" } | null;
   idempotencyKey: string;
+  intakeDate?: string | null;
+  notes?: string | null;
+  receiptMode?: "balcao" | "coleta";
+  deliveryMode?: "balcao" | "entrega";
+  addressSnapshot?: {
+    cep?: string | null;
+    logradouro?: string | null;
+    numero?: string | null;
+    complemento?: string | null;
+    bairro?: string | null;
+    cidade?: string | null;
+    uf?: string | null;
+    pais?: string | null;
+  };
+  /** Only a profile with commercial-term authority may request this exception. */
+  capacityOverride?: boolean;
+}
+
+export interface PdvCapacitySnapshot {
+  configured: boolean;
+  limit: number | null;
+  reserved: number;
+  available: number | null;
+  date: string;
+  area: "industrial" | "residencial";
 }
 
 export interface CreatePdvPixInput {
@@ -63,6 +89,8 @@ export interface PdvPaymentSummary {
   status: string;
   status_provedor: string | null;
   valor: number;
+  valor_alocado: number;
+  valor_nao_alocado: number;
   valor_recebido: number | null;
   troco: number;
   parcelas: number;
@@ -104,13 +132,42 @@ function useInvalidatePdv() {
     queryClient.invalidateQueries({ queryKey: ["caixa-aberto"] });
     queryClient.invalidateQueries({ queryKey: ["caixa-movimentacoes"] });
     queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
+    queryClient.invalidateQueries({ queryKey: ["order-directory"] });
     queryClient.invalidateQueries({ queryKey: ["consulta-os"] });
     queryClient.invalidateQueries({ queryKey: ["pdv-customer-loyalty"] });
     queryClient.invalidateQueries({ queryKey: ["pdv-payments"] });
     queryClient.invalidateQueries({ queryKey: ["vendas-do-dia"] });
     queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
     queryClient.invalidateQueries({ queryKey: ["faturas"] });
+    queryClient.invalidateQueries({ queryKey: ["pdv-capacity"] });
   };
+}
+
+/**
+ * Capacity stays server-derived so the browser never becomes the authority
+ * for booked production load. The Edge Function scopes the client to the
+ * active tenant and operation before consulting the protected RPC.
+ */
+export function usePdvCapacity(
+  clientId: string | null,
+  deliveryDate: string | null,
+  enabled = true,
+) {
+  const { activeTenant, session } = useAuth();
+  return useQuery({
+    queryKey: ["pdv-capacity", session?.user.id, activeTenant?.id, clientId, deliveryDate],
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id && clientId && deliveryDate),
+    queryFn: async () => {
+      if (!clientId || !deliveryDate) throw new Error("Cliente e data são obrigatórios para consultar capacidade");
+      const result = await invoke<{ success: true; capacity: PdvCapacitySnapshot }>({
+        action: "get_capacity",
+        clientId,
+        deliveryDate,
+      });
+      return result.capacity;
+    },
+    staleTime: 10_000,
+  });
 }
 
 export function useCreatePdvSale() {

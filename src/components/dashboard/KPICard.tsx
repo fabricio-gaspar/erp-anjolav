@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { LucideIcon } from "lucide-react";
+import { ArrowUpRight, LucideIcon } from "lucide-react";
 
 interface KPICardProps {
   title: string;
@@ -7,6 +7,8 @@ interface KPICardProps {
   icon: LucideIcon;
   iconColor?: "primary" | "success" | "warning" | "destructive" | "info";
   subtitle?: string;
+  context?: string;
+  onOpen?: () => void;
   trend?: {
     value: string;
     direction: "up" | "down" | "neutral";
@@ -36,46 +38,75 @@ const colorStyles = {
   },
 };
 
-export function KPICard({ title, value, icon: Icon, iconColor = "primary", subtitle, trend }: KPICardProps) {
+export function KPICard({
+  title,
+  value,
+  icon: Icon,
+  iconColor = "primary",
+  subtitle,
+  context,
+  onOpen,
+  trend,
+}: KPICardProps) {
   const styles = colorStyles[iconColor];
+  const content = (
+    <div className="flex items-start justify-between gap-2">
+      <div className="min-w-0 flex-1">
+        <p className="mb-2 text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-muted-foreground transition-colors group-hover:text-foreground">
+          {title}
+        </p>
 
-  return (
-    <div className="kpi-card group hover:border-primary/50 transition-colors duration-300">
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          {/* Title */}
-          <p className="text-[11px] font-semibold text-muted-foreground group-hover:text-foreground transition-colors uppercase tracking-[0.08em] leading-tight mb-2">{title}</p>
-          
-          <span className="text-[28px] font-bold text-foreground tracking-[-0.04em] leading-none block">
-            {value}
-          </span>
-          
-          {/* Subtitle */}
-          {subtitle && (
-            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mt-2 line-clamp-1">{subtitle}</p>
-          )}
+        <span className="block text-[28px] font-bold leading-none tracking-[-0.04em] text-foreground">
+          {value}
+        </span>
 
-          {/* Trend */}
-          {trend && (
-            <div className={cn(
-              "kpi-card-trend",
-              trend.direction === "up" && "text-success",
-              trend.direction === "down" && "text-destructive",
-              trend.direction === "neutral" && "text-muted-foreground"
-            )}>
-              {trend.direction === "up" && "↗"}
-              {trend.direction === "down" && "↘"}
-              <span>{trend.value}</span>
-            </div>
-          )}
-        </div>
+        {subtitle && (
+          <p className="mt-2 line-clamp-2 text-[11px] font-medium leading-snug text-muted-foreground">
+            {subtitle}
+          </p>
+        )}
 
-        <div className="ml-2 flex-shrink-0">
-          <div className={cn("kpi-card-icon", styles.iconBg)}>
-            <Icon className={cn("w-4 h-4", styles.iconText)} />
+        {context && (
+          <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+            {context}
+          </p>
+        )}
+
+        {trend && (
+          <div className={cn(
+            "kpi-card-trend",
+            trend.direction === "up" && "text-success",
+            trend.direction === "down" && "text-destructive",
+            trend.direction === "neutral" && "text-muted-foreground"
+          )}>
+            {trend.direction === "up" && "↗"}
+            {trend.direction === "down" && "↘"}
+            <span>{trend.value}</span>
           </div>
+        )}
+      </div>
+
+      <div className="flex shrink-0 flex-col items-end gap-3">
+        <div className={cn("kpi-card-icon", styles.iconBg)}>
+          <Icon className={cn("h-4 w-4", styles.iconText)} />
         </div>
+        {onOpen && <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />}
       </div>
     </div>
   );
+
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        className="kpi-card group w-full text-left transition-colors duration-300 hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        onClick={onOpen}
+        aria-label={`Abrir lista de ${title}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className="kpi-card group">{content}</div>;
 }

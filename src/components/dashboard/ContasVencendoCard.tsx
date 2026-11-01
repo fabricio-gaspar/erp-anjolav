@@ -14,7 +14,7 @@ export function ContasVencendoCard() {
   const hoje = startOfDay(new Date());
 
   const contasUrgentes = contas
-    .filter((c) => c.status === "pendente" || c.status === "vencido")
+    .filter((c) => c.status === "pendente" || c.status === "parcial")
     .map((c) => {
       const venc = startOfDay(new Date(c.vencimento));
       const dias = differenceInDays(venc, hoje);
@@ -64,7 +64,7 @@ export function ContasVencendoCard() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-slate-700 truncate">{c.fornecedor || c.descricao}</p>
                   <p className="text-xs text-slate-400">
-                    R$ {Number(c.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} • {format(new Date(c.vencimento), "dd/MM", { locale: ptBR })}
+                    R$ {Math.max(Number(c.valor) - Number(c.valor_pago || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} • {format(new Date(c.vencimento), "dd/MM", { locale: ptBR })}
                   </p>
                 </div>
                 <Badge

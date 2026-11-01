@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { createIdempotencyKey } from "@/lib/idempotency";
 
 interface NotificacaoDados {
   cliente: string;
@@ -9,6 +10,7 @@ interface NotificacaoDados {
   totalPecas?: string;
   ordem_servico_id?: string;
   cliente_id?: string;
+  idempotencyKey?: string;
 }
 
 /**
@@ -53,7 +55,8 @@ async function enviarViaEvolution(
   mensagem: string,
   ordem_servico_id?: string,
   cliente_id?: string,
-  evento?: string
+  evento?: string,
+  idempotencyKey?: string,
 ): Promise<boolean> {
   try {
     const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
@@ -64,6 +67,7 @@ async function enviarViaEvolution(
         ordem_servico_id,
         cliente_id,
         evento,
+        idempotency_key: idempotencyKey || createIdempotencyKey("whatsapp"),
       },
     });
     if (error) throw error;
@@ -107,7 +111,8 @@ export async function dispararNotificacao(
       mensagem,
       dados.ordem_servico_id,
       dados.cliente_id,
-      evento
+      evento,
+      dados.idempotencyKey,
     );
   } catch (error) {
     console.error(`Erro ao disparar notificação "${evento}":`, error);

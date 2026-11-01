@@ -10,7 +10,14 @@ export interface Fatura {
   periodo_inicio: string;
   periodo_fim: string;
   valor_total: number;
-  status: "pendente" | "nota_emitida" | "pago" | "enviado";
+  status: "pendente" | "relatorio_gerado" | "nota_emitida" | "pagamento_configurado" | "enviada" | "faturado" | "pago" | "cancelado";
+  status_pagamento: "pendente" | "parcial" | "pago" | "cancelado";
+  valor_pago: number;
+  versao_financeira: number;
+  data_ultimo_pagamento: string | null;
+  cancelado_em: string | null;
+  cancelado_por: string | null;
+  cancelamento_motivo: string | null;
   numero_nf: string | null;
   asaas_charge_id: string | null;
   created_at: string;
@@ -59,50 +66,6 @@ export interface Fatura {
   };
 }
 
-export interface FaturaInsert {
-  cliente_id: string;
-  periodo_inicio: string;
-  periodo_fim: string;
-  valor_total: number;
-  status?: string;
-  numero_nf?: string | null;
-  asaas_charge_id?: string | null;
-  // Etapa 1
-  relatorio_gerado?: boolean;
-  relatorio_data?: string | null;
-  tipo_relatorio?: string | null;
-  itens_snapshot?: Json | null;
-  observacao_fatura?: string | null;
-  // Etapa 2
-  chave_acesso?: string | null;
-  link_pdf_nf?: string | null;
-  data_emissao_nf?: string | null;
-  snapshot_cliente?: Json | null;
-  snapshot_emitente?: Json | null;
-  descricao_servico?: string | null;
-  imposto_calculado?: Json | null;
-  // Campos NFS-e real
-  protocolo_nfse?: string | null;
-  xml_nfse?: string | null;
-  status_sefaz?: string | null;
-  erros_sefaz?: Json | null;
-  natureza_operacao?: string | null;
-  // Etapa 3
-  forma_pagamento?: string | null;
-  data_vencimento?: string | null;
-  boleto_url?: string | null;
-  boleto_linha_digitavel?: string | null;
-  pix_qr_code?: string | null;
-  pix_copia_cola?: string | null;
-  dados_transferencia?: Json | null;
-  vencimento_ajustado_por?: string | null;
-  // Etapa 4
-  data_envio?: string | null;
-  canais_envio?: string[] | null;
-  destinatario_envio?: string | null;
-  mensagem_enviada?: string | null;
-}
-
 export interface FaturaUpdate {
   status?: string;
   numero_nf?: string | null;
@@ -144,14 +107,207 @@ export interface FaturaUpdate {
   mensagem_enviada?: string | null;
 }
 
+export type FormaRecebimentoFatura = "PIX" | "TRANSFERENCIA" | "BOLETO" | "CARTAO" | "DINHEIRO" | "OUTRO";
+
+export interface RegistrarPagamentoFaturaInput {
+  id: string;
+  valor: number;
+  dataPagamento: string;
+  formaPagamento: FormaRecebimentoFatura;
+  referencia?: string | null;
+  observacoes?: string | null;
+  versao: number;
+  idempotencyKey?: string;
+}
+
+export interface CancelarFaturaInput {
+  id: string;
+  motivo: string;
+  versao: number;
+  idempotencyKey?: string;
+}
+
+export interface PreviaRefaturamentoItem {
+  id: string;
+  descricao: string;
+  quantidade: number;
+  unidade: string;
+  valorUnitario: number;
+  valorTotal: number;
+}
+
+export interface PreviaRefaturamentoOrigem {
+  id: string;
+  numero: string;
+  data: string;
+  status: string;
+  valor: number;
+  versao: number;
+  faturaAtualId: string | null;
+  itens: PreviaRefaturamentoItem[];
+}
+
+export interface PreviaRefaturamento {
+  elegivel: boolean;
+  motivosBloqueio: string[];
+  fatura: {
+    id: string;
+    clienteId: string;
+    periodoInicio: string;
+    periodoFim: string;
+    valorOriginal: number;
+    motivoCancelamento: string | null;
+    substitutaId: string | null;
+  };
+  origens: PreviaRefaturamentoOrigem[];
+  valorAtual: number;
+  podeAjustar: boolean;
+}
+
+export interface RefaturarFaturaInput {
+  id: string;
+  motivo: string;
+  ajustes: Array<{
+    lancamentoId: string;
+    valorAjuste: number;
+    motivo: string;
+  }>;
+  idempotencyKey?: string;
+}
+
+export interface RefaturarFaturaResult {
+  faturaOrigemId: string;
+  faturaSubstitutaId: string;
+  valorOriginal: number;
+  valorSubstituto: number;
+  quantidadeOrigens?: number;
+  quantidadeAjustes?: number;
+  idempotent: boolean;
+}
+
+export interface FaturaCommandResult {
+  id: string;
+  pagamentoId?: string;
+  status: Fatura["status"];
+  statusPagamento: Fatura["status_pagamento"];
+  valor: number;
+  valorPago: number;
+  saldo: number;
+  versao: number;
+  idempotent: boolean;
+}
+
+export function criarChaveOperacaoFatura(prefixo: string) {
+  return `${prefixo}:${crypto.randomUUID()}`;
+}
+
+function readFaturaCommandResult(data: unknown): FaturaCommandResult {
+  if (!data || typeof data !== "object" || !("id" in data)) {
+    throw new Error("A operação da fatura não retornou um resultado válido");
+  }
+  return data as FaturaCommandResult;
+}
+
+function readPreviaRefaturamento(data: unknown): PreviaRefaturamento {
+  if (!data || typeof data !== "object" || !("fatura" in data) || !("origens" in data)) {
+    throw new Error("A prévia do refaturamento não retornou dados válidos");
+  }
+  return data as PreviaRefaturamento;
+}
+
+function readRefaturarFaturaResult(data: unknown): RefaturarFaturaResult {
+  if (!data || typeof data !== "object" || !("faturaSubstitutaId" in data)) {
+    throw new Error("O refaturamento não retornou uma fatura substituta válida");
+  }
+  return data as RefaturarFaturaResult;
+}
+
+export function usePreviaRefaturamentoFatura(faturaId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["fatura", "previa-refaturamento", faturaId],
+    queryFn: async () => {
+      if (!faturaId) return null;
+      const { data, error } = await supabase.rpc("obter_previa_refaturamento_industrial", {
+        _fatura_id: faturaId,
+      });
+      if (error) throw error;
+      return readPreviaRefaturamento(data);
+    },
+    enabled: enabled && !!faturaId,
+    retry: false,
+  });
+}
+
+export interface CriarFaturaComLancamentosInput {
+  cliente_id: string;
+  periodo_inicio: string;
+  periodo_fim: string;
+  valor_total: number;
+  tipo_relatorio: string;
+  itens_snapshot: Json;
+  observacao_fatura?: string | null;
+  lancamento_ids: string[];
+  idempotency_key: string;
+}
+
+export interface CriarFaturaComLancamentosResult {
+  id: string;
+  status: string;
+  valorTotal: number;
+  quantidadeLancamentos?: number;
+  idempotent: boolean;
+}
+
+export function useCreateFaturaComLancamentos() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: CriarFaturaComLancamentosInput) => {
+      const { data, error } = await supabase.rpc("criar_fatura_com_lancamentos", {
+        _cliente_id: input.cliente_id,
+        _periodo_inicio: input.periodo_inicio,
+        _periodo_fim: input.periodo_fim,
+        _valor_total: input.valor_total,
+        _tipo_relatorio: input.tipo_relatorio,
+        _itens_snapshot: input.itens_snapshot,
+        _observacao_fatura: input.observacao_fatura ?? null,
+        _lancamento_ids: input.lancamento_ids,
+        _idempotency_key: input.idempotency_key,
+      });
+      if (error) throw error;
+
+      const result = data as unknown as CriarFaturaComLancamentosResult;
+      if (!result?.id) throw new Error("A criação da fatura não retornou um identificador");
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["faturas"] });
+      queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
+    },
+  });
+}
+
 export function useFaturas(
   periodoInicio?: string,
   periodoFim?: string,
   enabled = true,
   incluirPeriodosSobrepostos = false,
+  clienteId?: string,
 ) {
   const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
+
+  const invalidateInvoiceQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["faturas"] }),
+      queryClient.invalidateQueries({ queryKey: ["fatura"] }),
+      queryClient.invalidateQueries({ queryKey: ["lancamentos"] }),
+      queryClient.invalidateQueries({ queryKey: ["ordens-servico"] }),
+      queryClient.invalidateQueries({ queryKey: ["fluxo_caixa"] }),
+      queryClient.invalidateQueries({ queryKey: ["financeiro-agregado"] }),
+      queryClient.invalidateQueries({ queryKey: ["relatorio-financeiro"] }),
+    ]);
+  };
 
   const assertFaturaInScope = async (id: string) => {
     if (activeArea === "central") return;
@@ -166,7 +322,7 @@ export function useFaturas(
   };
 
   const { data: faturas = [], isLoading, error } = useQuery({
-    queryKey: ["faturas", activeArea, periodoInicio, periodoFim, incluirPeriodosSobrepostos],
+    queryKey: ["faturas", activeArea, periodoInicio, periodoFim, incluirPeriodosSobrepostos, clienteId],
     queryFn: async () => {
       let query = supabase
         .from("faturas")
@@ -189,43 +345,15 @@ export function useFaturas(
       if (activeArea !== "central") {
         query = query.eq("cliente.classificacao", activeArea);
       }
+      if (clienteId) {
+        query = query.eq("cliente_id", clienteId);
+      }
 
       const { data, error } = await query;
       if (error) throw error;
       return data as Fatura[];
     },
     enabled,
-  });
-
-  const createFatura = useMutation({
-    mutationFn: async (fatura: FaturaInsert) => {
-      if (activeArea !== "central") {
-        const { data: scopedClient, error: scopeError } = await supabase
-          .from("clientes")
-          .select("id")
-          .eq("id", fatura.cliente_id)
-          .eq("classificacao", activeArea)
-          .maybeSingle();
-        if (scopeError) throw scopeError;
-        if (!scopedClient) throw new Error("Cliente não encontrado neste painel");
-      }
-      const { data, error } = await supabase
-        .from("faturas")
-        .insert(fatura)
-        .select(`
-          *,
-          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
-        `)
-        .single();
-      if (error) throw error;
-      return data as Fatura;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["faturas"] });
-    },
-    onError: (error) => {
-      toast.error("Erro ao criar fatura: " + error.message);
-    },
   });
 
   const updateFatura = useMutation({
@@ -252,18 +380,81 @@ export function useFaturas(
     },
   });
 
-  const deleteFatura = useMutation({
-    mutationFn: async (id: string) => {
-      await assertFaturaInScope(id);
-      const { error } = await supabase.from("faturas").delete().eq("id", id);
+  const registrarPagamento = useMutation({
+    mutationFn: async (input: RegistrarPagamentoFaturaInput) => {
+      await assertFaturaInScope(input.id);
+      const { data, error } = await supabase.rpc("registrar_pagamento_fatura", {
+        _fatura_id: input.id,
+        _valor: input.valor,
+        _data_pagamento: input.dataPagamento,
+        _forma_pagamento: input.formaPagamento,
+        _referencia: input.referencia ?? null,
+        _observacoes: input.observacoes ?? null,
+        _versao_esperada: input.versao,
+        _idempotency_key: input.idempotencyKey
+          ?? criarChaveOperacaoFatura("invoice-payment"),
+      });
       if (error) throw error;
+      return readFaturaCommandResult(data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["faturas"] });
-      toast.success("Fatura excluída!");
+    onSuccess: async (result) => {
+      await invalidateInvoiceQueries();
+      toast.success(result.statusPagamento === "pago"
+        ? "Fatura quitada com rastreabilidade"
+        : "Recebimento parcial registrado");
     },
-    onError: (error) => {
-      toast.error("Erro ao excluir fatura: " + error.message);
+    onError: (mutationError: Error) => {
+      toast.error(mutationError.message || "Erro ao registrar recebimento");
+    },
+  });
+
+  const cancelarFatura = useMutation({
+    mutationFn: async (input: CancelarFaturaInput) => {
+      await assertFaturaInScope(input.id);
+      const { data, error } = await supabase.rpc("cancelar_fatura", {
+        _fatura_id: input.id,
+        _motivo: input.motivo,
+        _versao_esperada: input.versao,
+        _idempotency_key: input.idempotencyKey
+          ?? criarChaveOperacaoFatura("invoice-cancel"),
+      });
+      if (error) throw error;
+      return readFaturaCommandResult(data);
+    },
+    onSuccess: async () => {
+      await invalidateInvoiceQueries();
+      toast.success("Fatura cancelada e origens liberadas para revisão");
+    },
+    onError: (mutationError: Error) => {
+      toast.error(mutationError.message || "Erro ao cancelar fatura");
+    },
+  });
+
+  const refaturarFatura = useMutation({
+    mutationFn: async (input: RefaturarFaturaInput) => {
+      await assertFaturaInScope(input.id);
+      const { data, error } = await supabase.rpc("refaturar_fatura_industrial", {
+        _fatura_cancelada_id: input.id,
+        _motivo: input.motivo,
+        _ajustes: input.ajustes as unknown as Json,
+        _idempotency_key: input.idempotencyKey
+          ?? criarChaveOperacaoFatura("invoice-rebill"),
+      });
+      if (error) throw error;
+      return readRefaturarFaturaResult(data);
+    },
+    onSuccess: async (result) => {
+      await invalidateInvoiceQueries();
+      queryClient.invalidateQueries({ queryKey: ["fatura", "previa-refaturamento"] });
+      queryClient.invalidateQueries({ queryKey: ["demonstrativo-industrial"] });
+      toast.success(
+        result.quantidadeAjustes
+          ? "Fatura substituta criada com ajuste auditável"
+          : "Fatura substituta criada com rastreabilidade",
+      );
+    },
+    onError: (mutationError: Error) => {
+      toast.error(mutationError.message || "Erro ao refaturar");
     },
   });
 
@@ -271,16 +462,14 @@ export function useFaturas(
   const summary = {
     totalPrevisto: faturas.reduce((sum, f) => sum + Number(f.valor_total), 0),
     pendente: faturas
-      .filter((f) => f.status === "pendente")
-      .reduce((sum, f) => sum + Number(f.valor_total), 0),
+      .filter((f) => f.status_pagamento !== "pago" && f.status_pagamento !== "cancelado")
+      .reduce((sum, f) => sum + Math.max(Number(f.valor_total) - Number(f.valor_pago || 0), 0), 0),
     notaEmitida: faturas
       .filter((f) => f.status === "nota_emitida")
       .reduce((sum, f) => sum + Number(f.valor_total), 0),
-    pago: faturas
-      .filter((f) => f.status === "pago")
-      .reduce((sum, f) => sum + Number(f.valor_total), 0),
+    pago: faturas.reduce((sum, f) => sum + Number(f.valor_pago || 0), 0),
     enviado: faturas
-      .filter((f) => f.status === "enviado")
+      .filter((f) => f.status === "enviada")
       .reduce((sum, f) => sum + Number(f.valor_total), 0),
     totalClientes: new Set(faturas.map((f) => f.cliente_id)).size,
   };
@@ -290,9 +479,10 @@ export function useFaturas(
     summary,
     isLoading,
     error,
-    createFatura,
     updateFatura,
-    deleteFatura,
+    registrarPagamento,
+    cancelarFatura,
+    refaturarFatura,
   };
 }
 

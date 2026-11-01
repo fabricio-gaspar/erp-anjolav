@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface Agendamento {
   id: string;
@@ -27,39 +28,18 @@ export interface Agendamento {
 export type AgendamentoInsert = Omit<Agendamento, "id" | "created_at" | "updated_at" | "cliente" | "motorista">;
 export type AgendamentoUpdate = Partial<AgendamentoInsert>;
 
-export function useAgendamentos(filtroData?: { inicio: string; fim: string }) {
+export function useAgendamentos() {
   const queryClient = useQueryClient();
-
-  const { data: agendamentos = [], isLoading, error } = useQuery({
-    queryKey: ["agendamentos", filtroData],
-    queryFn: async () => {
-      let query = supabase
-        .from("agendamentos")
-        .select(`
-          *,
-          cliente:clientes(razao_social),
-          motorista:motoristas(nome)
-        `)
-        .order("data")
-        .order("horario");
-
-      if (filtroData) {
-        query = query
-          .gte("data", filtroData.inicio)
-          .lte("data", filtroData.fim);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Agendamento[];
-    },
-  });
+  const { activeTenant, session } = useAuth();
 
   const createAgendamento = useMutation({
     mutationFn: async (agendamento: AgendamentoInsert) => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para criar o agendamento");
+      }
       const { data, error } = await supabase
         .from("agendamentos")
-        .insert(agendamento)
+        .insert({ ...agendamento, tenant_id: activeTenant.id })
         .select(`
           *,
           cliente:clientes(razao_social),
@@ -80,10 +60,14 @@ export function useAgendamentos(filtroData?: { inicio: string; fim: string }) {
 
   const updateAgendamento = useMutation({
     mutationFn: async ({ id, ...updates }: AgendamentoUpdate & { id: string }) => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para atualizar o agendamento");
+      }
       const { data, error } = await supabase
         .from("agendamentos")
         .update(updates)
         .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant.id)
         .select()
         .single();
       if (error) throw error;
@@ -98,35 +82,8 @@ export function useAgendamentos(filtroData?: { inicio: string; fim: string }) {
     },
   });
 
-  const deleteAgendamento = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("agendamentos")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["agendamentos"] });
-      toast.success("Agendamento excluído!");
-    },
-    onError: (error) => {
-      toast.error("Erro ao excluir agendamento: " + error.message);
-    },
-  });
-
-  // Agendamentos por tipo
-  const retiradas = agendamentos.filter((a) => a.tipo === "retirada");
-  const entregas = agendamentos.filter((a) => a.tipo === "entrega");
-
   return {
-    agendamentos,
-    retiradas,
-    entregas,
-    isLoading,
-    error,
     createAgendamento,
     updateAgendamento,
-    deleteAgendamento,
   };
 }

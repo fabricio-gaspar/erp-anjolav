@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,14 +17,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FileText, Download, ChevronRight, Loader2, AlertTriangle, Map, List, Info } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useFaturas, useValidateLancamentosForFatura } from "@/hooks/useFaturas";
-import { useLinkLancamentosToFatura } from "@/hooks/useLancamentos";
+import { useCreateFaturaComLancamentos, useValidateLancamentosForFatura } from "@/hooks/useFaturas";
 import { gerarSnapshotItens, formatCurrency } from "@/lib/faturamentoUtils";
 import { escapeHtml, openPrintDocument } from "@/lib/safePrint";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { DadosFaturamento } from "./FaturamentoModal";
 import { ConfigBadge } from "./ConfigBadge";
+import { createIdempotencyKey } from "@/lib/idempotency";
 
 interface EtapaRelatorioProps {
   dados: DadosFaturamento;
@@ -51,9 +50,9 @@ export function EtapaRelatorio({
   );
   const observacaoConfigurada = !!dados.configPagamento?.observacao_faturamento;
 
-  const { createFatura } = useFaturas();
-  const linkLancamentos = useLinkLancamentosToFatura();
+  const createFatura = useCreateFaturaComLancamentos();
   const { mutateAsync: validateLancamentos } = useValidateLancamentosForFatura();
+  const invoiceCommandKey = useRef<string | null>(null);
 
   // Validar ROLs duplicados ao montar
   useEffect(() => {
@@ -141,7 +140,7 @@ export function EtapaRelatorio({
 
   const handleNext = async () => {
     // Validar novamente antes de prosseguir
-    if (dados.lancamentoIds && dados.lancamentoIds.length > 0) {
+    if (!invoiceCommandKey.current && dados.lancamentoIds && dados.lancamentoIds.length > 0) {
       const validation = await validateLancamentos(dados.lancamentoIds);
       if (!validation.valid) {
         setValidationError(validation.message);
@@ -150,34 +149,25 @@ export function EtapaRelatorio({
     }
 
     setIsGenerating(true);
-    let createdFaturaId: string | null = null;
     try {
       // Gerar snapshot dos itens
       const itensSnapshot = gerarSnapshotItens(dados);
 
-      // Create fatura in database com dados da Etapa 1
+      invoiceCommandKey.current ??= createIdempotencyKey("invoice");
+
+      // A fatura e seus vínculos são confirmados na mesma transação no banco.
       const result = await createFatura.mutateAsync({
         cliente_id: dados.clienteId,
         periodo_inicio: dados.periodoInicio,
         periodo_fim: dados.periodoFim,
         valor_total: dados.valorTotal,
-        status: "pendente",
-        // Campos da Etapa 1
-        relatorio_gerado: true,
-        relatorio_data: new Date().toISOString(),
         tipo_relatorio: tipoRelatorio,
         itens_snapshot: itensSnapshot,
         observacao_fatura: observacaoFatura || null,
+        lancamento_ids: dados.lancamentoIds || [],
+        idempotency_key: invoiceCommandKey.current,
       });
-      createdFaturaId = result.id;
-
-      // Link lancamentos to fatura if we have lancamentoIds
-      if (dados.lancamentoIds && dados.lancamentoIds.length > 0) {
-        await linkLancamentos.mutateAsync({
-          lancamentoIds: dados.lancamentoIds,
-          faturaId: result.id,
-        });
-      }
+      invoiceCommandKey.current = null;
 
       toast.success("Fatura criada e lançamentos vinculados com sucesso!");
 
@@ -190,18 +180,7 @@ export function EtapaRelatorio({
       }, 100);
     } catch (error) {
       console.error("Erro ao criar fatura:", error);
-      if (createdFaturaId) {
-        const { error: cleanupError } = await supabase
-          .from("faturas")
-          .delete()
-          .eq("id", createdFaturaId);
-        if (cleanupError) {
-          console.error("Falha ao remover fatura incompleta:", cleanupError);
-          toast.error("A fatura ficou incompleta e precisa de revisão administrativa.");
-          return;
-        }
-      }
-      toast.error("Não foi possível concluir a criação da fatura.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível concluir a criação da fatura.");
     } finally {
       setIsGenerating(false);
     }

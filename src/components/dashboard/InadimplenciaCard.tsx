@@ -4,7 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFaturas } from "@/hooks/useFaturas";
 import { useNavigate } from "react-router-dom";
 import { AlertOctagon, CheckCircle2 } from "lucide-react";
-import { differenceInDays, startOfDay } from "date-fns";
+import { differenceInDays, parseISO, startOfDay } from "date-fns";
 
 export function InadimplenciaCard() {
   const { faturas } = useFaturas();
@@ -12,11 +12,14 @@ export function InadimplenciaCard() {
   const hoje = startOfDay(new Date());
 
   const vencidas = (faturas || [])
-    .filter((f: any) => f.status !== "pago" && f.data_vencimento && startOfDay(new Date(f.data_vencimento)) < hoje)
-    .map((f: any) => ({ ...f, diasAtraso: differenceInDays(hoje, startOfDay(new Date(f.data_vencimento))) }))
+    .filter((f: any) => !["pago", "cancelado"].includes(f.status_pagamento ?? f.status) && f.data_vencimento && startOfDay(parseISO(f.data_vencimento)) < hoje)
+    .map((f: any) => ({ ...f, diasAtraso: differenceInDays(hoje, startOfDay(parseISO(f.data_vencimento))) }))
     .sort((a: any, b: any) => b.diasAtraso - a.diasAtraso);
 
-  const totalDevido = vencidas.reduce((s: number, f: any) => s + Number(f.valor_total || 0), 0);
+  const totalDevido = vencidas.reduce(
+    (s: number, f: any) => s + Math.max(Number(f.valor_total || 0) - Number(f.valor_pago || 0), 0),
+    0,
+  );
 
   if (vencidas.length === 0) {
     return (
@@ -60,7 +63,7 @@ export function InadimplenciaCard() {
                     {f.cliente?.nome_fantasia || f.cliente?.razao_social || "Cliente"}
                   </p>
                   <p className="text-xs text-slate-400">
-                    R$ {Number(f.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    R$ {Math.max(Number(f.valor_total || 0) - Number(f.valor_pago || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 <Badge variant="destructive" className="ml-2 shrink-0 text-[10px]">

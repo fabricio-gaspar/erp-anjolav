@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 // Traduz erros comuns de auth (HIBP, senha curta, etc.) para mensagens amigáveis
 const traduzirErroAuth = (raw: string | undefined | null): string => {
@@ -47,8 +49,20 @@ export interface CreateFuncionarioData {
   cpf?: string;
   email?: string;
   login: string;
-  senha: string;
+  senha?: string;
+  accessProfile?: EmployeeAccessProfile;
+  inviteRedirectTo?: string;
   avatar_url?: string;
+}
+
+export type EmployeeAccessProfile = "pdv_domestico" | "pdv_industrial" | "administracao";
+
+export interface CreateFuncionarioResult {
+  employee: Funcionario;
+  userId: string | null;
+  accessLink: string | null;
+  accessProfile: EmployeeAccessProfile | null;
+  tenantId: string;
 }
 
 export interface UpdateFuncionarioData {
@@ -67,15 +81,46 @@ export interface UpdateFuncionarioData {
   dias_trabalhados?: string[] | null;
 }
 
-// Get all employees
-export const useFuncionarios = () => {
+const invalidateEmployeeQueries = (queryClient: ReturnType<typeof useQueryClient>) => Promise.all([
+  queryClient.invalidateQueries({ queryKey: ["funcionarios"] }),
+  queryClient.invalidateQueries({ queryKey: ["employee-directory"] }),
+  queryClient.invalidateQueries({ queryKey: ["employee-directory-summary"] }),
+  queryClient.invalidateQueries({ queryKey: ["motoristas"] }),
+  queryClient.invalidateQueries({ queryKey: ["driver-directory"] }),
+  queryClient.invalidateQueries({ queryKey: ["driver-directory-summary"] }),
+]);
+
+interface UseFuncionariosOptions {
+  enabled?: boolean;
+  includeInactive?: boolean;
+}
+
+// Operational employee selector; the administrative directory has its own paginated hook.
+export const useFuncionarios = (options: UseFuncionariosOptions = {}) => {
+  const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
+
   return useQuery({
-    queryKey: ["funcionarios"],
+    queryKey: [
+      "funcionarios",
+      session?.user.id,
+      activeTenant?.id,
+      activeArea,
+      options.includeInactive === true ? "all" : "active",
+    ],
+    enabled: options.enabled !== false && Boolean(session?.user.id && activeTenant?.id),
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para listar funcionários");
+      }
+      let query = supabase
         .from("funcionarios")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .order("nome", { ascending: true });
+      if (options.includeInactive !== true) query = query.eq("ativo", true);
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Funcionario[];
@@ -85,21 +130,25 @@ export const useFuncionarios = () => {
 
 // Get single employee
 export const useFuncionario = (id: string | undefined) => {
+  const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
+
   return useQuery({
-    queryKey: ["funcionario", id],
+    queryKey: ["funcionario", session?.user.id, activeTenant?.id, activeArea, id],
     queryFn: async () => {
-      if (!id) return null;
+      if (!id || !session?.user.id || !activeTenant?.id) return null;
       
       const { data, error } = await supabase
         .from("funcionarios")
         .select("*")
         .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant.id)
         .single();
 
       if (error) throw error;
       return data as Funcionario;
     },
-    enabled: !!id,
+    enabled: Boolean(id && session?.user.id && activeTenant?.id),
   });
 };
 
@@ -113,7 +162,9 @@ export const useCreateFuncionario = () => {
         body: {
           action: "create",
           email: data.email || null,
-          password: data.senha,
+          password: data.senha || null,
+          accessProfile: data.accessProfile,
+          inviteRedirectTo: data.inviteRedirectTo,
           nome: data.nome,
           cargo: data.cargo,
           departamento: data.departamento || null,
@@ -130,12 +181,17 @@ export const useCreateFuncionario = () => {
       if (result?.error) throw new Error(traduzirErroAuth(result.error));
       if (!result?.employee) throw new Error("O cadastro não retornou o funcionário criado");
 
-      return result.employee as Funcionario;
+      return {
+        employee: result.employee as Funcionario,
+        userId: typeof result.userId === "string" ? result.userId : null,
+        accessLink: typeof result.accessLink === "string" ? result.accessLink : null,
+        accessProfile: result.accessProfile ?? null,
+        tenantId: typeof result.tenantId === "string" ? result.tenantId : "",
+      } satisfies CreateFuncionarioResult;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
-      queryClient.invalidateQueries({ queryKey: ["motoristas"] });
-      toast.success("Funcionário cadastrado com sucesso!");
+      void invalidateEmployeeQueries(queryClient);
+      toast.success("Usuário vinculado e link de ativação gerado.");
     },
     onError: (error: Error) => {
       toast.error(error.message || "Erro ao cadastrar funcionário");
@@ -159,7 +215,7 @@ export const useUpdateFuncionario = () => {
       return result.employee as Funcionario;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
+      void invalidateEmployeeQueries(queryClient);
       toast.success("Funcionário atualizado com sucesso!");
     },
     onError: (error: Error) => {
@@ -169,20 +225,20 @@ export const useUpdateFuncionario = () => {
 };
 
 // Archive employee while preserving payroll and audit history
-export const useDeleteFuncionario = () => {
+export const useArchiveFuncionario = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (id: string) => {
       const { data: result, error: fnError } = await supabase.functions.invoke("manage-employee", {
-        body: { action: "delete", employeeId: id },
+        body: { action: "archive", employeeId: id },
       });
       if (fnError) throw new Error(traduzirErroAuth(fnError.message) || "Erro ao arquivar funcionário");
       if (result?.error) throw new Error(traduzirErroAuth(result.error));
       if (!result?.success || !result?.archived) throw new Error("O arquivamento não foi confirmado");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
+      void invalidateEmployeeQueries(queryClient);
       toast.success("Funcionário arquivado e acesso removido com sucesso!");
     },
     onError: (error: Error) => {
@@ -190,6 +246,9 @@ export const useDeleteFuncionario = () => {
     },
   });
 };
+
+/** @deprecated Use useArchiveFuncionario; retained for local compatibility. */
+export const useDeleteFuncionario = useArchiveFuncionario;
 
 // Change employee password
 export const useChangePassword = () => {
@@ -256,7 +315,7 @@ export const useToggleFuncionarioStatus = () => {
       return result.employee as Funcionario;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["funcionarios"] });
+      void invalidateEmployeeQueries(queryClient);
       toast.success(data.ativo ? "Funcionário ativado!" : "Funcionário desativado!");
     },
     onError: (error: Error) => {

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface CategoriaFinanceira {
   id: string;
@@ -15,25 +16,57 @@ export interface CategoriaFinanceira {
 
 export type CategoriaFinanceiraInsert = Omit<CategoriaFinanceira, "id" | "created_at" | "updated_at">;
 
-export function useCategoriasFinanceiras(tipo?: "receita" | "despesa") {
+interface UseCategoriasFinanceirasOptions {
+  enabled?: boolean;
+}
+
+export function useCategoriasFinanceiras(
+  tipo?: "receita" | "despesa",
+  options: UseCategoriasFinanceirasOptions = {},
+) {
   const qc = useQueryClient();
+  const { activeTenant, session } = useAuth();
+
+  const requireWorkspace = () => {
+    if (!session?.user.id || !activeTenant?.id) {
+      throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para alterar categorias");
+    }
+  };
 
   const { data: categorias = [], isLoading } = useQuery({
-    queryKey: ["categorias_financeiras", tipo ?? "all"],
+    queryKey: ["categorias_financeiras", session?.user.id, activeTenant?.id, tipo ?? "all"],
     queryFn: async () => {
-      let q = (supabase as any).from("categorias_financeiras").select("*").order("ordem").order("nome");
+      requireWorkspace();
+      let q = supabase
+        .from("categorias_financeiras")
+        .select("*")
+        .filter("tenant_id", "eq", activeTenant!.id)
+        .order("ordem")
+        .order("nome")
+        .order("id");
       if (tipo) q = q.eq("tipo", tipo);
       const { data, error } = await q;
       if (error) throw error;
       return (data || []) as CategoriaFinanceira[];
     },
+    enabled: options.enabled !== false && Boolean(session?.user.id && activeTenant?.id),
   });
 
   const createCategoria = useMutation({
     mutationFn: async (input: Partial<CategoriaFinanceiraInsert>) => {
-      const { data, error } = await (supabase as any)
+      requireWorkspace();
+      if (!input.nome?.trim() || !input.tipo) throw new Error("Nome e tipo são obrigatórios");
+      const { data, error } = await supabase
         .from("categorias_financeiras")
-        .insert({ ativo: true, ordem: 100, cor: "slate", ...input })
+        .insert({
+          ativo: true,
+          ordem: 100,
+          cor: "slate",
+          ...input,
+          nome: input.nome.trim(),
+          tipo: input.tipo,
+          tenant_id: activeTenant!.id,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -43,32 +76,43 @@ export function useCategoriasFinanceiras(tipo?: "receita" | "despesa") {
       qc.invalidateQueries({ queryKey: ["categorias_financeiras"] });
       toast.success("Categoria criada!");
     },
-    onError: (e: any) => toast.error(`Erro: ${e.message}`),
+    onError: (error: Error) => toast.error(`Erro: ${error.message}`),
   });
 
   const updateCategoria = useMutation({
     mutationFn: async ({ id, ...rest }: Partial<CategoriaFinanceira> & { id: string }) => {
-      const { error } = await (supabase as any).from("categorias_financeiras").update(rest).eq("id", id);
+      requireWorkspace();
+      const updates = { ...rest, ...(rest.nome ? { nome: rest.nome.trim() } : {}) };
+      const { error } = await supabase
+        .from("categorias_financeiras")
+        .update(updates)
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant!.id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["categorias_financeiras"] });
       toast.success("Categoria atualizada!");
     },
-    onError: (e: any) => toast.error(`Erro: ${e.message}`),
+    onError: (error: Error) => toast.error(`Erro: ${error.message}`),
   });
 
-  const deleteCategoria = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from("categorias_financeiras").delete().eq("id", id);
+  const setCategoriaAtiva = useMutation({
+    mutationFn: async ({ id, ativo }: { id: string; ativo: boolean }) => {
+      requireWorkspace();
+      const { error } = await supabase
+        .from("categorias_financeiras")
+        .update({ ativo })
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant!.id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["categorias_financeiras"] });
-      toast.success("Categoria excluída!");
+      toast.success("Situação da categoria atualizada sem apagar o histórico.");
     },
-    onError: (e: any) => toast.error(`Erro: ${e.message}`),
+    onError: (error: Error) => toast.error(`Erro: ${error.message}`),
   });
 
-  return { categorias, isLoading, createCategoria, updateCategoria, deleteCategoria };
+  return { categorias, isLoading, createCategoria, updateCategoria, setCategoriaAtiva };
 }

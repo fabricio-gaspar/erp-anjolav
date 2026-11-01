@@ -5,6 +5,7 @@ import {
   AgendamentoPendente,
   useConfirmarRetiradaAgendamento,
 } from "@/hooks/useFluxoProducao";
+import { format } from "date-fns";
 
 interface Props {
   agendamento: AgendamentoPendente;
@@ -13,7 +14,7 @@ interface Props {
 export function AgendamentoCard({ agendamento }: Props) {
   const confirmar = useConfirmarRetiradaAgendamento();
 
-  const hoje = new Date().toISOString().split("T")[0];
+  const hoje = format(new Date(), "yyyy-MM-dd");
   const atrasado = agendamento.data < hoje;
 
   return (

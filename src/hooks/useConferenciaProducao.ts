@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { normalizeClientPriceMode, type ClientPriceMode } from "@/lib/clientPricing";
 
 export interface DadosProducao {
   quantidadePecas: number;
@@ -36,7 +37,7 @@ export interface OSConferencia {
     telefone: string | null;
     cpf_cnpj: string | null;
     classificacao: string;
-    tabela_preco_tipo: "padrao" | "personalizada";
+    tabela_preco_tipo: ClientPriceMode;
   };
   dataRetirada: string;
   dataPrevisaoEntrega: string | null;
@@ -227,7 +228,7 @@ export function useConferenciaProducao(periodo?: { inicio: Date; fim: Date }, st
               telefone: cliente?.telefone || null,
               cpf_cnpj: cliente?.cpf_cnpj || null,
               classificacao: cliente?.classificacao || "industrial",
-              tabela_preco_tipo: cliente?.tabela_preco_tipo === "personalizada" ? "personalizada" : "padrao",
+              tabela_preco_tipo: normalizeClientPriceMode(cliente?.tabela_preco_tipo),
             },
             dataRetirada: os.data_retirada,
             dataPrevisaoEntrega: os.data_previsao_entrega,

@@ -8,17 +8,17 @@ export interface TemaConfig {
 export const TEMAS_DISPONIVEIS: TemaConfig[] = [
   {
     id: "padrao",
-    nome: "Padrão",
-    preview: ["#000000", "#1a2332", "#FFFFFF", "#64748B", "#F5F5F5"],
+    nome: "Padrão AnjoLav",
+    preview: ["#087FB5", "#202C45", "#FFFFFF", "#64748B", "#F5F8FB"],
     variaveis: {
-      "--primary": "0 0% 0%",
-      "--primary-foreground": "0 0% 100%",
-      "--ring": "0 0% 0%",
-      "--sidebar-background": "0 0% 100%",
-      "--sidebar-hover": "210 20% 96%",
-      "--sidebar-muted": "215 15% 60%",
-      "--sidebar-primary": "0 0% 0%",
-      "--sidebar-ring": "0 0% 0%",
+      "--primary": "200 98% 39%",
+      "--primary-foreground": "204 100% 97%",
+      "--ring": "200 98% 39%",
+      "--sidebar-background": "220 30% 18%",
+      "--sidebar-hover": "220 23% 26%",
+      "--sidebar-muted": "215 16% 70%",
+      "--sidebar-primary": "200 98% 45%",
+      "--sidebar-ring": "200 98% 45%",
     },
   },
   {

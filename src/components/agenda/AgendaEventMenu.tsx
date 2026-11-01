@@ -1,4 +1,4 @@
-import { MoreVertical, CheckCircle, XCircle, Calendar, User, MessageSquare, Trash2 } from "lucide-react";
+import { MoreVertical, CheckCircle, XCircle, Calendar, User, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,7 +16,6 @@ interface AgendaEventMenuProps {
   onReschedule: (agendamento: Agendamento) => void;
   onAssignDriver: (agendamento: Agendamento) => void;
   onAddObservation: (agendamento: Agendamento) => void;
-  onDelete: (agendamento: Agendamento) => void;
 }
 
 export function AgendaEventMenu({
@@ -26,7 +25,6 @@ export function AgendaEventMenu({
   onReschedule,
   onAssignDriver,
   onAddObservation,
-  onDelete,
 }: AgendaEventMenuProps) {
   const isCompleted = agendamento.status === "realizado";
   const isCanceled = agendamento.status === "cancelado";
@@ -37,7 +35,8 @@ export function AgendaEventMenu({
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label={`Ações do agendamento de ${agendamento.cliente?.razao_social || "cliente"}`}
+          className="h-8 w-8 opacity-100 transition-opacity sm:h-7 sm:w-7 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
         >
           <MoreVertical className="h-3.5 w-3.5" />
         </Button>
@@ -61,23 +60,18 @@ export function AgendaEventMenu({
           <MessageSquare className="h-4 w-4 mr-2" />
           Adicionar observação
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         {!isCanceled && (
-          <DropdownMenuItem
-            onClick={() => onCancel(agendamento)}
-            className="text-amber-600 focus:text-amber-600"
-          >
-            <XCircle className="h-4 w-4 mr-2" />
-            Cancelar atendimento
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onCancel(agendamento)}
+              className="text-amber-600 focus:text-amber-600"
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Cancelar atendimento
+            </DropdownMenuItem>
+          </>
         )}
-        <DropdownMenuItem
-          onClick={() => onDelete(agendamento)}
-          className="text-destructive focus:text-destructive"
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Excluir permanentemente
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

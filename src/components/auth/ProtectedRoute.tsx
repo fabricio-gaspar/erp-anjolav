@@ -22,7 +22,7 @@ export function ProtectedRoute({
   adminOnly = false,
   platformAdminOnly = false,
 }: ProtectedRouteProps) {
-  const { session, funcionario, isPlatformAdmin, loading, signOut } = useAuth();
+  const { session, funcionario, isPlatformAdmin, loading, mfaChallengeRequired, signOut } = useAuth();
   const location = useLocation();
   const {
     data: hasAreaAccess,
@@ -51,6 +51,10 @@ export function ProtectedRoute({
   if (!session) {
     // Redirect to login, preserving the intended destination
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (mfaChallengeRequired && location.pathname !== "/mfa") {
+    return <Navigate to="/mfa" state={{ from: location }} replace />;
   }
 
   const accessCheckFailed =

@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   Package, 
@@ -81,7 +81,7 @@ export function DetalhesOSModal({ open, onOpenChange, ordem }: DetalhesOSModalPr
                 <div>
                   <p className="text-xs text-muted-foreground">Retirada</p>
                   <p className="text-sm font-medium">
-                    {format(new Date(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
+                    {format(parseISO(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
                   </p>
                 </div>
               </div>
@@ -91,7 +91,7 @@ export function DetalhesOSModal({ open, onOpenChange, ordem }: DetalhesOSModalPr
                   <div>
                     <p className="text-xs text-muted-foreground">Previsão Entrega</p>
                     <p className="text-sm font-medium">
-                      {format(new Date(ordem.data_previsao_entrega), "dd/MM/yyyy", { locale: ptBR })}
+                      {format(parseISO(ordem.data_previsao_entrega), "dd/MM/yyyy", { locale: ptBR })}
                     </p>
                   </div>
                 </div>

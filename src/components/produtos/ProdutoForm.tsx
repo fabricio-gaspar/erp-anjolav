@@ -121,7 +121,7 @@ export function ProdutoForm({
               <SelectContent>
                 <SelectItem value="ambos">Ambos (ID1+ID2)</SelectItem>
                 <SelectItem value="ID1">Industrial (ID1)</SelectItem>
-                <SelectItem value="ID2">Residencial (ID2)</SelectItem>
+                <SelectItem value="ID2">Doméstico (ID2)</SelectItem>
               </SelectContent>
             </Select>
           </div>

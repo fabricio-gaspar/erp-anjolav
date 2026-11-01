@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { getAllowedProductUnits } from "@/lib/workspaceScope";
 
 export interface Produto {
@@ -30,17 +31,32 @@ export interface Produto {
 export type ProdutoInsert = Partial<Omit<Produto, "id" | "created_at" | "updated_at">> & { nome: string };
 export type ProdutoUpdate = Partial<ProdutoInsert>;
 
-export function useProdutos() {
+interface UseProdutosOptions {
+  enabled?: boolean;
+}
+
+export function useProdutos(options: UseProdutosOptions = {}) {
   const queryClient = useQueryClient();
+  const { activeTenant, session } = useAuth();
   const { activeArea } = useWorkspace();
   const allowedBusinessUnits = getAllowedProductUnits(activeArea);
 
+  const invalidateProductQueries = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["produtos"] }),
+    queryClient.invalidateQueries({ queryKey: ["product-directory"] }),
+  ]);
+
   const { data: produtos = [], isLoading, isError, error, refetch } = useQuery({
-    queryKey: ["produtos", activeArea],
+    queryKey: ["produtos", session?.user.id, activeTenant?.id, activeArea],
+    enabled: options.enabled !== false && Boolean(session?.user.id && activeTenant?.id),
     queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para listar produtos");
+      }
       let query = supabase
         .from("produtos")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .order("nome");
       if (allowedBusinessUnits) query = query.in("unidade_negocio", [...allowedBusinessUnits]);
       const { data, error } = await query;
@@ -51,6 +67,9 @@ export function useProdutos() {
 
   const createProduto = useMutation({
     mutationFn: async (produto: ProdutoInsert) => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para criar produtos");
+      }
       if (
         allowedBusinessUnits &&
         produto.unidade_negocio &&
@@ -67,7 +86,7 @@ export function useProdutos() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      void invalidateProductQueries();
       toast.success("Produto criado com sucesso!");
     },
     onError: (error) => {
@@ -77,6 +96,9 @@ export function useProdutos() {
 
   const updateProduto = useMutation({
     mutationFn: async ({ id, ...updates }: ProdutoUpdate & { id: string }) => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para atualizar produtos");
+      }
       if (
         allowedBusinessUnits &&
         updates.unidade_negocio &&
@@ -87,14 +109,15 @@ export function useProdutos() {
       let query = supabase
         .from("produtos")
         .update(updates)
-        .eq("id", id);
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant.id);
       if (allowedBusinessUnits) query = query.in("unidade_negocio", [...allowedBusinessUnits]);
       const { data, error } = await query.select().single();
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      void invalidateProductQueries();
       toast.success("Produto atualizado com sucesso!");
     },
     onError: (error) => {
@@ -102,19 +125,29 @@ export function useProdutos() {
     },
   });
 
-  const deleteProduto = useMutation({
-    mutationFn: async (id: string) => {
-      let query = supabase.from("produtos").delete().eq("id", id);
+  const setProdutoStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: "ativo" | "inativo" }) => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para alterar produtos");
+      }
+      let query = supabase
+        .from("produtos")
+        .update({ status })
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant.id);
       if (allowedBusinessUnits) query = query.in("unidade_negocio", [...allowedBusinessUnits]);
-      const { error } = await query;
+      const { data, error } = await query.select().single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
-      toast.success("Produto excluído com sucesso!");
+    onSuccess: (_data, variables) => {
+      void invalidateProductQueries();
+      toast.success(variables.status === "inativo"
+        ? "Produto arquivado. O histórico foi preservado."
+        : "Produto reativado com sucesso!");
     },
     onError: (error) => {
-      toast.error("Erro ao excluir produto: " + error.message);
+      toast.error("Erro ao alterar a situação do produto: " + error.message);
     },
   });
 
@@ -126,7 +159,7 @@ export function useProdutos() {
     refetch,
     createProduto,
     updateProduto,
-    deleteProduto,
+    setProdutoStatus,
   };
 }
 
@@ -153,6 +186,7 @@ const EMPTY_PRECOS_ESPECIAIS: PrecoEspecialComProduto[] = [];
 
 export function usePrecosEspeciais(clienteId: string | null) {
   const queryClient = useQueryClient();
+  const { activeTenant, session } = useAuth();
 
   const {
     data: precos = EMPTY_PRECOS_ESPECIAIS,
@@ -161,20 +195,21 @@ export function usePrecosEspeciais(clienteId: string | null) {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["precos_especiais", clienteId],
+    queryKey: ["precos_especiais", session?.user.id, activeTenant?.id, clienteId],
     queryFn: async () => {
-      if (!clienteId) return EMPTY_PRECOS_ESPECIAIS;
+      if (!clienteId || !session?.user.id || !activeTenant?.id) return EMPTY_PRECOS_ESPECIAIS;
       const { data, error } = await supabase
         .from("precos_especiais")
         .select(`
           *,
           produto:produtos!fk_precos_especiais_produto(nome, unidade, preco)
         `)
-        .eq("cliente_id", clienteId);
+        .eq("cliente_id", clienteId)
+        .filter("tenant_id", "eq", activeTenant.id);
       if (error) throw error;
       return (data ?? []) as PrecoEspecialComProduto[];
     },
-    enabled: !!clienteId,
+    enabled: Boolean(clienteId && session?.user.id && activeTenant?.id),
   });
 
   const upsertPrecoEspecial = useMutation({

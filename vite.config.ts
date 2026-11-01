@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
-import path from "path";
+import { fileURLToPath, URL } from "node:url";
 
 const E2E_SUPABASE_URL = "http://127.0.0.1:54321";
 const E2E_PUBLISHABLE_KEY =
@@ -8,19 +8,6 @@ const E2E_PUBLISHABLE_KEY =
 const DEFAULT_SUPABASE_URL = "https://uomhckyqghkcnctbdwvp.supabase.co";
 // Esta chave é publicável e só é usada no browser; o isolamento permanece no RLS.
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_v3SkU_CqfAx5Rhy97GAdPw_j1ey1CQ-";
-
-const isLocalSupabaseUrl = (value: string | undefined) =>
-  !value || /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(?:\/|$)/i.test(value);
-
-const productionSupabaseUrl = isLocalSupabaseUrl(process.env.VITE_SUPABASE_URL?.trim())
-  ? DEFAULT_SUPABASE_URL
-  : process.env.VITE_SUPABASE_URL!.trim();
-
-const productionPublishableKey =
-  !process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY.includes("fixture-signature")
-    ? DEFAULT_SUPABASE_PUBLISHABLE_KEY
-    : process.env.VITE_SUPABASE_PUBLISHABLE_KEY.trim();
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -34,7 +21,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
   build: {
@@ -60,10 +47,10 @@ export default defineConfig(({ mode }) => ({
         }
       : {
           "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(
-            productionSupabaseUrl,
+            process.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL,
           ),
           "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
-            productionPublishableKey,
+            process.env.VITE_SUPABASE_PUBLISHABLE_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY,
           ),
         },
 }));

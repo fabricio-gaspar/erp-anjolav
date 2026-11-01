@@ -1,18 +1,52 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
+import { createIdempotencyKey } from "@/lib/idempotency";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+
+export type RouteStatus = "pendente" | "em_rota" | "concluida" | "cancelada";
+export type StopStatus =
+  | "pendente"
+  | "em_atendimento"
+  | "realizada"
+  | "tentativa_falha"
+  | "reagendada"
+  | "cancelada";
+export type RouteEventType =
+  | "CHEGADA"
+  | "OCORRENCIA"
+  | "TENTATIVA_FALHA"
+  | "REAGENDAMENTO"
+  | "CONCLUIDA"
+  | "ENDERECO_CORRIGIDO";
+
+export interface AddressSnapshot {
+  id?: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  latitude?: number;
+  longitude?: number;
+}
 
 export interface RotaEntrega {
   id: string;
+  tenant_id: string;
   data: string;
   motorista_id: string | null;
   veiculo_id: string | null;
-  status: string;
+  status: RouteStatus;
   km_inicial: number | null;
   km_final: number | null;
   hora_saida: string | null;
   hora_retorno: string | null;
   observacoes: string | null;
+  criado_por: string | null;
   created_at: string;
   updated_at: string;
   motorista?: { id: string; nome: string } | null;
@@ -22,450 +56,343 @@ export interface RotaEntrega {
 
 export interface ParadaRota {
   id: string;
+  tenant_id: string;
   rota_id: string;
   ordem: number;
   tipo: "retirada" | "entrega";
   cliente_id: string | null;
   ordem_servico_id: string | null;
   agendamento_id: string | null;
-  status: string;
+  status: StopStatus;
   hora_chegada: string | null;
   hora_saida: string | null;
   assinatura_url: string | null;
   foto_comprovante_url: string | null;
   observacoes: string | null;
   motivo_nao_entrega: string | null;
+  tentativas: number;
+  versao: number;
+  janela_inicio: string | null;
+  janela_fim: string | null;
+  reagendada_para: string | null;
+  recebedor_nome: string | null;
+  recebedor_documento: string | null;
+  entrega_id: string | null;
+  endereco_snapshot: AddressSnapshot;
+  atualizado_por: string | null;
   created_at: string;
+  updated_at: string;
   cliente?: { id: string; razao_social: string; nome_fantasia: string | null } | null;
   ordem_servico?: { id: string; numero: string } | null;
-  endereco?: {
-    logradouro: string | null;
-    numero: string | null;
-    bairro: string | null;
-    cidade: string | null;
-    latitude: number | null;
-    longitude: number | null;
-  } | null;
+}
+
+export interface RotaOperacao {
+  id: string;
+  rota_id: string | null;
+  parada_id: string | null;
+  tipo: string;
+  payload: Json;
+  resultado: Json;
+  endereco_anterior: Json | null;
+  endereco_novo: Json | null;
+  criado_por: string;
+  created_at: string;
 }
 
 export interface RotaInsert {
   data: string;
   motorista_id?: string | null;
   veiculo_id?: string | null;
-  status?: string;
   km_inicial?: number | null;
   observacoes?: string | null;
+  idempotencyKey?: string;
 }
 
 export interface ParadaInsert {
   rota_id: string;
-  ordem: number;
   tipo: "retirada" | "entrega";
   cliente_id?: string | null;
   ordem_servico_id?: string | null;
   agendamento_id?: string | null;
+  janela_inicio?: string | null;
+  janela_fim?: string | null;
   observacoes?: string | null;
+  idempotencyKey?: string;
 }
 
-// Hook para buscar rotas de uma data específica
+export interface RouteEventInput {
+  paradaId: string;
+  expectedVersion: number;
+  tipo: RouteEventType;
+  motivo?: string | null;
+  reagendadaPara?: string | null;
+  recebedorNome?: string | null;
+  recebedorDocumento?: string | null;
+  fotoComprovanteUrl?: string | null;
+  assinaturaUrl?: string | null;
+  entregaId?: string | null;
+  enderecoCorrigido?: AddressSnapshot | null;
+  idempotencyKey?: string;
+}
+
+const routeSelection = `
+  *,
+  motorista:motoristas(id, nome),
+  veiculo:veiculos(id, placa, modelo)
+`;
+
+const stopSelection = `
+  *,
+  cliente:clientes(id, razao_social, nome_fantasia),
+  ordem_servico:ordens_servico(id, numero)
+`;
+
+async function loadStops(routeId: string, tenantId: string): Promise<ParadaRota[]> {
+  const { data, error } = await supabase
+    .from("paradas_rota")
+    .select(stopSelection)
+    .eq("rota_id", routeId)
+    .filter("tenant_id", "eq", tenantId)
+    .order("ordem", { ascending: true });
+  if (error) throw error;
+  return (data || []) as unknown as ParadaRota[];
+}
+
 export function useRotasDoDia(data: string) {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["rotas_entrega", data],
+    queryKey: ["rotas_entrega", session?.user.id, activeTenant?.id, data],
     queryFn: async () => {
-      const { data: rotas, error } = await supabase
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar as rotas");
+      }
+      const { data: routes, error } = await supabase
         .from("rotas_entrega")
-        .select(`
-          *,
-          motorista:motoristas(id, nome),
-          veiculo:veiculos(id, placa, modelo)
-        `)
+        .select(routeSelection)
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("data", data)
         .order("created_at", { ascending: true });
-
       if (error) throw error;
 
-      // Buscar paradas de cada rota
-      const rotasComParadas = await Promise.all(
-        (rotas || []).map(async (rota) => {
-          const { data: paradas } = await supabase
-            .from("paradas_rota")
-            .select(`
-              *,
-              cliente:clientes(id, razao_social, nome_fantasia),
-              ordem_servico:ordens_servico(id, numero)
-            `)
-            .eq("rota_id", rota.id)
-            .order("ordem", { ascending: true });
-
-          return { ...rota, paradas: paradas || [] };
-        })
-      );
-
-      return rotasComParadas as RotaEntrega[];
+      return Promise.all(
+        (routes || []).map(async (route) => ({
+          ...route,
+          paradas: await loadStops(route.id, activeTenant.id),
+        })),
+      ) as Promise<RotaEntrega[]>;
     },
-    enabled: !!data,
+    enabled: Boolean(data && session?.user.id && activeTenant?.id),
   });
 }
 
-// Hook para buscar rota ativa do motorista
 export function useRotaAtiva(motoristaId: string | null) {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["rota_ativa", motoristaId],
+    queryKey: ["rota_ativa", session?.user.id, activeTenant?.id, motoristaId],
     queryFn: async () => {
-      if (!motoristaId) return null;
-
+      if (!motoristaId || !session?.user.id || !activeTenant?.id) return null;
       const { data, error } = await supabase
         .from("rotas_entrega")
-        .select(`
-          *,
-          motorista:motoristas(id, nome),
-          veiculo:veiculos(id, placa, modelo)
-        `)
+        .select(routeSelection)
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("motorista_id", motoristaId)
         .eq("status", "em_rota")
-        .single();
-
-      if (error && error.code !== "PGRST116") throw error;
-      
-      if (!data) return null;
-
-      // Buscar paradas
-      const { data: paradas } = await supabase
-        .from("paradas_rota")
-        .select(`
-          *,
-          cliente:clientes(id, razao_social, nome_fantasia),
-          ordem_servico:ordens_servico(id, numero)
-        `)
-        .eq("rota_id", data.id)
-        .order("ordem", { ascending: true });
-
-      // Buscar endereços dos clientes
-      const paradasComEnderecos = await Promise.all(
-        (paradas || []).map(async (parada) => {
-          if (!parada.cliente_id) return parada;
-          
-          const { data: endereco } = await supabase
-            .from("enderecos_clientes")
-            .select("logradouro, numero, bairro, cidade, latitude, longitude")
-            .eq("cliente_id", parada.cliente_id)
-            .single();
-
-          return { ...parada, endereco: endereco || null };
-        })
-      );
-
-      return { ...data, paradas: paradasComEnderecos } as RotaEntrega;
-    },
-    enabled: !!motoristaId,
-  });
-}
-
-// Hook para buscar uma rota específica
-export function useRota(rotaId: string | null) {
-  return useQuery({
-    queryKey: ["rota_entrega", rotaId],
-    queryFn: async () => {
-      if (!rotaId) return null;
-
-      const { data: rota, error } = await supabase
-        .from("rotas_entrega")
-        .select(`
-          *,
-          motorista:motoristas(id, nome),
-          veiculo:veiculos(id, placa, modelo)
-        `)
-        .eq("id", rotaId)
-        .single();
-
+        .maybeSingle();
       if (error) throw error;
-
-      // Buscar paradas
-      const { data: paradas } = await supabase
-        .from("paradas_rota")
-        .select(`
-          *,
-          cliente:clientes(id, razao_social, nome_fantasia),
-          ordem_servico:ordens_servico(id, numero)
-        `)
-        .eq("rota_id", rotaId)
-        .order("ordem", { ascending: true });
-
-      // Buscar endereços
-      const paradasComEnderecos = await Promise.all(
-        (paradas || []).map(async (parada) => {
-          if (!parada.cliente_id) return parada;
-          
-          const { data: endereco } = await supabase
-            .from("enderecos_clientes")
-            .select("logradouro, numero, bairro, cidade, latitude, longitude")
-            .eq("cliente_id", parada.cliente_id)
-            .single();
-
-          return { ...parada, endereco: endereco || null };
-        })
-      );
-
-      return { ...rota, paradas: paradasComEnderecos } as RotaEntrega;
+      if (!data) return null;
+      return { ...data, paradas: await loadStops(data.id, activeTenant.id) } as unknown as RotaEntrega;
     },
-    enabled: !!rotaId,
+    enabled: Boolean(motoristaId && session?.user.id && activeTenant?.id),
   });
 }
 
-// Mutations
+export function useRota(rotaId: string | null) {
+  const { activeTenant, session } = useAuth();
+  return useQuery({
+    queryKey: ["rota_entrega", session?.user.id, activeTenant?.id, rotaId],
+    queryFn: async () => {
+      if (!rotaId || !session?.user.id || !activeTenant?.id) return null;
+      const { data, error } = await supabase
+        .from("rotas_entrega")
+        .select(routeSelection)
+        .eq("id", rotaId)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .single();
+      if (error) throw error;
+      return { ...data, paradas: await loadStops(rotaId, activeTenant.id) } as unknown as RotaEntrega;
+    },
+    enabled: Boolean(rotaId && session?.user.id && activeTenant?.id),
+  });
+}
+
+export function useRotaOperacoes(rotaId: string | null) {
+  const { activeTenant, session } = useAuth();
+  return useQuery({
+    queryKey: ["rota_operacoes", session?.user.id, activeTenant?.id, rotaId],
+    queryFn: async () => {
+      if (!rotaId || !session?.user.id || !activeTenant?.id) return [];
+      const { data, error } = await supabase
+        .from("rota_operacoes")
+        .select("id, rota_id, parada_id, tipo, payload, resultado, endereco_anterior, endereco_novo, criado_por, created_at")
+        .eq("rota_id", rotaId)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as RotaOperacao[];
+    },
+    enabled: Boolean(rotaId && session?.user.id && activeTenant?.id),
+  });
+}
+
 export function useRotasEntregaMutations() {
   const queryClient = useQueryClient();
+  const { activeTenant, session } = useAuth();
+  const requireWorkspace = () => {
+    if (!session?.user.id || !activeTenant?.id) {
+      throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para alterar rotas");
+    }
+  };
+  const refreshRoutes = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["rotas_entrega"] }),
+      queryClient.invalidateQueries({ queryKey: ["rota_ativa"] }),
+      queryClient.invalidateQueries({ queryKey: ["rota_entrega"] }),
+      queryClient.invalidateQueries({ queryKey: ["rota_operacoes"] }),
+      queryClient.invalidateQueries({ queryKey: ["agendamentos"] }),
+      queryClient.invalidateQueries({ queryKey: ["ordens_servico"] }),
+    ]);
+  };
 
   const createRota = useMutation({
-    mutationFn: async (rota: RotaInsert) => {
-      const { data, error } = await supabase
-        .from("rotas_entrega")
-        .insert(rota)
-        .select()
-        .single();
+    mutationFn: async (route: RotaInsert) => {
+      requireWorkspace();
+      const { data, error } = await supabase.rpc("criar_rota_planejada", {
+        _data: route.data,
+        _motorista_id: route.motorista_id ?? null,
+        _veiculo_id: route.veiculo_id ?? null,
+        _km_inicial: route.km_inicial ?? null,
+        _observacoes: route.observacoes ?? null,
+        _idempotency_key: route.idempotencyKey ?? createIdempotencyKey("route-create"),
+      });
       if (error) throw error;
-      return data;
+      return data as { routeId: string; status: RouteStatus; idempotent: boolean };
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["rotas_entrega"] });
-      toast.success("Rota criada com sucesso!");
-      return data;
-    },
-    onError: (error) => {
-      toast.error("Erro ao criar rota: " + error.message);
-    },
-  });
-
-  const updateRota = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<RotaEntrega> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("rotas_entrega")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rotas_entrega"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_ativa"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_entrega"] });
-    },
-    onError: (error) => {
-      toast.error("Erro ao atualizar rota: " + error.message);
-    },
-  });
-
-  const deleteRota = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("rotas_entrega")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rotas_entrega"] });
-      toast.success("Rota excluída com sucesso!");
-    },
-    onError: (error) => {
-      toast.error("Erro ao excluir rota: " + error.message);
-    },
+    onSuccess: refreshRoutes,
+    onError: (error: Error) => toast.error(`Erro ao criar rota: ${error.message}`),
   });
 
   const addParada = useMutation({
-    mutationFn: async (parada: ParadaInsert) => {
-      const { data, error } = await supabase
-        .from("paradas_rota")
-        .insert(parada)
-        .select()
-        .single();
+    mutationFn: async (stop: ParadaInsert) => {
+      requireWorkspace();
+      const { data, error } = await supabase.rpc("adicionar_parada_planejada", {
+        _rota_id: stop.rota_id,
+        _tipo: stop.tipo,
+        _cliente_id: stop.cliente_id ?? null,
+        _ordem_servico_id: stop.ordem_servico_id ?? null,
+        _agendamento_id: stop.agendamento_id ?? null,
+        _janela_inicio: stop.janela_inicio ?? null,
+        _janela_fim: stop.janela_fim ?? null,
+        _observacoes: stop.observacoes ?? null,
+        _idempotency_key: stop.idempotencyKey ?? createIdempotencyKey("route-stop"),
+      });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rotas_entrega"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_entrega"] });
-    },
-    onError: (error) => {
-      toast.error("Erro ao adicionar parada: " + error.message);
-    },
+    onSuccess: refreshRoutes,
+    onError: (error: Error) => toast.error(`Erro ao adicionar parada: ${error.message}`),
   });
 
-  const updateParada = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<ParadaRota> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("paradas_rota")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+  const reordenarParadas = useMutation({
+    mutationFn: async ({ rotaId, paradaIds }: { rotaId: string; paradaIds: string[] }) => {
+      requireWorkspace();
+      const { data, error } = await supabase.rpc("reordenar_paradas_rota", {
+        _rota_id: rotaId,
+        _parada_ids: paradaIds,
+        _idempotency_key: createIdempotencyKey("route-order"),
+      });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rotas_entrega"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_entrega"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_ativa"] });
-    },
-    onError: (error) => {
-      toast.error("Erro ao atualizar parada: " + error.message);
-    },
+    onSuccess: refreshRoutes,
+    onError: (error: Error) => toast.error(`Erro ao ordenar paradas: ${error.message}`),
   });
 
-  const removeParada = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("paradas_rota")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rotas_entrega"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_entrega"] });
-    },
-    onError: (error) => {
-      toast.error("Erro ao remover parada: " + error.message);
-    },
-  });
-
-  // Ações de rota
   const iniciarRota = useMutation({
     mutationFn: async ({ rotaId, kmInicial }: { rotaId: string; kmInicial: number }) => {
-      const { data, error } = await supabase
-        .from("rotas_entrega")
-        .update({
-          status: "em_rota",
-          km_inicial: kmInicial,
-          hora_saida: new Date().toISOString(),
-        })
-        .eq("id", rotaId)
-        .select()
-        .single();
+      requireWorkspace();
+      const { data, error } = await supabase.rpc("iniciar_rota_planejada", {
+        _rota_id: rotaId,
+        _km_inicial: kmInicial,
+        _idempotency_key: createIdempotencyKey("route-start"),
+      });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rotas_entrega"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_ativa"] });
-      toast.success("Rota iniciada! Boa viagem!");
+    onSuccess: async () => {
+      await refreshRoutes();
+      toast.success("Rota iniciada com registro auditável.");
     },
-    onError: (error) => {
-      toast.error("Erro ao iniciar rota: " + error.message);
-    },
+    onError: (error: Error) => toast.error(`Erro ao iniciar rota: ${error.message}`),
   });
 
   const finalizarRota = useMutation({
     mutationFn: async ({ rotaId, kmFinal }: { rotaId: string; kmFinal: number }) => {
-      const { data, error } = await supabase
-        .from("rotas_entrega")
-        .update({
-          status: "concluida",
-          km_final: kmFinal,
-          hora_retorno: new Date().toISOString(),
-        })
-        .eq("id", rotaId)
-        .select()
-        .single();
+      requireWorkspace();
+      const { data, error } = await supabase.rpc("finalizar_rota_planejada", {
+        _rota_id: rotaId,
+        _km_final: kmFinal,
+        _idempotency_key: createIdempotencyKey("route-finish"),
+      });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rotas_entrega"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_ativa"] });
-      toast.success("Rota finalizada com sucesso!");
+    onSuccess: async () => {
+      await refreshRoutes();
+      toast.success("Rota finalizada com sucesso.");
     },
-    onError: (error) => {
-      toast.error("Erro ao finalizar rota: " + error.message);
-    },
+    onError: (error: Error) => toast.error(`Erro ao finalizar rota: ${error.message}`),
   });
 
-  const registrarChegada = useMutation({
-    mutationFn: async (paradaId: string) => {
-      const { data, error } = await supabase
-        .from("paradas_rota")
-        .update({
-          hora_chegada: new Date().toISOString(),
-        })
-        .eq("id", paradaId)
-        .select()
-        .single();
+  const registrarEvento = useMutation({
+    mutationFn: async (event: RouteEventInput) => {
+      requireWorkspace();
+      const { data, error } = await supabase.rpc("registrar_evento_parada_rota", {
+        _parada_id: event.paradaId,
+        _expected_version: event.expectedVersion,
+        _tipo: event.tipo,
+        _motivo: event.motivo ?? null,
+        _reagendada_para: event.reagendadaPara ?? null,
+        _recebedor_nome: event.recebedorNome ?? null,
+        _recebedor_documento: event.recebedorDocumento ?? null,
+        _foto_comprovante_url: event.fotoComprovanteUrl ?? null,
+        _assinatura_url: event.assinaturaUrl ?? null,
+        _entrega_id: event.entregaId ?? null,
+        _endereco_corrigido: (event.enderecoCorrigido as Json | null | undefined) ?? null,
+        _idempotency_key: event.idempotencyKey ?? createIdempotencyKey("route-event"),
+      });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rota_ativa"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_entrega"] });
-    },
-  });
-
-  const registrarEntrega = useMutation({
-    mutationFn: async ({ 
-      paradaId, 
-      status, 
-      motivoNaoEntrega,
-      fotoUrl,
-      assinaturaUrl,
-    }: { 
-      paradaId: string; 
-      status: "realizada" | "nao_entregue";
-      motivoNaoEntrega?: string;
-      fotoUrl?: string;
-      assinaturaUrl?: string;
-    }) => {
-      const { data, error } = await supabase
-        .from("paradas_rota")
-        .update({
-          status,
-          hora_saida: new Date().toISOString(),
-          motivo_nao_entrega: motivoNaoEntrega || null,
-          foto_comprovante_url: fotoUrl || null,
-          assinatura_url: assinaturaUrl || null,
-        })
-        .eq("id", paradaId)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["rota_ativa"] });
-      queryClient.invalidateQueries({ queryKey: ["rota_entrega"] });
-      if (variables.status === "realizada") {
-        toast.success("Entrega registrada!");
-      } else {
-        toast.warning("Não entregue registrado");
-      }
-    },
-    onError: (error) => {
-      toast.error("Erro ao registrar: " + error.message);
-    },
+    onSuccess: refreshRoutes,
+    onError: (error: Error) => toast.error(`Evento não registrado: ${error.message}`),
   });
 
   return {
     createRota,
-    updateRota,
-    deleteRota,
     addParada,
-    updateParada,
-    removeParada,
+    reordenarParadas,
     iniciarRota,
     finalizarRota,
-    registrarChegada,
-    registrarEntrega,
+    registrarEvento,
   };
 }
 
-// Hook combinado para facilitar uso
 export function useRotasEntrega() {
-  const mutations = useRotasEntregaMutations();
-  
   return {
-    ...mutations,
+    ...useRotasEntregaMutations(),
     useRotasDoDia,
     useRotaAtiva,
     useRota,
+    useRotaOperacoes,
   };
 }

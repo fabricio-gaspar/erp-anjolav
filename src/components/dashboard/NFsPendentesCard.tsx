@@ -10,7 +10,7 @@ export function NFsPendentesCard() {
   const navigate = useNavigate();
 
   const pendentes = (faturas || []).filter(
-    (f: any) => !f.numero_nf && (f.status === "pendente" || f.status === "enviado")
+    (f: any) => !f.numero_nf && !["pago", "cancelado"].includes(f.status_pagamento ?? f.status)
   );
 
   const total = pendentes.reduce((s: number, f: any) => s + Number(f.valor_total || 0), 0);

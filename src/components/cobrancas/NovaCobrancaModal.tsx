@@ -42,28 +42,32 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    await createCharge.mutateAsync({
-      customer_name: formData.customer_name,
-      customer_email: formData.customer_email || undefined,
-      customer_cpf_cnpj: formData.customer_cpf_cnpj,
-      description: formData.description,
-      value: parseFloat(formData.value),
-      due_date: formData.due_date,
-      billing_type: formData.billing_type,
-      idempotency_key: idempotencyKey,
-    });
+    try {
+      await createCharge.mutateAsync({
+        customer_name: formData.customer_name,
+        customer_email: formData.customer_email || undefined,
+        customer_cpf_cnpj: formData.customer_cpf_cnpj,
+        description: formData.description,
+        value: parseFloat(formData.value),
+        due_date: formData.due_date,
+        billing_type: formData.billing_type,
+        idempotency_key: idempotencyKey,
+      });
 
-    setFormData({
-      customer_name: "",
-      customer_email: "",
-      customer_cpf_cnpj: "",
-      description: "",
-      value: "",
-      due_date: "",
-      billing_type: BOLETO_ENABLED ? "BOLETO" : "PIX",
-    });
-    setIdempotencyKey(`manual:${crypto.randomUUID()}`);
-    onOpenChange(false);
+      setFormData({
+        customer_name: "",
+        customer_email: "",
+        customer_cpf_cnpj: "",
+        description: "",
+        value: "",
+        due_date: "",
+        billing_type: BOLETO_ENABLED ? "BOLETO" : "PIX",
+      });
+      setIdempotencyKey(`manual:${crypto.randomUUID()}`);
+      onOpenChange(false);
+    } catch {
+      // The mutation reports the failure and the form stays open for correction or retry.
+    }
   };
 
   return (
@@ -74,8 +78,8 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
               <Label htmlFor="customer_name">Nome do Cliente *</Label>
               <Input
                 id="customer_name"
@@ -112,7 +116,7 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
               />
             </div>
 
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label htmlFor="description">Descrição *</Label>
               <Input
                 id="description"
@@ -152,15 +156,15 @@ export function NovaCobrancaModal({ open, onOpenChange }: NovaCobrancaModalProps
               />
             </div>
 
-            <div className="col-span-2">
-              <Label>Forma de Pagamento *</Label>
+            <div className="sm:col-span-2">
+              <Label htmlFor="billing_type">Forma de Pagamento *</Label>
               <Select
                 value={formData.billing_type}
                 onValueChange={(value: "BOLETO" | "PIX") =>
                   setFormData({ ...formData, billing_type: value })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="billing_type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

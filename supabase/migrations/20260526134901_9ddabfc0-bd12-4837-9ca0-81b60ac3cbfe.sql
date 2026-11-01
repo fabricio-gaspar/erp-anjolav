@@ -1,2 +1,0 @@
-DROP POLICY IF EXISTS "Anyone can insert webhook events" ON public.asaas_webhook_events;
-CREATE POLICY "Admins can insert webhook events" ON public.asaas_webhook_events FOR INSERT TO authenticated WITH CHECK (has_role(auth.uid(), 'admin'::app_role));

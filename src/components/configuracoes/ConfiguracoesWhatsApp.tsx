@@ -4,12 +4,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Loader2, Wifi, WifiOff, QrCode, RefreshCw, Unplug, Send, MessageSquare } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertTriangle, CheckCircle2, Clock3, Loader2, RotateCcw, Wifi, WifiOff, QrCode, RefreshCw, Unplug, Send, MessageSquare } from "lucide-react";
 import { useWhatsAppConfig } from "@/hooks/useWhatsAppConfig";
 import { useMensagensLog } from "@/hooks/useMensagensLog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+const deliveryStatus = {
+  pendente: { label: "Pendente", variant: "outline" as const },
+  processando: { label: "Processando", variant: "secondary" as const },
+  enviado: { label: "Enviado", variant: "default" as const },
+  falhou: { label: "Falhou", variant: "destructive" as const },
+  incerto: { label: "Requer conciliação", variant: "secondary" as const },
+  dead_letter: { label: "Intervenção necessária", variant: "destructive" as const },
+};
+
+const maskPhone = (phone: string) => {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length < 6 ? "••••" : `${digits.slice(0, 4)}••••${digits.slice(-4)}`;
+};
 
 export function ConfiguracoesWhatsApp() {
   const {
@@ -19,14 +34,18 @@ export function ConfiguracoesWhatsApp() {
     conectar,
     verificarStatus,
     desconectar,
+    retryDelivery,
+    resolveDelivery,
     isConectado,
   } = useWhatsAppConfig();
 
-  const { data: mensagens } = useMensagensLog();
+  const { data: mensagens, isLoading: isLoadingMessages, isError: isMessagesError } = useMensagensLog();
 
   const [apiUrl, setApiUrl] = useState("");
   const [nomeInstancia, setNomeInstancia] = useState("loja1");
   const [webhookN8n, setWebhookN8n] = useState("");
+  const [reconciliationId, setReconciliationId] = useState<string | null>(null);
+  const [reconciliationReason, setReconciliationReason] = useState("");
 
   useEffect(() => {
     if (instancia) {
@@ -42,6 +61,17 @@ export function ConfiguracoesWhatsApp() {
       nome_instancia: nomeInstancia,
       webhook_n8n_url: webhookN8n,
     });
+  };
+
+  const reconcile = async (resolution: "CONFIRMADO_ENVIADO" | "CONFIRMADO_NAO_ENVIADO") => {
+    if (!reconciliationId || reconciliationReason.trim().length < 10) return;
+    await resolveDelivery.mutateAsync({
+      deliveryId: reconciliationId,
+      resolution,
+      reason: reconciliationReason,
+    });
+    setReconciliationId(null);
+    setReconciliationReason("");
   };
 
   if (isLoading) {
@@ -63,12 +93,17 @@ export function ConfiguracoesWhatsApp() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2">
               {isConectado ? (
                 <>
                   <Wifi className="h-5 w-5 text-green-500" />
                   <Badge variant="default" className="bg-green-500">Conectado</Badge>
+                </>
+              ) : !instancia?.api_url ? (
+                <>
+                  <WifiOff className="h-5 w-5 text-muted-foreground" />
+                  <Badge variant="outline">Não configurado</Badge>
                 </>
               ) : instancia?.status === "aguardando_scan" ? (
                 <>
@@ -83,12 +118,12 @@ export function ConfiguracoesWhatsApp() {
               )}
             </div>
 
-            <div className="flex gap-2 ml-auto">
+            <div className="flex flex-wrap gap-2 sm:ml-auto">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => verificarStatus.mutate()}
-                disabled={verificarStatus.isPending}
+                disabled={verificarStatus.isPending || !instancia?.api_url}
               >
                 {verificarStatus.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 <span className="ml-1">Verificar</span>
@@ -191,42 +226,85 @@ export function ConfiguracoesWhatsApp() {
         </CardContent>
       </Card>
 
-      {/* Message Log */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Send className="h-4 w-4" />
-            Últimas Mensagens Enviadas
-          </CardTitle>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base"><Send className="h-4 w-4" />Fila e histórico de entregas</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">Uma intenção é registrada antes do provedor. Resultado incerto nunca é reenviado automaticamente.</p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3" />{mensagens?.filter((item) => item.status === "enviado").length || 0} enviadas</Badge>
+              <Badge variant="secondary" className="gap-1"><AlertTriangle className="h-3 w-3" />{mensagens?.filter((item) => item.status === "incerto").length || 0} para conciliar</Badge>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {!mensagens || mensagens.length === 0 ? (
+          {isLoadingMessages ? (
+            <div className="page-empty-state"><Loader2 className="mb-2 h-5 w-5 animate-spin" />Carregando entregas...</div>
+          ) : isMessagesError ? (
+            <div className="page-empty-state">Não foi possível carregar o histórico. Atualize a página e tente novamente.</div>
+          ) : !mensagens || mensagens.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
-              Nenhuma mensagem enviada ainda.
+              Nenhuma intenção de envio registrada.
             </p>
           ) : (
-            <div className="space-y-2 max-h-80 overflow-y-auto">
+            <div className="max-h-[420px] space-y-2 overflow-y-auto">
               {mensagens.slice(0, 20).map((msg) => (
-                <div key={msg.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg text-sm">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={msg.status === "enviado" ? "default" : "destructive"} className="text-xs">
-                        {msg.status}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{msg.canal}</span>
-                      <span className="text-xs text-muted-foreground">{msg.evento}</span>
+                <div key={msg.id} className="rounded-xl border bg-muted/30 p-3 text-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={deliveryStatus[msg.status].variant} className="text-xs">{deliveryStatus[msg.status].label}</Badge>
+                        <span className="text-xs font-medium">{msg.evento}</span>
+                        <span className="text-xs text-muted-foreground">tentativa {msg.attempt_count}</span>
+                      </div>
+                      <p className="mt-1 text-sm">Destino {maskPhone(msg.telefone)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(msg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {msg.provider_message_id ? " · confirmação externa registrada" : ""}
+                      </p>
+                      {msg.status === "incerto" && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Consulte a Evolution antes de decidir. Um reenvio agora pode duplicar a mensagem.</p>}
+                      {msg.last_error_code && msg.status !== "incerto" && <p className="mt-1 text-xs text-muted-foreground">Código: {msg.last_error_code}</p>}
                     </div>
-                    <p className="truncate mt-1">{msg.telefone} — {msg.mensagem?.substring(0, 80)}...</p>
+                    <div className="flex flex-wrap gap-2">
+                      {msg.status === "falhou" && msg.attempt_count < 3 && (
+                        <Button variant="outline" size="sm" onClick={() => retryDelivery.mutate(msg.id)} disabled={retryDelivery.isPending}>
+                          {retryDelivery.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1 h-3.5 w-3.5" />}Tentar novamente
+                        </Button>
+                      )}
+                      {msg.status === "incerto" && (
+                        <Button variant="outline" size="sm" onClick={() => { setReconciliationId(msg.id); setReconciliationReason(""); }}>
+                          <Clock3 className="mr-1 h-3.5 w-3.5" />Conciliar
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                    {format(new Date(msg.created_at), "dd/MM HH:mm", { locale: ptBR })}
-                  </span>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!reconciliationId} onOpenChange={(open) => !open && setReconciliationId(null)}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader><DialogTitle>Conciliar resultado incerto</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+              Verifique o painel ou aparelho da Evolution antes de responder. Esta decisão libera ou encerra o reenvio e fica registrada com seu usuário.
+            </div>
+            <div><Label htmlFor="whatsapp-reconciliation-reason">Evidência da verificação *</Label><Textarea id="whatsapp-reconciliation-reason" value={reconciliationReason} onChange={(event) => setReconciliationReason(event.target.value)} placeholder="Ex.: mensagem localizada no histórico da instância às 14:32" rows={3} /></div>
+          </div>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button variant="outline" onClick={() => setReconciliationId(null)}>Cancelar</Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button variant="outline" onClick={() => reconcile("CONFIRMADO_NAO_ENVIADO")} disabled={reconciliationReason.trim().length < 10 || resolveDelivery.isPending}>Confirmar que não enviou</Button>
+              <Button onClick={() => reconcile("CONFIRMADO_ENVIADO")} disabled={reconciliationReason.trim().length < 10 || resolveDelivery.isPending}>Confirmar envio</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

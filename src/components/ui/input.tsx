@@ -14,7 +14,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       // Não converter para maiúsculas se for campo de email ou skipUppercase estiver ativo
-      if (!skipUppercase && !isEmailField && type !== "password" && type !== "number") {
+      if (!skipUppercase && !isEmailField && !["password", "number", "file"].includes(type || "text")) {
         e.target.value = e.target.value.toUpperCase();
       }
       onChange?.(e);
@@ -24,8 +24,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <input
         type={type}
         className={cn(
-          "flex h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60 md:text-sm",
-          !isEmailField && !skipUppercase && type !== "password" && type !== "number" && "uppercase",
+          "flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60 md:text-sm",
+          !isEmailField && !skipUppercase && !["password", "number", "file"].includes(type || "text") && "uppercase",
           className,
         )}
         ref={ref}

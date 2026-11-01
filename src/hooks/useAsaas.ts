@@ -78,6 +78,8 @@ export function useCreateAsaasCharge() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["asaas-charges"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts-receivable-directory"] });
+      queryClient.invalidateQueries({ queryKey: ["financeiro-agregado"] });
       toast.success("Cobrança criada com sucesso!");
     },
     onError: (error: Error) => {

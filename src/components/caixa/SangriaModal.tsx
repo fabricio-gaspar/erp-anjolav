@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +14,7 @@ import { Loader2, ArrowDownCircle } from "lucide-react";
 import { useAddMovimentacao } from "@/hooks/useCaixa";
 import { parseCurrencyToNumber } from "@/lib/currencyUtils";
 import { toast } from "sonner";
+import { createIdempotencyKey } from "@/lib/idempotency";
 
 interface SangriaModalProps {
   open: boolean;
@@ -25,6 +25,7 @@ interface SangriaModalProps {
 export function SangriaModal({ open, onOpenChange, caixaId }: SangriaModalProps) {
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const addMovimentacao = useAddMovimentacao();
 
@@ -37,21 +38,32 @@ export function SangriaModal({ open, onOpenChange, caixaId }: SangriaModalProps)
       return;
     }
 
-    await addMovimentacao.mutateAsync({
-      caixa_id: caixaId,
-      tipo: "SANGRIA",
-      valor: valorNumerico,
-      descricao: descricao.trim() || "Sangria de caixa",
-      forma_pagamento: "DINHEIRO",
-    });
+    idempotencyKeyRef.current ??= createIdempotencyKey("cash-withdrawal");
+    try {
+      await addMovimentacao.mutateAsync({
+        caixa_id: caixaId,
+        tipo: "SANGRIA",
+        valor: valorNumerico,
+        descricao: descricao.trim() || "Sangria de caixa",
+        idempotency_key: idempotencyKeyRef.current,
+      });
+    } catch {
+      return;
+    }
 
+    idempotencyKeyRef.current = null;
     setValor("");
     setDescricao("");
     onOpenChange(false);
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !addMovimentacao.isPending) idempotencyKeyRef.current = null;
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-warning">
@@ -94,7 +106,7 @@ export function SangriaModal({ open, onOpenChange, caixaId }: SangriaModalProps)
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
             >
               Cancelar
             </Button>

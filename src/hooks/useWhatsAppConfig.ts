@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { createIdempotencyKey } from "@/lib/idempotency";
 
 export interface WhatsAppInstancia {
   id: string;
@@ -117,9 +118,15 @@ export function useWhatsAppConfig() {
       ordem_servico_id?: string;
       cliente_id?: string;
       evento?: string;
+      idempotencyKey?: string;
     }) => {
+      const { idempotencyKey, ...payload } = params;
       const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
-        body: { action: "send", ...params },
+        body: {
+          action: "send",
+          ...payload,
+          idempotency_key: idempotencyKey || createIdempotencyKey("whatsapp-manual"),
+        },
       });
       if (error) throw error;
       return data;
@@ -132,6 +139,48 @@ export function useWhatsAppConfig() {
     },
   });
 
+  const retryDelivery = useMutation({
+    mutationFn: async (deliveryId: string) => {
+      const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+        body: { action: "retry", delivery_id: deliveryId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["mensagens_log"] });
+      toast({
+        title: data?.success ? "Mensagem confirmada pelo provedor" : "Tentativa registrada",
+        description: data?.pendingReconciliation ? "O resultado ficou incerto e exige conciliação." : undefined,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Falha ao tentar novamente", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resolveDelivery = useMutation({
+    mutationFn: async (params: { deliveryId: string; resolution: "CONFIRMADO_ENVIADO" | "CONFIRMADO_NAO_ENVIADO"; reason: string }) => {
+      const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+        body: {
+          action: "resolve",
+          delivery_id: params.deliveryId,
+          resolution: params.resolution,
+          reason: params.reason,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mensagens_log"] });
+      toast({ title: "Resultado conciliado e registrado" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Falha na conciliação", description: error.message, variant: "destructive" });
+    },
+  });
+
   return {
     instancia,
     isLoading,
@@ -140,6 +189,8 @@ export function useWhatsAppConfig() {
     verificarStatus,
     desconectar,
     enviarMensagem,
+    retryDelivery,
+    resolveDelivery,
     isConectado: instancia?.status === "conectado",
   };
 }

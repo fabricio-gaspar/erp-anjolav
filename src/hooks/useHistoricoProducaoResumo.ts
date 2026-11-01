@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { HistoricoProducao } from "./useHistoricoProducao";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 
 export interface DadosResumoOS {
   quantidadePecas: number;
@@ -11,19 +14,29 @@ export interface DadosResumoOS {
 }
 
 export function useHistoricoProducaoResumo(ordemServicoId: string | null) {
-  return useQuery({
-    queryKey: ["historico_producao_resumo", ordemServicoId],
-    queryFn: async (): Promise<DadosResumoOS | null> => {
-      if (!ordemServicoId) return null;
+  const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
 
-      const { data, error } = await supabase
+  return useQuery({
+    queryKey: ["historico_producao_resumo", session?.user.id, activeTenant?.id, activeArea, ordemServicoId],
+    queryFn: async (): Promise<DadosResumoOS | null> => {
+      if (!ordemServicoId || !session?.user.id || !activeTenant?.id) return null;
+
+      let query = supabase
         .from("historico_producao")
         .select(`
           *,
-          funcionario:funcionarios(nome)
+          funcionario:funcionarios(nome),
+          ordem:ordens_servico!historico_producao_ordem_servico_id_fkey!inner(origem, tenant_id)
         `)
         .eq("ordem_servico_id", ordemServicoId)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("ordem.tenant_id", "eq", activeTenant.id)
         .order("created_at", { ascending: true });
+      if (allowedOrigins) query = query.in("ordem.origem", [...allowedOrigins]);
+
+      const { data, error } = await query;
 
       if (error) throw error;
       if (!data || data.length === 0) return null;
@@ -67,25 +80,36 @@ export function useHistoricoProducaoResumo(ordemServicoId: string | null) {
         historicoCompleto: historico,
       };
     },
-    enabled: !!ordemServicoId,
+    enabled: Boolean(ordemServicoId && session?.user.id && activeTenant?.id),
   });
 }
 
 // Hook para buscar histórico de múltiplas OS de uma vez
 export function useHistoricoMultiplasOS(ordemServicoIds: string[]) {
-  return useQuery({
-    queryKey: ["historico_producao_multiplas", ordemServicoIds],
-    queryFn: async () => {
-      if (ordemServicoIds.length === 0) return {};
+  const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const stableOrderIds = [...new Set(ordemServicoIds)].sort();
 
-      const { data, error } = await supabase
+  return useQuery({
+    queryKey: ["historico_producao_multiplas", session?.user.id, activeTenant?.id, activeArea, stableOrderIds],
+    queryFn: async () => {
+      if (stableOrderIds.length === 0 || !session?.user.id || !activeTenant?.id) return {};
+
+      let query = supabase
         .from("historico_producao")
         .select(`
           *,
-          funcionario:funcionarios(nome)
+          funcionario:funcionarios(nome),
+          ordem:ordens_servico!historico_producao_ordem_servico_id_fkey!inner(origem, tenant_id)
         `)
-        .in("ordem_servico_id", ordemServicoIds)
+        .in("ordem_servico_id", stableOrderIds)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("ordem.tenant_id", "eq", activeTenant.id)
         .order("created_at", { ascending: true });
+      if (allowedOrigins) query = query.in("ordem.origem", [...allowedOrigins]);
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -100,25 +124,39 @@ export function useHistoricoMultiplasOS(ordemServicoIds: string[]) {
 
       return grouped;
     },
-    enabled: ordemServicoIds.length > 0,
+    enabled: Boolean(stableOrderIds.length > 0 && session?.user.id && activeTenant?.id),
   });
 }
 
 // Hook para métricas avançadas de produção
 export function useMetricasProducaoAvancadas() {
+  const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+
   return useQuery({
-    queryKey: ["metricas_producao_avancadas"],
+    queryKey: ["metricas_producao_avancadas", session?.user.id, activeTenant?.id, activeArea],
     queryFn: async () => {
-      const hoje = new Date().toISOString().split("T")[0];
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para resumir a produção");
+      }
+      const agora = new Date();
+      const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).toISOString();
 
       // Buscar todo histórico de hoje
-      const { data: historicoHoje, error } = await supabase
+      let historicoHojeQuery = supabase
         .from("historico_producao")
         .select(`
           *,
-          funcionario:funcionarios(nome)
+          funcionario:funcionarios(nome),
+          ordem:ordens_servico!historico_producao_ordem_servico_id_fkey!inner(origem, tenant_id)
         `)
-        .gte("created_at", hoje);
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("ordem.tenant_id", "eq", activeTenant.id)
+        .gte("created_at", inicioHoje);
+      if (allowedOrigins) historicoHojeQuery = historicoHojeQuery.in("ordem.origem", [...allowedOrigins]);
+
+      const { data: historicoHoje, error } = await historicoHojeQuery;
 
       if (error) throw error;
 
@@ -156,12 +194,17 @@ export function useMetricasProducaoAvancadas() {
       });
 
       // Calcular média de tempo por etapa (últimos 7 dias)
-      const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const { data: historicoSemana } = await supabase
+      const seteDiasAtras = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      let historicoSemanaQuery = supabase
         .from("historico_producao")
-        .select("etapa_nova, tempo_na_etapa_anterior")
+        .select("etapa_nova, tempo_na_etapa_anterior, ordem:ordens_servico!historico_producao_ordem_servico_id_fkey!inner(origem, tenant_id)")
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("ordem.tenant_id", "eq", activeTenant.id)
         .gte("created_at", seteDiasAtras)
         .not("tempo_na_etapa_anterior", "is", null);
+      if (allowedOrigins) historicoSemanaQuery = historicoSemanaQuery.in("ordem.origem", [...allowedOrigins]);
+      const { data: historicoSemana, error: historicoSemanaError } = await historicoSemanaQuery;
+      if (historicoSemanaError) throw historicoSemanaError;
 
       const temposPorEtapa: Record<string, number[]> = {};
       (historicoSemana || []).forEach((registro: { etapa_nova: string; tempo_na_etapa_anterior: string | null }) => {
@@ -197,6 +240,7 @@ export function useMetricasProducaoAvancadas() {
         totalEtapasHoje: historicoHoje?.length || 0,
       };
     },
+    enabled: Boolean(session?.user.id && activeTenant?.id),
     refetchInterval: 60000, // Atualiza a cada minuto
   });
 }

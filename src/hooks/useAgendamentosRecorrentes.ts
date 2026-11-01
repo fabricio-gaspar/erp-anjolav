@@ -1,69 +1,69 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AgendamentoGerado } from "@/lib/agendamentoUtils";
+import type { AgendamentoGerado } from "@/lib/agendamentoUtils";
+import { useAuth } from "@/contexts/AuthContext";
+import { createIdempotencyKey } from "@/lib/idempotency";
+import type { Json } from "@/integrations/supabase/types";
 
 export function useAgendamentosRecorrentes() {
   const queryClient = useQueryClient();
+  const { activeTenant, session } = useAuth();
 
-  // Deleta todos os agendamentos recorrentes de um cliente
-  const deleteRecorrentesDoCliente = useMutation({
-    mutationFn: async (clienteId: string) => {
-      const { error } = await supabase
-        .from("agendamentos")
-        .delete()
-        .eq("cliente_id", clienteId)
-        .eq("recorrente", true);
-
+  const regenerateSchedule = useMutation({
+    mutationFn: async ({
+      clienteId,
+      agendamentos,
+      idempotencyKey,
+    }: {
+      clienteId: string;
+      agendamentos: AgendamentoGerado[];
+      idempotencyKey: string;
+    }) => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para atualizar a agenda");
+      }
+      const payload = agendamentos.map(({ tipo, data, horario, frequencia }) => ({
+        tipo,
+        data,
+        horario,
+        frequencia,
+      }));
+      const { data, error } = await supabase.rpc("regenerar_agendamentos_recorrentes", {
+        _cliente_id: clienteId,
+        _agendamentos: payload as unknown as Json,
+        _idempotency_key: idempotencyKey,
+      });
       if (error) throw error;
-      return true;
-    },
-    onError: (error) => {
-      console.error("Erro ao remover agendamentos recorrentes:", error);
-    },
-  });
-
-  // Cria agendamentos em lote
-  const criarAgendamentosEmLote = useMutation({
-    mutationFn: async (agendamentos: AgendamentoGerado[]) => {
-      if (agendamentos.length === 0) return { count: 0 };
-
-      const { error, data } = await supabase
-        .from("agendamentos")
-        .insert(agendamentos)
-        .select();
-
-      if (error) throw error;
-      return { count: data?.length || 0 };
+      return data as {
+        cancelados?: number;
+        criados?: number;
+        preservados?: number;
+        idempotent?: boolean;
+      } | null;
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["agendamentos"] });
-      if (result.count > 0) {
-        toast.success(`${result.count} agendamentos criados com sucesso!`);
-      }
+      const created = Number(result?.criados ?? 0);
+      const canceled = Number(result?.cancelados ?? 0);
+      toast.success(`Agenda atualizada: ${created} criados e ${canceled} anteriores cancelados.`);
     },
     onError: (error) => {
-      console.error("Erro ao criar agendamentos:", error);
-      toast.error("Erro ao criar agendamentos automáticos.");
+      console.error("Erro ao regenerar agenda recorrente:", error);
+      toast.error("Não foi possível atualizar os agendamentos automáticos.");
     },
   });
 
-  // Função combinada: remove recorrentes antigos e cria novos
   const regenerarAgendamentos = async (
     clienteId: string,
     agendamentos: AgendamentoGerado[]
   ) => {
     try {
-      // 1. Remover agendamentos recorrentes existentes
-      await deleteRecorrentesDoCliente.mutateAsync(clienteId);
-
-      // 2. Criar novos agendamentos
-      if (agendamentos.length > 0) {
-        await criarAgendamentosEmLote.mutateAsync(agendamentos);
-      } else {
-        toast.info("Nenhum agendamento foi gerado. Verifique os dias selecionados.");
-      }
-
+      await regenerateSchedule.mutateAsync({
+        clienteId,
+        agendamentos,
+        idempotencyKey: createIdempotencyKey("appointment-recurrence"),
+      });
       return true;
     } catch (error) {
       console.error("Erro ao regenerar agendamentos:", error);
@@ -72,10 +72,7 @@ export function useAgendamentosRecorrentes() {
   };
 
   return {
-    deleteRecorrentesDoCliente,
-    criarAgendamentosEmLote,
     regenerarAgendamentos,
-    isLoading:
-      deleteRecorrentesDoCliente.isPending || criarAgendamentosEmLote.isPending,
+    isLoading: regenerateSchedule.isPending,
   };
 }

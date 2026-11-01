@@ -2,14 +2,19 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
+  Banknote,
+  CalendarDays,
   CircleAlert,
+  ClipboardPlus,
   DollarSign,
+  Factory,
   FileText,
   Loader2,
   Package,
   RefreshCw,
   Shirt,
   ShoppingCart,
+  Settings,
   Truck,
   Users,
   type LucideIcon,
@@ -36,12 +41,15 @@ import { EventosDoDiaCard } from "@/components/dashboard/EventosDoDiaCard";
 import { FinanceCard, type FinanceItem } from "@/components/dashboard/FinanceCard";
 import { InadimplenciaCard } from "@/components/dashboard/InadimplenciaCard";
 import { KPICard } from "@/components/dashboard/KPICard";
+import { MyDayActionList, type MyDayAction } from "@/components/dashboard/MyDayActionList";
 import { NFsPendentesCard } from "@/components/dashboard/NFsPendentesCard";
 import { ProcessingSummary, type ProcessingItem } from "@/components/dashboard/ProcessingSummary";
 import { ProductionBottleneck } from "@/components/dashboard/ProductionBottleneck";
 import { RolsLojaCard } from "@/components/dashboard/RolsLojaCard";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace, type WorkspaceArea } from "@/contexts/WorkspaceContext";
 import { useCaixaAberto } from "@/hooks/useCaixa";
 import { useContasPagar } from "@/hooks/useContasPagar";
@@ -51,7 +59,7 @@ import {
   useMetricasProducao,
   useResumoProcessamento,
 } from "@/hooks/useHistoricoProducao";
-import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { useNavigationAccess, useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { resolverEstadoDashboard } from "@/lib/dashboardState";
 import { invalidateDashboardQueries } from "@/lib/queryDefaults";
 import { cn } from "@/lib/utils";
@@ -69,17 +77,23 @@ const etapaLabels: Record<string, string> = {
 
 const areaLabels: Record<WorkspaceArea, { title: string; subtitle: string }> = {
   central: {
-    title: "Painel Central",
-    subtitle: "Visão consolidada das operações autorizadas.",
+    title: "Painel Administrativo",
+    subtitle: "Visão consolidada da empresa, das operações e dos acessos autorizados.",
   },
   industrial: {
-    title: "Painel Industrial",
-    subtitle: "Indicadores restritos à operação industrial.",
+    title: "Meu dia",
+    subtitle: "Próximas ações da operação industrial.",
   },
   residencial: {
-    title: "Painel Residencial",
-    subtitle: "Indicadores restritos à operação residencial e loja.",
+    title: "Meu dia",
+    subtitle: "Próximas ações da loja e da operação doméstica.",
   },
+};
+
+const workspaceLabels: Record<WorkspaceArea, string> = {
+  central: "Visão administrativa consolidada",
+  industrial: "Operação industrial",
+  residencial: "Operação doméstica",
 };
 
 interface DashboardKpi {
@@ -88,6 +102,8 @@ interface DashboardKpi {
   icon: LucideIcon;
   iconColor: "primary" | "success" | "warning" | "destructive" | "info";
   subtitle: string;
+  context: string;
+  onOpen?: () => void;
 }
 
 interface ProcessingOrder {
@@ -143,7 +159,9 @@ function getScheduleStatus(status: string | null | undefined) {
 const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { activeTenant, funcionario } = useAuth();
   const { activeArea } = useWorkspace();
+  const { canAccessRoute } = useNavigationAccess();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const temFinanceiro = useTemPermissaoModulo("faturamento");
@@ -233,7 +251,9 @@ const Dashboard = () => {
     },
   ]);
 
-  const faturasValidas = faturas.filter((fatura) => String(fatura.status) !== "cancelado");
+  const faturasValidas = faturas.filter(
+    (fatura) => String(fatura.status) !== "cancelado" && fatura.status_pagamento !== "cancelado",
+  );
   const faturasDoMes = faturasValidas.filter(
     (fatura) => fatura.periodo_inicio <= fimMes && fatura.periodo_fim >= inicioMes,
   );
@@ -242,9 +262,14 @@ const Dashboard = () => {
     0,
   );
 
-  const faturasPendentes = faturasValidas.filter((fatura) => fatura.status !== "pago");
+  const faturasPendentes = faturasValidas.filter(
+    (fatura) => fatura.status_pagamento !== "pago" && fatura.status !== "pago",
+  );
   const totalContasReceber = faturasPendentes.reduce(
-    (total, fatura) => total + asFiniteNumber(fatura.valor_total),
+    (total, fatura) => total + Math.max(
+      0,
+      asFiniteNumber(fatura.valor_total) - asFiniteNumber(fatura.valor_pago),
+    ),
     0,
   );
   const receberItems: FinanceItem[] = faturasPendentes.map((fatura) => {
@@ -253,13 +278,16 @@ const Dashboard = () => {
       id: fatura.id,
       status: vencimento && isBefore(startOfDay(vencimento), hoje) ? "vencida" : "a_vencer",
       clientName: fatura.cliente?.razao_social || "Cliente sem nome",
-      value: asFiniteNumber(fatura.valor_total),
+      value: Math.max(
+        0,
+        asFiniteNumber(fatura.valor_total) - asFiniteNumber(fatura.valor_pago),
+      ),
       dueDate: vencimento ? format(vencimento, "dd/MM/yyyy") : "Sem vencimento",
     };
   });
 
   const contasPendentes = contasPagar.filter((conta) =>
-    ["pendente", "parcial", "vencido"].includes(conta.status),
+    ["pendente", "parcial"].includes(conta.status),
   );
   const totalContasPagar = contasPendentes.reduce(
     (total, conta) =>
@@ -271,7 +299,7 @@ const Dashboard = () => {
     return {
       id: conta.id,
       status:
-        conta.status === "vencido" || (vencimento && isBefore(startOfDay(vencimento), hoje))
+        vencimento && isBefore(startOfDay(vencimento), hoje)
           ? "vencida"
           : "a_vencer",
       clientName: conta.fornecedor || conta.descricao,
@@ -279,6 +307,27 @@ const Dashboard = () => {
       dueDate: vencimento ? format(vencimento, "dd/MM/yyyy") : "Sem vencimento",
     };
   });
+
+  const financePath = `/${activeArea}/financeiro`;
+  const ordersPath = activeArea === "central" ? null : `/${activeArea}/ordens`;
+  const productionPath = activeArea === "central" ? null : `/${activeArea}/producao`;
+  const cashPath = activeArea === "central" ? null : `/${activeArea}/caixa`;
+  const clientsPath = activeArea === "central" ? null : `/${activeArea}/clientes`;
+  const agendaPath =
+    activeArea === "central" ? "/central/agenda-eventos" : `/${activeArea}/agenda`;
+  const dashboardContext = `${workspaceLabels[activeArea]} · ${activeTenant?.name ?? "Empresa ativa"}`;
+  const scrollToSection = (sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const openOrdersSummary = ordersPath
+    ? () => navigate(`${ordersPath}?status=abertas`)
+    : () => scrollToSection("dashboard-production");
+  const openOverdueOrders = ordersPath
+    ? () => navigate(`${ordersPath}?prazo=atrasado`)
+    : () => scrollToSection("dashboard-production");
+  const openAgendaSummary = activeArea === "central"
+    ? () => scrollToSection("dashboard-agenda")
+    : () => navigate(agendaPath);
 
   const kpis: DashboardKpi[] = [
     ...(temFinanceiro && !faturasError && !isLoadingFaturas
@@ -291,6 +340,8 @@ const Dashboard = () => {
           icon: DollarSign,
           iconColor: "success" as const,
           subtitle: "Períodos que abrangem o mês atual",
+          context: `Mês atual · ${workspaceLabels[activeArea]}`,
+          onOpen: () => navigate(`${financePath}?tab=faturamento`),
         }]
       : []),
     ...(temOrdens && !metricasError && !isLoadingMetricas
@@ -300,15 +351,19 @@ const Dashboard = () => {
           icon: FileText,
           iconColor: "primary" as const,
           subtitle: "Sem entregues e canceladas",
+          context: `Agora · ${workspaceLabels[activeArea]}`,
+          onOpen: openOrdersSummary,
         }]
       : []),
-    ...(temAgenda && !metricasError && !isLoadingMetricas
+    ...(temOrdens && !metricasError && !isLoadingMetricas
       ? [{
           title: "Entregas atrasadas",
           value: metricas?.entregasAtrasadas ?? 0,
           icon: AlertCircle,
           iconColor: "destructive" as const,
           subtitle: "Prazo anterior a hoje",
+          context: `Até hoje · ${workspaceLabels[activeArea]}`,
+          onOpen: openOverdueOrders,
         }]
       : []),
     ...(temClientes && !metricasError && !isLoadingMetricas
@@ -318,6 +373,8 @@ const Dashboard = () => {
           icon: Users,
           iconColor: "info" as const,
           subtitle: "Com ROLs nos últimos 30 dias",
+          context: `Últimos 30 dias · ${workspaceLabels[activeArea]}`,
+          onOpen: clientsPath ? () => navigate(clientsPath) : undefined,
         }]
       : []),
     ...(temProducao && !metricasError && !isLoadingMetricas
@@ -327,6 +384,8 @@ const Dashboard = () => {
           icon: Shirt,
           iconColor: "success" as const,
           subtitle: "Quantidade inserida em itens de ROL",
+          context: `Hoje · ${workspaceLabels[activeArea]}`,
+          onOpen: productionPath ? () => navigate(productionPath) : () => scrollToSection("dashboard-production"),
         }]
       : []),
     ...(temAgenda && !agendaError && !isLoadingAgenda
@@ -337,6 +396,10 @@ const Dashboard = () => {
             icon: Truck,
             iconColor: "primary" as const,
             subtitle: "Agendamentos no escopo atual",
+            context: `Hoje · ${workspaceLabels[activeArea]}`,
+            onOpen: activeArea === "central"
+              ? () => scrollToSection("dashboard-agenda")
+              : () => navigate(`${agendaPath}?tipo=retirada`),
           },
           {
             title: "Entregas do dia",
@@ -344,6 +407,10 @@ const Dashboard = () => {
             icon: Package,
             iconColor: "warning" as const,
             subtitle: "Agendadas ou prontas para entrega",
+            context: `Hoje · ${workspaceLabels[activeArea]}`,
+            onOpen: activeArea === "central"
+              ? () => scrollToSection("dashboard-agenda")
+              : () => navigate(`${agendaPath}?tipo=entrega`),
           },
         ]
       : []),
@@ -354,6 +421,8 @@ const Dashboard = () => {
           icon: ShoppingCart,
           iconColor: caixaAberto ? ("success" as const) : ("warning" as const),
           subtitle: caixaAberto ? "Sessão de caixa em andamento" : "Nenhuma sessão aberta",
+          context: `Sessão atual · ${workspaceLabels[activeArea]}`,
+          onOpen: cashPath ? () => navigate(cashPath) : undefined,
         }]
       : []),
   ];
@@ -458,15 +527,143 @@ const Dashboard = () => {
     osNumero: entrega.os_numero || null,
   }));
 
+  const productionAttentionCount = processingItems.filter(
+    (item) => item.status === "delayed" || item.status === "at_risk",
+  ).length;
+  const agendaPendingCount = [...retiradasAgenda, ...entregasAgenda].filter(
+    (item) => item.status !== "completed",
+  ).length;
+  const overdueReceivablesCount = receberItems.filter((item) => item.status === "vencida").length;
+  const overduePayablesCount = pagarItems.filter((item) => item.status === "vencida").length;
+  const overdueFinancialCount = overdueReceivablesCount + overduePayablesCount;
+  const myDayActions: MyDayAction[] = [
+    ...(
+      temOrdens
+      && !metricasError
+      && !isLoadingMetricas
+      && (metricas?.entregasAtrasadas ?? 0) > 0
+        ? [{
+            id: "overdue-orders",
+            title: "Pedidos com prazo vencido",
+            value: metricas?.entregasAtrasadas ?? 0,
+            description: "Revise a promessa, o bloqueio atual e a próxima ação de cada pedido.",
+            context: `Até hoje · ${workspaceLabels[activeArea]}`,
+            actionLabel: "Revisar",
+            icon: AlertCircle,
+            tone: "danger" as const,
+            onOpen: openOverdueOrders,
+          }]
+        : []
+    ),
+    ...(
+      temProducao
+      && !resumoError
+      && !isLoadingResumo
+      && productionAttentionCount > 0
+        ? [{
+            id: "production-risk",
+            title: "Produção em risco",
+            value: productionAttentionCount,
+            description: "Pedidos atrasados ou com entrega prevista até amanhã precisam de priorização.",
+            context: `Agora · ${workspaceLabels[activeArea]}`,
+            actionLabel: "Priorizar",
+            icon: Factory,
+            tone: "warning" as const,
+            onOpen: productionPath
+              ? () => navigate(productionPath)
+              : () => scrollToSection("dashboard-production"),
+          }]
+        : []
+    ),
+    ...(
+      temAgenda
+      && !agendaError
+      && !isLoadingAgenda
+      && agendaPendingCount > 0
+        ? [{
+            id: "agenda-pending",
+            title: "Paradas pendentes hoje",
+            value: agendaPendingCount,
+            description: "Retiradas, entregas agendadas e pedidos prontos ainda aguardam execução.",
+            context: `Hoje · ${workspaceLabels[activeArea]}`,
+            actionLabel: "Organizar",
+            icon: CalendarDays,
+            tone: "info" as const,
+            onOpen: openAgendaSummary,
+          }]
+        : []
+    ),
+    ...(
+      temFinanceiro
+      && !faturasError
+      && !isLoadingFaturas
+      && (!contasEnabled || (!contasError && !isLoadingContas))
+      && overdueFinancialCount > 0
+        ? [{
+            id: "financial-overdue",
+            title: "Títulos vencidos",
+            value: overdueFinancialCount,
+            description: `${overdueReceivablesCount} a receber e ${overduePayablesCount} a pagar exigem acompanhamento.`,
+            context: `Até hoje · ${workspaceLabels[activeArea]}`,
+            actionLabel: "Conciliar",
+            icon: Banknote,
+            tone: "danger" as const,
+            onOpen: () => navigate(financePath),
+          }]
+        : []
+    ),
+    ...(
+      cashPath
+      && caixaEnabled
+      && !caixaError
+      && !isLoadingCaixa
+      && !caixaAberto
+        ? [{
+            id: "cash-closed",
+            title: "Caixa ainda fechado",
+            value: "Fechado",
+            description: "Abra uma sessão antes de registrar qualquer movimentação em dinheiro.",
+            context: `Sessão atual · ${workspaceLabels[activeArea]}`,
+            actionLabel: "Abrir caixa",
+            icon: ShoppingCart,
+            tone: "warning" as const,
+            onOpen: () => navigate(cashPath),
+          }]
+        : []
+    ),
+  ];
+
+  const quickActions = [
+    ...(activeArea === "central" && canAccessRoute("/residencial/caixa")
+      ? [{ label: "PDV Doméstico", icon: ShoppingCart, onOpen: () => navigate("/pdv/domestico") }]
+      : []),
+    ...(activeArea === "central" && canAccessRoute("/industrial/caixa")
+      ? [{ label: "PDV Industrial", icon: Factory, onOpen: () => navigate("/pdv/industrial") }]
+      : []),
+    ...(activeArea === "central" && canAccessRoute("/central/configuracoes")
+      ? [{ label: "Configurar sistema", icon: Settings, onOpen: () => navigate("/central/configuracoes") }]
+      : []),
+    ...(ordersPath && temOrdens
+      ? [{ label: "Novo pedido", icon: ClipboardPlus, onOpen: () => navigate(`${ordersPath}?novo=1`) }]
+      : []),
+    ...(cashPath && temCaixa
+      ? [{ label: "PDV / Caixa", icon: ShoppingCart, onOpen: () => navigate(cashPath) }]
+      : []),
+    ...(productionPath && temProducao
+      ? [{ label: "Produção", icon: Factory, onOpen: () => navigate(productionPath) }]
+      : []),
+    ...(temAgenda
+      ? [{ label: activeArea === "central" ? "Agenda administrativa" : "Agenda", icon: CalendarDays, onOpen: () => navigate(agendaPath) }]
+      : []),
+    ...(temFinanceiro
+      ? [{ label: "Financeiro", icon: DollarSign, onOpen: () => navigate(financePath) }]
+      : []),
+  ].slice(0, 5);
+
   const maiorGargalo = bottleneckItems[0];
   const recommendation = maiorGargalo
     ? `A etapa “${maiorGargalo.stage}” concentra ${maiorGargalo.osCount} ROLs abertas.`
     : "Nenhuma ROL aberta foi identificada no escopo atual.";
-
-  const financePath = `/${activeArea}/financeiro`;
-  const ordersPath = activeArea === "central" ? null : `/${activeArea}/ordens`;
-  const agendaPath =
-    activeArea === "central" ? "/central/agenda-eventos" : `/${activeArea}/agenda`;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -479,27 +676,51 @@ const Dashboard = () => {
 
   return (
     <AppLayout title={areaLabels[activeArea].title} subtitle={areaLabels[activeArea].subtitle}>
-      <div className="space-y-4 sm:space-y-6">
-        <section className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="page-title px-1">
-              {areaLabels[activeArea].title}
-            </h1>
-          </div>
-
-          <div className="flex max-w-full items-center justify-end gap-2 overflow-x-auto pb-1">
+      <div className="page-shell !space-y-4">
+        <PageHeader
+          eyebrow={activeArea === "central" ? "Gestão integrada" : "Rotina operacional"}
+          title={areaLabels[activeArea].title}
+          description={`${areaLabels[activeArea].subtitle} ${format(hoje, "EEEE, dd 'de' MMMM", { locale: ptBR })}.`}
+          actions={(
             <Button
               variant="outline"
-              size="sm"
-              className="h-10 shrink-0 gap-2 bg-white px-4"
+              className="w-full shrink-0 gap-2 sm:w-auto"
               onClick={handleRefresh}
               disabled={isRefreshing}
             >
               <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-              <span className="text-[11px] font-black uppercase tracking-wider">
-                {isRefreshing ? "Atualizando" : "Atualizar"}
-              </span>
+              {isRefreshing ? "Atualizando" : "Atualizar"}
             </Button>
+          )}
+        />
+
+        <section className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 shadow-sm sm:p-5" aria-label="Contexto e ações rápidas">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">
+                {funcionario?.nome ? `Olá, ${funcionario.nome.split(" ")[0]}.` : "Olá."} O que precisa avançar agora?
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{dashboardContext}</p>
+            </div>
+            {quickActions.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap xl:justify-end">
+                {quickActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <Button
+                      key={action.label}
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 justify-start gap-2 bg-card/80 sm:justify-center"
+                      onClick={action.onOpen}
+                    >
+                      <Icon className="h-4 w-4 text-primary" />
+                      {action.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
 
@@ -548,6 +769,11 @@ const Dashboard = () => {
           </div>
         )}
 
+        <MyDayActionList
+          actions={myDayActions}
+          isLoading={loadingSources.length > 0 && myDayActions.length === 0}
+        />
+
         {kpis.length > 0 ? (
           <section aria-label="Indicadores principais" className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {kpis.map((kpi) => (
@@ -561,7 +787,7 @@ const Dashboard = () => {
         )}
 
         {(temFinanceiro || contasEnabled) && (
-          <section aria-label="Resumo financeiro" className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <section id="dashboard-finance" aria-label="Resumo financeiro" className="scroll-mt-24 grid grid-cols-1 gap-3 xl:grid-cols-2">
             {temFinanceiro && !faturasError && !isLoadingFaturas && (
               <FinanceCard
                 title="Contas a receber"
@@ -570,7 +796,7 @@ const Dashboard = () => {
                 icon={DollarSign}
                 variant="receivable"
                 items={receberItems}
-                onViewAll={() => navigate(financePath)}
+                onViewAll={() => navigate(`${financePath}?tab=receber`)}
               />
             )}
             {contasEnabled && !contasError && !isLoadingContas && (
@@ -581,14 +807,14 @@ const Dashboard = () => {
                 icon={ShoppingCart}
                 variant="payable"
                 items={pagarItems}
-                onViewAll={() => navigate("/central/contas")}
+                onViewAll={() => navigate("/central/financeiro?tab=pagar")}
               />
             )}
           </section>
         )}
 
         {(temOrdens || temProducao) && !resumoError && !isLoadingResumo && (
-          <section aria-label="Produção" className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <section id="dashboard-production" aria-label="Produção" className="scroll-mt-24 grid grid-cols-1 gap-3 xl:grid-cols-2">
             {!metricasError && !isLoadingMetricas && (
               <ProductionBottleneck items={bottleneckItems} recommendation={recommendation} />
             )}
@@ -604,7 +830,7 @@ const Dashboard = () => {
         )}
 
         {temAgenda && !agendaError && !isLoadingAgenda && (
-          <section aria-label="Agenda do dia" className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <section id="dashboard-agenda" aria-label="Agenda do dia" className="scroll-mt-24 grid grid-cols-1 gap-3 xl:grid-cols-2">
             <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
             <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
             <div className="flex justify-end xl:col-span-2">

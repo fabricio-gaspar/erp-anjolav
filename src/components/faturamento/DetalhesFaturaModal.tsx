@@ -31,7 +31,7 @@ import {
   Copy,
   ExternalLink,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import type { Fatura } from "@/hooks/useFaturas";
@@ -77,6 +77,8 @@ export function DetalhesFaturaModal({
   };
 
   const statusConfig = getStatusConfig(fatura.status);
+  const received = Number(fatura.valor_pago || 0);
+  const balance = Math.max(Number(fatura.valor_total) - received, 0);
   const nfPdfUrl = safeHttpsUrl(fatura.link_pdf_nf);
   const boletoUrl = safeHttpsUrl(fatura.boleto_url);
 
@@ -107,7 +109,7 @@ export function DetalhesFaturaModal({
   const etapas = [
     { label: "Relatório", completed: fatura.relatorio_gerado },
     { label: "NF", completed: !!fatura.numero_nf },
-    { label: "Pagamento", completed: !!fatura.forma_pagamento },
+    { label: "Cobrança", completed: !!fatura.forma_pagamento },
     { label: "Envio", completed: !!fatura.data_envio },
   ];
 
@@ -162,7 +164,7 @@ export function DetalhesFaturaModal({
             </div>
 
             {/* Client & Period Info */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="bg-card border rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Building2 className="w-4 h-4 text-primary" />
@@ -197,19 +199,32 @@ export function DetalhesFaturaModal({
                 </div>
                 <div>
                   <p className="font-semibold">
-                    {format(new Date(fatura.periodo_inicio), "dd/MM/yyyy")} -{" "}
-                    {format(new Date(fatura.periodo_fim), "dd/MM/yyyy")}
+                    {format(parseISO(fatura.periodo_inicio), "dd/MM/yyyy")} -{" "}
+                    {format(parseISO(fatura.periodo_fim), "dd/MM/yyyy")}
                   </p>
                   <p className="text-2xl font-bold text-primary mt-2">
                     {formatCurrency(Number(fatura.valor_total))}
                   </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-md bg-success/10 p-2">
+                      <span className="block text-xs text-muted-foreground">Recebido</span>
+                      <strong className="text-success">{formatCurrency(received)}</strong>
+                    </div>
+                    <div className="rounded-md bg-warning/10 p-2">
+                      <span className="block text-xs text-muted-foreground">Saldo</span>
+                      <strong className="text-warning">{formatCurrency(balance)}</strong>
+                    </div>
+                  </div>
+                  {fatura.status_pagamento === "parcial" && (
+                    <StatusBadge variant="info">Recebimento parcial</StatusBadge>
+                  )}
                 </div>
                 {fatura.data_vencimento && (
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="w-3 h-3 text-muted-foreground" />
                     <span className="text-muted-foreground">Vencimento:</span>
                     <span className="font-medium">
-                      {format(new Date(fatura.data_vencimento), "dd/MM/yyyy")}
+                      {format(parseISO(fatura.data_vencimento), "dd/MM/yyyy")}
                     </span>
                   </div>
                 )}
@@ -309,7 +324,7 @@ export function DetalhesFaturaModal({
                   </Badge>
                   {fatura.data_vencimento && (
                     <span className="text-sm text-muted-foreground">
-                      Vence em {format(new Date(fatura.data_vencimento), "dd/MM/yyyy")}
+                      Vence em {format(parseISO(fatura.data_vencimento), "dd/MM/yyyy")}
                     </span>
                   )}
                 </div>

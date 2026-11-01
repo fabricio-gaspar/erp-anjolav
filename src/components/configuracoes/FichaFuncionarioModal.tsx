@@ -24,7 +24,7 @@ import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import {
   useUpdateFichaFuncionario,
-  calcularCustoMensal,
+  calcularReferenciaOperacional,
   type FichaFuncionarioData,
 } from "@/hooks/useFichaFuncionario";
 import {
@@ -77,7 +77,7 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
   const setMoney = (k: string, raw: string) => set(k, parseCurrencyToNumber(formatCurrencyInput(raw)));
   const moneyVal = (v: any) => (v == null ? "" : formatNumberToCurrency(Number(v)));
 
-  const custoMensal = calcularCustoMensal(form);
+  const referenciaOperacional = calcularReferenciaOperacional(form);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,9 +243,9 @@ export function FichaFuncionarioModal({ funcionario, open, onOpenChange }: Props
               </div>
 
               <Card className="p-3 bg-primary/5 mt-2">
-                <div className="text-sm text-muted-foreground">Custo mensal estimado para a empresa</div>
-                <div className="text-2xl font-bold text-primary">R$ {formatNumberToCurrency(custoMensal)}</div>
-                <div className="text-xs text-muted-foreground">(salário + benefícios + ~36% encargos)</div>
+                <div className="text-sm text-muted-foreground">Referência operacional cadastrada</div>
+                <div className="text-2xl font-bold text-primary">R$ {formatNumberToCurrency(referenciaOperacional)}</div>
+                <div className="text-xs text-muted-foreground">Soma dos valores fixos informados, sem encargos, tributos ou provisões.</div>
               </Card>
             </TabsContent>
 

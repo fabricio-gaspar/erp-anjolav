@@ -28,9 +28,15 @@ const dashboardProductionAdvanceQueryKeyPrefixes = [
 
 const cashRegisterCloseQueryKeyPrefixes = [
   ["caixa-aberto"],
+  ["caixa-resumo"],
   ["caixas"],
   ["caixas-fechados"],
+  ["closed-cash-register-directory"],
   ["ultimo-caixa-fechado"],
+  ["relatorio-movimentacoes"],
+  ["relatorio-operadores"],
+  ["relatorio-diferencas"],
+  ["totais-periodo"],
 ] as const;
 
 export function getQueryRetryDelay(attemptIndex: number): number {

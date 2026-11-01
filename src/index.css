@@ -7,26 +7,26 @@
 @tailwind components;
 @tailwind utilities;
 
-/* AnjoLav Design System */
+/* AnjoLav Design System — linguagem visual compartilhada com o Sistema de Leads */
 @layer base {
   :root {
-    --background: 210 25% 97%;
+    --background: 210 40% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 221 32% 14%;
     --popover: 0 0% 100%;
     --popover-foreground: 221 32% 14%;
-    --primary: 0 0% 0%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 247 46% 96%;
-    --secondary-foreground: 247 44% 30%;
-    --muted: 214 24% 93%;
-    --muted-foreground: 215 16% 35%;
-    --accent: 214 24% 91%;
-    --accent-foreground: 247 44% 30%;
-    --border: 214 22% 82%;
-    --input: 214 24% 68%;
-    --ring: 0 0% 0%;
+    --primary: 200 98% 39%;
+    --primary-foreground: 204 100% 97%;
+    --secondary: 215 24% 26%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 46%;
+    --accent: 200 48% 94%;
+    --accent-foreground: 200 98% 30%;
+    --border: 212 26% 83%;
+    --input: 212 26% 83%;
+    --ring: 200 98% 39%;
     --strong-border: 214 24% 68%;
     --radius: 0.75rem;
 
@@ -41,7 +41,19 @@
     --info-light: 211 100% 95%;
 
     /* Workspace Accents */
-    --workspace-accent: 0 0% 0%;
+    --workspace-accent: 191 41% 45%;
+
+    /* Sidebar — navy do sistema de Leads, com os acentos da marca AnjoLav. */
+    --sidebar-background: 220 30% 18%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 200 98% 45%;
+    --sidebar-primary-foreground: 204 100% 97%;
+    --sidebar-accent: 220 23% 26%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 220 20% 29%;
+    --sidebar-ring: 200 98% 45%;
+    --sidebar-muted: 215 16% 70%;
+    --sidebar-hover: 200 70% 30%;
     
     /* Legacy/System vars preserved */
     --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
@@ -49,9 +61,9 @@
     --font-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   }
 
-  html[data-workspace="central"] { --workspace-accent: 0 0% 0%; }
-  html[data-workspace="industrial"] { --workspace-accent: 0 0% 0%; }
-  html[data-workspace="residencial"] { --workspace-accent: 0 0% 0%; }
+  html[data-workspace="central"] { --workspace-accent: 200 98% 39%; }
+  html[data-workspace="industrial"] { --workspace-accent: 191 41% 45%; }
+  html[data-workspace="residencial"] { --workspace-accent: 210 70% 45%; }
 
   .dark {
     --background: 222 47% 8%;
@@ -63,8 +75,8 @@
     --popover: 215 24% 26%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 0 0% 0%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 198 93% 59%;
+    --primary-foreground: 204 80% 15%;
 
     --secondary: 212 26% 83%;
     --secondary-foreground: 228 84% 4%;
@@ -72,8 +84,8 @@
     --muted: 215 24% 20%;
     --muted-foreground: 215 20% 78%;
 
-    --accent: 228 84% 4%;
-    --accent-foreground: 215 20% 65%;
+    --accent: 215 24% 26%;
+    --accent-foreground: 210 40% 98%;
 
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
@@ -93,20 +105,20 @@
 
     --border: 215 19% 38%;
     --input: 215 19% 48%;
-    --ring: 0 0% 0%;
+    --ring: 198 93% 59%;
     --strong-border: 215 20% 52%;
 
-    /* Sidebar - Purple Theme (Dark) */
-    --sidebar-background: 262 83% 45%;
+    /* Sidebar — navy/cyan, mantendo contraste e hierarquia no modo escuro. */
+    --sidebar-background: 220 15% 13%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 0 0% 0%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 20% 65%;
-    --sidebar-accent-foreground: 228 84% 4%;
+    --sidebar-primary: 198 93% 59%;
+    --sidebar-primary-foreground: 204 80% 15%;
+    --sidebar-accent: 220 13% 22%;
+    --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 215 19% 34%;
-    --sidebar-ring: 0 0% 0%;
-    --sidebar-muted: 262 50% 60%;
-    --sidebar-hover: 262 70% 40%;
+    --sidebar-ring: 198 93% 59%;
+    --sidebar-muted: 215 20% 75%;
+    --sidebar-hover: 198 50% 25%;
     --chart-1: 199 95% 73%;
     --chart-2: 211 96% 78%;
     --chart-3: 215 20% 65%;
@@ -438,6 +450,30 @@
 
   .page-subtitle {
     @apply text-sm text-muted-foreground;
+  }
+
+  .page-shell {
+    @apply w-full space-y-5;
+  }
+
+  .page-toolbar {
+    @apply flex flex-col gap-3 rounded-xl border border-border bg-card p-3 shadow-sm sm:flex-row sm:items-center;
+  }
+
+  .page-tabs-list {
+    @apply inline-flex h-auto min-w-max gap-1 rounded-lg border border-border bg-muted/60 p-1;
+  }
+
+  .page-tab-trigger {
+    @apply px-3 py-1.5 text-sm font-semibold;
+  }
+
+  .page-tab-trigger[data-state="active"] {
+    @apply bg-card text-foreground shadow-sm;
+  }
+
+  .page-empty-state {
+    @apply flex min-h-[240px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-6 py-10 text-center text-muted-foreground;
   }
 }
 

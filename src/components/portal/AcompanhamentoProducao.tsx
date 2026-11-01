@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   Package, 
@@ -148,7 +148,7 @@ export function AcompanhamentoProducao({ ordens, isLoading }: AcompanhamentoProd
                             {os.data_previsao_entrega && (
                               <span className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
-                                Previsão: {format(new Date(os.data_previsao_entrega), "dd/MM", { locale: ptBR })}
+                                Previsão: {format(parseISO(os.data_previsao_entrega), "dd/MM", { locale: ptBR })}
                               </span>
                             )}
                           </div>

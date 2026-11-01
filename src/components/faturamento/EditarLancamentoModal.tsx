@@ -1,35 +1,42 @@
-import { useState, useEffect, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useEffect, useMemo, useState } from "react";
+import { AlertCircle, Edit, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Save, Loader2, Edit } from "lucide-react";
-import { toast } from "sonner";
-import { useProdutos } from "@/hooks/useProdutos";
-import type { Lancamento, ItemLancamento } from "@/hooks/useLancamentos";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { usePrecosEspeciais, useProdutos } from "@/hooks/useProdutos";
+import type { ItemLancamento, Lancamento } from "@/hooks/useLancamentos";
+import type { PendingRolDesiredItem } from "@/hooks/usePendingRolQueue";
+import { buildClientPriceCatalog, normalizeClientPriceMode } from "@/lib/clientPricing";
 
 interface EditarLancamentoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lancamento: Lancamento | null;
   itens: ItemLancamento[];
-  onSave: (lancamentoId: string, data: {
+  onSave: (lancamento: Lancamento, data: {
     observacao: string | null;
     data_lancamento: string;
-    valor_total: number;
-  }, itensAtualizados: ItemLancamento[], itensRemovidos: string[], itensNovos: Omit<ItemLancamento, 'id' | 'created_at'>[]) => Promise<void>;
+    data_entrega: string | null;
+    itens: PendingRolDesiredItem[];
+  }) => Promise<void>;
   isSaving?: boolean;
 }
 
 interface ItemEditavel extends ItemLancamento {
   isNew?: boolean;
-  isDeleted?: boolean;
 }
+
+const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+}).format(value);
 
 export function EditarLancamentoModal({
   open,
@@ -37,312 +44,254 @@ export function EditarLancamentoModal({
   lancamento,
   itens,
   onSave,
-  isSaving,
+  isSaving = false,
 }: EditarLancamentoModalProps) {
-  const { produtos } = useProdutos();
+  const { activeArea } = useWorkspace();
+  const { produtos, error: produtosError } = useProdutos();
+  const { precos: precosEspeciais, isLoading: isLoadingPrecos } = usePrecosEspeciais(lancamento?.cliente_id ?? null);
   const [dataLancamento, setDataLancamento] = useState("");
+  const [dataEntrega, setDataEntrega] = useState("");
   const [observacao, setObservacao] = useState("");
   const [itensEditaveis, setItensEditaveis] = useState<ItemEditavel[]>([]);
-  const [novoProdutoId, setNovoProdutoId] = useState<string>("");
-  const [novaQuantidade, setNovaQuantidade] = useState<string>("1");
+  const [novoProdutoId, setNovoProdutoId] = useState("");
+  const [novaQuantidade, setNovaQuantidade] = useState("1");
 
-  const formatCurrency = (value: number) => `R$ ${value.toFixed(2).replace(".", ",")}`;
-
-  // Reset state when lancamento changes
   useEffect(() => {
-    if (lancamento) {
-      setDataLancamento(lancamento.data_lancamento);
-      setObservacao(lancamento.observacao || "");
-      setItensEditaveis(itens.map(item => ({ ...item, isNew: false, isDeleted: false })));
-    }
+    if (!lancamento) return;
+    setDataLancamento(lancamento.data_lancamento);
+    setDataEntrega(lancamento.data_entrega ?? "");
+    setObservacao(lancamento.observacao ?? "");
+    setItensEditaveis(itens.map((item) => ({ ...item, isNew: false })));
+    setNovoProdutoId("");
+    setNovaQuantidade("1");
   }, [lancamento, itens]);
 
-  // Calculate total
-  const valorTotal = useMemo(() => {
-    return itensEditaveis
-      .filter(item => !item.isDeleted)
-      .reduce((sum, item) => sum + Number(item.subtotal), 0);
-  }, [itensEditaveis]);
+  const catalogo = useMemo(() => buildClientPriceCatalog(
+    produtos,
+    precosEspeciais,
+    normalizeClientPriceMode(lancamento?.cliente?.tabela_preco_tipo),
+    activeArea === "residencial" ? "residencial" : "industrial",
+  ), [activeArea, lancamento?.cliente?.tabela_preco_tipo, precosEspeciais, produtos]);
 
-  const handleQuantidadeChange = (itemId: string, novaQtd: string) => {
-    const qtd = parseFloat(novaQtd) || 0;
-    setItensEditaveis(prev => prev.map(item => {
-      if (item.id === itemId) {
-        const subtotal = qtd * Number(item.preco_unitario);
-        return { ...item, quantidade: qtd, subtotal };
-      }
-      return item;
-    }));
-  };
+  const valorTotal = useMemo(() => itensEditaveis.reduce(
+    (sum, item) => sum + Number(item.subtotal),
+    0,
+  ), [itensEditaveis]);
 
-  const handlePrecoChange = (itemId: string, novoPreco: string) => {
-    const preco = parseFloat(novoPreco) || 0;
-    setItensEditaveis(prev => prev.map(item => {
-      if (item.id === itemId) {
-        const subtotal = Number(item.quantidade) * preco;
-        return { ...item, preco_unitario: preco, subtotal };
+  const handleQuantidadeChange = (itemId: string, rawValue: string) => {
+    const quantity = Number(rawValue);
+    setItensEditaveis((current) => current.map((item) => item.id === itemId
+      ? {
+        ...item,
+        quantidade: Number.isFinite(quantity) ? quantity : 0,
+        subtotal: (Number.isFinite(quantity) ? quantity : 0) * Number(item.preco_unitario),
       }
-      return item;
-    }));
-  };
-
-  const handleRemoverItem = (itemId: string) => {
-    setItensEditaveis(prev => prev.map(item => {
-      if (item.id === itemId) {
-        if (item.isNew) {
-          // Remove completely if it's a new item
-          return null as unknown as ItemEditavel;
-        }
-        return { ...item, isDeleted: true };
-      }
-      return item;
-    }).filter(Boolean));
+      : item));
   };
 
   const handleAdicionarItem = () => {
-    if (!novoProdutoId) return;
-    
-    const produto = produtos.find(p => p.id === novoProdutoId);
-    if (!produto) return;
+    const product = catalogo.find((candidate) => candidate.id === novoProdutoId);
+    const quantity = Number(novaQuantidade);
+    if (!product || !Number.isFinite(quantity) || quantity <= 0) {
+      toast.error("Selecione um produto e informe uma quantidade válida.");
+      return;
+    }
 
-    const quantidade = parseFloat(novaQuantidade) || 1;
-    const preco = Number(produto.preco);
-    const subtotal = quantidade * preco;
-
-    const novoItem: ItemEditavel = {
+    setItensEditaveis((current) => [...current, {
       id: crypto.randomUUID(),
-      lancamento_id: lancamento?.id || "",
-      produto_nome: produto.nome,
-      quantidade,
-      unidade: produto.unidade || "un",
-      preco_unitario: preco,
-      subtotal,
+      lancamento_id: lancamento?.id ?? "",
+      produto_id: product.id,
+      produto_nome: product.nome,
+      quantidade: quantity,
+      unidade: product.unidade || "un",
+      preco_unitario: product.precoAplicado,
+      subtotal: product.precoAplicado * quantity,
       created_at: new Date().toISOString(),
       isNew: true,
-      isDeleted: false,
-    };
-
-    setItensEditaveis(prev => [...prev, novoItem]);
+    }]);
     setNovoProdutoId("");
     setNovaQuantidade("1");
   };
 
   const handleSave = async () => {
     if (!lancamento) return;
-
-    const itensParaAtualizar = itensEditaveis.filter(item => !item.isNew && !item.isDeleted);
-    const itensParaRemover = itensEditaveis.filter(item => item.isDeleted && !item.isNew).map(item => item.id);
-    const itensParaCriar = itensEditaveis
-      .filter(item => item.isNew && !item.isDeleted)
-      .map(({ id, created_at, isNew, isDeleted, ...rest }) => rest);
-
-    try {
-      await onSave(
-        lancamento.id,
-        {
-          observacao: observacao || null,
-          data_lancamento: dataLancamento,
-          valor_total: valorTotal,
-        },
-        itensParaAtualizar,
-        itensParaRemover,
-        itensParaCriar
-      );
-      onOpenChange(false);
-    } catch (error) {
-      // Error handled in parent
+    if (!dataLancamento) {
+      toast.error("Informe a data do lançamento.");
+      return;
     }
+    if (dataEntrega && dataEntrega < dataLancamento) {
+      toast.error("A entrega não pode ser anterior ao lançamento.");
+      return;
+    }
+    if (itensEditaveis.length === 0 || itensEditaveis.some((item) => !Number.isFinite(Number(item.quantidade)) || Number(item.quantidade) <= 0)) {
+      toast.error("Mantenha pelo menos um item com quantidade válida.");
+      return;
+    }
+
+    const desiredItems: PendingRolDesiredItem[] = itensEditaveis.map((item) => item.isNew
+      ? {
+        produto_id: item.produto_id ?? undefined,
+        descricao: item.produto_nome,
+        quantidade: Number(item.quantidade),
+      }
+      : {
+        id: item.id,
+        quantidade: Number(item.quantidade),
+      });
+
+    await onSave(lancamento, {
+      observacao: observacao.trim() || null,
+      data_lancamento: dataLancamento,
+      data_entrega: dataEntrega || null,
+      itens: desiredItems,
+    });
+    onOpenChange(false);
   };
 
   if (!lancamento) return null;
 
-  const itensVisiveis = itensEditaveis.filter(item => !item.isDeleted);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] max-w-4xl overflow-y-auto p-4 sm:w-full sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Edit className="w-5 h-5 text-primary" />
-            Editar Lançamento
+            <Edit className="h-5 w-5 text-primary" />
+            Editar {lancamento.numero_rol || "ROL"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Basic Info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-3">
               <Label>Cliente</Label>
-              <Input 
-                value={lancamento.cliente?.razao_social || "Cliente"} 
-                disabled 
-                className="mt-1.5 bg-muted/50"
-              />
+              <Input value={lancamento.cliente?.razao_social || "Cliente"} disabled className="mt-1.5 bg-muted/50" />
             </div>
             <div>
-              <Label>Data do Lançamento</Label>
-              <Input
-                type="date"
-                value={dataLancamento}
-                onChange={(e) => setDataLancamento(e.target.value)}
-                className="mt-1.5"
-              />
+              <Label htmlFor="edit-rol-date">Data do lançamento</Label>
+              <Input id="edit-rol-date" type="date" value={dataLancamento} onChange={(event) => setDataLancamento(event.target.value)} className="mt-1.5" />
+            </div>
+            <div>
+              <Label htmlFor="edit-rol-delivery">Previsão de entrega</Label>
+              <Input id="edit-rol-delivery" type="date" value={dataEntrega} min={dataLancamento} onChange={(event) => setDataEntrega(event.target.value)} className="mt-1.5" />
+            </div>
+            <div className="sm:col-span-3">
+              <Label htmlFor="edit-rol-note">Observação</Label>
+              <Textarea id="edit-rol-note" value={observacao} maxLength={2000} onChange={(event) => setObservacao(event.target.value)} placeholder="Informações úteis para a operação" className="mt-1.5" rows={3} />
             </div>
           </div>
 
-          <div>
-            <Label>Observação</Label>
-            <Textarea
-              value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-              placeholder="Observações do lançamento..."
-              className="mt-1.5"
-              rows={2}
-            />
-          </div>
+          <section className="space-y-3" aria-labelledby="edit-rol-items-title">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h3 id="edit-rol-items-title" className="font-semibold">Itens do ROL</h3>
+                <p className="text-sm text-muted-foreground">O valor dos itens existentes é preservado; novos itens usam a tabela vigente do cliente.</p>
+              </div>
+              <Badge variant="secondary">{itensEditaveis.length} item{itensEditaveis.length === 1 ? "" : "s"}</Badge>
+            </div>
 
-          {/* Items Table */}
-          <div className="space-y-3">
-            <Label>Itens do Lançamento</Label>
-            <div className="border rounded-lg overflow-hidden">
+            <div className="hidden overflow-hidden rounded-xl border md:block">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">PRODUTO</TableHead>
-                    <TableHead className="font-semibold text-center w-24">QTD</TableHead>
-                    <TableHead className="font-semibold text-center w-20">UNID</TableHead>
-                    <TableHead className="font-semibold text-right w-32">UNIT.</TableHead>
-                    <TableHead className="font-semibold text-right w-32">TOTAL</TableHead>
-                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Produto</TableHead>
+                    <TableHead className="w-28 text-center">Quantidade</TableHead>
+                    <TableHead className="w-20 text-center">Unidade</TableHead>
+                    <TableHead className="w-32 text-right">Unitário</TableHead>
+                    <TableHead className="w-32 text-right">Subtotal</TableHead>
+                    <TableHead className="w-14"><span className="sr-only">Ações</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {itensVisiveis.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        Nenhum item. Adicione produtos abaixo.
+                  {itensEditaveis.map((item) => (
+                    <TableRow key={item.id} className={item.isNew ? "bg-success/5" : undefined}>
+                      <TableCell className="font-medium">
+                        {item.produto_nome}
+                        {item.isNew && <Badge variant="outline" className="ml-2 border-success text-success">Novo</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        <Input aria-label={`Quantidade de ${item.produto_nome}`} type="number" step="0.01" min="0.01" value={item.quantidade} onChange={(event) => handleQuantidadeChange(item.id, event.target.value)} className="h-9 text-center" />
+                      </TableCell>
+                      <TableCell className="text-center">{item.unidade}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCurrency(Number(item.preco_unitario))}</TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">{formatCurrency(Number(item.subtotal))}</TableCell>
+                      <TableCell>
+                        <Button type="button" variant="ghost" size="icon" className="h-10 w-10 text-destructive hover:text-destructive" onClick={() => setItensEditaveis((current) => current.filter((candidate) => candidate.id !== item.id))} aria-label={`Remover ${item.produto_nome}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    itensVisiveis.map((item) => (
-                      <TableRow key={item.id} className={item.isNew ? "bg-success/5" : ""}>
-                        <TableCell className="font-medium">
-                          {item.produto_nome}
-                          {item.isNew && (
-                            <Badge variant="outline" className="ml-2 text-xs text-success border-success">
-                              Novo
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            value={item.quantidade}
-                            onChange={(e) => handleQuantidadeChange(item.id, e.target.value)}
-                            className="h-8 text-center"
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="text-xs">
-                            {item.unidade}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <CurrencyInput
-                            value={Number(item.preco_unitario)}
-                            onValueChange={(num) => handlePrecoChange(item.id, String(num))}
-                            className="h-8 text-right"
-                            showPrefix={false}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(Number(item.subtotal))}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => handleRemoverItem(item.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                  ))}
                 </TableBody>
               </Table>
             </div>
 
-            {/* Add Item Row */}
-            <div className="flex gap-3 items-end p-3 bg-muted/30 rounded-lg">
-              <div className="flex-1">
-                <Label className="text-xs text-muted-foreground">Adicionar Produto</Label>
-                <Select value={novoProdutoId} onValueChange={setNovoProdutoId}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione um produto..." />
+            <div className="space-y-3 md:hidden">
+              {itensEditaveis.map((item) => (
+                <article key={item.id} className="rounded-xl border bg-card p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{item.produto_nome}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{formatCurrency(Number(item.preco_unitario))} / {item.unidade}</p>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0 text-destructive" onClick={() => setItensEditaveis((current) => current.filter((candidate) => candidate.id !== item.id))} aria-label={`Remover ${item.produto_nome}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="mt-4 flex items-end justify-between gap-4">
+                    <div className="max-w-36">
+                      <Label htmlFor={`quantity-${item.id}`}>Quantidade</Label>
+                      <Input id={`quantity-${item.id}`} type="number" step="0.01" min="0.01" value={item.quantidade} onChange={(event) => handleQuantidadeChange(item.id, event.target.value)} className="mt-1.5" />
+                    </div>
+                    <p className="pb-2 text-right text-lg font-bold tabular-nums">{formatCurrency(Number(item.subtotal))}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {itensEditaveis.length === 0 && (
+              <div role="alert" className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm">
+                <AlertCircle className="h-4 w-4 text-warning" />
+                Adicione pelo menos um item antes de salvar.
+              </div>
+            )}
+
+            <div className="grid gap-3 rounded-xl border bg-muted/30 p-4 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-end">
+              <div>
+                <Label htmlFor="edit-rol-add-product">Adicionar produto</Label>
+                <Select value={novoProdutoId} onValueChange={setNovoProdutoId} disabled={isLoadingPrecos || Boolean(produtosError)}>
+                  <SelectTrigger id="edit-rol-add-product" className="mt-1.5 min-h-11">
+                    <SelectValue placeholder={isLoadingPrecos ? "Carregando tabela..." : "Selecione um produto"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {produtos.filter(p => p.status === "ativo").map((produto) => (
-                      <SelectItem key={produto.id} value={produto.id}>
-                        {produto.nome} - {formatCurrency(Number(produto.preco))}
+                    {catalogo.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.nome} · {formatCurrency(product.precoAplicado)} / {product.unidade || "un"}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="w-24">
-                <Label className="text-xs text-muted-foreground">Quantidade</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={novaQuantidade}
-                  onChange={(e) => setNovaQuantidade(e.target.value)}
-                  className="mt-1"
-                />
+              <div>
+                <Label htmlFor="edit-rol-new-quantity">Quantidade</Label>
+                <Input id="edit-rol-new-quantity" type="number" step="0.01" min="0.01" value={novaQuantidade} onChange={(event) => setNovaQuantidade(event.target.value)} className="mt-1.5" />
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleAdicionarItem}
-                disabled={!novoProdutoId}
-                className="gap-1"
-              >
-                <Plus className="w-4 h-4" />
-                Adicionar
+              <Button type="button" variant="outline" onClick={handleAdicionarItem} disabled={!novoProdutoId || isLoadingPrecos} className="min-h-11 gap-2">
+                <Plus className="h-4 w-4" /> Adicionar
               </Button>
             </div>
-          </div>
+          </section>
 
-          {/* Total */}
-          <div className="flex justify-between items-center p-4 bg-primary/5 border border-primary/20 rounded-lg">
-            <span className="font-medium">Total do Lançamento</span>
-            <span className="text-xl font-bold text-primary">
-              {formatCurrency(valorTotal)}
-            </span>
+          <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <span className="font-medium">Total estimado</span>
+            <span className="text-xl font-bold tabular-nums text-primary">{formatCurrency(valorTotal)}</span>
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving || itensVisiveis.length === 0} className="gap-2">
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                Salvar Alterações
-              </>
-            )}
+        <DialogFooter className="mt-6 gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Voltar</Button>
+          <Button onClick={() => void handleSave()} disabled={isSaving || itensEditaveis.length === 0} className="gap-2">
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isSaving ? "Salvando..." : "Salvar alterações"}
           </Button>
         </DialogFooter>
       </DialogContent>

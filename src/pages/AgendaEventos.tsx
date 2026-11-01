@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,7 +105,18 @@ const AgendaEventos = () => {
 
   return (
     <AppLayout title="Agenda de Eventos" subtitle="Calendário e lembretes">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="page-shell">
+        <PageHeader
+          eyebrow="Organização interna"
+          title="Agenda de Eventos"
+          description="Calendário de reuniões, tarefas e lembretes da operação"
+          actions={(
+            <Button onClick={openNewEvento} className="w-full gap-2 font-bold sm:w-auto">
+              <Plus className="h-4 w-4" />Novo Evento
+            </Button>
+          )}
+        />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Calendar */}
         <Card className="lg:col-span-2 p-4">
           <div className="flex items-center justify-between mb-4">
@@ -165,13 +177,10 @@ const AgendaEventos = () => {
 
         {/* Day events */}
         <Card className="p-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold text-sm">
               {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
             </h3>
-            <Button size="sm" onClick={openNewEvento} className="gap-1">
-              <Plus className="w-3 h-3" /> Novo
-            </Button>
           </div>
 
           {isLoading ? (
@@ -226,6 +235,7 @@ const AgendaEventos = () => {
             </div>
           )}
         </Card>
+      </div>
       </div>
 
       {/* New Event Modal */}

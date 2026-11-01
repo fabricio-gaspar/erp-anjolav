@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
@@ -20,14 +21,20 @@ const Contas = () => {
 
   return (
     <AppLayout title="Contas" subtitle="Gerencie suas receitas e despesas">
-      <div className="space-y-4">
+      <div className="page-shell">
+        <PageHeader
+          eyebrow="Gestão financeira"
+          title="Contas"
+          description="Gerencie receitas, despesas e vencimentos em um só lugar"
+        />
+        <div className="content-panel">
         <Tabs value={tabFromUrl} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
-            <TabsTrigger value="receber" className="gap-2">
+          <TabsList className="page-tabs-list">
+            <TabsTrigger value="receber" className="page-tab-trigger gap-2">
               <TrendingUp className="w-4 h-4" />
               A Receber
             </TabsTrigger>
-            <TabsTrigger value="pagar" className="gap-2">
+            <TabsTrigger value="pagar" className="page-tab-trigger gap-2">
               <TrendingDown className="w-4 h-4" />
               A Pagar
             </TabsTrigger>
@@ -41,6 +48,7 @@ const Contas = () => {
             <ContasPagarContent />
           </TabsContent>
         </Tabs>
+        </div>
       </div>
     </AppLayout>
   );
