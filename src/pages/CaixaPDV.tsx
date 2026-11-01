@@ -82,7 +82,7 @@ import { buildClientPriceCatalog } from "@/lib/clientPricing";
 import { getDefaultPdvDeliveryDate } from "@/lib/pdvFulfillment";
 import { parseCustomerPaymentTerms, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -249,6 +249,7 @@ const PdvAtendimento = () => {
   const [showClientList, setShowClientList] = useState(false);
   const [showQuickClientModal, setShowQuickClientModal] = useState(false);
   const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(createInitialFulfillment);
+  const [fulfillmentDraft, setFulfillmentDraft] = useState<PdvFulfillmentSettings | null>(null);
   const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
   const [paymentShortcut, setPaymentShortcut] = useState<PdvPaymentSelection | null>(null);
   
@@ -294,6 +295,16 @@ const PdvAtendimento = () => {
   const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(selectedClient?.id ?? null, canUseLoyalty);
   const deliveryDateKey = format(fulfillment.deliveryDate, "yyyy-MM-dd");
   const { data: capacity, isLoading: capacityLoading, isError: capacityError } = usePdvCapacity(selectedClient?.id ?? null, deliveryDateKey, Boolean(selectedClient));
+  const fulfillmentDraftDateKey = format((fulfillmentDraft ?? fulfillment).deliveryDate, "yyyy-MM-dd");
+  const {
+    data: fulfillmentDraftCapacity,
+    isLoading: fulfillmentDraftCapacityLoading,
+    isError: fulfillmentDraftCapacityError,
+  } = usePdvCapacity(
+    selectedClient?.id ?? null,
+    fulfillmentDraftDateKey,
+    Boolean(selectedClient && showFulfillmentModal),
+  );
   const catalogLoading = isLoadingProdutos || isLoadingClientes || pricesLoading || termsLoading;
   const catalogError = pricesError || termsError || productsError || clientsError;
   const catalogReady = canCreateSale && !!selectedClient && !catalogLoading && !catalogError;
@@ -454,8 +465,27 @@ const PdvAtendimento = () => {
     setCart([]);
     setQuantityDrafts({});
     setFulfillment(createInitialFulfillment());
+    setFulfillmentDraft(null);
+    setShowFulfillmentModal(false);
     setPaymentShortcut(null);
   }, []);
+
+  const openFulfillmentModal = useCallback((preset: Partial<PdvFulfillmentSettings> = {}) => {
+    // As escolhas operacionais ficam em rascunho até o atendente confirmá-las.
+    setFulfillmentDraft({ ...fulfillment, ...preset });
+    setShowFulfillmentModal(true);
+  }, [fulfillment]);
+
+  const closeFulfillmentModal = useCallback(() => {
+    setShowFulfillmentModal(false);
+    setFulfillmentDraft(null);
+  }, []);
+
+  const applyFulfillmentChanges = useCallback(() => {
+    if (!fulfillmentDraft) return;
+    setFulfillment(fulfillmentDraft);
+    closeFulfillmentModal();
+  }, [closeFulfillmentModal, fulfillmentDraft]);
 
   const requestDiscard = useCallback((request: Omit<DiscardRequest, "confirmLabel"> & { confirmLabel?: string }) => {
     if (cart.length === 0) {
@@ -897,7 +927,7 @@ const PdvAtendimento = () => {
       }
       if (showHistoricoVendas) setShowHistoricoVendas(false);
       if (showAjudaAtalhos) setShowAjudaAtalhos(false);
-      if (showFulfillmentModal) setShowFulfillmentModal(false);
+      if (showFulfillmentModal) closeFulfillmentModal();
     }
   }, [
     canReceivePayments,
@@ -911,6 +941,7 @@ const PdvAtendimento = () => {
     selectLastClient,
     showAjudaAtalhos,
     showConsultarOSModal,
+    closeFulfillmentModal,
     showFulfillmentModal,
     showHistoricoVendas,
     showPagamentoModal,
@@ -1075,7 +1106,7 @@ const PdvAtendimento = () => {
                   <small>Data prometida</small>
                   <strong>{format(fulfillment.deliveryDate, "dd/MM/yyyy")} <span className="font-medium text-muted-foreground">({format(fulfillment.deliveryDate, "EEEE", { locale: ptBR })})</span></strong>
                 </span>
-                <button type="button" className="pdv-capacity-edit" disabled={!selectedClient} onClick={() => setShowFulfillmentModal(true)} aria-label="Editar prazo e entrega">
+                <button type="button" className="pdv-capacity-edit" disabled={!selectedClient} onClick={() => openFulfillmentModal()} aria-label="Editar prazo e entrega">
                   <Pencil className="h-4 w-4" />
                 </button>
               </div>
@@ -1334,7 +1365,7 @@ const PdvAtendimento = () => {
                 </div>
                 <div className="pdv-adjustment-line">
                   <span className="text-[13px] text-muted-foreground">Acréscimo</span>
-                  <button type="button" className="pdv-adjustment-button" aria-label="Configurar urgência na finalização" onClick={() => setShowFulfillmentModal(true)}>{formatCurrency(0)}</button>
+                  <button type="button" className="pdv-adjustment-button" aria-label="Configurar urgência na finalização" onClick={() => openFulfillmentModal()}>{formatCurrency(0)}</button>
                   <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
                 </div>
               </div>
@@ -1397,8 +1428,8 @@ const PdvAtendimento = () => {
             <button type="button" className="pdv-quick-action" onClick={() => openOrderLookup("posicao")}><Boxes className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Produção</span></span></button>
             <button data-testid="pdv-workflow-products" type="button" className="pdv-quick-action" onClick={focusProductSearch}><ShoppingCart className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Cesto</span></span></button>
             <button type="button" className="pdv-quick-action" aria-label="Posição do ROL" onClick={() => openOrderLookup("posicao")}><MapPin className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Prateleira</span></span></button>
-            <button data-testid="pdv-workflow-fulfillment" type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => { setFulfillment((current) => ({ ...current, deliveryMode: "entrega" })); setShowFulfillmentModal(true); }}><Truck className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Entrega</span></span></button>
-            <button type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => { setFulfillment((current) => ({ ...current, deliveryMode: "balcao" })); setShowFulfillmentModal(true); }}><Archive className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Retirada</span></span></button>
+            <button data-testid="pdv-workflow-fulfillment" type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "entrega" })}><Truck className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Entrega</span></span></button>
+            <button type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "balcao" })}><Archive className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Retirada</span></span></button>
             <button type="button" className="pdv-quick-action" disabled={!canReceivePayments} onClick={() => setShowFecharCaixaModal(true)}><Lock className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Fechamento</span></span></button>
           </div>
         </nav>
@@ -1423,26 +1454,37 @@ const PdvAtendimento = () => {
       )}
 
       {selectedClient && (
-        <Dialog open={showFulfillmentModal} onOpenChange={setShowFulfillmentModal}>
-          <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
-            <DialogHeader>
+        <Dialog open={showFulfillmentModal} onOpenChange={(open) => {
+          if (open) return;
+          closeFulfillmentModal();
+        }}>
+          <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden">
+            <DialogHeader className="shrink-0">
               <DialogTitle>Prazo, capacidade e entrega</DialogTitle>
               <DialogDescription>Defina prazo, capacidade, entrega ou retirada sem abandonar o pedido atual.</DialogDescription>
             </DialogHeader>
-            <PdvFulfillmentPanel
-              clienteNome={selectedClient.nome_fantasia || selectedClient.razao_social}
-              endereco={enderecoCliente}
-              enderecoLoading={enderecoLoading}
-              enderecoError={enderecoError}
-              settings={fulfillment}
-              requestedLoad={totalItems}
-              capacity={capacity}
-              capacityLoading={capacityLoading}
-              capacityError={capacityError}
-              canOverrideCapacity={canManageCommercialTerms}
-              canSetUrgency={!isFaturado}
-              onChange={setFulfillment}
-            />
+            <div className="min-h-0 overflow-y-auto pr-1">
+              <PdvFulfillmentPanel
+                clienteNome={selectedClient.nome_fantasia || selectedClient.razao_social}
+                endereco={enderecoCliente}
+                enderecoLoading={enderecoLoading}
+                enderecoError={enderecoError}
+                settings={fulfillmentDraft ?? fulfillment}
+                requestedLoad={totalItems}
+                capacity={fulfillmentDraftCapacity}
+                capacityLoading={fulfillmentDraftCapacityLoading}
+                capacityError={fulfillmentDraftCapacityError}
+                canOverrideCapacity={canManageCommercialTerms}
+                canSetUrgency={!isFaturado}
+                onChange={setFulfillmentDraft}
+              />
+            </div>
+            <DialogFooter className="shrink-0 border-t pt-4 sm:gap-3">
+              <Button type="button" variant="outline" onClick={closeFulfillmentModal}>Cancelar</Button>
+              <Button type="button" data-testid="pdv-fulfillment-apply" className="gap-2" onClick={applyFulfillmentChanges}>
+                <CircleCheck className="h-4 w-4" /> Aplicar alterações
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}

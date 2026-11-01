@@ -808,8 +808,8 @@ export function ConsultarOSModal({
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8"
-                                        aria-label={`Editar posição de ${item.produto?.nome || "item"}`}
-                                        title="Editar posição de armazenamento"
+                                        aria-label={`Salvar posição de ${item.produto?.nome || "item"}`}
+                                        title="Salvar posição de armazenamento"
                                         onClick={savePosition}
                                         disabled={isSavingPosition}
                                       >
@@ -819,6 +819,8 @@ export function ConsultarOSModal({
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8"
+                                        aria-label={`Cancelar edição da posição de ${item.produto?.nome || "item"}`}
+                                        title="Cancelar edição da posição"
                                         onClick={cancelEditingPosition}
                                       >
                                         <X className="w-4 h-4 text-destructive" />
@@ -842,6 +844,8 @@ export function ConsultarOSModal({
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8"
+                                        aria-label={`Editar posição de ${item.produto?.nome || "item"}`}
+                                        title="Editar posição de armazenamento"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           startEditingPosition(item.id, item.posicao_prateleira);
