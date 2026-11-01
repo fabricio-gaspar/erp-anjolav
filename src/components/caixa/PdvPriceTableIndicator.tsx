@@ -1,5 +1,4 @@
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Tag } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import {
   CLIENT_PRICE_MODE_LABELS,
   normalizeClientPriceMode,
@@ -19,6 +18,8 @@ const TABLE_DESCRIPTIONS: Record<ClientPriceMode, string> = {
   cesto: "Tabela compartilhada de cesto, independente dos preços personalizados.",
 };
 
+const PRICE_TABLE_ORDER: ClientPriceMode[] = ["padrao", "cesto", "personalizada"];
+
 /**
  * Step 2 of the operational flow. The customer profile is the source of truth
  * for the table selection; the PDV only makes the choice explicit before any
@@ -36,33 +37,54 @@ export function PdvPriceTableIndicator({
   return (
     <section
       data-testid="pdv-price-table"
-      className="rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4"
+      className="pdv-reference-card pdv-price-card"
       aria-labelledby="pdv-price-table-title"
     >
-      <div className="flex items-start gap-2">
-        <Tag className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-        <div className="min-w-0">
-          <h2 id="pdv-price-table-title" className="text-base font-bold">Tabela de preço</h2>
-          {!clienteNome ? (
-            <p className="mt-1 text-sm text-muted-foreground">Selecione o cliente para carregar a tabela aplicável.</p>
-          ) : isLoading ? (
-            <p role="status" className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando os preços de {clienteNome}…
-            </p>
-          ) : isError ? (
-            <p role="alert" className="mt-1 text-sm text-destructive">Não foi possível carregar a tabela de preço deste cliente.</p>
-          ) : (
-            <>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Badge className="rounded-full px-2.5 py-1 text-xs font-bold">{CLIENT_PRICE_MODE_LABELS[mode]}</Badge>
-                <span className="text-sm font-semibold">Aplicada a {clienteNome}</span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">{TABLE_DESCRIPTIONS[mode]}</p>
-              <p className="mt-2 text-xs text-muted-foreground">O pedido guardará esta tabela e o preço efetivo de cada item na confirmação.</p>
-            </>
-          )}
+      <div className="pdv-card-title-row">
+        <div className="pdv-card-title">
+          <span className="pdv-step-number" aria-hidden="true">2</span>
+          <h2 id="pdv-price-table-title">Tabela de preço</h2>
         </div>
       </div>
+
+      {!clienteNome ? (
+        <div className="pdv-price-empty">
+          <p>Selecione o cliente para carregar a tabela aplicável.</p>
+        </div>
+      ) : isLoading ? (
+        <p role="status" className="pdv-inline-status">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando os preços de {clienteNome}…
+        </p>
+      ) : isError ? (
+        <p role="alert" className="pdv-inline-status text-destructive">Não foi possível carregar a tabela de preço deste cliente.</p>
+      ) : (
+        <>
+          <div className="pdv-price-highlight">
+            <span>
+              <strong>Tabela: {CLIENT_PRICE_MODE_LABELS[mode]}</strong>
+              <small>{mode === "personalizada" ? "Preços especiais para este cliente." : TABLE_DESCRIPTIONS[mode]}</small>
+            </span>
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </div>
+
+          <div className="pdv-price-options" aria-label="Opções da tabela de preço">
+            {PRICE_TABLE_ORDER.map((option) => {
+              const isActive = option === mode;
+              return (
+                <span
+                  key={option}
+                  aria-current={isActive ? "true" : undefined}
+                  className={`pdv-price-option${isActive ? " is-active" : ""}`}
+                >
+                  {CLIENT_PRICE_MODE_LABELS[option]}
+                </span>
+              );
+            })}
+          </div>
+          <p className="sr-only">A alteração da tabela respeita a permissão comercial do perfil e acontece no cadastro do cliente.</p>
+          <p className="sr-only">O pedido guardará esta tabela e o preço efetivo de cada item na confirmação.</p>
+        </>
+      )}
     </section>
   );
 }

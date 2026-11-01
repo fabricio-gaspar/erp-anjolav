@@ -1,12 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Building2,
+  CalendarDays,
   ChevronDown,
   Clock3,
-  Droplets,
   Factory,
+  Leaf,
   LogOut,
   Moon,
+  Settings2,
   Store,
   Sun,
   UserRound,
@@ -53,11 +55,16 @@ function getUnitLabel(
   return `${units.length} unidades autorizadas`;
 }
 
-function formatOperationalDateTime(value: Date): string {
+function formatOperationalDate(value: Date): string {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  }).format(value);
+}
+
+function formatOperationalTime(value: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
   }).format(value);
@@ -101,7 +108,7 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
     : isLoadingCash
       ? "Verificando…"
       : caixaAberto
-        ? `Aberto · ${caixaAberto.identificador_caixa}`
+        ? `Caixa ${caixaAberto.identificador_caixa} Aberto`
         : "Fechado";
 
   useEffect(() => {
@@ -122,42 +129,81 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
   return (
     <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 shadow-sm backdrop-blur">
-        <div className="flex min-h-16 items-center justify-between gap-3 px-3 sm:px-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20">
-              <Droplets className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-black tracking-tight sm:text-base">
-                  {title || "Portal operacional"}
-                </p>
-                <span className="hidden rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-primary sm:inline">
-                  Operação
-                </span>
-              </div>
-              <p className="truncate text-[11px] font-semibold text-muted-foreground">
-                {subtitle || `${activeTenant?.name ?? "Empresa"} · ${areaLabel}`}
-              </p>
+        <div className="flex min-h-[64px] items-center justify-between gap-4 px-3 sm:px-5 lg:px-6">
+          <div className="flex min-w-0 items-center gap-6">
+            <div className="flex shrink-0 items-center gap-2.5" aria-label="AnjoLav">
+              <Leaf className="h-9 w-9 fill-success/15 text-success" strokeWidth={2.25} />
+              <span className="hidden text-[30px] font-black tracking-[-0.06em] text-foreground sm:inline">Anjo<span className="text-success">Lav</span></span>
             </div>
+            <span className="hidden h-8 w-px bg-border md:block" aria-hidden="true" />
+            <h1 className="truncate text-lg font-black tracking-[-0.045em] text-foreground sm:text-[25px]">
+              {title || "PDV / Caixa"}
+            </h1>
+            <span className="hidden rounded-full bg-success-light px-4 py-2 text-sm font-bold text-success lg:inline">
+              Atendimento
+            </span>
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-9 w-9"
-              onClick={toggleMode}
-              aria-label={isDark ? "Ativar modo diurno" : "Ativar modo noturno"}
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
+          <div aria-label="Contexto operacional" className="scrollbar-hide flex min-w-0 items-center justify-end gap-2 overflow-x-auto text-sm">
+            <span className="hidden shrink-0 items-center gap-2 border-r border-border pr-4 xl:inline-flex" title={subtitle || `${activeTenant?.name ?? "Empresa"} · ${areaLabel}`}>
+              <Building2 className="h-4 w-4 text-primary" />
+              <span><span className="text-muted-foreground">Unidade:</span> <strong>{unitLabel}</strong></span>
+            </span>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9" aria-label={`Usuário: ${displayName}`}>
-                  <UserRound className="h-5 w-5" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden h-9 shrink-0 gap-1.5 px-2 text-sm md:inline-flex"
+                  aria-label={`Operação ${areaLabel}`}
+                  disabled={isOperationSwitchLocked || accessiblePdvAreas.length < 2}
+                  title={isOperationSwitchLocked
+                    ? "Finalize ou limpe a venda atual antes de trocar de operação."
+                    : accessiblePdvAreas.length < 2
+                      ? "Seu perfil possui somente esta operação autorizada."
+                      : undefined}
+                >
+                  <Settings2 className="h-4 w-4 text-primary" />
+                  <span><span className="text-muted-foreground">Operação:</span> <strong>{areaLabel}</strong></span>
+                  {accessiblePdvAreas.length > 1 && <ChevronDown className="h-3.5 w-3.5 opacity-60" />}
+                </Button>
+              </DropdownMenuTrigger>
+              {accessiblePdvAreas.length > 1 && (
+                <DropdownMenuContent align="start">
+                  <DropdownMenuLabel>Operação autorizada</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {accessiblePdvAreas.map((area) => {
+                    const Icon = area === "industrial" ? Factory : Store;
+                    const label = area === "industrial" ? "Industrial" : "Doméstico";
+                    return (
+                      <DropdownMenuItem
+                        key={area}
+                        className={cn(area === operationArea && "bg-muted font-bold")}
+                        onClick={() => navigate(area === "industrial" ? "/pdv/industrial" : "/pdv/domestico")}
+                      >
+                        <Icon className="mr-2 h-4 w-4" />
+                        {label}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              )}
+            </DropdownMenu>
+
+            {canUseCash && (
+              <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-success-light px-3 py-1.5 font-bold text-success lg:inline-flex">
+                <WalletCards className="h-4 w-4" />
+                {cashLabel}
+              </span>
+            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-9 shrink-0 gap-1.5 px-2" aria-label={`Usuário: ${displayName}`}>
+                  <UserRound className="h-4 w-4" />
+                  <span className="hidden max-w-48 truncate text-sm font-bold lg:inline"><span className="font-medium text-muted-foreground">Usuário:</span> {displayName}</span>
+                  <ChevronDown className="hidden h-3.5 w-3.5 opacity-60 lg:block" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
@@ -167,115 +213,41 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
                     {funcionario?.cargo || "Operador"}
                   </span>
                 </DropdownMenuLabel>
+                {activeTenant && tenants.length > 1 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Empresa ativa</DropdownMenuLabel>
+                    {tenants.map((tenant) => (
+                      <DropdownMenuItem
+                        key={tenant.id}
+                        className={cn(tenant.id === activeTenant.id && "bg-muted font-bold")}
+                        onClick={() => void handleTenantChange(tenant.id)}
+                      >
+                        <Building2 className="mr-2 h-4 w-4" />
+                        <span className="truncate">{tenant.name}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={toggleMode}>
+                  {isDark ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                  {isDark ? "Ativar modo diurno" : "Ativar modo noturno"}
+                </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => void handleSignOut()}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sair
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <time className="hidden min-w-[208px] shrink-0 items-center gap-2 border-l border-border pl-4 font-semibold md:inline-flex" dateTime={now.toISOString()}>
+              <CalendarDays className="h-4 w-4 text-primary" />
+              <span>{formatOperationalDate(now)}</span>
+              <Clock3 className="ml-1 h-4 w-4 text-primary" />
+              <strong className="text-sm">{formatOperationalTime(now)}</strong>
+            </time>
           </div>
-        </div>
-
-        <div
-          aria-label="Contexto operacional"
-          className="scrollbar-hide flex items-center gap-2 overflow-x-auto border-t bg-muted/20 px-3 py-2 sm:px-5"
-        >
-          {activeTenant && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs">
-                  <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  <span className="font-medium text-muted-foreground">Empresa</span>
-                  <span className="max-w-32 truncate font-bold">{activeTenant.name}</span>
-                  {tenants.length > 1 && <ChevronDown className="h-3.5 w-3.5 opacity-60" />}
-                </Button>
-              </DropdownMenuTrigger>
-              {tenants.length > 1 && (
-                <DropdownMenuContent align="start" className="w-64">
-                  <DropdownMenuLabel>Empresa ativa</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {tenants.map((tenant) => (
-                    <DropdownMenuItem
-                      key={tenant.id}
-                      className={cn(tenant.id === activeTenant.id && "bg-muted font-bold")}
-                      onClick={() => void handleTenantChange(tenant.id)}
-                    >
-                      <Building2 className="mr-2 h-4 w-4" />
-                      <span className="truncate">{tenant.name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              )}
-            </DropdownMenu>
-          )}
-
-          <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2 text-xs">
-            <Building2 className="h-3.5 w-3.5 text-primary" />
-            <span className="font-medium text-muted-foreground">Unidade</span>
-            <span className="max-w-40 truncate font-bold">{unitLabel}</span>
-          </span>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 shrink-0 gap-1.5 text-xs"
-                aria-label={`PDV ${areaLabel}`}
-                disabled={isOperationSwitchLocked || accessiblePdvAreas.length < 2}
-                title={isOperationSwitchLocked
-                  ? "Finalize ou limpe a venda atual antes de trocar de operação."
-                  : accessiblePdvAreas.length < 2
-                    ? "Seu perfil possui somente esta operação autorizada."
-                    : undefined}
-              >
-                <AreaIcon className="h-3.5 w-3.5 text-primary" />
-                <span className="font-medium text-muted-foreground">Operação</span>
-                <span className="font-bold">{areaLabel}</span>
-                {accessiblePdvAreas.length > 1 && <ChevronDown className="h-3.5 w-3.5 opacity-60" />}
-              </Button>
-            </DropdownMenuTrigger>
-            {accessiblePdvAreas.length > 1 && (
-              <DropdownMenuContent align="start">
-                <DropdownMenuLabel>Operação autorizada</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {accessiblePdvAreas.map((area) => {
-                  const Icon = area === "industrial" ? Factory : Store;
-                  const label = area === "industrial" ? "Industrial" : "Doméstico";
-                  return (
-                    <DropdownMenuItem
-                      key={area}
-                      className={cn(area === operationArea && "bg-muted font-bold")}
-                      onClick={() => navigate(area === "industrial" ? "/pdv/industrial" : "/pdv/domestico")}
-                    >
-                      <Icon className="mr-2 h-4 w-4" />
-                      {label}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            )}
-          </DropdownMenu>
-
-          {canUseCash && (
-            <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2 text-xs">
-              <WalletCards className="h-3.5 w-3.5 text-primary" />
-              <span className="font-medium text-muted-foreground">Caixa</span>
-              <span className="font-bold">{cashLabel}</span>
-            </span>
-          )}
-
-          <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2 text-xs">
-            <UserRound className="h-3.5 w-3.5 text-primary" />
-            <span className="font-medium text-muted-foreground">Usuário</span>
-            <span className="max-w-36 truncate font-bold">{displayName}</span>
-          </span>
-
-          <time className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2 text-xs font-bold" dateTime={now.toISOString()}>
-            <Clock3 className="h-3.5 w-3.5 text-primary" />
-            {formatOperationalDateTime(now)}
-          </time>
         </div>
       </header>
 
@@ -296,7 +268,7 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-[1920px] flex-1 p-3 sm:p-5">
+      <main className="mx-auto w-full max-w-[1920px] flex-1 p-3 xl:px-6 xl:pt-[25px] xl:pb-[21px]">
         {children}
       </main>
     </div>

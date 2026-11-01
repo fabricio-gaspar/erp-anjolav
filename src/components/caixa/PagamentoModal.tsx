@@ -76,6 +76,11 @@ interface PagamentoModalProps {
   fulfillment: PdvFulfillmentSettings;
   fulfillmentAddressSnapshot?: DadosPagamento["addressSnapshot"];
   fulfillmentBlockReason?: string | null;
+  /** A escolha rápida é só uma preferência visual; as regras comerciais ainda são validadas neste modal e no servidor. */
+  initialSelection?: {
+    pagoAgora: boolean;
+    formaPagamento: PdvPaymentMethod | null;
+  } | null;
   onConfirm: (dados: DadosPagamento) => Promise<void>;
   isLoading?: boolean;
 }
@@ -112,7 +117,8 @@ export interface DadosPagamento {
   pontosResgate?: number;
 }
 
-type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE";
+export type PdvPaymentMethod = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE";
+type FormaPagamento = PdvPaymentMethod;
 
 const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; icon: React.ReactNode }[] = [
   { value: "DINHEIRO", label: "Dinheiro", icon: <Banknote className="w-5 h-5" /> },
@@ -134,6 +140,7 @@ export function PagamentoModal(props: PagamentoModalProps) {
     config?.cliente_id, config?.condicao_pagamento, config?.forma_pagamento,
     config?.tipo_faturamento, config?.dia_fechamento, config?.dia_vencimento,
     props.canReceivePayments, props.canManageCommercialTerms,
+    props.initialSelection?.pagoAgora, props.initialSelection?.formaPagamento,
   ]);
   return <PagamentoModalForm key={formKey} {...props} />;
 }
@@ -155,14 +162,21 @@ function PagamentoModalForm({
   fulfillment,
   fulfillmentAddressSnapshot,
   fulfillmentBlockReason = null,
+  initialSelection = null,
   onConfirm,
   isLoading = false,
 }: PagamentoModalProps) {
   const termsMismatch = !!configuracaoPagamento && configuracaoPagamento.cliente_id !== cliente?.id;
   const terms = parseCustomerPaymentTerms(termsMismatch ? null : configuracaoPagamento);
-  const initialPayment = initialCustomerPayment(terms);
   const isBilled = terms.condition === "faturado";
   const isEntry = terms.condition === "entrada";
+  const customerInitialPayment = initialCustomerPayment(terms);
+  const initialPayment = initialSelection && !isBilled
+    ? {
+        pagoAgora: initialSelection.pagoAgora,
+        formaPagamento: initialSelection.pagoAgora ? initialSelection.formaPagamento : null,
+      }
+    : customerInitialPayment;
   const [pagoAgora, setPagoAgora] = useState(initialPayment.pagoAgora);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(initialPayment.formaPagamento);
   const [descontoTipo, setDescontoTipo] = useState<"percentual" | "valor">("percentual");

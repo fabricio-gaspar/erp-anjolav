@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
+  Archive,
   Search,
   FileSearch,
   ArrowDownCircle,
@@ -18,18 +17,32 @@ import {
   CreditCard,
   Loader2,
   FileText,
+  Info,
   AlertTriangle,
-  DoorOpen,
   Maximize,
   Minimize,
-  History,
   Keyboard,
-  Clock,
-  Settings2,
   UserRound,
   UserPlus,
   CalendarDays,
+  ChevronDown,
+  Clock3,
   MapPin,
+  X,
+  Phone,
+  Mail,
+  IdCard,
+  Pencil,
+  Printer,
+  Package,
+  ClipboardList,
+  Boxes,
+  Truck,
+  CalendarRange,
+  MoreHorizontal,
+  Banknote,
+  QrCode,
+  CircleCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
@@ -37,7 +50,7 @@ import { usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useClientes, useConfiguracaoPagamentoCliente, useEnderecoCliente } from "@/hooks/useClientes";
 import { useCaixaAberto } from "@/hooks/useCaixa";
 import { ItemDetalhesModal } from "@/components/caixa/ItemDetalhesModal";
-import { PagamentoModal, DadosPagamento } from "@/components/caixa/PagamentoModal";
+import { PagamentoModal, type DadosPagamento, type PdvPaymentMethod } from "@/components/caixa/PagamentoModal";
 import { ImpressaoPosVendaModal } from "@/components/caixa/ImpressaoPosVendaModal";
 import { AbrirCaixaModal } from "@/components/caixa/AbrirCaixaModal";
 import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
@@ -68,7 +81,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { buildClientPriceCatalog } from "@/lib/clientPricing";
 import { getDefaultPdvDeliveryDate } from "@/lib/pdvFulfillment";
-import { parseCustomerPaymentTerms, customerPaymentTermsLabels, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
+import { parseCustomerPaymentTerms, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -93,10 +106,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import "@/styles/pdv-cashier.css";
 
 interface CartItem {
   id: string;
   nome: string;
+  codigo?: string | null;
+  descricao?: string | null;
   preco: number;
   unidade: string;
   quantidade: number;
@@ -135,6 +151,11 @@ interface DiscardRequest {
   action: () => void;
 }
 
+interface PdvPaymentSelection {
+  pagoAgora: boolean;
+  formaPagamento: PdvPaymentMethod | null;
+}
+
 const getUnidadeLabel = (unidade: string | null) => {
   switch (unidade) {
     case "kg": return "Kg";
@@ -145,6 +166,26 @@ const getUnidadeLabel = (unidade: string | null) => {
   }
 };
 
+const getPdvUnitDisplay = (unidade: string) => {
+  switch (unidade) {
+    case "Pç": return "Peça";
+    case "Kg": return "Kg";
+    case "Mt": return "Mt";
+    case "Un": return "Un";
+    default: return unidade;
+  }
+};
+
+const formatCarga = (value: number) => new Intl.NumberFormat("pt-BR", {
+  maximumFractionDigits: 2,
+}).format(value);
+
+const formatPdvReferenceDate = (value: Date) => {
+  const formatted = format(value, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  return formatted
+    .replace(/^./, (letter) => letter.toUpperCase())
+    .replace(/ de ([a-zà-ÿ])/i, (_match, letter: string) => ` de ${letter.toUpperCase()}`);
+};
 
 const isValidQuantity = (value: number, unidade: string) =>
   Number.isFinite(value) && value > 0 && value <= 999 &&
@@ -168,7 +209,7 @@ const CaixaPDV = () => {
   const isExpectedWorkspace = pathname.startsWith("/" + activeArea + "/")
     || (activeArea !== "central" && pathname === getCanonicalPdvPath(activeArea));
   if (!activeTenant || !user || !isExpectedWorkspace) {
-    return <AppLayout title="PDV Atendimento"><p>Carregando contexto do atendimento...</p></AppLayout>;
+    return <AppLayout title="PDV / Caixa"><p>Carregando contexto do atendimento...</p></AppLayout>;
   }
   return <PdvAtendimento key={[activeTenant.id, user.id, activeArea].join(":")} />;
 };
@@ -189,7 +230,12 @@ const PdvAtendimento = () => {
   const canCreateSale = canAccessRoute("/" + area + "/caixa");
   const canViewDayList = area === "residencial" && canAccessRoute("/residencial/agenda");
   const { produtos, isLoading: isLoadingProdutos, isError: productsError, refetch: refetchProducts } = useProdutos();
-  const { clientes, isLoading: isLoadingClientes, isError: clientsError, refetch: refetchClients } = useClientes();
+  const {
+    clientes,
+    isLoading: isLoadingClientes,
+    isError: clientsError,
+    refetch: refetchClients,
+  } = useClientes();
   const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto(canOperateCaixa);
   const canReceivePayments = canOperateCaixa && !!caixaAberto;
   const createPdvSale = useCreatePdvSale();
@@ -211,6 +257,8 @@ const PdvAtendimento = () => {
   const [showClientList, setShowClientList] = useState(false);
   const [showQuickClientModal, setShowQuickClientModal] = useState(false);
   const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(createInitialFulfillment);
+  const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
+  const [paymentShortcut, setPaymentShortcut] = useState<PdvPaymentSelection | null>(null);
   
   // Estado para modal de detalhes
   const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
@@ -241,7 +289,6 @@ const PdvAtendimento = () => {
   const [showListaDia, setShowListaDia] = useState(false);
   const [showAjudaAtalhos, setShowAjudaAtalhos] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [discardRequest, setDiscardRequest] = useState<DiscardRequest | null>(null);
   
 
@@ -274,6 +321,11 @@ const PdvAtendimento = () => {
     produtosAtivos.some(p => p.id === item.id && p.precoAplicado === item.preco && getUnidadeLabel(p.unidade) === item.unidade));
   const totalItems = cart.reduce((sum, item) => sum + item.quantidade, 0);
   const totalValue = cart.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
+  const capacityLimit = Number(capacity?.limit ?? 0);
+  const capacityReserved = Number(capacity?.reserved ?? 0);
+  const capacityProgress = capacity?.configured && Number.isFinite(capacityLimit) && capacityLimit > 0
+    ? Math.min(100, Math.max(0, ((capacityReserved + totalItems) / capacityLimit) * 100))
+    : 0;
   const capacityAvailableAfterThisSale = capacity?.configured
     ? Number(capacity.available ?? 0) - totalItems
     : null;
@@ -366,6 +418,8 @@ const PdvAtendimento = () => {
       return [...prev, { 
         id: produto.id,
         nome: produto.nome,
+        codigo: produto.codigo,
+        descricao: produto.descricao,
         preco,
         precoOriginal: produto.preco,
         unidade: getUnidadeLabel(produto.unidade),
@@ -408,6 +462,7 @@ const PdvAtendimento = () => {
     setCart([]);
     setQuantityDrafts({});
     setFulfillment(createInitialFulfillment());
+    setPaymentShortcut(null);
   }, []);
 
   const requestDiscard = useCallback((request: Omit<DiscardRequest, "confirmLabel"> & { confirmLabel?: string }) => {
@@ -696,14 +751,6 @@ const PdvAtendimento = () => {
     }
   };
 
-  // Atualizar hora a cada segundo
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Detectar leitura de código de barras (digitação rápida)
   useEffect(() => {
     const handleBarcodeInput = (e: KeyboardEvent) => {
@@ -777,26 +824,35 @@ const PdvAtendimento = () => {
       e.preventDefault();
       setShowAjudaAtalhos(true);
     }
-    // F3 - Foco na busca de produtos
+    // F2 - Cliente
+    if (e.key === "F2") {
+      e.preventDefault();
+      focusClientSearch();
+    }
+    // F3 - Agenda do dia
     if (e.key === "F3") {
       e.preventDefault();
-      focusProductSearch();
+      if (canViewDayList) setShowListaDia(true);
     }
     // F4 - Pagamento
     if (e.key === "F4") {
       e.preventDefault();
       handleOpenPagamento();
     }
-    // F5 - Consultar OS
+    // F5 - Imprimir ROL recém-finalizada
     if (e.key === "F5") {
+      e.preventDefault();
+      if (osRecemCriada) {
+        void printROL(osRecemCriada.id);
+      } else {
+        toast.info("Finalize o atendimento antes de imprimir a ROL.");
+      }
+    }
+    // F6 - Consultar ordens e ROLs
+    if (e.key === "F6") {
       e.preventDefault();
       setPdvLookupMode("consulta");
       setShowConsultarOSModal(true);
-    }
-    // F6 - Histórico de vendas
-    if (e.key === "F6") {
-      e.preventDefault();
-      if (canCreateSale) setShowHistoricoVendas(true);
     }
     // F7 - Sangria/Suprimento (abre sangria por padrão)
     if (e.key === "F7") {
@@ -849,17 +905,21 @@ const PdvAtendimento = () => {
       }
       if (showHistoricoVendas) setShowHistoricoVendas(false);
       if (showAjudaAtalhos) setShowAjudaAtalhos(false);
+      if (showFulfillmentModal) setShowFulfillmentModal(false);
     }
   }, [
-    canCreateSale,
     canReceivePayments,
+    canViewDayList,
     cart,
-    focusProductSearch,
+    focusClientSearch,
     handleOpenPagamento,
     requestClearSale,
+    osRecemCriada,
+    printROL,
     selectLastClient,
     showAjudaAtalhos,
     showConsultarOSModal,
+    showFulfillmentModal,
     showHistoricoVendas,
     showPagamentoModal,
     toggleFullscreen,
@@ -896,12 +956,6 @@ const PdvAtendimento = () => {
   }, []);
 
   const currentItem = cart[cart.length - 1] ?? null;
-  const today = new Date().toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  });
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -915,202 +969,99 @@ const PdvAtendimento = () => {
   }, []);
 
   return (
-    <AppLayout title="PDV Atendimento" subtitle={`Setor ${areaLabel}`}>
-      <div className="page-shell">
-        <PageHeader
-          eyebrow={`Atendimento ${areaLabel}`}
-          title="PDV / Caixa"
-          description="Selecione o cliente, lance os serviços e conclua o recebimento com o caixa e a condição comercial corretos."
-        />
-        <section className="pdv-shell flex w-full min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-muted/20 shadow-sm xl:h-[calc(100vh-240px)] xl:min-h-[680px]">
-        <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="h-4 w-4 shrink-0 text-primary" />
-            <span className="hidden lg:inline capitalize">{today}</span>
-            <span>{format(currentTime, "HH:mm")}</span>
-          </div>
-          <div className="text-center">
-            <p className="text-sm font-bold tracking-wide sm:text-base">
-              Atendente: {caixaAberto?.operador || "—"}
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            <p className="hidden text-sm font-black uppercase tracking-[0.14em] lg:block">{areaLabel}</p>
-            {!canOperateCaixa ? <Badge variant="outline">Sem recebimento</Badge> : isLoadingCaixa ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            ) : caixaAberto ? (
-              <Badge variant="outline" className="border-success text-success">Aberto</Badge>
-            ) : (
-              <Button size="sm" className="h-8 gap-1" onClick={() => setShowAbrirCaixaModal(true)}>
-                <DoorOpen className="h-3.5 w-3.5" />
-                Abrir caixa
-              </Button>
-            )}
-          </div>
-        </header>
-        <nav aria-label="Atalhos do atendimento" className="border-b bg-card px-3 py-2.5 sm:px-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-sm font-bold"><Keyboard className="h-4 w-4 text-primary" />Ações rápidas</p>
-              <p className="hidden text-xs text-muted-foreground sm:block">Comece pelo cliente, lance os itens e finalize o atendimento.</p>
-            </div>
-            <Badge variant="secondary" className="shrink-0">Setor {areaLabel}</Badge>
-          </div>
-          <div data-testid="pdv-primary-shortcuts" className="pdv-shortcuts-grid mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8">
-            <Button data-testid="pdv-workflow-client" type="button" variant="outline" title={selectedClient ? "Trocar o cliente deste atendimento" : "Selecionar o cliente para iniciar o atendimento"} className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[11px] leading-tight hover:bg-primary/10" onClick={() => {
-              if (selectedClient) {
-                clearClient();
-                return;
-              }
-              focusClientSearch();
-            }}>
-              <span className="flex flex-col items-center justify-center gap-1"><UserRound className="h-5 w-5 text-primary" />Cliente<span>{selectedClient ? "trocar" : "selecionar"}</span></span>
-            </Button>
-            <Button data-testid="pdv-workflow-products" type="button" variant="outline" title="Buscar e adicionar um produto ou serviço" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[11px] leading-tight hover:bg-primary/10" onClick={focusProductSearch}>
-              <span className="flex flex-col items-center justify-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
-            </Button>
-            <Button type="button" variant="outline" title="Registrar detalhes da peça atual" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[11px] leading-tight" disabled={!currentItem} onClick={() => currentItem && openDetalhesModal(currentItem)}>
-              <span className="flex flex-col items-center justify-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>da peça</span></span>
-            </Button>
-            <Button data-testid="pdv-workflow-fulfillment" type="button" variant="outline" title="Definir prazo, capacidade e entrega" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[11px] leading-tight hover:bg-primary/10" disabled={!selectedClient} onClick={() => document.getElementById("pdv-fulfillment-title")?.scrollIntoView({ behavior: "smooth", block: "center" })}>
-              <span className="flex flex-col items-center justify-center gap-1"><CalendarDays className="h-5 w-5 text-primary" />Prazo<span>e entrega</span></span>
-            </Button>
-            <Button data-testid="pdv-workflow-finalize" type="button" title="Finalizar o atendimento atual" className="pdv-shortcut-button h-[58px] rounded-lg bg-success px-1 text-[11px] leading-tight text-success-foreground hover:bg-success/90 disabled:border-border disabled:bg-muted disabled:text-muted-foreground" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={handleOpenPagamento}>
-              <span className="flex flex-col items-center justify-center gap-1"><CreditCard className="h-5 w-5" />Finalizar<span>F4</span></span>
-            </Button>
-            {canViewDayList && <Button data-testid="pdv-workflow-day-list" type="button" variant="outline" title="Abrir retiradas e entregas de hoje sem sair do pedido" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[11px] leading-tight hover:bg-primary/10" onClick={() => setShowListaDia(true)}>
-              <span className="flex flex-col items-center justify-center gap-1"><CalendarDays className="h-5 w-5 text-primary" />Lista<span>do dia</span></span>
-            </Button>}
-            <Button type="button" variant="outline" title="Consultar um ROL ou ordem de serviço" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => openOrderLookup()}>
-              <span className="flex flex-col items-center justify-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>ROL · F5</span></span>
-            </Button>
-            <Button type="button" variant="outline" title="Localizar um ROL e registrar a posição da peça" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[11px] leading-tight hover:bg-primary/10" onClick={() => openOrderLookup("posicao")}>
-              <span className="flex flex-col items-center justify-center gap-1"><MapPin className="h-5 w-5 text-primary" />Posição<span>do ROL</span></span>
-            </Button>
-            <Button type="button" variant="outline" title="Consultar o histórico de vendas do dia" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[11px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
-              <span className="flex flex-col items-center justify-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline" title="Abrir ações administrativas do atendimento" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[11px] leading-tight">
-                  <span className="flex flex-col items-center justify-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={8} className="w-64 p-2">
-                <DropdownMenuLabel className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">Ações do atendimento</DropdownMenuLabel>
-                {canManageContracts && <DropdownMenuItem disabled={!selectedClient} onSelect={() => { if (selectedClient) setShowContracts(true); }}><FileText className="mr-2 h-4 w-4" />Contrato do cliente</DropdownMenuItem>}
-                <DropdownMenuSeparator />
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger><FileText className="mr-2 h-4 w-4" />Venda atual</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-64 p-2">
-                    <DropdownMenuLabel className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">Venda</DropdownMenuLabel>
-                    <DropdownMenuItem disabled={!currentItem} onSelect={() => { if (currentItem) openDetalhesModal(currentItem); }}><FileText className="mr-2 h-4 w-4" />Detalhes do item</DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={requestClearSale}><Trash2 className="mr-2 h-4 w-4" />Cancelar venda<DropdownMenuShortcut>F8</DropdownMenuShortcut></DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger><CreditCard className="mr-2 h-4 w-4" />Caixa e financeiro</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="max-h-[min(70vh,32rem)] w-72 overflow-y-auto p-2">
-                    <DropdownMenuLabel className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">Caixa e financeiro</DropdownMenuLabel>
-                    {canOperateCaixa && <>
-                      <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowFecharCaixaModal(true); }}><Lock className="mr-2 h-4 w-4" />Fechar caixa<DropdownMenuShortcut>F10</DropdownMenuShortcut></DropdownMenuItem>
-                      <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowSangriaModal(true); }}><ArrowDownCircle className="mr-2 h-4 w-4" />Sangria<DropdownMenuShortcut>F7</DropdownMenuShortcut></DropdownMenuItem>
-                      <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowSuprimentoModal(true); }}><ArrowUpCircle className="mr-2 h-4 w-4" />Suprimento</DropdownMenuItem>
-                    </>}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger><Keyboard className="mr-2 h-4 w-4" />Tela e atalhos</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-56 p-2">
-                    <DropdownMenuLabel className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">Tela</DropdownMenuLabel>
-                    <DropdownMenuItem onSelect={() => setShowAjudaAtalhos(true)}><Keyboard className="mr-2 h-4 w-4" />Atalhos<DropdownMenuShortcut>F1</DropdownMenuShortcut></DropdownMenuItem>
-                    <DropdownMenuItem onSelect={toggleFullscreen}>{isFullscreen ? <Minimize className="mr-2 h-4 w-4" /> : <Maximize className="mr-2 h-4 w-4" />}Tela cheia<DropdownMenuShortcut>F11</DropdownMenuShortcut></DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </nav>
-        {(catalogError || (selectedClient && catalogLoading)) && <div role="status" className="border-b p-3 text-sm">
-          {catalogError ? <>Não foi possível carregar clientes, tabela ou condição de pagamento. <Button variant="outline" size="sm" onClick={() => { void refetchPrices(); void refetchTerms(); void refetchProducts(); void refetchClients(); }}>Tentar novamente</Button></> : "Carregando tabela e condição de pagamento..."}
-        </div>}
-        {invalidQuantity && <p role="alert" className="px-4 py-2 text-sm text-destructive">Quantidade deve ser maior que zero e até 999. Use decimais apenas para kg ou metro; peças exigem inteiros.</p>}
+    <AppLayout title="PDV / Caixa" subtitle={`Atendimento ${areaLabel}`}>
 
-
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 sm:p-4 xl:grid-cols-[minmax(350px,410px)_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
-          <aside className="relative flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5">
-            {!isLoadingCaixa && !canReceivePayments && (
-              <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                Atendimento sem recebimento disponível. Pagar agora exige permissão de caixa e caixa aberto.
-              </div>
-            )}
-
-            <div className="pdv-entry-card relative z-20 rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <label htmlFor="pdv-client-search" className="flex items-center gap-2 text-base font-bold">
-                  <UserRound className="h-5 w-5 text-primary" /> Cliente
-                </label>
-                {canCreateClient && !selectedClient && <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => setShowQuickClientModal(true)}><UserPlus className="h-3.5 w-3.5" />Novo</Button>}
-              </div>
-              {selectedClient ? (
-                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-primary">{selectedClient.nome_fantasia || selectedClient.razao_social}</p>
-                      <p className="text-xs text-muted-foreground">{selectedClient.cpf_cnpj}</p>
-                      {canUseLoyalty && isLoadingCustomerLoyalty ? (
-                        <p className="mt-1 text-xs text-muted-foreground">Consultando pontos...</p>
-                      ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
-                        <p className="mt-1 text-xs text-primary">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
-                      ) : null}
-                    </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={clearClient} title="Trocar cliente">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+      <div className="pdv-cashier-page" data-testid="pdv-cashier-reference">
+        <div className="pdv-cashier-grid">
+          <aside className="pdv-left-column" aria-label="Etapas de entrada do pedido">
+            <section className="pdv-reference-card pdv-customer-card" aria-labelledby="pdv-client-title">
+              <div className="pdv-card-title-row">
+                <div className="pdv-card-title">
+                  <span className="pdv-step-number" aria-hidden="true">1</span>
+                  <h2 id="pdv-client-title">Cliente</h2>
                 </div>
-              ) : (
-                <>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="pdv-client-search"
-                      ref={clientSearchRef}
-                      placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
-                      value={clientSearch}
-                      onChange={(event) => {
-                        setClientSearch(event.target.value);
-                        setShowClientList(true);
-                      }}
-                      onFocus={() => setShowClientList(true)}
-                      className="h-10 pl-9 text-sm"
-                    />
-                    {showClientList && (
-                      <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-strong bg-card shadow-xl">
-                        {isLoadingClientes ? (
-                          <p className="p-3 text-center text-sm text-muted-foreground">Carregando...</p>
-                        ) : filteredClientes.length === 0 ? (
-                          <div className="space-y-2 p-3 text-center text-sm text-muted-foreground">
-                            <p>Nenhum cliente encontrado.</p>
-                            {canCreateClient && <Button type="button" size="sm" onClick={() => setShowQuickClientModal(true)}><UserPlus className="mr-2 h-4 w-4" />Cadastrar cliente</Button>}
-                          </div>
-                        ) : (
-                          filteredClientes.map((cliente) => (
-                            <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)} className="w-full border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5">
-                              <p className="truncate text-sm font-medium">{cliente.nome_fantasia || cliente.razao_social}</p>
-                              <p className="text-xs text-muted-foreground">{cliente.cpf_cnpj} · {cliente.telefone}</p>
-                            </button>
-                          ))
-                        )}
+                {canCreateClient && !selectedClient && (
+                  <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" onClick={() => setShowQuickClientModal(true)}>
+                    <UserPlus className="h-3.5 w-3.5" /> Novo
+                  </Button>
+                )}
+              </div>
+
+              <div className="pdv-customer-search">
+                <Search className="h-4 w-4" />
+                <Input
+                  id="pdv-client-search"
+                  ref={clientSearchRef}
+                  placeholder="Buscar por nome, telefone ou CPF..."
+                  value={clientSearch}
+                  onChange={(event) => {
+                    setClientSearch(event.target.value);
+                    setShowClientList(true);
+                  }}
+                  onFocus={() => setShowClientList(true)}
+                  skipUppercase
+                  className="pl-10 text-sm"
+                />
+                {showClientList && (
+                  <div className="pdv-customer-result-list">
+                    {isLoadingClientes ? (
+                      <p className="p-3 text-center text-sm text-muted-foreground">Carregando clientes…</p>
+                    ) : filteredClientes.length === 0 ? (
+                      <div className="space-y-2 p-3 text-center text-sm text-muted-foreground">
+                        <p>Nenhum cliente encontrado.</p>
+                        {canCreateClient && <Button type="button" size="sm" onClick={() => setShowQuickClientModal(true)}><UserPlus className="mr-2 h-4 w-4" />Cadastrar cliente</Button>}
                       </div>
+                    ) : (
+                      filteredClientes.map((cliente) => (
+                        <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)}>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold">{cliente.nome_fantasia || cliente.razao_social}</span>
+                            <span className="block truncate text-[11px] text-muted-foreground">{cliente.cpf_cnpj || "Sem documento"} · {cliente.telefone || "Sem telefone"}</span>
+                          </span>
+                        </button>
+                      ))
                     )}
                   </div>
-                </>
+                )}
+              </div>
+
+              {selectedClient ? (
+                <div className="pdv-customer-selected">
+                  <div className="pdv-customer-selected-top">
+                    <span className="pdv-customer-avatar"><UserRound className="h-5 w-5" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="pdv-customer-name">
+                        {selectedClient.nome_fantasia || selectedClient.razao_social}
+                        <span className="pdv-customer-badge">Cliente</span>
+                      </p>
+                      {canUseLoyalty && isLoadingCustomerLoyalty ? (
+                        <p className="mt-1 text-xs text-muted-foreground">Consultando pontos…</p>
+                      ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
+                        <p className="mt-1 text-xs font-semibold text-success">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
+                      ) : null}
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={clearClient} aria-label="Remover cliente" title="Trocar cliente">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="pdv-customer-meta">
+                    {selectedClient.telefone && <span><Phone className="h-3.5 w-3.5" /><span>{selectedClient.telefone}</span></span>}
+                    {selectedClient.cpf_cnpj && <span><IdCard className="h-3.5 w-3.5" /><span>{selectedClient.cpf_cnpj}</span></span>}
+                    {selectedClient.email && <span><Mail className="h-3.5 w-3.5" /><span>{selectedClient.email}</span></span>}
+                  </div>
+                  <button type="button" className="pdv-customer-history" onClick={() => setShowHistoricoVendas(true)}>
+                    <span className="flex items-center gap-2"><FileSearch className="h-4 w-4" /> Ver histórico do cliente</span>
+                    <span aria-hidden="true">›</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="mt-4 flex flex-1 items-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-xs text-muted-foreground">
+                    Escolha o cliente para liberar a tabela de preço, os serviços e a finalização do atendimento.
+                  </div>
+                </div>
               )}
-            </div>
+            </section>
 
             <PdvPriceTableIndicator
               clienteNome={selectedClient?.nome_fantasia || selectedClient?.razao_social}
@@ -1119,246 +1070,354 @@ const PdvAtendimento = () => {
               isError={Boolean(selectedClient) && pricesError}
             />
 
-            <div className="pdv-entry-card relative z-10 rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <label htmlFor="pdv-product-search" className="flex items-center gap-2 text-base font-bold">
-                  <ShoppingCart className="h-5 w-5 text-primary" /> Produto / Serviço
-                </label>
+            <section className="pdv-reference-card pdv-capacity-card" aria-labelledby="pdv-capacity-title">
+              <div className="pdv-card-title-row">
+                <div className="pdv-card-title">
+                  <span className="pdv-step-number" aria-hidden="true">3</span>
+                  <h2 id="pdv-capacity-title">Prazo e capacidade</h2>
+                </div>
               </div>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="pdv-product-search"
-                  ref={searchInputRef}
-                  disabled={!selectedClient || catalogLoading || catalogError}
-                  placeholder={!selectedClient ? "Selecione primeiro o cliente" : catalogLoading ? "Carregando tabela de preços..." : catalogError ? "Tabela indisponível" : "Digite código ou nome do produto/serviço"}
-                  value={searchTerm}
-                  onChange={(event) => {
-                    setSearchTerm(event.target.value);
-                    setShowProductList(true);
-                  }}
-                  onFocus={() => setShowProductList(true)}
-                  className="h-11 pl-9 pr-3"
-                />
-                {showProductList && (
-                  <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-strong bg-card shadow-xl">
-                    {isLoadingProdutos ? (
-                      <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Carregando produtos...
-                      </div>
-                    ) : filteredProdutos.length === 0 ? (
-                      <div className="space-y-2 p-3 text-center text-sm text-muted-foreground">
-                        <p>Nenhum produto ou serviço encontrado.</p>
-                      </div>
-                    ) : (
-                      filteredProdutos.slice(0, 8).map((produto) => {
-                        const preco = getPrecoForProduto(produto);
-                        return (
-                          <button
-                            key={produto.id}
-                            type="button"
-                            disabled={!catalogReady}
-                            onClick={() => addToCart(produto)}
-                            className="flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-medium">{produto.nome}</span>
-                              <span className="block text-[11px] text-muted-foreground">{produto.codigo || "Sem código"}</span>
-                            </span>
-                            <span className="shrink-0 text-sm font-bold text-primary">{formatCurrency(preco)}</span>
-                          </button>
-                        );
-                      })
-                    )}
+              <div className="pdv-capacity-date">
+                <span className="pdv-capacity-date-icon"><CalendarDays className="h-4 w-4" /></span>
+                <span className="min-w-0">
+                  <small>Data prometida</small>
+                  <strong>{format(fulfillment.deliveryDate, "dd/MM/yyyy")} <span className="font-medium text-muted-foreground">({format(fulfillment.deliveryDate, "EEEE", { locale: ptBR })})</span></strong>
+                </span>
+                <button type="button" className="pdv-capacity-edit" disabled={!selectedClient} onClick={() => setShowFulfillmentModal(true)} aria-label="Editar prazo e entrega">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="pdv-capacity-summary">
+                <div className="pdv-capacity-heading">
+                  <span className="flex items-center gap-1.5">Capacidade da data <Info className="h-3.5 w-3.5 text-primary" /></span>
+                </div>
+                {capacityLoading ? (
+                  <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Consultando agenda…</p>
+                ) : capacityError ? (
+                  <p role="alert" className="mt-2 text-xs text-destructive">Não foi possível validar a capacidade.</p>
+                ) : !capacity?.configured ? (
+                  <p className="mt-2 text-xs text-muted-foreground">Sem limite diário configurado para este setor.</p>
+                ) : (
+                  <>
+                    <div className="pdv-capacity-meter-row">
+                      <div className="pdv-capacity-meter" aria-label={`Capacidade utilizada: ${capacityProgress.toFixed(0)}%`}><span style={{ width: `${capacityProgress}%` }} /></div>
+                      <strong>{formatCarga(capacityReserved + totalItems)} de {formatCarga(capacityLimit)} cargas</strong>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+          </aside>
+
+          <section className="pdv-center-column">
+            <section className="pdv-items-card overflow-hidden" aria-labelledby="pdv-items-title">
+              <div className="pdv-items-header">
+                <div className="pdv-items-title">
+                  <span className="pdv-step-number" aria-hidden="true">4</span>
+                  <div className="pdv-items-title-copy">
+                    <h2 id="pdv-items-title">Itens da venda</h2>
+                    <p>Adicione produtos e serviços da lavanderia.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="pdv-items-stats">{cart.length} {cart.length === 1 ? "produto" : "produtos"} · {formatCarga(totalItems)} {totalItems === 1 ? "unidade" : "unidades"}</span>
+                  <Button type="button" variant="outline" size="sm" className="pdv-clear-button hidden gap-1.5 sm:inline-flex" onClick={requestClearSale}>
+                    <Trash2 className="h-3.5 w-3.5" /> Limpar itens
+                  </Button>
+                </div>
+              </div>
+
+              <div className="pdv-product-entry">
+                <div className="pdv-product-search">
+                  <Search className="h-4 w-4" />
+                  <Input
+                    id="pdv-product-search"
+                    ref={searchInputRef}
+                    disabled={!selectedClient || catalogLoading || catalogError}
+                    placeholder={!selectedClient ? "Selecione primeiro o cliente" : catalogLoading ? "Carregando tabela de preços..." : catalogError ? "Tabela indisponível" : "Buscar produto ou serviço (ex.: camisa, calça, lençol...)"}
+                    value={searchTerm}
+                    onChange={(event) => {
+                      setSearchTerm(event.target.value);
+                      setShowProductList(true);
+                    }}
+                    onFocus={() => setShowProductList(true)}
+                    skipUppercase
+                  />
+                  {showProductList && (
+                    <div className="pdv-product-result-list">
+                      {isLoadingProdutos ? (
+                        <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando produtos…</div>
+                      ) : filteredProdutos.length === 0 ? (
+                        <p className="p-3 text-center text-sm text-muted-foreground">Nenhum produto ou serviço encontrado.</p>
+                      ) : (
+                        filteredProdutos.slice(0, 8).map((produto) => {
+                          const preco = getPrecoForProduto(produto);
+                          return (
+                            <button key={produto.id} type="button" disabled={!catalogReady} onClick={() => addToCart(produto)}>
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-semibold">{produto.nome}</span>
+                                <span className="block text-[11px] text-muted-foreground">{produto.codigo || "Sem código"}</span>
+                              </span>
+                              <span className="shrink-0 text-sm font-bold text-success">{formatCurrency(preco)}</span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pdv-product-quantity-field">
+                  <span>Quantidade</span>
+                  <div className="pdv-product-quantity">
+                    <button type="button" disabled={!currentItem} onClick={() => currentItem && updateQuantity(currentItem.id, -1)} aria-label="Diminuir quantidade do item atual"><Minus className="h-4 w-4" /></button>
+                    <Input aria-label="Quantidade do item atual" inputMode="decimal" disabled={!currentItem} value={currentItem ? quantityDrafts[currentItem.id] ?? String(currentItem.quantidade) : "1"} onChange={(event) => currentItem && editQuantity(currentItem, event.target.value)} />
+                    <button type="button" disabled={!currentItem || !catalogReady} onClick={() => currentItem && updateQuantity(currentItem.id, 1)} aria-label="Aumentar quantidade do item atual"><Plus className="h-4 w-4" /></button>
+                  </div>
+                </div>
+
+                <Button type="button" className="pdv-add-button gap-2" disabled={!catalogReady} onClick={handleAddCurrentProduct}>
+                  <ShoppingCart className="h-4 w-4" /> Adicionar
+                </Button>
+
+                {(catalogError || (selectedClient && catalogLoading) || invalidQuantity) && (
+                  <div className="col-span-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
+                    {catalogError ? <>Não foi possível carregar clientes, tabela ou condição de pagamento. <Button variant="link" size="sm" className="h-auto px-1 text-xs" onClick={() => { void refetchPrices(); void refetchTerms(); void refetchProducts(); void refetchClients(); }}>Tentar novamente</Button></> : invalidQuantity ? "Quantidade deve ser maior que zero e até 999. Peças exigem valores inteiros." : "Carregando tabela e condição de pagamento…"}
                   </div>
                 )}
               </div>
-              <Button type="button" className="mt-3 h-10 w-full gap-2 font-bold" disabled={!catalogReady} onClick={handleAddCurrentProduct}>
-                <ShoppingCart className="h-4 w-4" />
-                Adicionar item
-                <span className="text-primary-foreground/70">↵</span>
-              </Button>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="col-span-2">
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Quantidade</p>
-                  <div className="flex h-10 items-center rounded-md border bg-background">
-                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem} onClick={() => currentItem && updateQuantity(currentItem.id, -1)} aria-label="Diminuir quantidade do item atual">
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <Input aria-label="Quantidade do item atual" inputMode="decimal" className="flex-1 min-w-0 border-0 text-center" disabled={!currentItem} value={currentItem ? quantityDrafts[currentItem.id] ?? String(currentItem.quantidade) : ""} onChange={e => currentItem && editQuantity(currentItem, e.target.value)} />
-                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem || !catalogReady} onClick={() => currentItem && updateQuantity(currentItem.id, 1)} aria-label="Aumentar quantidade do item atual">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Preço unitário</p>
-                  <div className="flex h-10 items-center justify-end rounded-md border bg-background px-3 text-base font-semibold tabular-nums">{formatCurrency(currentItem?.preco ?? 0)}</div>
-                </div>
-                <div>
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Subtotal</p>
-                  <div className="flex h-10 items-center justify-end rounded-md border bg-background px-3 text-base font-semibold tabular-nums">{formatCurrency(currentItem ? currentItem.preco * currentItem.quantidade : 0)}</div>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs">
-                <span className="font-semibold text-muted-foreground">Item atual</span>
-                <span className="max-w-[65%] truncate font-bold">{currentItem?.nome || "Aguardando item"}</span>
-              </div>
-            </div>
 
-            {selectedClient && (
-              <PdvFulfillmentPanel
-                clienteNome={selectedClient.nome_fantasia || selectedClient.razao_social}
-                endereco={enderecoCliente}
-                enderecoLoading={enderecoLoading}
-                enderecoError={enderecoError}
-                settings={fulfillment}
-                requestedLoad={totalItems}
-                capacity={capacity}
-                capacityLoading={capacityLoading}
-                capacityError={capacityError}
-                canOverrideCapacity={canManageCommercialTerms}
-                canSetUrgency={!isFaturado}
-                onChange={setFulfillment}
-              />
-            )}
-
-          </aside>
-
-          <section className="flex min-h-[430px] min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-card shadow-sm xl:min-h-0">
-            <div className="flex items-center justify-between gap-3 border-b px-3 py-2.5 sm:px-4">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="h-5 w-5 text-primary" />
-                <p className="text-base font-bold uppercase tracking-wide">Itens da venda</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <p className="hidden text-xs text-muted-foreground sm:block">{cart.length} produtos · {totalItems} unidades</p>
-                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-destructive" onClick={requestClearSale}><Trash2 className="h-3.5 w-3.5" /> Limpar venda</Button>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto">
-              <div className="space-y-2 p-3 md:hidden" data-testid="pdv-mobile-cart">
-                {cart.length === 0 ? (
-                  <div className="py-12 text-center text-muted-foreground">
-                    <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
-                    <p className="font-medium">Nenhum item lançado</p>
-                    <p className="mt-1 text-xs">Selecione o cliente e adicione um serviço.</p>
-                  </div>
-                ) : cart.map((item, index) => (
-                  <article key={item.id} className={cn("rounded-xl border p-3", item.avarias && "border-warning/40 bg-warning/5")}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-muted-foreground">ITEM {index + 1}</p>
-                        <p className="truncate font-black">{item.nome}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{formatCurrency(item.preco)} / {item.unidade}</p>
-                      </div>
-                      <p className="shrink-0 text-lg font-black text-primary">{formatCurrency(item.preco * item.quantidade)}</p>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <div className="flex items-center rounded-lg border bg-background">
-                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}><Minus className="h-4 w-4" /></Button>
-                        <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} className="h-9 w-16 border-x border-y-0 px-1 text-center" value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={(event) => editQuantity(item, event.target.value)} />
-                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}><Plus className="h-4 w-4" /></Button>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 text-primary" onClick={() => openDetalhesModal(item)} aria-label={`Detalhes de ${item.nome}`}><FileText className="h-4 w-4" /></Button>
-                        <Button type="button" variant="outline" size="icon" className="h-9 w-9 text-destructive" onClick={() => removeFromCart(item.id)} aria-label={`Remover ${item.nome}`}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-              <table className="hidden w-full min-w-[720px] table-fixed text-sm md:table">
-                <thead className="sticky top-0 z-10 bg-muted/60 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="w-12 border-b px-3 py-1.5 text-center">Item</th>
-                    <th className="border-b px-3 py-1.5">Descrição</th>
-                    <th className="w-32 border-b px-3 py-1.5 text-right">Preço unit.</th>
-                    <th className="w-36 border-b px-3 py-1.5 text-center">Qtd.</th>
-                    <th className="w-32 border-b px-3 py-1.5 text-right">Total</th>
-                    <th className="w-24 border-b px-3 py-1.5 text-center">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <div className="pdv-items-content">
+                <div className="pdv-mobile-cart" data-testid="pdv-mobile-cart">
                   {cart.length === 0 ? (
+                    <div className="pdv-items-empty">
+                      <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
+                      <p className="font-medium">Nenhum item lançado</p>
+                      <p className="mt-1 text-xs">Selecione o cliente e adicione um serviço.</p>
+                    </div>
+                  ) : cart.map((item, index) => (
+                    <article key={item.id} className={cn("rounded-lg border p-3", item.avarias && "border-warning/40 bg-warning/5")}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-muted-foreground">ITEM {index + 1}</p>
+                          <p className="truncate font-black">{item.nome}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{formatCurrency(item.preco)} / {item.unidade}</p>
+                        </div>
+                        <p className="shrink-0 text-lg font-black text-success">{formatCurrency(item.preco * item.quantidade)}</p>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <div className="pdv-table-quantity">
+                          <button type="button" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}><Minus className="h-3.5 w-3.5" /></button>
+                          <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={(event) => editQuantity(item, event.target.value)} />
+                          <button type="button" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}><Plus className="h-3.5 w-3.5" /></button>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openDetalhesModal(item)} aria-label={`Detalhes de ${item.nome}`}><FileText className="h-4 w-4" /></Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromCart(item.id)} aria-label={`Remover ${item.nome}`}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <table className="pdv-items-table">
+                  <thead>
                     <tr>
-                      <td colSpan={6} className="h-40 px-4 text-center text-muted-foreground">
-                        <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
-                        <p className="font-medium">Nenhum item lançado</p>
-                        <p className="mt-1 text-xs">Selecione primeiro o cliente e pesquise um produto ou serviço para iniciar a venda.</p>
-                      </td>
+                      <th className="w-14 text-center">#</th>
+                      <th className="w-[105px]">Item</th>
+                      <th>Descrição</th>
+                      <th className="w-[128px] text-center">Quant.</th>
+                      <th className="w-[94px] text-center">Unidade</th>
+                      <th className="w-[105px] text-right">Preço unit.</th>
+                      <th className="w-[113px] text-right">Total</th>
+                      <th className="w-[110px] text-center">Ações</th>
                     </tr>
-                  ) : (
-                    cart.map((item, index) => {
-                      const temDetalhes = hasItemDetalhes(item);
-                      return (
-                        <tr key={item.id} className={cn("border-b align-top hover:bg-muted/30", item.avarias && "bg-warning/5")}>
-                          <td className="px-3 py-2 text-center font-semibold text-muted-foreground">{index + 1}</td>
-                          <td className="min-w-0 px-3 py-2">
-                            <div className="flex items-start gap-1.5">
-                              <p className="min-w-0 flex-1 truncate font-semibold">{item.nome}</p>
-                              {item.avarias ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" /> : null}
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                              <span>{item.unidade}</span>
-                              {temDetalhes ? <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3 text-primary" />Detalhes</span> : null}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium tabular-nums">{formatCurrency(item.preco)}</td>
-                          <td className="px-3 py-2">
-                            <div className="mx-auto flex w-fit items-center border bg-background">
-                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}>
-                                <Minus className="h-3.5 w-3.5" />
-                              </Button>
-                              <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} className="h-8 w-16 border-0 px-1 text-center" value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={e => editQuantity(item, e.target.value)} />
-                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}>
-                                <Plus className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <span className="font-bold tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openDetalhesModal(item)} title="Editar detalhes do item"><FileText className="h-3.5 w-3.5" /></Button>
-                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromCart(item.id)} title="Remover item"><Trash2 className="h-3.5 w-3.5" /></Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="border-t bg-card p-2.5 sm:p-3">
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_minmax(220px,280px)] sm:items-center">
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{totalItems} itens · {cart.length} produtos</p>
-                  <p className="mt-1 truncate text-sm font-semibold">{selectedClient ? `Cliente: ${selectedClient.nome_fantasia || selectedClient.razao_social}` : "Nenhum cliente selecionado"}</p>
-                </div>
-                <div className="border-l pl-3 sm:min-w-[120px]">
-                  <p className="text-xs text-muted-foreground">Subtotal</p>
-                  <p className="text-lg font-bold tabular-nums">{formatCurrency(totalValue)}</p>
-                </div>
-                <div className="border-l pl-3 sm:min-w-[100px]">
-                  <p className="text-xs text-muted-foreground">Desconto</p>
-                  <p className="text-lg font-bold tabular-nums">{formatCurrency(0)}</p>
-                </div>
-                <div className="rounded-lg bg-primary/10 px-4 py-2 sm:text-right">
-                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Total</p>
-                  <p className="text-2xl font-black tabular-nums text-primary sm:text-3xl">{formatCurrency(totalValue)}</p>
-                </div>
+                  </thead>
+                  <tbody>
+                    {cart.length === 0 ? (
+                      <tr>
+                        <td colSpan={8}>
+                          <div className="pdv-items-empty">
+                            <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
+                            <p className="font-medium">Nenhum item lançado</p>
+                            <p className="mt-1 text-xs">Selecione primeiro o cliente e pesquise um produto ou serviço para iniciar a venda.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      cart.map((item, index) => {
+                        const temDetalhes = hasItemDetalhes(item);
+                        return (
+                          <tr key={item.id} className={cn(item.avarias && "bg-warning/5")}>
+                            <td className="text-center font-semibold text-muted-foreground">{index + 1}</td>
+                            <td>
+                              <div className="pdv-item-product">
+                                <span className="pdv-item-thumb"><Package className="h-5 w-5" /></span>
+                                <span className="min-w-0"><span className="pdv-item-code">{item.codigo || String(index + 1).padStart(3, "0")}</span></span>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="flex min-w-0 items-center gap-1.5">
+                                <span className="pdv-item-name">{item.nome}</span>
+                                {item.avarias && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />}
+                              </div>
+                              <span className="pdv-item-description">{item.descricao || (temDetalhes ? "Detalhes de peça registrados" : "Lavagem e processamento")}</span>
+                            </td>
+                            <td>
+                              <div className="pdv-table-quantity">
+                                <button type="button" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}><Minus className="h-3.5 w-3.5" /></button>
+                                <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={(event) => editQuantity(item, event.target.value)} />
+                                <button type="button" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}><Plus className="h-3.5 w-3.5" /></button>
+                              </div>
+                            </td>
+                            <td className="text-center"><span className="pdv-unit-chip"><span>{getPdvUnitDisplay(item.unidade)}</span><ChevronDown className="h-3.5 w-3.5" /></span></td>
+                            <td className="text-right font-semibold tabular-nums">{formatCurrency(item.preco)}</td>
+                            <td className="text-right font-black tabular-nums">{formatCurrency(item.preco * item.quantidade)}</td>
+                            <td>
+                              <div className="pdv-item-actions">
+                                <Button type="button" variant="outline" size="icon" className="h-10 w-10 text-primary" onClick={() => openDetalhesModal(item)} aria-label={`Detalhes de ${item.nome}`} title="Editar detalhes do item"><Pencil className="h-4 w-4" /></Button>
+                                <Button type="button" variant="outline" size="icon" className="h-10 w-10 text-destructive" onClick={() => removeFromCart(item.id)} aria-label={`Remover ${item.nome}`} title="Remover item"><Trash2 className="h-4 w-4" /></Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(180px,1fr)_minmax(240px,1.6fr)]">
-                <Button type="button" variant="outline" className="h-11 gap-2 font-semibold" onClick={() => openOrderLookup()}><FileSearch className="h-4 w-4" /> Consultar ROL (F5)</Button>
-                <Button type="button" className="h-11 gap-2 bg-success text-success-foreground hover:bg-success/90" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={handleOpenPagamento}><CreditCard className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar atendimento"} <span className="text-success-foreground/75">F4</span></Button>
-              </div>
-            </div>
+            </section>
           </section>
+
+          <aside className="pdv-right-column" aria-label="Resumo e finalização do pedido">
+            <section className="pdv-operational-date" aria-label="Data e hora do atendimento">
+              <div className="flex min-w-0 items-center gap-2">
+                <Clock3 className="h-4 w-4 shrink-0 text-foreground" />
+                <p className="truncate">{formatPdvReferenceDate(new Date())}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <strong>{format(new Date(), "HH:mm")}</strong>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className="pdv-more-actions-trigger" aria-label="Mais Ações"><MoreHorizontal className="h-4 w-4" /></button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64 p-2">
+                    <DropdownMenuLabel className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">Ações do atendimento</DropdownMenuLabel>
+                    {canManageContracts && <DropdownMenuItem disabled={!selectedClient} onSelect={() => { if (selectedClient) setShowContracts(true); }}><FileText className="mr-2 h-4 w-4" />Contrato do cliente</DropdownMenuItem>}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger><FileText className="mr-2 h-4 w-4" />Venda atual</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-64 p-2">
+                        <DropdownMenuItem disabled={!currentItem} onSelect={() => { if (currentItem) openDetalhesModal(currentItem); }}><FileText className="mr-2 h-4 w-4" />Detalhes do item</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={requestClearSale}><Trash2 className="mr-2 h-4 w-4" />Cancelar venda<DropdownMenuShortcut>F8</DropdownMenuShortcut></DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger><CreditCard className="mr-2 h-4 w-4" />Caixa e financeiro</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-72 p-2">
+                        {canOperateCaixa && <>
+                          <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowFecharCaixaModal(true); }}><Lock className="mr-2 h-4 w-4" />Fechar caixa<DropdownMenuShortcut>F10</DropdownMenuShortcut></DropdownMenuItem>
+                          <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowSangriaModal(true); }}><ArrowDownCircle className="mr-2 h-4 w-4" />Sangria<DropdownMenuShortcut>F7</DropdownMenuShortcut></DropdownMenuItem>
+                          <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowSuprimentoModal(true); }}><ArrowUpCircle className="mr-2 h-4 w-4" />Suprimento</DropdownMenuItem>
+                        </>}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger><Keyboard className="mr-2 h-4 w-4" />Tela e atalhos</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-56 p-2">
+                        <DropdownMenuItem onSelect={() => setShowAjudaAtalhos(true)}><Keyboard className="mr-2 h-4 w-4" />Atalhos<DropdownMenuShortcut>F1</DropdownMenuShortcut></DropdownMenuItem>
+                        <DropdownMenuItem onSelect={toggleFullscreen}>{isFullscreen ? <Minimize className="mr-2 h-4 w-4" /> : <Maximize className="mr-2 h-4 w-4" />}Tela cheia<DropdownMenuShortcut>F11</DropdownMenuShortcut></DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </section>
+
+            <section className="pdv-summary-card" aria-labelledby="pdv-summary-title">
+              <header>
+                <span className="pdv-step-number" aria-hidden="true">5</span>
+                <h2 id="pdv-summary-title">Resumo do pedido</h2>
+              </header>
+              <div className="pdv-summary-lines">
+                <div className="pdv-summary-line"><span>Subtotal ({formatCarga(totalItems)} itens)</span><strong>{formatCurrency(totalValue)}</strong></div>
+                <div className="pdv-adjustment-line">
+                  <span className="text-[13px] text-muted-foreground">Desconto</span>
+                  <button type="button" className="pdv-adjustment-button" aria-label="Configurar desconto na finalização" onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>{formatCurrency(0)}</button>
+                  <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
+                </div>
+                <div className="pdv-adjustment-line">
+                  <span className="text-[13px] text-muted-foreground">Acréscimo</span>
+                  <button type="button" className="pdv-adjustment-button" aria-label="Configurar urgência na finalização" onClick={() => setShowFulfillmentModal(true)}>{formatCurrency(0)}</button>
+                  <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
+                </div>
+              </div>
+              <div className="pdv-total-banner">
+                <small>Total do pedido</small>
+                <strong>{formatCurrency(totalValue)}</strong>
+              </div>
+            </section>
+
+            <section className="pdv-payment-card" aria-labelledby="pdv-payment-title">
+              <header>
+                <span className="pdv-step-number" aria-hidden="true">6</span>
+                <div>
+                  <h2 id="pdv-payment-title">Pagamento</h2>
+                  <p>Selecione a forma para a finalização.</p>
+                </div>
+              </header>
+              {!isLoadingCaixa && !canReceivePayments && !isFaturado && <p className="mt-2 text-xs text-warning">Abra o caixa e confirme sua permissão para receber agora.</p>}
+              {!isLoadingCaixa && canOperateCaixa && !caixaAberto && (
+                <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={() => setShowAbrirCaixaModal(true)}>
+                  Abrir caixa para receber
+                </Button>
+              )}
+              <div className="pdv-payment-options">
+                <button type="button" className={cn("pdv-payment-option", !isFaturado && canReceivePayments && (!paymentShortcut || paymentShortcut.pagoAgora && paymentShortcut.formaPagamento === "DINHEIRO") && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "DINHEIRO" }); handleOpenPagamento(); }}><Banknote className="h-5 w-5" /> Dinheiro</button>
+                <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "PIX" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "PIX" }); handleOpenPagamento(); }}><QrCode className="h-5 w-5" /> PIX</button>
+                <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "CARTAO_DEBITO" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "CARTAO_DEBITO" }); handleOpenPagamento(); }}><CreditCard className="h-5 w-5" /> Cartão</button>
+                <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora === false && "is-selected")} disabled={isFaturado} onClick={() => { setPaymentShortcut({ pagoAgora: false, formaPagamento: null }); handleOpenPagamento(); }}><CalendarRange className="h-5 w-5" /> Posterior</button>
+              </div>
+              <div className="pdv-payment-actions">
+                <Button type="button" data-testid="pdv-workflow-finalize" className="pdv-finish-button gap-2" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>
+                  <CircleCheck className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar atendimento (F4)"}
+                </Button>
+                <Button type="button" variant="outline" className="pdv-print-button gap-2" onClick={() => {
+                  if (osRecemCriada) {
+                    void printROL(osRecemCriada.id);
+                    return;
+                  }
+                  toast.info("Finalize o atendimento antes de imprimir a ROL.");
+                }}>
+                  <Printer className="h-4 w-4" /> Imprimir ROL (F5)
+                </Button>
+              </div>
+            </section>
+          </aside>
         </div>
-        </section>
+
+        <nav aria-label="Atalhos do atendimento" className="scrollbar-hide" data-testid="pdv-primary-shortcuts">
+          <div className="pdv-quick-actions">
+            <div className="pdv-quick-actions-heading">
+              <span className="pdv-step-number" aria-hidden="true">7</span>
+              <div className="min-w-0">
+                <h2>Ações rápidas</h2>
+                <p>Acesso aos principais atalhos sem abandonar o atendimento.</p>
+              </div>
+            </div>
+            <button data-testid="pdv-workflow-client" type="button" className="pdv-quick-action" title={selectedClient ? "Trocar o cliente deste atendimento" : "Selecionar cliente"} onClick={() => selectedClient ? clearClient() : focusClientSearch()}><UserRound className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Clientes</span><span className="pdv-quick-action-hotkey">F2</span></span></button>
+            <button data-testid="pdv-workflow-day-list" type="button" className="pdv-quick-action" aria-label="Lista do dia" disabled={!canViewDayList} onClick={() => setShowListaDia(true)}><CalendarDays className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Agenda</span><span className="pdv-quick-action-hotkey">F3</span></span></button>
+            <button type="button" className="pdv-quick-action" onClick={() => openOrderLookup()}><ClipboardList className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Ordens</span><span className="pdv-quick-action-hotkey">F6</span></span></button>
+            <button type="button" className="pdv-quick-action" onClick={() => openOrderLookup("posicao")}><Boxes className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Produção</span></span></button>
+            <button data-testid="pdv-workflow-products" type="button" className="pdv-quick-action" onClick={focusProductSearch}><ShoppingCart className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Cesto</span></span></button>
+            <button type="button" className="pdv-quick-action" aria-label="Posição do ROL" onClick={() => openOrderLookup("posicao")}><MapPin className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Prateleira</span></span></button>
+            <button data-testid="pdv-workflow-fulfillment" type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => { setFulfillment((current) => ({ ...current, deliveryMode: "entrega" })); setShowFulfillmentModal(true); }}><Truck className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Entrega</span></span></button>
+            <button type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => { setFulfillment((current) => ({ ...current, deliveryMode: "balcao" })); setShowFulfillmentModal(true); }}><Archive className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Retirada</span></span></button>
+            <button type="button" className="pdv-quick-action" disabled={!canReceivePayments} onClick={() => setShowFecharCaixaModal(true)}><Lock className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Fechamento</span></span></button>
+          </div>
+        </nav>
       </div>
 
       {/* Modal de Detalhes do Item */}
@@ -1377,6 +1436,31 @@ const PdvAtendimento = () => {
           }}
           onSave={saveDetalhes}
         />
+      )}
+
+      {selectedClient && (
+        <Dialog open={showFulfillmentModal} onOpenChange={setShowFulfillmentModal}>
+          <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Prazo, capacidade e entrega</DialogTitle>
+              <DialogDescription>Defina prazo, capacidade, entrega ou retirada sem abandonar o pedido atual.</DialogDescription>
+            </DialogHeader>
+            <PdvFulfillmentPanel
+              clienteNome={selectedClient.nome_fantasia || selectedClient.razao_social}
+              endereco={enderecoCliente}
+              enderecoLoading={enderecoLoading}
+              enderecoError={enderecoError}
+              settings={fulfillment}
+              requestedLoad={totalItems}
+              capacity={capacity}
+              capacityLoading={capacityLoading}
+              capacityError={capacityError}
+              canOverrideCapacity={canManageCommercialTerms}
+              canSetUrgency={!isFaturado}
+              onChange={setFulfillment}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Modal de Pagamento */}
@@ -1402,6 +1486,7 @@ const PdvAtendimento = () => {
         fulfillment={fulfillment}
         fulfillmentAddressSnapshot={fulfillmentAddressSnapshot}
         fulfillmentBlockReason={fulfillmentBlockReason}
+        initialSelection={paymentShortcut}
         onConfirm={handleFinalizarVenda}
         isLoading={isProcessingVenda}
       />
