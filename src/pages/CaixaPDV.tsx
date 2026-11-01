@@ -26,7 +26,6 @@ import {
   UserPlus,
   CalendarDays,
   ChevronDown,
-  Clock3,
   MapPin,
   X,
   Phone,
@@ -179,13 +178,6 @@ const getPdvUnitDisplay = (unidade: string) => {
 const formatCarga = (value: number) => new Intl.NumberFormat("pt-BR", {
   maximumFractionDigits: 2,
 }).format(value);
-
-const formatPdvReferenceDate = (value: Date) => {
-  const formatted = format(value, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
-  return formatted
-    .replace(/^./, (letter) => letter.toUpperCase())
-    .replace(/ de ([a-zà-ÿ])/i, (_match, letter: string) => ` de ${letter.toUpperCase()}`);
-};
 
 const isValidQuantity = (value: number, unidade: string) =>
   Number.isFinite(value) && value > 0 && value <= 999 &&
@@ -1035,9 +1027,9 @@ const PdvAtendimento = () => {
                         <span className="pdv-customer-badge">Cliente</span>
                       </p>
                       {canUseLoyalty && isLoadingCustomerLoyalty ? (
-                        <p className="mt-1 text-xs text-muted-foreground">Consultando pontos…</p>
+                        <p className="pdv-customer-loyalty text-muted-foreground">Consultando pontos…</p>
                       ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
-                        <p className="mt-1 text-xs font-semibold text-success">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
+                        <p className="pdv-customer-loyalty text-success">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
                       ) : null}
                     </div>
                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={clearClient} aria-label="Remover cliente" title="Trocar cliente">
@@ -1290,13 +1282,12 @@ const PdvAtendimento = () => {
           </section>
 
           <aside className="pdv-right-column" aria-label="Resumo e finalização do pedido">
-            <section className="pdv-operational-date" aria-label="Data e hora do atendimento">
-              <div className="flex min-w-0 items-center gap-2">
-                <Clock3 className="h-4 w-4 shrink-0 text-foreground" />
-                <p className="truncate">{formatPdvReferenceDate(new Date())}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <strong>{format(new Date(), "HH:mm")}</strong>
+            <section className="pdv-summary-card" aria-labelledby="pdv-summary-title">
+              <header>
+                <div className="pdv-summary-heading">
+                  <span className="pdv-step-number" aria-hidden="true">5</span>
+                  <h2 id="pdv-summary-title">Resumo do pedido</h2>
+                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button type="button" className="pdv-more-actions-trigger" aria-label="Mais Ações"><MoreHorizontal className="h-4 w-4" /></button>
@@ -1333,13 +1324,6 @@ const PdvAtendimento = () => {
                     </DropdownMenuSub>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
-            </section>
-
-            <section className="pdv-summary-card" aria-labelledby="pdv-summary-title">
-              <header>
-                <span className="pdv-step-number" aria-hidden="true">5</span>
-                <h2 id="pdv-summary-title">Resumo do pedido</h2>
               </header>
               <div className="pdv-summary-lines">
                 <div className="pdv-summary-line"><span>Subtotal ({formatCarga(totalItems)} itens)</span><strong>{formatCurrency(totalValue)}</strong></div>
