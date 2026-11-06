@@ -18,6 +18,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const getAreaFromPath = (path: string, search = ""): WorkspaceArea => {
     if (path.startsWith("/industrial") || path.startsWith("/pdv/industrial")) return "industrial";
     if (path.startsWith("/residencial") || path.startsWith("/pdv/residencial") || path.startsWith("/pdv/domestico")) return "residencial";
+    if (path === "/pdv" || path === "/pdv/painel") {
+      const requestedOperation = new URLSearchParams(search).get("operacao");
+      if (requestedOperation === "industrial") return "industrial";
+      if (requestedOperation === "residencial" || requestedOperation === "domestico") return "residencial";
+    }
     if (path.startsWith("/admin")) {
       const operation = parseOperationFilter(new URLSearchParams(search).get("operacao"));
       if (operation === "industrial") return "industrial";

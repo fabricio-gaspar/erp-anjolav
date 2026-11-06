@@ -364,7 +364,6 @@ export const LEGACY_ROUTE_REDIRECTS: readonly LegacyRouteRedirect[] = [
   { from: "/configuracoes", to: "/central/configuracoes" },
   { from: "/financeiro", to: "/central/financeiro" },
   { from: "/caixa", to: "/residencial/caixa" },
-  { from: "/pdv", to: "/residencial/caixa" },
   { from: "/lancamentos", to: "/industrial/lancamentos" },
   { from: "/contas", to: "/central/contas" },
   { from: "/clientes", to: "/industrial/clientes" },

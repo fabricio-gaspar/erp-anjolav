@@ -22,7 +22,6 @@ import {
   type AppRoutePath,
   type LegacyRouteRedirect,
 } from "@/lib/appRoutes";
-import { getCanonicalPdvPath } from "@/lib/authorization";
 import { ADMIN_ROUTES, type AdminRoutePath } from "@/lib/adminRoutes";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -47,6 +46,7 @@ const PortalCliente = lazy(() => import("./pages/PortalCliente"));
 const Fornecedores = lazy(() => import("./pages/Fornecedores"));
 const Estoque = lazy(() => import("./pages/Estoque"));
 const HistoricoCaixas = lazy(() => import("./pages/HistoricoCaixas"));
+const PdvModuleHub = lazy(() => import("./pages/PdvModuleHub"));
 const AgendaEventos = lazy(() => import("./pages/AgendaEventos"));
 const RelatorioKilometragem = lazy(() => import("./pages/RelatorioKilometragem"));
 const RelatorioMensal = lazy(() => import("./pages/RelatorioMensal"));
@@ -106,7 +106,7 @@ const ROUTE_COMPONENTS = {
 
 const ADMIN_ROUTE_COMPONENTS: Record<AdminRoutePath, LazyExoticComponent<ComponentType>> = {
   "/admin/visao-geral": Dashboard,
-  "/admin/pdv-caixas": HistoricoCaixas,
+  "/admin/pdv-caixas": PdvModuleHub,
   "/admin/cadastros/clientes": Clientes,
   "/admin/cadastros/produtos": Produtos,
   "/admin/cadastros/fornecedores": Fornecedores,
@@ -238,7 +238,7 @@ const App = () => (
                         platformAdminOnly={requiresPlatformAdmin(route)}
                       >
                         {isLegacyPdvPath
-                          ? <Navigate to={getCanonicalPdvPath(route.area as "industrial" | "residencial")} replace />
+                          ? <Navigate to={`/pdv?operacao=${route.area}`} replace />
                           : <Page />}
                       </ProtectedRoute>
                     )}
@@ -296,6 +296,22 @@ const App = () => (
                   )}
                 />
               ))}
+              <Route
+                path="/pdv"
+                element={(
+                  <ProtectedRoute>
+                    <PdvModuleHub />
+                  </ProtectedRoute>
+                )}
+              />
+              <Route
+                path="/pdv/painel"
+                element={(
+                  <ProtectedRoute>
+                    <Navigate to="/pdv" replace />
+                  </ProtectedRoute>
+                )}
+              />
               <Route
                 path="/pdv/residencial"
                 element={(

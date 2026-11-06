@@ -6,6 +6,7 @@ import {
   Clock3,
   Factory,
   Leaf,
+  LayoutDashboard,
   LogOut,
   Moon,
   Settings2,
@@ -72,7 +73,7 @@ function formatOperationalTime(value: Date): string {
 
 export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { activeArea } = useWorkspace();
   const { isOperationSwitchLocked } = useOperationalContext();
   const {
@@ -88,15 +89,24 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
   const { isDark, toggleMode } = useThemeMode();
   const [now, setNow] = useState(() => new Date());
 
-  const operationArea = activeArea === "industrial" ? "industrial" : "residencial";
+  const accessiblePdvAreas = PDV_AREAS.filter((area) => canAccessRoute(`/${area}/caixa`));
+  const requestedArea = new URLSearchParams(search).get("operacao");
+  const workspaceOperation = activeArea === "industrial" ? "industrial" : "residencial";
+  const preferredOperation = requestedArea === "industrial" || requestedArea === "residencial"
+    ? requestedArea
+    : workspaceOperation;
+  const operationArea = accessiblePdvAreas.includes(preferredOperation)
+    ? preferredOperation
+    : accessiblePdvAreas[0] ?? preferredOperation;
   const canUseCash = canAccessRoute(`/${operationArea}/caixa`);
   const { data: caixaAberto, isLoading: isLoadingCash } = useCaixaAberto(canUseCash);
-  const accessiblePdvAreas = PDV_AREAS.filter((area) => canAccessRoute(`/${area}/caixa`));
   const areaLabel = operationArea === "industrial" ? "Industrial" : "Doméstico";
   const displayName = funcionario?.nome || user?.email?.split("@")[0] || "Usuário";
   const AreaIcon = operationArea === "industrial" ? Factory : Store;
   const currentPdvPath = getCanonicalPdvOperationPath(operationFromLegacyArea(operationArea));
   const isPdvHome = pathname === currentPdvPath;
+  const isPdvModuleHub = pathname === "/pdv" || pathname === "/pdv/painel" || pathname === "/admin/pdv-caixas";
+  const isAdministrativePdvHub = pathname === "/admin/pdv-caixas";
   const isLegacyOperationalLanding = pathname === "/industrial" || pathname === "/residencial";
   const unitLabel = getUnitLabel(
     operationalAccess.data?.units,
@@ -181,7 +191,11 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
                       <DropdownMenuItem
                         key={area}
                         className={cn(area === operationArea && "bg-muted font-bold")}
-                        onClick={() => navigate(area === "industrial" ? "/pdv/industrial" : "/pdv/domestico")}
+                        onClick={() => navigate(
+                          isPdvModuleHub
+                            ? `/pdv?operacao=${area}`
+                            : area === "industrial" ? "/pdv/industrial" : "/pdv/domestico",
+                        )}
                       >
                         <Icon className="mr-2 h-4 w-4" />
                         {label}
@@ -191,6 +205,20 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
                 </DropdownMenuContent>
               )}
             </DropdownMenu>
+
+            {!isPdvModuleHub && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 shrink-0 gap-1.5 px-2"
+                onClick={() => navigate(`/pdv?operacao=${operationArea}`)}
+                aria-label="Abrir painel de módulos do PDV"
+              >
+                <LayoutDashboard className="h-4 w-4 text-primary" />
+                <span className="hidden text-sm font-semibold lg:inline">Módulos</span>
+              </Button>
+            )}
 
             {canUseCash && (
               <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-success-light px-3 py-1.5 font-bold text-success lg:inline-flex">
@@ -252,7 +280,15 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
         </div>
       </header>
 
-      {!isPdvHome && !isLegacyOperationalLanding && (
+      {isAdministrativePdvHub && (
+        <div className="border-b bg-muted/30 px-3 py-2 sm:px-5">
+          <Button type="button" variant="ghost" size="sm" onClick={() => navigate("/admin/visao-geral")}>
+            Voltar ao Painel Administrativo
+          </Button>
+        </div>
+      )}
+
+      {!isPdvHome && !isLegacyOperationalLanding && !isPdvModuleHub && (
         <div className="border-b bg-muted/30 px-3 py-2 sm:px-5">
           <Button type="button" variant="ghost" size="sm" onClick={() => navigate(currentPdvPath)}>
             Voltar ao atendimento
