@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Shirt,
   ShoppingCart,
-  Settings,
   Truck,
   Users,
   type LucideIcon,
@@ -32,12 +31,9 @@ import {
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 
-import { BillingClosuresCard } from "@/components/dashboard/BillingClosuresCard";
 import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
-import { ContasVencendoCard } from "@/components/dashboard/ContasVencendoCard";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
 import { EstoqueBaixoCard } from "@/components/dashboard/EstoqueBaixoCard";
-import { EventosDoDiaCard } from "@/components/dashboard/EventosDoDiaCard";
 import { FinanceCard, type FinanceItem } from "@/components/dashboard/FinanceCard";
 import { InadimplenciaCard } from "@/components/dashboard/InadimplenciaCard";
 import { KPICard } from "@/components/dashboard/KPICard";
@@ -59,7 +55,7 @@ import {
   useMetricasProducao,
   useResumoProcessamento,
 } from "@/hooks/useHistoricoProducao";
-import { useNavigationAccess, useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { resolverEstadoDashboard } from "@/lib/dashboardState";
 import { invalidateDashboardQueries } from "@/lib/queryDefaults";
 import { cn } from "@/lib/utils";
@@ -106,6 +102,15 @@ interface DashboardKpi {
   onOpen?: () => void;
 }
 
+interface DashboardAttention {
+  id: string;
+  title: string;
+  description: string;
+  value: string | number;
+  icon: LucideIcon;
+  tone: "critical" | "warning" | "info";
+}
+
 interface ProcessingOrder {
   numero?: string | null;
   status?: string | null;
@@ -139,6 +144,13 @@ function asFiniteNumber(value: unknown): number {
   return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
+function formatCurrency(value: number): string {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
 function readNumericField(value: unknown, field: string): number {
   if (!value || typeof value !== "object" || Array.isArray(value)) return 0;
   return asFiniteNumber((value as Record<string, unknown>)[field]);
@@ -161,8 +173,8 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const { activeTenant, funcionario } = useAuth();
   const { activeArea } = useWorkspace();
-  const { canAccessRoute } = useNavigationAccess();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const isAdministrativeDashboard = activeArea === "central";
 
   const temFinanceiro = useTemPermissaoModulo("faturamento");
   const temContasPagar = useTemPermissaoModulo("contas_pagar");
@@ -176,6 +188,7 @@ const Dashboard = () => {
   const metricasEnabled = temOrdens || temAgenda || temClientes || temProducao;
   const contasEnabled = activeArea === "central" && temContasPagar;
   const caixaEnabled = activeArea !== "industrial" && temCaixa;
+  const resumoEnabled = !isAdministrativeDashboard && (temOrdens || temProducao);
   const hoje = startOfDay(new Date());
   const inicioMes = format(startOfMonth(hoje), "yyyy-MM-dd");
   const fimMes = format(endOfMonth(hoje), "yyyy-MM-dd");
@@ -195,7 +208,7 @@ const Dashboard = () => {
     osEmProcessamento,
     isLoading: isLoadingResumo,
     error: resumoError,
-  } = useResumoProcessamento(temOrdens || temProducao);
+  } = useResumoProcessamento(resumoEnabled);
   const {
     contas: contasPagar,
     isLoading: isLoadingContas,
@@ -227,7 +240,7 @@ const Dashboard = () => {
     },
     {
       label: "produção",
-      enabled: temOrdens || temProducao,
+      enabled: resumoEnabled,
       isLoading: isLoadingResumo,
       hasError: Boolean(resumoError),
     },
@@ -427,6 +440,104 @@ const Dashboard = () => {
       : []),
   ];
 
+  const administrativeExecutiveKpis: DashboardKpi[] = isAdministrativeDashboard
+    ? [
+        ...(temFinanceiro && !faturasError && !isLoadingFaturas
+          ? [
+              {
+                title: "Faturamento do mês",
+                value: formatCurrency(totalFaturadoMes),
+                icon: DollarSign,
+                iconColor: "success" as const,
+                subtitle: "Faturas que abrangem o mês atual",
+                context: "Mês atual · consolidado",
+              },
+              {
+                title: "Contas a receber",
+                value: formatCurrency(totalContasReceber),
+                icon: Banknote,
+                iconColor: "primary" as const,
+                subtitle: "Saldo pendente das faturas ativas",
+                context: "Posição atual · consolidado",
+              },
+            ]
+          : []),
+        ...(contasEnabled && !contasError && !isLoadingContas
+          ? [
+              {
+                title: "Contas a pagar",
+                value: formatCurrency(totalContasPagar),
+                icon: ShoppingCart,
+                iconColor: "warning" as const,
+                subtitle: "Saldo pendente dos títulos registrados",
+                context: "Posição atual · consolidado",
+              },
+            ]
+          : []),
+        ...(caixaEnabled && !caixaError && !isLoadingCaixa
+          ? [
+              {
+                title: "Caixa",
+                value: caixaAberto ? "Aberto" : "Fechado",
+                icon: ShoppingCart,
+                iconColor: caixaAberto ? ("success" as const) : ("warning" as const),
+                subtitle: caixaAberto ? "Sessão de caixa em andamento" : "Nenhuma sessão aberta",
+                context: "Sessão atual · administrativo",
+              },
+            ]
+          : []),
+      ]
+    : [];
+
+  const administrativeOperationalKpis: DashboardKpi[] = isAdministrativeDashboard
+    ? [
+        ...(temOrdens && !metricasError && !isLoadingMetricas
+          ? [
+              {
+                title: "ROLs em aberto",
+                value: metricas?.osEmAberto ?? 0,
+                icon: FileText,
+                iconColor: "primary" as const,
+                subtitle: "Pedidos ainda em andamento",
+                context: "Agora · consolidado",
+              },
+              {
+                title: "Entregas atrasadas",
+                value: metricas?.entregasAtrasadas ?? 0,
+                icon: AlertCircle,
+                iconColor: "destructive" as const,
+                subtitle: "Com prazo anterior a hoje",
+                context: "Até hoje · consolidado",
+              },
+            ]
+          : []),
+        ...(temProducao && !metricasError && !isLoadingMetricas
+          ? [
+              {
+                title: "Peças registradas hoje",
+                value: metricas?.pecasProcessadasHoje ?? 0,
+                icon: Shirt,
+                iconColor: "success" as const,
+                subtitle: "Quantidade incluída em ROLs",
+                context: "Hoje · consolidado",
+              },
+            ]
+          : []),
+        ...(temAgenda && !agendaError && !isLoadingAgenda
+          ? [
+              {
+                title: "Coletas e entregas",
+                value: retiradas.length + entregas.length,
+                icon: Truck,
+                iconColor: "info" as const,
+                subtitle: "Paradas previstas para hoje",
+                context: "Hoje · consolidado",
+              },
+            ]
+          : []),
+      ]
+    : [];
+
   const gargalos = metricas?.gargalos ?? {};
   const totalGargalos = Object.values(gargalos).reduce((total, count) => total + count, 0);
   const bottleneckItems = Object.entries(gargalos)
@@ -536,6 +647,75 @@ const Dashboard = () => {
   const overdueReceivablesCount = receberItems.filter((item) => item.status === "vencida").length;
   const overduePayablesCount = pagarItems.filter((item) => item.status === "vencida").length;
   const overdueFinancialCount = overdueReceivablesCount + overduePayablesCount;
+  const administrativeAttentionItems: DashboardAttention[] = isAdministrativeDashboard
+    ? [
+        ...(temOrdens
+        && !metricasError
+        && !isLoadingMetricas
+        && (metricas?.entregasAtrasadas ?? 0) > 0
+          ? [{
+              id: "overdue-orders",
+              title: "Entregas com prazo vencido",
+              value: metricas?.entregasAtrasadas ?? 0,
+              description: "ROLs com prazo anterior a hoje precisam de revisão operacional.",
+              icon: AlertCircle,
+              tone: "critical" as const,
+            }]
+          : []),
+        ...(temFinanceiro
+        && !faturasError
+        && !isLoadingFaturas
+        && overdueReceivablesCount > 0
+          ? [{
+              id: "overdue-receivables",
+              title: "Contas a receber vencidas",
+              value: overdueReceivablesCount,
+              description: "Faturas pendentes após o vencimento exigem acompanhamento financeiro.",
+              icon: Banknote,
+              tone: "critical" as const,
+            }]
+          : []),
+        ...(contasEnabled
+        && !contasError
+        && !isLoadingContas
+        && overduePayablesCount > 0
+          ? [{
+              id: "overdue-payables",
+              title: "Contas a pagar vencidas",
+              value: overduePayablesCount,
+              description: "Títulos pendentes após o vencimento exigem acompanhamento financeiro.",
+              icon: Banknote,
+              tone: "warning" as const,
+            }]
+          : []),
+        ...(temAgenda
+        && !agendaError
+        && !isLoadingAgenda
+        && agendaPendingCount > 0
+          ? [{
+              id: "agenda-pending",
+              title: "Paradas pendentes hoje",
+              value: agendaPendingCount,
+              description: "Coletas, entregas e pedidos prontos que ainda aguardam execução.",
+              icon: CalendarDays,
+              tone: "info" as const,
+            }]
+          : []),
+        ...(caixaEnabled
+        && !caixaError
+        && !isLoadingCaixa
+        && !caixaAberto
+          ? [{
+              id: "cash-closed",
+              title: "Caixa fechado",
+              value: "Fechado",
+              description: "Não há sessão de caixa aberta para a operação atual.",
+              icon: ShoppingCart,
+              tone: "warning" as const,
+            }]
+          : []),
+      ]
+    : [];
   const myDayActions: MyDayAction[] = [
     ...(
       temOrdens
@@ -633,32 +813,25 @@ const Dashboard = () => {
     ),
   ];
 
-  const quickActions = [
-    ...(activeArea === "central" && canAccessRoute("/residencial/caixa")
-      ? [{ label: "PDV Doméstico", icon: ShoppingCart, onOpen: () => navigate("/pdv/domestico") }]
-      : []),
-    ...(activeArea === "central" && canAccessRoute("/industrial/caixa")
-      ? [{ label: "PDV Industrial", icon: Factory, onOpen: () => navigate("/pdv/industrial") }]
-      : []),
-    ...(activeArea === "central" && canAccessRoute("/central/configuracoes")
-      ? [{ label: "Configurar sistema", icon: Settings, onOpen: () => navigate("/central/configuracoes") }]
-      : []),
-    ...(ordersPath && temOrdens
-      ? [{ label: "Novo pedido", icon: ClipboardPlus, onOpen: () => navigate(`${ordersPath}?novo=1`) }]
-      : []),
-    ...(cashPath && temCaixa
-      ? [{ label: "PDV / Caixa", icon: ShoppingCart, onOpen: () => navigate(cashPath) }]
-      : []),
-    ...(productionPath && temProducao
-      ? [{ label: "Produção", icon: Factory, onOpen: () => navigate(productionPath) }]
-      : []),
-    ...(temAgenda
-      ? [{ label: activeArea === "central" ? "Agenda administrativa" : "Agenda", icon: CalendarDays, onOpen: () => navigate(agendaPath) }]
-      : []),
-    ...(temFinanceiro
-      ? [{ label: "Financeiro", icon: DollarSign, onOpen: () => navigate(financePath) }]
-      : []),
-  ].slice(0, 5);
+  const quickActions = isAdministrativeDashboard
+    ? []
+    : [
+        ...(ordersPath && temOrdens
+          ? [{ label: "Novo pedido", icon: ClipboardPlus, onOpen: () => navigate(`${ordersPath}?novo=1`) }]
+          : []),
+        ...(cashPath && temCaixa
+          ? [{ label: "PDV / Caixa", icon: ShoppingCart, onOpen: () => navigate(cashPath) }]
+          : []),
+        ...(productionPath && temProducao
+          ? [{ label: "Produção", icon: Factory, onOpen: () => navigate(productionPath) }]
+          : []),
+        ...(temAgenda
+          ? [{ label: "Agenda", icon: CalendarDays, onOpen: () => navigate(agendaPath) }]
+          : []),
+        ...(temFinanceiro
+          ? [{ label: "Financeiro", icon: DollarSign, onOpen: () => navigate(financePath) }]
+          : []),
+      ].slice(0, 5);
 
   const maiorGargalo = bottleneckItems[0];
   const recommendation = maiorGargalo
@@ -694,35 +867,37 @@ const Dashboard = () => {
           )}
         />
 
-        <section className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 shadow-sm sm:p-5" aria-label="Contexto e ações rápidas">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground">
-                {funcionario?.nome ? `Olá, ${funcionario.nome.split(" ")[0]}.` : "Olá."} O que precisa avançar agora?
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">{dashboardContext}</p>
-            </div>
-            {quickActions.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap xl:justify-end">
-                {quickActions.map((action) => {
-                  const Icon = action.icon;
-                  return (
-                    <Button
-                      key={action.label}
-                      type="button"
-                      variant="outline"
-                      className="min-h-11 justify-start gap-2 bg-card/80 sm:justify-center"
-                      onClick={action.onOpen}
-                    >
-                      <Icon className="h-4 w-4 text-primary" />
-                      {action.label}
-                    </Button>
-                  );
-                })}
+        {!isAdministrativeDashboard && (
+          <section className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.07] via-card to-card p-4 shadow-sm sm:p-5" aria-label="Contexto e ações rápidas">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">
+                  {funcionario?.nome ? `Olá, ${funcionario.nome.split(" ")[0]}.` : "Olá."} O que precisa avançar agora?
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{dashboardContext}</p>
               </div>
-            )}
-          </div>
-        </section>
+              {quickActions.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap xl:justify-end">
+                  {quickActions.map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <Button
+                        key={action.label}
+                        type="button"
+                        variant="outline"
+                        className="min-h-11 justify-start gap-2 bg-card/80 sm:justify-center"
+                        onClick={action.onOpen}
+                      >
+                        <Icon className="h-4 w-4 text-primary" />
+                        {action.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {(loadingSources.length > 0 || failedSources.length > 0) && (
           <div
@@ -769,12 +944,112 @@ const Dashboard = () => {
           </div>
         )}
 
-        <MyDayActionList
-          actions={myDayActions}
-          isLoading={loadingSources.length > 0 && myDayActions.length === 0}
-        />
+        {isAdministrativeDashboard && (
+          <>
+            <section aria-label="Indicadores executivos" className="space-y-3">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Indicadores executivos</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Posição financeira e de caixa consolidada, sem atalhos de navegação.
+                </p>
+              </div>
+              {administrativeExecutiveKpis.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {administrativeExecutiveKpis.map((kpi) => (
+                    <KPICard key={kpi.title} {...kpi} />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
+                  Nenhum indicador financeiro ou de caixa está disponível para as permissões deste usuário.
+                </div>
+              )}
+            </section>
 
-        {kpis.length > 0 ? (
+            <section aria-label="Resumo operacional" className="space-y-3">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Resumo operacional</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Acompanhamento consolidado da operação no período atual.
+                </p>
+              </div>
+              {administrativeOperationalKpis.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {administrativeOperationalKpis.map((kpi) => (
+                    <KPICard key={kpi.title} {...kpi} />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
+                  Nenhum indicador operacional está disponível para as permissões deste usuário.
+                </div>
+              )}
+            </section>
+
+            <section aria-label="Atenção agora" className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Atenção agora</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Pendências reais que merecem acompanhamento nos módulos correspondentes.
+                </p>
+              </div>
+
+              {administrativeAttentionItems.length > 0 ? (
+                <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {administrativeAttentionItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <article
+                        key={item.id}
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border p-3",
+                          item.tone === "critical" && "border-destructive/25 bg-destructive/[0.04]",
+                          item.tone === "warning" && "border-warning/30 bg-warning/[0.05]",
+                          item.tone === "info" && "border-primary/20 bg-primary/[0.04]",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                            item.tone === "critical" && "bg-destructive/10 text-destructive",
+                            item.tone === "warning" && "bg-warning/10 text-warning",
+                            item.tone === "info" && "bg-primary/10 text-primary",
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
+                            <span className="shrink-0 text-lg font-bold leading-none text-foreground">{item.value}</span>
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                  {failedSources.length > 0
+                    ? "Os alertas serão completados quando as fontes indisponíveis forem atualizadas."
+                    : loadingSources.length > 0
+                      ? "Atualizando os dados para verificar pendências."
+                      : "Nenhuma pendência crítica foi identificada nas fontes disponíveis."}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+
+        {!isAdministrativeDashboard && (
+          <MyDayActionList
+            actions={myDayActions}
+            isLoading={loadingSources.length > 0 && myDayActions.length === 0}
+          />
+        )}
+
+        {!isAdministrativeDashboard && (kpis.length > 0 ? (
           <section aria-label="Indicadores principais" className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {kpis.map((kpi) => (
               <KPICard key={kpi.title} {...kpi} />
@@ -784,9 +1059,9 @@ const Dashboard = () => {
           <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
             Nenhum indicador adicional está disponível para as permissões deste usuário.
           </div>
-        )}
+        ))}
 
-        {(temFinanceiro || contasEnabled) && (
+        {!isAdministrativeDashboard && (temFinanceiro || contasEnabled) && (
           <section id="dashboard-finance" aria-label="Resumo financeiro" className="scroll-mt-24 grid grid-cols-1 gap-3 xl:grid-cols-2">
             {temFinanceiro && !faturasError && !isLoadingFaturas && (
               <FinanceCard
@@ -813,7 +1088,7 @@ const Dashboard = () => {
           </section>
         )}
 
-        {(temOrdens || temProducao) && !resumoError && !isLoadingResumo && (
+        {!isAdministrativeDashboard && (temOrdens || temProducao) && !resumoError && !isLoadingResumo && (
           <section id="dashboard-production" aria-label="Produção" className="scroll-mt-24 grid grid-cols-1 gap-3 xl:grid-cols-2">
             {!metricasError && !isLoadingMetricas && (
               <ProductionBottleneck items={bottleneckItems} recommendation={recommendation} />
@@ -829,7 +1104,7 @@ const Dashboard = () => {
           </section>
         )}
 
-        {temAgenda && !agendaError && !isLoadingAgenda && (
+        {!isAdministrativeDashboard && temAgenda && !agendaError && !isLoadingAgenda && (
           <section id="dashboard-agenda" aria-label="Agenda do dia" className="scroll-mt-24 grid grid-cols-1 gap-3 xl:grid-cols-2">
             <DailySchedule type="pickup" items={retiradasAgenda} count={retiradasAgenda.length} />
             <DailySchedule type="delivery" items={entregasAgenda} count={entregasAgenda.length} />
@@ -841,16 +1116,15 @@ const Dashboard = () => {
           </section>
         )}
 
-        <section aria-label="Acompanhamentos" className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {activeArea === "central" && temFinanceiro && <BillingClosuresCard />}
-          {activeArea === "central" && temContasPagar && <ContasVencendoCard />}
-          {activeArea === "central" && temAgenda && <EventosDoDiaCard />}
-          {activeArea === "industrial" && temProdutos && <EstoqueBaixoCard />}
-          {temFinanceiro && <InadimplenciaCard />}
-          {temFinanceiro && <NFsPendentesCard />}
-          {activeArea === "residencial" && temCaixa && <CaixaResumoCard />}
-          {activeArea === "residencial" && temOrdens && <RolsLojaCard />}
-        </section>
+        {!isAdministrativeDashboard && (
+          <section aria-label="Acompanhamentos" className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {activeArea === "industrial" && temProdutos && <EstoqueBaixoCard />}
+            {temFinanceiro && <InadimplenciaCard />}
+            {temFinanceiro && <NFsPendentesCard />}
+            {activeArea === "residencial" && temCaixa && <CaixaResumoCard />}
+            {activeArea === "residencial" && temOrdens && <RolsLojaCard />}
+          </section>
+        )}
       </div>
     </AppLayout>
   );
