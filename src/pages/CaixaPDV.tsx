@@ -27,20 +27,14 @@ import {
   CalendarDays,
   ChevronDown,
   MapPin,
-  X,
   Phone,
-  Mail,
   IdCard,
   Pencil,
   Printer,
   Package,
   ClipboardList,
-  Boxes,
   Truck,
-  CalendarRange,
   MoreHorizontal,
-  Banknote,
-  QrCode,
   CircleCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,7 +43,7 @@ import { usePrecosEspeciais } from "@/hooks/useProdutos";
 import { useClientes, useConfiguracaoPagamentoCliente, useEnderecoCliente } from "@/hooks/useClientes";
 import { useCaixaAberto } from "@/hooks/useCaixa";
 import { ItemDetalhesModal } from "@/components/caixa/ItemDetalhesModal";
-import { PagamentoModal, type DadosPagamento, type PdvPaymentMethod } from "@/components/caixa/PagamentoModal";
+import { PagamentoModal, type DadosPagamento } from "@/components/caixa/PagamentoModal";
 import { ImpressaoPosVendaModal } from "@/components/caixa/ImpressaoPosVendaModal";
 import { AbrirCaixaModal } from "@/components/caixa/AbrirCaixaModal";
 import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
@@ -60,7 +54,6 @@ import { ReceberPagamentoModal, type PixRecebimentoRequest } from "@/components/
 import { PixPagamentoModal } from "@/components/caixa/PixPagamentoModal";
 import { ListaDoDiaModal } from "@/components/caixa/ListaDoDiaModal";
 import { PdvFulfillmentPanel, type PdvFulfillmentSettings } from "@/components/caixa/PdvFulfillmentPanel";
-import { PdvPriceTableIndicator } from "@/components/caixa/PdvPriceTableIndicator";
 import { CadastroRapidoClienteModal } from "@/components/caixa/CadastroRapidoClienteModal";
 
 import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
@@ -78,7 +71,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useOperationalContext } from "@/contexts/OperationalContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
-import { buildClientPriceCatalog } from "@/lib/clientPricing";
+import { buildClientPriceCatalog, CLIENT_PRICE_MODE_LABELS, normalizeClientPriceMode } from "@/lib/clientPricing";
 import { getDefaultPdvDeliveryDate } from "@/lib/pdvFulfillment";
 import { parseCustomerPaymentTerms, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
@@ -148,11 +141,6 @@ interface DiscardRequest {
   description: string;
   confirmLabel: string;
   action: () => void;
-}
-
-interface PdvPaymentSelection {
-  pagoAgora: boolean;
-  formaPagamento: PdvPaymentMethod | null;
 }
 
 const getUnidadeLabel = (unidade: string | null) => {
@@ -251,7 +239,6 @@ const PdvAtendimento = () => {
   const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(createInitialFulfillment);
   const [fulfillmentDraft, setFulfillmentDraft] = useState<PdvFulfillmentSettings | null>(null);
   const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
-  const [paymentShortcut, setPaymentShortcut] = useState<PdvPaymentSelection | null>(null);
   
   // Estado para modal de detalhes
   const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
@@ -290,6 +277,9 @@ const PdvAtendimento = () => {
   const [ultimoClienteId, setUltimoClienteId] = useState<string | null>(null);
   const clientesFiltradosPorTipo = useMemo(() => clientes.filter(c => c.ativo && c.classificacao === area), [clientes, area]);
   const selectedClient = useMemo(() => clientesFiltradosPorTipo.find(c => c.id === selectedClientId), [clientesFiltradosPorTipo, selectedClientId]);
+  const selectedClientPriceTable = selectedClient
+    ? CLIENT_PRICE_MODE_LABELS[normalizeClientPriceMode(selectedClient.tabela_preco_tipo)]
+    : null;
   const { endereco: enderecoCliente, isLoading: enderecoLoading, isError: enderecoError } = useEnderecoCliente(selectedClient?.id ?? null);
   const { configuracao: configuracaoPagamento, isLoading: termsLoading, isError: termsError, refetch: refetchTerms } = useConfiguracaoPagamentoCliente(selectedClient?.id ?? null);
   const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(selectedClient?.id ?? null, canUseLoyalty);
@@ -390,16 +380,6 @@ const PdvAtendimento = () => {
     requestAnimationFrame(() => clientSearchRef.current?.focus());
   }, []);
 
-  const focusProductSearch = useCallback(() => {
-    if (!selectedClient) {
-      focusClientSearch();
-      toast.info("Selecione o cliente antes de adicionar itens");
-      return;
-    }
-    setShowProductList(true);
-    requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, [focusClientSearch, selectedClient]);
-
   const addToCart = useCallback((produto: Produto) => {
     if (!catalogReady || !produtosAtivos.some(p => p.id === produto.id)) {
       toast.error("Selecione um cliente e aguarde a tabela e a condição de pagamento");
@@ -467,7 +447,6 @@ const PdvAtendimento = () => {
     setFulfillment(createInitialFulfillment());
     setFulfillmentDraft(null);
     setShowFulfillmentModal(false);
-    setPaymentShortcut(null);
   }, []);
 
   const openFulfillmentModal = useCallback((preset: Partial<PdvFulfillmentSettings> = {}) => {
@@ -992,161 +971,108 @@ const PdvAtendimento = () => {
   }, []);
 
   return (
-    <AppLayout title="PDV / Caixa" subtitle={`Atendimento ${areaLabel}`}>
-
+    <AppLayout title="Balcão / PDV" subtitle={`Atendimento ${areaLabel}`}>
       <div className="pdv-cashier-page" data-testid="pdv-cashier-reference">
-        <div className="pdv-cashier-grid">
-          <aside className="pdv-left-column" aria-label="Etapas de entrada do pedido">
-            <section className="pdv-reference-card pdv-customer-card" aria-labelledby="pdv-client-title">
-              <div className="pdv-card-title-row">
-                <div className="pdv-card-title">
-                  <span className="pdv-step-number" aria-hidden="true">1</span>
-                  <h2 id="pdv-client-title">Cliente</h2>
-                </div>
-                {canCreateClient && !selectedClient && (
-                  <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" onClick={() => setShowQuickClientModal(true)}>
-                    <UserPlus className="h-3.5 w-3.5" /> Novo
-                  </Button>
-                )}
-              </div>
+        <section className="pdv-client-bar" aria-labelledby="pdv-client-title">
+          <div className="pdv-client-bar-label">
+            <span className="pdv-client-bar-icon"><UserRound className="h-5 w-5" /></span>
+            <h2 id="pdv-client-title">Cliente</h2>
+          </div>
 
-              <div className="pdv-customer-search">
-                <Search className="h-4 w-4" />
-                <Input
-                  id="pdv-client-search"
-                  ref={clientSearchRef}
-                  placeholder="Buscar por nome, telefone ou CPF..."
-                  value={clientSearch}
-                  onChange={(event) => {
-                    setClientSearch(event.target.value);
-                    setShowClientList(true);
-                  }}
-                  onFocus={() => setShowClientList(true)}
-                  skipUppercase
-                  className="pl-10 text-sm"
-                />
-                {showClientList && (
-                  <div className="pdv-customer-result-list">
-                    {isLoadingClientes ? (
-                      <p className="p-3 text-center text-sm text-muted-foreground">Carregando clientes…</p>
-                    ) : filteredClientes.length === 0 ? (
-                      <div className="space-y-2 p-3 text-center text-sm text-muted-foreground">
-                        <p>Nenhum cliente encontrado.</p>
-                        {canCreateClient && <Button type="button" size="sm" onClick={() => setShowQuickClientModal(true)}><UserPlus className="mr-2 h-4 w-4" />Cadastrar cliente</Button>}
-                      </div>
-                    ) : (
-                      filteredClientes.map((cliente) => (
-                        <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)}>
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold">{cliente.nome_fantasia || cliente.razao_social}</span>
-                            <span className="block truncate text-[11px] text-muted-foreground">{cliente.cpf_cnpj || "Sem documento"} · {cliente.telefone || "Sem telefone"}</span>
-                          </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {selectedClient ? (
-                <div className="pdv-customer-selected">
-                  <div className="pdv-customer-selected-top">
-                    <span className="pdv-customer-avatar"><UserRound className="h-5 w-5" /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className="pdv-customer-name">
-                        {selectedClient.nome_fantasia || selectedClient.razao_social}
-                        <span className="pdv-customer-badge">Cliente</span>
-                      </p>
-                      {canUseLoyalty && isLoadingCustomerLoyalty ? (
-                        <p className="pdv-customer-loyalty text-muted-foreground">Consultando pontos…</p>
-                      ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
-                        <p className="pdv-customer-loyalty text-success">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
-                      ) : null}
-                    </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={clearClient} aria-label="Remover cliente" title="Trocar cliente">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="pdv-customer-meta">
-                    {selectedClient.telefone && <span><Phone className="h-3.5 w-3.5" /><span>{selectedClient.telefone}</span></span>}
-                    {selectedClient.cpf_cnpj && <span><IdCard className="h-3.5 w-3.5" /><span>{selectedClient.cpf_cnpj}</span></span>}
-                    {selectedClient.email && <span><Mail className="h-3.5 w-3.5" /><span>{selectedClient.email}</span></span>}
-                  </div>
-                  <button type="button" className="pdv-customer-history" onClick={() => setShowHistoricoVendas(true)}>
-                    <span className="flex items-center gap-2"><FileSearch className="h-4 w-4" /> Ver histórico do cliente</span>
-                    <span aria-hidden="true">›</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="mt-4 flex flex-1 items-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-xs text-muted-foreground">
-                    Escolha o cliente para liberar a tabela de preço, os serviços e a finalização do atendimento.
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <PdvPriceTableIndicator
-              clienteNome={selectedClient?.nome_fantasia || selectedClient?.razao_social}
-              tabelaPrecoTipo={selectedClient?.tabela_preco_tipo}
-              isLoading={Boolean(selectedClient) && pricesLoading}
-              isError={Boolean(selectedClient) && pricesError}
+          <div className="pdv-customer-search">
+            <Search className="h-4 w-4" />
+            <Input
+              id="pdv-client-search"
+              ref={clientSearchRef}
+              placeholder="Buscar por nome, telefone ou CPF..."
+              value={clientSearch}
+              onChange={(event) => {
+                setClientSearch(event.target.value);
+                setShowClientList(true);
+              }}
+              onFocus={() => setShowClientList(true)}
+              skipUppercase
+              className="pl-10 text-sm"
             />
-
-            <section className="pdv-reference-card pdv-capacity-card" aria-labelledby="pdv-capacity-title">
-              <div className="pdv-card-title-row">
-                <div className="pdv-card-title">
-                  <span className="pdv-step-number" aria-hidden="true">3</span>
-                  <h2 id="pdv-capacity-title">Prazo e capacidade</h2>
-                </div>
-              </div>
-              <div className="pdv-capacity-date">
-                <span className="pdv-capacity-date-icon"><CalendarDays className="h-4 w-4" /></span>
-                <span className="min-w-0">
-                  <small>Data prometida</small>
-                  <strong>{format(fulfillment.deliveryDate, "dd/MM/yyyy")} <span className="font-medium text-muted-foreground">({format(fulfillment.deliveryDate, "EEEE", { locale: ptBR })})</span></strong>
-                </span>
-                <button type="button" className="pdv-capacity-edit" disabled={!selectedClient} onClick={() => openFulfillmentModal()} aria-label="Editar prazo e entrega">
-                  <Pencil className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="pdv-capacity-summary">
-                <div className="pdv-capacity-heading">
-                  <span className="flex items-center gap-1.5">Capacidade da data <Info className="h-3.5 w-3.5 text-primary" /></span>
-                </div>
-                {capacityLoading ? (
-                  <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Consultando agenda…</p>
-                ) : capacityError ? (
-                  <p role="alert" className="mt-2 text-xs text-destructive">Não foi possível validar a capacidade.</p>
-                ) : !capacity?.configured ? (
-                  <p className="mt-2 text-xs text-muted-foreground">Sem limite diário configurado para este setor.</p>
+            {showClientList && (
+              <div className="pdv-customer-result-list">
+                {isLoadingClientes ? (
+                  <p className="p-3 text-center text-sm text-muted-foreground">Carregando clientes…</p>
+                ) : filteredClientes.length === 0 ? (
+                  <div className="space-y-2 p-3 text-center text-sm text-muted-foreground">
+                    <p>Nenhum cliente encontrado.</p>
+                    {canCreateClient && <Button type="button" size="sm" onClick={() => setShowQuickClientModal(true)}><UserPlus className="mr-2 h-4 w-4" />Cadastrar cliente</Button>}
+                  </div>
                 ) : (
-                  <>
-                    <div className="pdv-capacity-meter-row">
-                      <div className="pdv-capacity-meter" aria-label={`Capacidade utilizada: ${capacityProgress.toFixed(0)}%`}><span style={{ width: `${capacityProgress}%` }} /></div>
-                      <strong>{formatCarga(capacityReserved + totalItems)} de {formatCarga(capacityLimit)} cargas</strong>
-                    </div>
-                  </>
+                  filteredClientes.map((cliente) => (
+                    <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)}>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{cliente.nome_fantasia || cliente.razao_social}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{cliente.cpf_cnpj || "Sem documento"} · {cliente.telefone || "Sem telefone"}</span>
+                      </span>
+                    </button>
+                  ))
                 )}
               </div>
-            </section>
-          </aside>
+            )}
+          </div>
 
+          <div className="pdv-client-summary" aria-live="polite">
+            {selectedClient ? (
+              <>
+                <span className="pdv-customer-avatar"><UserRound className="h-5 w-5" /></span>
+                <div className="min-w-0">
+                  <p className="pdv-customer-name">{selectedClient.nome_fantasia || selectedClient.razao_social}</p>
+                  <div className="pdv-client-contact">
+                    {selectedClient.telefone && <span><Phone className="h-3.5 w-3.5" />{selectedClient.telefone}</span>}
+                    {selectedClient.cpf_cnpj && <span><IdCard className="h-3.5 w-3.5" />{selectedClient.cpf_cnpj}</span>}
+                  </div>
+                  <div className="pdv-client-indicators">
+                    <span className="pdv-customer-badge">
+                      {pricesLoading ? "Carregando tabela…" : pricesError ? "Tabela indisponível" : `Tabela ${selectedClientPriceTable}`}
+                    </span>
+                    {canUseLoyalty && isLoadingCustomerLoyalty ? (
+                      <span className="pdv-customer-loyalty text-muted-foreground">Consultando pontos…</span>
+                    ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
+                      <span className="pdv-customer-loyalty text-success">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</span>
+                    ) : null}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="pdv-client-empty">Selecione um cliente para liberar preços, serviços e finalização.</p>
+            )}
+          </div>
+
+          <div className="pdv-client-actions">
+            <Button type="button" variant="outline" size="sm" className="gap-2" onClick={requestClearSale}>
+              <Plus className="h-4 w-4" /> Novo ROL
+            </Button>
+            {selectedClient && (
+              <Button type="button" variant="outline" size="sm" className="gap-2" onClick={clearClient}>
+                <UserRound className="h-4 w-4" /> Trocar cliente
+              </Button>
+            )}
+            {canCreateClient && (
+              <Button type="button" size="sm" className="gap-2" onClick={() => setShowQuickClientModal(true)}>
+                <UserPlus className="h-4 w-4" /> Novo cliente
+              </Button>
+            )}
+          </div>
+        </section>
+
+        <div className="pdv-cashier-grid">
           <section className="pdv-center-column">
             <section className="pdv-items-card overflow-hidden" aria-labelledby="pdv-items-title">
               <div className="pdv-items-header">
                 <div className="pdv-items-title">
-                  <span className="pdv-step-number" aria-hidden="true">4</span>
                   <div className="pdv-items-title-copy">
-                    <h2 id="pdv-items-title">Itens da venda</h2>
-                    <p>Adicione produtos e serviços da lavanderia.</p>
+                    <h2 id="pdv-items-title">Itens do ROL</h2>
+                    <p>Adicione as peças, serviços e observações deste atendimento.</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 whitespace-nowrap">
                   <span className="pdv-items-stats">{cart.length} {cart.length === 1 ? "produto" : "produtos"} · {formatCarga(totalItems)} {totalItems === 1 ? "unidade" : "unidades"}</span>
-                  <Button type="button" variant="outline" size="sm" className="pdv-clear-button hidden gap-1.5 sm:inline-flex" onClick={requestClearSale}>
-                    <Trash2 className="h-3.5 w-3.5" /> Limpar itens
-                  </Button>
                 </div>
               </div>
 
@@ -1312,16 +1238,63 @@ const PdvAtendimento = () => {
             </section>
           </section>
 
-          <aside className="pdv-right-column" aria-label="Resumo e finalização do pedido">
+          <aside className="pdv-right-column" aria-label="Entrega, resumo e finalização do pedido">
+            <section className="pdv-fulfillment-card" aria-labelledby="pdv-fulfillment-title">
+              <header>
+                <div>
+                  <h2 id="pdv-fulfillment-title">Entrega / retirada</h2>
+                  <p>Defina a logística do ROL antes de finalizar.</p>
+                </div>
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={!selectedClient} onClick={() => openFulfillmentModal()} aria-label="Editar prazo e logística">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </header>
+
+              <div className="pdv-fulfillment-modes" aria-label="Modalidade de entrega">
+                <button type="button" className={cn("pdv-fulfillment-mode", fulfillment.deliveryMode === "balcao" && "is-active")} disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "balcao" })}>
+                  <Archive className="h-4 w-4" /> Retirada
+                </button>
+                <button type="button" className={cn("pdv-fulfillment-mode", fulfillment.deliveryMode === "entrega" && "is-active")} disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "entrega" })}>
+                  <Truck className="h-4 w-4" /> Delivery
+                </button>
+              </div>
+
+              <div className="pdv-fulfillment-date">
+                <span className="pdv-capacity-date-icon"><CalendarDays className="h-4 w-4" /></span>
+                <span className="min-w-0">
+                  <small>Data prevista</small>
+                  <strong>{format(fulfillment.deliveryDate, "dd/MM/yyyy")} <span>({format(fulfillment.deliveryDate, "EEEE", { locale: ptBR })})</span></strong>
+                </span>
+              </div>
+
+              <div className="pdv-capacity-summary">
+                <div className="pdv-capacity-heading">
+                  <span>Capacidade da data <Info className="h-3.5 w-3.5 text-primary" /></span>
+                </div>
+                {capacityLoading ? (
+                  <p className="pdv-compact-status"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Consultando agenda…</p>
+                ) : capacityError ? (
+                  <p role="alert" className="pdv-compact-status text-destructive">Não foi possível validar a capacidade.</p>
+                ) : !capacity?.configured ? (
+                  <p className="pdv-compact-status">Sem limite diário configurado para este setor.</p>
+                ) : (
+                  <div className="pdv-capacity-meter-row">
+                    <div className="pdv-capacity-meter" aria-label={`Capacidade utilizada: ${capacityProgress.toFixed(0)}%`}><span style={{ width: `${capacityProgress}%` }} /></div>
+                    <strong>{formatCarga(capacityReserved + totalItems)} de {formatCarga(capacityLimit)} cargas</strong>
+                  </div>
+                )}
+              </div>
+            </section>
+
             <section className="pdv-summary-card" aria-labelledby="pdv-summary-title">
               <header>
-                <div className="pdv-summary-heading">
-                  <span className="pdv-step-number" aria-hidden="true">5</span>
-                  <h2 id="pdv-summary-title">Resumo do pedido</h2>
+                <div>
+                  <h2 id="pdv-summary-title">Resumo do ROL</h2>
+                  <p>Pagamento, descontos e regras comerciais são confirmados na finalização.</p>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button type="button" className="pdv-more-actions-trigger" aria-label="Mais Ações"><MoreHorizontal className="h-4 w-4" /></button>
+                    <button type="button" className="pdv-more-actions-trigger" aria-label="Mais ações"><MoreHorizontal className="h-4 w-4" /></button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64 p-2">
                     <DropdownMenuLabel className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">Ações do atendimento</DropdownMenuLabel>
@@ -1356,48 +1329,28 @@ const PdvAtendimento = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </header>
+
               <div className="pdv-summary-lines">
-                <div className="pdv-summary-line"><span>Subtotal ({formatCarga(totalItems)} itens)</span><strong>{formatCurrency(totalValue)}</strong></div>
-                <div className="pdv-adjustment-line">
-                  <span className="text-[13px] text-muted-foreground">Desconto</span>
-                  <button type="button" className="pdv-adjustment-button" aria-label="Configurar desconto na finalização" onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>{formatCurrency(0)}</button>
-                  <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
-                </div>
-                <div className="pdv-adjustment-line">
-                  <span className="text-[13px] text-muted-foreground">Acréscimo</span>
-                  <button type="button" className="pdv-adjustment-button" aria-label="Configurar urgência na finalização" onClick={() => openFulfillmentModal()}>{formatCurrency(0)}</button>
-                  <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
-                </div>
+                <div className="pdv-summary-line"><span>Itens</span><strong>{cart.length} produtos · {formatCarga(totalItems)} peças</strong></div>
+                <div className="pdv-summary-line"><span>Subtotal</span><strong>{formatCurrency(totalValue)}</strong></div>
+                <p className="pdv-payment-note"><CreditCard className="h-4 w-4" /> Pagamento e ajustes serão definidos na finalização.</p>
               </div>
               <div className="pdv-total-banner">
-                <small>Total do pedido</small>
+                <small>Total estimado</small>
                 <strong>{formatCurrency(totalValue)}</strong>
               </div>
-            </section>
 
-            <section className="pdv-payment-card" aria-labelledby="pdv-payment-title">
-              <header>
-                <span className="pdv-step-number" aria-hidden="true">6</span>
-                <div>
-                  <h2 id="pdv-payment-title">Pagamento</h2>
-                  <p>Selecione a forma para a finalização.</p>
-                </div>
-              </header>
-              {!isLoadingCaixa && !canReceivePayments && !isFaturado && <p className="mt-2 text-xs text-warning">Abra o caixa e confirme sua permissão para receber agora.</p>}
+              {!isLoadingCaixa && !canReceivePayments && !isFaturado && <p className="pdv-summary-warning">Abra o caixa e confirme sua permissão para receber agora.</p>}
               {!isLoadingCaixa && canOperateCaixa && !caixaAberto && (
-                <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={() => setShowAbrirCaixaModal(true)}>
+                <Button type="button" variant="outline" size="sm" className="mt-3 w-full" onClick={() => setShowAbrirCaixaModal(true)}>
                   Abrir caixa para receber
                 </Button>
               )}
-              <div className="pdv-payment-options">
-                <button type="button" className={cn("pdv-payment-option", !isFaturado && canReceivePayments && (!paymentShortcut || paymentShortcut.pagoAgora && paymentShortcut.formaPagamento === "DINHEIRO") && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "DINHEIRO" }); handleOpenPagamento(); }}><Banknote className="h-5 w-5" /> Dinheiro</button>
-                <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "PIX" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "PIX" }); handleOpenPagamento(); }}><QrCode className="h-5 w-5" /> PIX</button>
-                <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "CARTAO_DEBITO" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "CARTAO_DEBITO" }); handleOpenPagamento(); }}><CreditCard className="h-5 w-5" /> Cartão</button>
-                <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora === false && "is-selected")} disabled={isFaturado} onClick={() => { setPaymentShortcut({ pagoAgora: false, formaPagamento: null }); handleOpenPagamento(); }}><CalendarRange className="h-5 w-5" /> Posterior</button>
-              </div>
+              {fulfillmentBlockReason && <p role="alert" className="pdv-summary-warning">{fulfillmentBlockReason}</p>}
+
               <div className="pdv-payment-actions">
-                <Button type="button" data-testid="pdv-workflow-finalize" className="pdv-finish-button gap-2" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>
-                  <CircleCheck className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar atendimento (F4)"}
+                <Button type="button" data-testid="pdv-workflow-finalize" className="pdv-finish-button gap-2" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={handleOpenPagamento}>
+                  <CircleCheck className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar ROL (F4)"}
                 </Button>
                 <Button type="button" variant="outline" className="pdv-print-button gap-2" onClick={() => {
                   if (osRecemCriada) {
@@ -1416,21 +1369,16 @@ const PdvAtendimento = () => {
         <nav aria-label="Atalhos do atendimento" className="scrollbar-hide" data-testid="pdv-primary-shortcuts">
           <div className="pdv-quick-actions">
             <div className="pdv-quick-actions-heading">
-              <span className="pdv-step-number" aria-hidden="true">7</span>
               <div className="min-w-0">
                 <h2>Ações rápidas</h2>
-                <p>Acesso aos principais atalhos sem abandonar o atendimento.</p>
+                <p>Consultas e operação do ROL sem repetir os controles já visíveis.</p>
               </div>
             </div>
-            <button data-testid="pdv-workflow-client" type="button" className="pdv-quick-action" title={selectedClient ? "Trocar o cliente deste atendimento" : "Selecionar cliente"} onClick={() => selectedClient ? clearClient() : focusClientSearch()}><UserRound className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Clientes</span><span className="pdv-quick-action-hotkey">F2</span></span></button>
             <button data-testid="pdv-workflow-day-list" type="button" className="pdv-quick-action" aria-label="Lista do dia" disabled={!canViewDayList} onClick={() => setShowListaDia(true)}><CalendarDays className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Agenda</span><span className="pdv-quick-action-hotkey">F3</span></span></button>
-            <button type="button" className="pdv-quick-action" onClick={() => openOrderLookup()}><ClipboardList className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Ordens</span><span className="pdv-quick-action-hotkey">F6</span></span></button>
-            <button type="button" className="pdv-quick-action" onClick={() => openOrderLookup("posicao")}><Boxes className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Produção</span></span></button>
-            <button data-testid="pdv-workflow-products" type="button" className="pdv-quick-action" onClick={focusProductSearch}><ShoppingCart className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Cesto</span></span></button>
-            <button type="button" className="pdv-quick-action" aria-label="Posição do ROL" onClick={() => openOrderLookup("posicao")}><MapPin className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Prateleira</span></span></button>
-            <button data-testid="pdv-workflow-fulfillment" type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "entrega" })}><Truck className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Entrega</span></span></button>
-            <button type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "balcao" })}><Archive className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Retirada</span></span></button>
-            <button type="button" className="pdv-quick-action" disabled={!canReceivePayments} onClick={() => setShowFecharCaixaModal(true)}><Lock className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Fechamento</span></span></button>
+            <button type="button" className="pdv-quick-action" onClick={() => openOrderLookup()}><ClipboardList className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Consultar ROL</span><span className="pdv-quick-action-hotkey">F6</span></span></button>
+            <button type="button" className="pdv-quick-action" aria-label="Posição do ROL" onClick={() => openOrderLookup("posicao")}><MapPin className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Posição</span></span></button>
+            <button type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => setShowHistoricoVendas(true)}><FileSearch className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Histórico</span></span></button>
+            <button type="button" className="pdv-quick-action" onClick={() => setShowAjudaAtalhos(true)}><Keyboard className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Atalhos</span><span className="pdv-quick-action-hotkey">F1</span></span></button>
           </div>
         </nav>
       </div>
@@ -1512,7 +1460,6 @@ const PdvAtendimento = () => {
         fulfillment={fulfillment}
         fulfillmentAddressSnapshot={fulfillmentAddressSnapshot}
         fulfillmentBlockReason={fulfillmentBlockReason}
-        initialSelection={paymentShortcut}
         onConfirm={handleFinalizarVenda}
         isLoading={isProcessingVenda}
       />
