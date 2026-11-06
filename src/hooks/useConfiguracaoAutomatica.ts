@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { gerarAgendamentosDoCliente, Frequencia } from "@/lib/agendamentoUtils";
+import { useAuth } from "@/contexts/AuthContext";
+import { createIdempotencyKey } from "@/lib/idempotency";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface ConfiguracaoPadrao {
   frequencia: Frequencia;
@@ -33,6 +36,7 @@ export function getConfigPadraoPorClassificacao(classificacao: string): Configur
 }
 
 export function useConfiguracaoAutomatica() {
+  const { activeTenant, session } = useAuth();
   
   // Cria configuração padrão e gera agendamentos automaticamente
   const criarConfiguracaoComAgendamentos = async (
@@ -40,11 +44,15 @@ export function useConfiguracaoAutomatica() {
     classificacao: string
   ): Promise<boolean> => {
     try {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para criar a configuração");
+      }
       // Verificar se já existe configuração para este cliente
       const { data: configExistente } = await supabase
         .from("configuracoes_cliente")
         .select("id")
         .eq("cliente_id", clienteId)
+        .filter("tenant_id", "eq", activeTenant.id)
         .maybeSingle();
 
       if (configExistente) {
@@ -59,6 +67,7 @@ export function useConfiguracaoAutomatica() {
       const { error: configError } = await supabase
         .from("configuracoes_cliente")
         .insert({
+          tenant_id: activeTenant.id,
           cliente_id: clienteId,
           frequencia: configPadrao.frequencia,
           dias_retirada: configPadrao.dias_retirada,
@@ -83,15 +92,21 @@ export function useConfiguracaoAutomatica() {
       }, 60);
 
       if (agendamentos.length > 0) {
-        const { error: agendError } = await supabase
-          .from("agendamentos")
-          .insert(agendamentos);
+        const payload = agendamentos.map(({ tipo, data, horario, frequencia }) => ({
+          tipo,
+          data,
+          horario,
+          frequencia,
+        }));
+        const { error: agendError } = await supabase.rpc("regenerar_agendamentos_recorrentes", {
+          _cliente_id: clienteId,
+          _agendamentos: payload as unknown as Json,
+          _idempotency_key: createIdempotencyKey("appointment-recurrence"),
+        });
 
         if (agendError) {
           console.error("Erro ao criar agendamentos:", agendError);
-          // Não lançar erro aqui, a configuração foi criada com sucesso
-          toast.warning("Configuração criada, mas houve erro ao gerar agendamentos");
-          return true;
+          throw agendError;
         }
       }
 

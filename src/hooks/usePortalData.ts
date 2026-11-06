@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format, subDays } from "date-fns";
+import { format, parseISO, subDays } from "date-fns";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -223,12 +223,12 @@ export function usePortalAlertas(
 
   for (const ordem of ordens.filter((item) => {
     if (!item.data_previsao_entrega || item.status === "entregue") return false;
-    return new Date(item.data_previsao_entrega) < hoje;
+    return parseISO(item.data_previsao_entrega) < hoje;
   })) {
     alertas.push({
       tipo: "os_atrasada",
       titulo: "Entrega em atraso",
-      descricao: `OS #${ordem.numero} estava prevista para ${format(new Date(ordem.data_previsao_entrega!), "dd/MM")}`,
+      descricao: `OS #${ordem.numero} estava prevista para ${format(parseISO(ordem.data_previsao_entrega!), "dd/MM")}`,
       data: ordem.data_previsao_entrega!,
       referencia: ordem.numero,
     });
@@ -236,7 +236,7 @@ export function usePortalAlertas(
 
   for (const fatura of faturas.filter((item) => {
     if (!item.data_vencimento || item.status === "pago") return false;
-    const vencimento = new Date(item.data_vencimento);
+    const vencimento = parseISO(item.data_vencimento);
     return vencimento >= hoje && vencimento <= em3Dias;
   })) {
     alertas.push({

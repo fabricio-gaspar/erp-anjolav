@@ -3,12 +3,15 @@ import type { ROLPreviewConfig } from "@/components/configuracoes/ROLPreview";
 import { generateROLHTMLWithData, buildRolOrderDetails, type PrintOSData, type RolOrderCommercialSnapshot } from "@/lib/rolPrint";
 export { generateROLHTMLWithData, type PrintOSData } from "@/lib/rolPrint";
 import { generateCode128BPattern } from "@/lib/code128";
+import { buildItemScanCode, buildOrderScanCode } from "@/lib/orderScanner";
 import { escapeHtml, openPrintDocument, printDocumentWhenReady, reservePrintWindow, safeHttpsUrl, writePrintDocument } from "@/lib/safePrint";
 
 // ===== INTERFACES =====
 
 export interface EtiquetaData {
   osNumero: string;
+  codigoLeitura?: string;
+  legendaLeitura?: string;
   clienteNome: string;
   bloco?: string;
   posicao?: string;
@@ -56,7 +59,7 @@ export function generateBarcodeSVG(text: string, height: number = 50): string {
     x += barWidth;
   }
   
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${safeHeight}" viewBox="0 0 ${totalWidth} ${safeHeight}">${bars}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="${safeHeight}" viewBox="0 0 ${totalWidth} ${safeHeight}" preserveAspectRatio="xMidYMid meet" style="max-width:${totalWidth}px">${bars}</svg>`;
 }
 
 // ===== FETCH OS DATA =====
@@ -114,6 +117,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
     const produtoById = new Map((produtos || []).map(produto => [produto.id, produto]));
 
     const itensFormatted = (itens || []).map(item => ({
+      id: item.id,
       nome: produtoById.get(item.produto_id)?.nome || "Produto",
       unidade: produtoById.get(item.produto_id)?.unidade || undefined,
       quantidade: Number(item.quantidade),
@@ -269,11 +273,13 @@ function getEtiquetaDimensions(tamanho: string): { w: string; h: string } {
 
 export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: EtiquetaData): string {
   const size = getEtiquetaDimensions(config.tamanhoEtiqueta);
-  const barcodeSVG = generateBarcodeSVG(data.osNumero, config.alturaCodigoBarras);
+  const codigoLeitura = data.codigoLeitura || buildOrderScanCode(data.osNumero);
+  const barcodeSVG = generateBarcodeSVG(codigoLeitura, config.alturaCodigoBarras);
   const margemSuperior = boundedNumber(config.margemSuperior, 5, 0, 100);
   const margemLateral = boundedNumber(config.margemLateral, 5, 0, 100);
   const tamanhoFonte = boundedNumber(config.tamanhoFonte, 12, 6, 72);
   const osNumero = escapeHtml(data.osNumero);
+  const legendaLeitura = escapeHtml(data.legendaLeitura || `OS ${data.osNumero}`);
 
   return `
     <!DOCTYPE html>
@@ -299,7 +305,7 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
         .client { font-size: ${Math.max(6, tamanhoFonte - 2)}px; color: #444; margin-bottom: 2mm; text-align: center; }
         .produto { font-size: ${tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 1mm; text-align: center; text-transform: uppercase; }
         .quantidade { font-size: ${Math.max(6, tamanhoFonte - 1)}px; font-weight: bold; color: #000; margin-bottom: 3mm; text-align: center; background: #f0f0f0; padding: 1mm 3mm; border-radius: 2px; }
-        .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
+        .barcode { display: flex; justify-content: center; width: 100%; max-width: 100%; overflow: hidden; margin-bottom: 1mm; }
         .barcode-number { font-size: ${Math.max(6, tamanhoFonte - 4)}px; font-family: monospace; color: #666; }
         .footer { text-align: center; margin-top: 2mm; }
         .location { font-size: ${Math.max(6, tamanhoFonte - 4)}px; color: #666; }
@@ -317,7 +323,7 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
         ${data.produtoNome ? `<div class="produto">${escapeHtml(data.produtoNome)}</div><div class="quantidade">QTD: ${escapeHtml(data.quantidade || 1)} peça(s)</div>` : ''}
         
         <div class="barcode">${barcodeSVG}</div>
-        <div class="barcode-number">${osNumero}</div>
+        <div class="barcode-number">${legendaLeitura}</div>
       </div>
       
       <div class="footer">
@@ -428,7 +434,9 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
   const osNumero = escapeHtml(osData.numero);
 
   const labels = osData.itens.map(item => {
-    const barcodeSVG = generateBarcodeSVG(osData.numero, config.alturaCodigoBarras);
+    const codigoLeitura = item.id ? buildItemScanCode(item.id) : buildOrderScanCode(osData.numero);
+    const barcodeSVG = generateBarcodeSVG(codigoLeitura, config.alturaCodigoBarras);
+    const legendaLeitura = item.id ? `ITEM ${escapeHtml(item.id.slice(0, 8).toUpperCase())} · OS ${osNumero}` : `OS ${osNumero}`;
     return `
       <div class="label">
         <div class="header">
@@ -440,7 +448,7 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
           <div class="produto">${escapeHtml(item.nome)}</div>
           <div class="quantidade">QTD: ${escapeHtml(item.quantidade)} peça(s)</div>
           <div class="barcode">${barcodeSVG}</div>
-          <div class="barcode-number">${osNumero}</div>
+          <div class="barcode-number">${legendaLeitura}</div>
         </div>
         <div class="footer">
           ${(osData.bloco || osData.posicao) ? `<div class="location">${osData.bloco ? `Bloco: ${escapeHtml(osData.bloco)}` : ''} ${osData.bloco && osData.posicao ? '|' : ''} ${osData.posicao ? `Pos: ${escapeHtml(osData.posicao)}` : ''}</div>` : ''}
@@ -476,7 +484,7 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
         .client { font-size: ${Math.max(6, tamanhoFonte - 2)}px; color: #444; margin-bottom: 2mm; text-align: center; }
         .produto { font-size: ${tamanhoFonte}px; font-weight: bold; color: #222; margin-bottom: 1mm; text-align: center; text-transform: uppercase; }
         .quantidade { font-size: ${Math.max(6, tamanhoFonte - 1)}px; font-weight: bold; color: #000; margin-bottom: 3mm; text-align: center; background: #f0f0f0; padding: 1mm 3mm; border-radius: 2px; }
-        .barcode { display: flex; justify-content: center; margin-bottom: 1mm; }
+        .barcode { display: flex; justify-content: center; width: 100%; max-width: 100%; overflow: hidden; margin-bottom: 1mm; }
         .barcode-number { font-size: ${Math.max(6, tamanhoFonte - 4)}px; font-family: monospace; color: #666; }
         .footer { text-align: center; margin-top: 2mm; }
         .location { font-size: ${Math.max(6, tamanhoFonte - 4)}px; color: #666; }

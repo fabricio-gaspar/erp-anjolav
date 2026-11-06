@@ -33,6 +33,7 @@ import { useClientes, type Cliente } from "@/hooks/useClientes";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { CLIENT_PRICE_MODE_LABELS, isClientPriceMode } from "@/lib/clientPricing";
 
 interface ClienteTabelaPrecosProps {
   clienteId: string | null;
@@ -133,19 +134,33 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
     return true;
   });
 
-  // Outros clientes para importação
+  // Outros clientes da mesma operação podem servir de referência de tabela.
   const outrosClientes = clientes.filter(
-    (c) => c.id !== clienteId && c.classificacao === clienteAtual?.classificacao,
+    (c) => c.id !== clienteId && c.ativo && c.classificacao === clienteAtual?.classificacao,
   );
 
-  const handleImportar = async () => {
+  const handleAdotarTabela = async () => {
     if (!canManageTerms) return;
     if (!clienteImportar || !clienteId) return;
 
-    await copyPrecosEspeciais.mutateAsync(
-      { sourceClientId: clienteImportar, targetClientId: clienteId },
-      { onSuccess: () => setClienteImportar("") },
-    ).catch(() => undefined);
+    const clienteOrigem = outrosClientes.find((cliente) => cliente.id === clienteImportar);
+    if (!clienteOrigem) {
+      toast.error("Selecione um cliente válido para adotar a tabela");
+      return;
+    }
+
+    try {
+      // Padrão e Cesto já são tabelas compartilhadas por definição. A tabela
+      // personalizada é copiada antes de ativá-la para não trocar o preço do
+      // cliente de destino se a cópia falhar.
+      if (clienteOrigem.tabela_preco_tipo === "personalizada") {
+        await copyPrecosEspeciais.mutateAsync({ sourceClientId: clienteOrigem.id, targetClientId: clienteId });
+      }
+      await updateCliente.mutateAsync({ id: clienteId, tabela_preco_tipo: clienteOrigem.tabela_preco_tipo });
+      setClienteImportar("");
+    } catch {
+      // Each mutation already explains its own recoverable error to the user.
+    }
   };
 
   const handleAdicionarProduto = () => {
@@ -211,7 +226,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
 
   const handleTabelaPrecoChange = (value: string) => {
     if (!canManageTerms) return;
-    if (!clienteId || (value !== "padrao" && value !== "personalizada")) return;
+    if (!clienteId || !isClientPriceMode(value)) return;
     updateCliente.mutate({ id: clienteId, tabela_preco_tipo: value });
   };
 
@@ -270,7 +285,9 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
           <p className="text-sm text-muted-foreground">
             {isTabelaPersonalizada
               ? "Defina preços específicos para este cliente."
-              : "Os produtos usam os preços padrão cadastrados."}
+              : tabelaPrecoTipo === "cesto"
+                ? "A tabela Cesto usa os mesmos preços padrão cadastrados."
+                : "Os produtos usam os preços padrão cadastrados."}
           </p>
         </div>
         <Select value={tabelaPrecoTipo} onValueChange={handleTabelaPrecoChange} disabled={!canManageTerms || updateCliente.isPending}>
@@ -280,40 +297,46 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
           <SelectContent className="bg-background">
             <SelectItem value="padrao">Tabela padrão</SelectItem>
             <SelectItem value="personalizada">Tabela personalizada</SelectItem>
+            <SelectItem value="cesto">Tabela Cesto</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {isTabelaPersonalizada && canManageTerms && (
-        <div className="flex flex-col lg:flex-row gap-4">
-        {/* Importar de outro cliente */}
-        <div className="flex-1 flex gap-2 items-center p-3 border rounded-lg bg-muted/20">
-          <Copy className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+      {canManageTerms && (
+        <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3 lg:flex-row lg:items-center">
+          <Copy className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Adotar tabela de outro cliente</p>
+            <p className="text-sm text-muted-foreground">Padrão e Cesto mantêm o preço-base; a Personalizada copia os preços e permanece independente.</p>
+          </div>
           <Select value={clienteImportar} onValueChange={setClienteImportar}>
-            <SelectTrigger className="flex-1 bg-background">
-              <SelectValue placeholder="Copiar de outro cliente..." />
+            <SelectTrigger className="w-full bg-background lg:w-[280px]" aria-label="Cliente de origem da tabela de preços">
+              <SelectValue placeholder="Selecione outro cliente..." />
             </SelectTrigger>
             <SelectContent className="bg-background">
               {outrosClientes.map((cliente) => (
                 <SelectItem key={cliente.id} value={cliente.id}>
-                  {cliente.razao_social}
+                  {cliente.razao_social} — {CLIENT_PRICE_MODE_LABELS[cliente.tabela_preco_tipo]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Button
-            onClick={handleImportar}
-            disabled={!clienteImportar || copyPrecosEspeciais.isPending}
+            onClick={handleAdotarTabela}
+            disabled={!clienteImportar || copyPrecosEspeciais.isPending || updateCliente.isPending}
           >
-            {copyPrecosEspeciais.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+            {copyPrecosEspeciais.isPending || updateCliente.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              "Importar"
+              "Adotar tabela"
             )}
           </Button>
         </div>
+      )}
 
-        {/* Adicionar produto */}
+      {isTabelaPersonalizada && canManageTerms && (
+        <div className="flex flex-col gap-4 lg:flex-row">
+          {/* Adicionar produto */}
         <div className="flex gap-2 items-center p-3 border rounded-lg bg-muted/20">
           <Popover open={produtoSearchOpen} onOpenChange={setProdutoSearchOpen}>
             <PopoverTrigger asChild>
@@ -482,7 +505,9 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
                     </TableCell>
                     <TableCell>R$ {produto.preco.toFixed(2)}</TableCell>
                     <TableCell>R$ {produto.preco.toFixed(2)}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">Preço padrão</TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {tabelaPrecoTipo === "cesto" ? "Tabela Cesto (preço padrão)" : "Preço padrão"}
+                    </TableCell>
                   </TableRow>
                 ))
               )}

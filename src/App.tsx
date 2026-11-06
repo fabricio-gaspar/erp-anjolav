@@ -10,6 +10,8 @@ import { aplicarTema, getTemaIdFromCorPrimaria } from "@/lib/themeUtils";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { ThemeModeProvider } from "@/contexts/ThemeModeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AdminProvider } from "@/contexts/AdminContext";
+import { OperationalProvider } from "@/contexts/OperationalContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useNavigationAccess } from "@/hooks/usePermissoesUsuario";
@@ -20,6 +22,7 @@ import {
   type AppRoutePath,
   type LegacyRouteRedirect,
 } from "@/lib/appRoutes";
+import { ADMIN_ROUTES, type AdminRoutePath } from "@/lib/adminRoutes";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clientes = lazy(() => import("./pages/Clientes"));
@@ -35,6 +38,7 @@ const RelatoriosCliente = lazy(() => import("./pages/RelatoriosCliente"));
 const RelatorioProximidade = lazy(() => import("./pages/RelatorioProximidade"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Login = lazy(() => import("./pages/Login"));
+const MfaChallenge = lazy(() => import("./pages/MfaChallenge"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -42,6 +46,7 @@ const PortalCliente = lazy(() => import("./pages/PortalCliente"));
 const Fornecedores = lazy(() => import("./pages/Fornecedores"));
 const Estoque = lazy(() => import("./pages/Estoque"));
 const HistoricoCaixas = lazy(() => import("./pages/HistoricoCaixas"));
+const PdvModuleHub = lazy(() => import("./pages/PdvModuleHub"));
 const AgendaEventos = lazy(() => import("./pages/AgendaEventos"));
 const RelatorioKilometragem = lazy(() => import("./pages/RelatorioKilometragem"));
 const RelatorioMensal = lazy(() => import("./pages/RelatorioMensal"));
@@ -98,6 +103,46 @@ const ROUTE_COMPONENTS = {
   "/residencial/produtos": Produtos,
   "/residencial/relatorios/caixa": HistoricoCaixas,
 } as const satisfies Record<AppRoutePath, LazyExoticComponent<ComponentType>>;
+
+const ADMIN_ROUTE_COMPONENTS: Record<AdminRoutePath, LazyExoticComponent<ComponentType>> = {
+  "/admin/visao-geral": Dashboard,
+  "/admin/pdv-caixas": PdvModuleHub,
+  "/admin/cadastros/clientes": Clientes,
+  "/admin/cadastros/produtos": Produtos,
+  "/admin/cadastros/fornecedores": Fornecedores,
+  "/admin/operacoes/agenda": Agenda,
+  "/admin/operacoes/ordens": OrdensServico,
+  "/admin/operacoes/producao": FluxoProducao,
+  "/admin/financeiro": DashboardFinanceiro,
+  "/admin/financeiro/lancamentos": Lancamentos,
+  "/admin/financeiro/contas": Contas,
+  "/admin/financeiro/caixas": HistoricoCaixas,
+  "/admin/estoque": Estoque,
+  "/admin/relatorios": RelatorioMensal,
+  "/admin/configuracoes": Configuracoes,
+  "/admin/auditoria": Auditoria,
+  "/admin/plataforma": AdministracaoSaas,
+};
+
+const PDV_ROUTES = [
+  { area: "residencial", path: "/pdv/domestico" },
+  { area: "industrial", path: "/pdv/industrial" },
+] as const;
+
+const PDV_OPERATIONAL_ROUTES = [
+  { area: "residencial", path: "/pdv/domestico/clientes", requiredModule: ["clientes"], Page: Clientes },
+  { area: "industrial", path: "/pdv/industrial/clientes", requiredModule: ["clientes"], Page: Clientes },
+  { area: "residencial", path: "/pdv/domestico/produtos", requiredModule: ["produtos"], Page: Produtos },
+  { area: "industrial", path: "/pdv/industrial/produtos", requiredModule: ["produtos"], Page: Produtos },
+  { area: "residencial", path: "/pdv/domestico/agenda", requiredModule: ["agenda"], Page: Agenda },
+  { area: "industrial", path: "/pdv/industrial/agenda", requiredModule: ["agenda"], Page: Agenda },
+  { area: "residencial", path: "/pdv/domestico/ordens", requiredModule: ["ordens"], Page: OrdensServico },
+  { area: "industrial", path: "/pdv/industrial/ordens", requiredModule: ["ordens"], Page: OrdensServico },
+  { area: "residencial", path: "/pdv/domestico/producao", requiredModule: ["producao"], Page: FluxoProducao },
+  { area: "industrial", path: "/pdv/industrial/producao", requiredModule: ["producao"], Page: FluxoProducao },
+  { area: "residencial", path: "/pdv/domestico/lancamentos", requiredModule: ["faturamento"], Page: Lancamentos },
+  { area: "industrial", path: "/pdv/industrial/lancamentos", requiredModule: ["faturamento"], Page: Lancamentos },
+] as const;
 
 function requiresPlatformAdmin(route: AppRouteDefinition): boolean {
   return route.platformAdminOnly === true;
@@ -157,8 +202,10 @@ const App = () => (
         <ThemeModeProvider>
           <AuthProvider>
             <WorkspaceProvider>
-              <ThemeLoader>
-              <SidebarProvider>
+              <AdminProvider>
+              <OperationalProvider>
+                <ThemeLoader>
+                <SidebarProvider>
             <Toaster />
             <Sonner />
             <Suspense
@@ -171,12 +218,14 @@ const App = () => (
             <Routes>
               {/* Auth routes - public */}
               <Route path="/login" element={<Login />} />
+              <Route path="/mfa" element={<MfaChallenge />} />
               <Route path="/signup" element={<Navigate to="/login" replace />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
 
               {APP_ROUTES.map((route) => {
                 const Page = ROUTE_COMPONENTS[route.path];
+                const isLegacyPdvPath = route.path === `/${route.area}/caixa`;
                 return (
                   <Route
                     key={route.path}
@@ -188,12 +237,89 @@ const App = () => (
                         adminOnly={route.adminOnly}
                         platformAdminOnly={requiresPlatformAdmin(route)}
                       >
+                        {isLegacyPdvPath
+                          ? <Navigate to={`/pdv?operacao=${route.area}`} replace />
+                          : <Page />}
+                      </ProtectedRoute>
+                    )}
+                  />
+                );
+              })}
+
+              <Route
+                path="/admin"
+                element={(
+                  <ProtectedRoute requiredArea="central" requiredModule={["dashboard"]}>
+                    <Navigate to="/admin/visao-geral" replace />
+                  </ProtectedRoute>
+                )}
+              />
+              {ADMIN_ROUTES.map((route) => {
+                const Page = ADMIN_ROUTE_COMPONENTS[route.path];
+                return (
+                  <Route
+                    key={route.path}
+                    path={route.path}
+                    element={(
+                      <ProtectedRoute
+                        requiredArea="central"
+                        requiredModule={route.requiredModules}
+                        adminOnly={route.adminOnly}
+                        platformAdminOnly={route.platformAdminOnly}
+                      >
                         <Page />
                       </ProtectedRoute>
                     )}
                   />
                 );
               })}
+
+              {PDV_ROUTES.map(({ area, path }) => (
+                <Route
+                  key={path}
+                  path={path}
+                  element={(
+                    <ProtectedRoute requiredArea={area} requiredModule={["caixa", "faturamento"]}>
+                      <CaixaPDV />
+                    </ProtectedRoute>
+                  )}
+                />
+              ))}
+              {PDV_OPERATIONAL_ROUTES.map(({ area, path, requiredModule, Page }) => (
+                <Route
+                  key={path}
+                  path={path}
+                  element={(
+                    <ProtectedRoute requiredArea={area} requiredModule={requiredModule}>
+                      <Page />
+                    </ProtectedRoute>
+                  )}
+                />
+              ))}
+              <Route
+                path="/pdv"
+                element={(
+                  <ProtectedRoute>
+                    <PdvModuleHub />
+                  </ProtectedRoute>
+                )}
+              />
+              <Route
+                path="/pdv/painel"
+                element={(
+                  <ProtectedRoute>
+                    <Navigate to="/pdv" replace />
+                  </ProtectedRoute>
+                )}
+              />
+              <Route
+                path="/pdv/residencial"
+                element={(
+                  <ProtectedRoute requiredArea="residencial" requiredModule={["caixa", "faturamento"]}>
+                    <Navigate to="/pdv/domestico" replace />
+                  </ProtectedRoute>
+                )}
+              />
 
               {/* Legacy and Redirects */}
               <Route path="/" element={<ProtectedRoute><WorkspaceRootRedirect /></ProtectedRoute>} />
@@ -217,6 +343,8 @@ const App = () => (
             </Suspense>
               </SidebarProvider>
               </ThemeLoader>
+              </OperationalProvider>
+              </AdminProvider>
             </WorkspaceProvider>
           </AuthProvider>
         </ThemeModeProvider>

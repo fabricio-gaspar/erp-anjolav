@@ -229,8 +229,8 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
       return;
     }
 
-    upsertConfiguracao.mutate(
-      {
+    try {
+      await upsertConfiguracao.mutateAsync({
         cliente_id: clienteId,
         codigo_acesso: codigoAcesso !== "Não gerado" ? codigoAcesso : null,
         link_acesso: linkAcesso || null,
@@ -240,25 +240,20 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
         horario_retirada: horarioRetirada || null,
         horario_entrega: horarioEntrega || null,
         tipo_relatorio: tipoRelatorio,
-      },
-      {
-        onSuccess: async () => {
-          // Regenerar agendamentos automáticos baseado na configuração
-          // Sempre chama regenerar para limpar agendamentos antigos mesmo sem dias selecionados
-          const agendamentos = gerarAgendamentosDoCliente(clienteId, {
-            frequencia,
-            dias_retirada: diasRetirada,
-            dias_entrega: diasEntrega,
-            horario_retirada: horarioRetirada || null,
-            horario_entrega: horarioEntrega || null,
-          });
+      });
 
-          await regenerarAgendamentos(clienteId, agendamentos);
-
-          onSave();
-        },
-      }
-    );
+      const agendamentos = gerarAgendamentosDoCliente(clienteId, {
+        frequencia,
+        dias_retirada: diasRetirada,
+        dias_entrega: diasEntrega,
+        horario_retirada: horarioRetirada || null,
+        horario_entrega: horarioEntrega || null,
+      });
+      const scheduleUpdated = await regenerarAgendamentos(clienteId, agendamentos);
+      if (scheduleUpdated) onSave();
+    } catch (error) {
+      console.error("Erro ao salvar configuração e agenda:", error);
+    }
   };
 
   const isSaving = upsertConfiguracao.isPending || isGeneratingAgendamentos;

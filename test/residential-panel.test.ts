@@ -12,12 +12,12 @@ test("Clientes usa o contexto Residencial no título, formulário e configuraç�
 
   assert.match(page, /activeArea === "residencial"/);
   assert.match(page, /Clientes \$\{areaLabel\}/);
-  assert.match(page, /Somente \{areaLabel\}/);
+  assert.match(page, /Cadastros exclusivos da opera[cç][aã]o \$\{areaLabel\.toLowerCase\(\)\}/);
   assert.doesNotMatch(page, /const pageTitle = "Clientes Industrial"/);
   assert.doesNotMatch(page, />Somente Industrial<\/span>/);
   assert.match(form, /const \{ activeArea \} = useWorkspace\(\);/);
   assert.match(form, /activeArea === "residencial" \? "residencial" : "industrial"/);
-  assert.match(form, /effectiveClassificacao/);
+  assert.match(form, /effectiveClassification/);
 });
 
 test("consulta de CEP aproveita coordenadas do provedor e informa localização aproximada", () => {
@@ -27,9 +27,10 @@ test("consulta de CEP aproveita coordenadas do provedor e informa localização 
   assert.match(api, /api\/cep\/v2/);
   assert.match(api, /latitude: number/);
   assert.match(api, /longitude: number/);
-  assert.match(address, /latitude: data\.latitude/);
+  assert.match(address, /latitude: result\.latitude \?\? null/);
+  assert.match(address, /longitude: result\.longitude \?\? null/);
   assert.match(address, /Localização aproximada pelo CEP/);
-  assert.match(address, /Localização indisponível/);
+  assert.match(address, /não bloqueia o cadastro quando indisponível/);
 });
 
 test("mapa de endereços não usa os tiles públicos que estão bloqueando a aplicação", () => {

@@ -1,7 +1,7 @@
 import type { SupabaseClient, User } from "https://esm.sh/@supabase/supabase-js@2.90.1";
 import { jsonResponse } from "./http.ts";
 
-type Authorized = { ok: true; user: User; tenantId: string };
+type Authorized = { ok: true; user: User; tenantId: string; aal: "aal1" | "aal2" };
 type Rejected = { ok: false; response: Response };
 export type AuthorizationResult = Authorized | Rejected;
 
@@ -9,6 +9,19 @@ function bearerToken(req: Request): string | null {
   const header = req.headers.get("authorization");
   const match = header?.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() || null;
+}
+
+function authenticatorAssuranceLevel(token: string): "aal1" | "aal2" {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return "aal1";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const claims = JSON.parse(atob(padded)) as { aal?: unknown };
+    return claims.aal === "aal2" ? "aal2" : "aal1";
+  } catch {
+    return "aal1";
+  }
 }
 
 export async function requireUser(
@@ -42,7 +55,12 @@ export async function requireUser(
     return { ok: false, response: jsonResponse(req, { error: "Usuário sem empresa ativa" }, 403) };
   }
 
-  return { ok: true, user: data.user, tenantId: membership.tenant_id };
+  return {
+    ok: true,
+    user: data.user,
+    tenantId: membership.tenant_id,
+    aal: authenticatorAssuranceLevel(token),
+  };
 }
 
 export async function requireAdmin(
@@ -87,6 +105,29 @@ export async function requireAdmin(
   }
   if (!activeEmployee) {
     return { ok: false, response: jsonResponse(req, { error: "Acesso negado" }, 403) };
+  }
+
+  const { data: securitySettings, error: securityError } = await supabase
+    .from("tenant_security_settings")
+    .select("require_mfa_for_admins")
+    .eq("tenant_id", authorization.tenantId)
+    .maybeSingle();
+  if (securityError) {
+    console.error("Falha ao validar a política de MFA", { userId: authorization.user.id });
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
+    };
+  }
+  if (securitySettings?.require_mfa_for_admins && authorization.aal !== "aal2") {
+    return {
+      ok: false,
+      response: jsonResponse(
+        req,
+        { error: "Confirme sua autenticação em duas etapas", code: "MFA_REQUIRED" },
+        403,
+      ),
+    };
   }
 
   return authorization;

@@ -27,18 +27,24 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Caixa, useCaixaMovimentacoes } from "@/hooks/useCaixa";
+import { type ClosedCashRegister, useCaixaMovimentacoes } from "@/hooks/useCaixa";
+import { CashReportError } from "@/components/caixa/CashReportError";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
 interface DetalhesCaixaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  caixa: Caixa | null;
+  caixa: ClosedCashRegister | null;
 }
 
 export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaModalProps) => {
-  const { data: movimentacoes = [], isLoading } = useCaixaMovimentacoes(caixa?.id);
+  const {
+    data: movimentacoes = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useCaixaMovimentacoes(caixa?.id);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -204,6 +210,14 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
             </div>
           </Card>
 
+          {isLoading ? (
+            <Card className="flex min-h-36 items-center justify-center" aria-label="Carregando movimentações do caixa">
+              <div className="h-7 w-7 animate-spin rounded-full border-b-2 border-primary" />
+            </Card>
+          ) : isError ? (
+            <CashReportError onRetry={() => void refetch()} />
+          ) : (
+          <>
           {/* Totais por Forma de Pagamento */}
           <Card className="p-4">
             <h3 className="font-semibold mb-4">Vendas por Forma de Pagamento</h3>
@@ -242,11 +256,7 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
           {/* Movimentações */}
           <Card className="p-4">
             <h3 className="font-semibold mb-4">Movimentações ({movimentacoes.length})</h3>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              </div>
-            ) : movimentacoes.length > 0 ? (
+            {movimentacoes.length > 0 ? (
               <div className="overflow-x-auto max-h-[300px]">
                 <Table>
                   <TableHeader>
@@ -304,6 +314,8 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
               </p>
             )}
           </Card>
+          </>
+          )}
 
           {/* Observações */}
           {caixa.observacoes && (

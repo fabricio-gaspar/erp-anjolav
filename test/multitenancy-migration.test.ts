@@ -45,7 +45,18 @@ test("migration comercial cobre todas as tabelas de negócio existentes", () => 
   ]);
   // Tabelas introduzidas após o hardening criam tenant_id e RLS na própria
   // migração; incluí-las na migração histórica faria o bootstrap falhar.
-  const laterTenantAware = new Set(["fidelidade_configuracoes", "fidelidade_lancamentos"]);
+  const laterTenantAware = new Set([
+    "fidelidade_configuracoes",
+    "fidelidade_lancamentos",
+    "tenant_security_settings",
+    "unidades",
+    "usuario_unidades",
+    "usuario_operacoes",
+    "cliente_operacoes",
+    "produto_operacoes",
+    "operacao_migracao_ambiguidades",
+    "pdv_capacidades_diarias",
+  ]);
   const missing = [...created].filter((table) => !listed.has(table) && !infrastructure.has(table) && !laterTenantAware.has(table)).sort();
   assert.deepEqual(missing, []);
 
@@ -58,6 +69,47 @@ test("migration comercial cobre todas as tabelas de negócio existentes", () => 
   }
   assert.match(platformMigration, /REVOKE ALL ON TABLE public\.saas_plan_catalog, public\.tenant_service_subscriptions\s*\nFROM PUBLIC, anon, authenticated/);
   assert.match(platformMigration, /GRANT ALL ON TABLE public\.saas_plan_catalog, public\.tenant_service_subscriptions TO service_role/);
+});
+
+test("tabelas tenant-aware posteriores ao hardening protegem acesso na própria migration", () => {
+  const mfa = readFileSync(
+    new URL("../supabase/migrations/20261030214418_tenant_mfa_policy.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(mfa, /ALTER TABLE public\.tenant_security_settings ENABLE ROW LEVEL SECURITY/);
+  assert.match(mfa, /REVOKE ALL ON public\.tenant_security_settings FROM PUBLIC, anon, authenticated/);
+
+  const operations = readFileSync(
+    new URL("../supabase/migrations/20261101111737_painel_unico_operacoes_foundation.sql", import.meta.url),
+    "utf8",
+  );
+  for (const table of [
+    "unidades",
+    "usuario_unidades",
+    "usuario_operacoes",
+    "cliente_operacoes",
+    "produto_operacoes",
+    "operacao_migracao_ambiguidades",
+  ]) {
+    assert.match(operations, new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY`));
+  }
+  assert.match(operations, /REVOKE ALL ON public\.unidades, public\.usuario_unidades, public\.usuario_operacoes,/);
+  assert.match(operations, /CREATE POLICY unidades_tenant_select/);
+  assert.match(operations, /CREATE POLICY usuario_unidades_self_or_admin_select/);
+  assert.match(operations, /CREATE POLICY usuario_operacoes_self_or_admin_select/);
+  assert.match(operations, /CREATE POLICY cliente_operacoes_select/);
+  assert.match(operations, /CREATE POLICY produto_operacoes_select/);
+  assert.match(operations, /CREATE POLICY operacao_migracao_ambiguidades_tenant_admin_manage/);
+
+  const capacity = readFileSync(
+    new URL("../supabase/migrations/20261101112025_pdv_operational_capacity_and_price_snapshot.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(capacity, /ALTER TABLE public\.pdv_capacidades_diarias ENABLE ROW LEVEL SECURITY/);
+  assert.match(capacity, /REVOKE ALL ON TABLE public\.pdv_capacidades_diarias FROM PUBLIC, anon, authenticated/);
+  assert.match(capacity, /CREATE POLICY pdv_capacity_tenant_admin_read/);
+  assert.match(capacity, /CREATE POLICY pdv_capacity_tenant_admin_insert/);
+  assert.match(capacity, /CREATE POLICY pdv_capacity_tenant_admin_update/);
 });
 
 test("fidelidade nasce isolada por empresa e com RLS", () => {

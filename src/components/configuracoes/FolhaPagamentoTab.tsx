@@ -22,27 +22,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Play, Lock, Trash2 } from "lucide-react";
+import { Loader2, Play, Lock } from "lucide-react";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { FolhaBeneficiosCompactPopover } from "./FolhaBeneficiosCompactPopover";
 import {
   useFolhaPagamento,
+  useFolhaResumo,
   useGerarFolhaMes,
   useFecharFolhaMes,
-  useDeleteFolha,
   useUpdateFolha,
+  type FolhaPagamento,
 } from "@/hooks/useFolhaPagamento";
 import { useFolhaBeneficiosByFolha } from "@/hooks/useFolhaBeneficios";
 import { formatNumberToCurrency, parseCurrencyToNumber, formatCurrencyInput } from "@/lib/currencyUtils";
 import { format } from "date-fns";
 
 function SalarioField({
-  folhaId,
+  folha,
   field,
   value,
   disabled,
 }: {
-  folhaId: string;
+  folha: FolhaPagamento;
   field: "adiantamento_salarial" | "salario_base";
   value: number;
   disabled?: boolean;
@@ -51,13 +52,13 @@ function SalarioField({
   return (
     <CurrencyInput
       showPrefix={false}
-      disabled={disabled}
+      disabled={disabled || update.isPending}
       className="h-8 w-28 text-xs px-2"
       defaultValue={formatNumberToCurrency(value)}
       onBlur={(e) => {
         const novo = parseCurrencyToNumber(formatCurrencyInput(e.target.value));
         if (novo !== value) {
-          update.mutate({ id: folhaId, [field]: novo } as any);
+          update.mutate({ folha, field, value: novo });
         }
       }}
     />
@@ -73,9 +74,9 @@ export function FolhaPagamentoTab() {
   const [empregadorFiltro, setEmpregadorFiltro] = useState<string>("todos");
 
   const { data: folhasAll = [], isLoading } = useFolhaPagamento(competencia);
+  const { data: resumo } = useFolhaResumo(competencia);
   const gerar = useGerarFolhaMes();
   const fechar = useFecharFolhaMes();
-  const del = useDeleteFolha();
 
   const empregadores = Array.from(
     new Set(folhasAll.map((f) => f.funcionario?.empregador_cnpj).filter(Boolean))
@@ -97,11 +98,13 @@ export function FolhaPagamentoTab() {
   }, [todosBeneficios]);
 
   const totalSalarios = folhas.reduce(
-    (s, f) => s + Number(f.salario_base || 0) + Number((f as any).adiantamento_salarial || 0),
+    (s, f) => s + Number(f.salario_base || 0),
     0,
   );
   const totalBeneficios = folhas.reduce((s, f) => s + (beneficiosPorFolha.get(f.id) || 0), 0);
-  const totalCusto = totalSalarios + totalBeneficios + totalSalarios * 0.36;
+  const totalCusto = empregadorFiltro === "todos"
+    ? Number(resumo?.valor_operacional ?? 0)
+    : totalSalarios + totalBeneficios;
 
   return (
     <div className="space-y-4">
@@ -156,7 +159,7 @@ export function FolhaPagamentoTab() {
           <div className="text-lg font-bold text-primary">R$ {formatNumberToCurrency(totalBeneficios)}</div>
         </Card>
         <Card className="p-3 bg-orange-50 dark:bg-orange-950/20">
-          <div className="text-xs text-muted-foreground">Custo Total Empresa (c/ encargos 36%)</div>
+          <div className="text-xs text-muted-foreground">Valor operacional (salários + benefícios)</div>
           <div className="text-lg font-bold">R$ {formatNumberToCurrency(totalCusto)}</div>
         </Card>
       </div>
@@ -178,7 +181,6 @@ export function FolhaPagamentoTab() {
                   <TableHead className="w-32">Pagamento</TableHead>
                   <TableHead>Benefícios</TableHead>
                   <TableHead className="w-24">Status</TableHead>
-                  <TableHead className="w-24"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -197,7 +199,7 @@ export function FolhaPagamentoTab() {
                       </TableCell>
                       <TableCell>
                         <SalarioField
-                          folhaId={f.id}
+                          folha={f}
                           field="adiantamento_salarial"
                           value={Number(f.adiantamento_salarial || 0)}
                           disabled={!isAberto}
@@ -205,7 +207,7 @@ export function FolhaPagamentoTab() {
                       </TableCell>
                       <TableCell>
                         <SalarioField
-                          folhaId={f.id}
+                          folha={f}
                           field="salario_base"
                           value={Number(f.salario_base || 0)}
                           disabled={!isAberto}
@@ -213,20 +215,12 @@ export function FolhaPagamentoTab() {
                       </TableCell>
                       <TableCell>
                         <FolhaBeneficiosCompactPopover
-                          folhaId={f.id}
-                          funcionarioId={f.funcionario_id}
+                          folha={f}
                           disabled={!isAberto}
                         />
                       </TableCell>
                       <TableCell>
                         <Badge variant={isAberto ? "outline" : "secondary"}>{f.status}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {isAberto && (
-                          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => del.mutate(f.id)}>
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        )}
                       </TableCell>
                     </TableRow>
                   );

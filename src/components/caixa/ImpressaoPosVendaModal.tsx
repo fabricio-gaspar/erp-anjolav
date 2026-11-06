@@ -74,12 +74,24 @@ export function ImpressaoPosVendaModal({
 
     try {
       if (imprimirROL) {
-        await printROL(osId);
+        const printed = await printROL(osId);
+        if (!printed) {
+          toast.error("Não foi possível abrir a impressão do ROL. Libere os pop-ups e tente novamente.");
+          return;
+        }
       }
 
       if (imprimirEtiquetas) {
-        const qty = parseInt(quantidadeEtiquetas) || 1;
-        await printEtiquetas(qty, osId);
+        const qty = Number.parseInt(quantidadeEtiquetas, 10);
+        if (!Number.isInteger(qty) || qty < 1 || qty > 999) {
+          toast.error("Informe uma quantidade de etiquetas entre 1 e 999.");
+          return;
+        }
+        const printed = await printEtiquetas(qty, osId);
+        if (!printed) {
+          toast.error("Não foi possível abrir a impressão das etiquetas. Libere os pop-ups e tente novamente.");
+          return;
+        }
       }
 
       // Enviar WhatsApp se marcado
@@ -93,19 +105,22 @@ export function ImpressaoPosVendaModal({
           previsao: previsaoFormatada,
           totalPecas: totalPecas.toString(),
           ordem_servico_id: osId,
+          idempotencyKey: `whatsapp:ordem:${osId}:os_retirada`,
         });
         if (enviado) {
           toast.success("WhatsApp confirmado pela Evolution API!");
         } else {
           toast.error("A Evolution API não confirmou o envio do WhatsApp");
+          return;
         }
       }
-    } catch (error) {
-      console.error("Erro ao imprimir:", error);
-    } finally {
-      setIsLoading(false);
       onComplete();
       onOpenChange(false);
+    } catch (error) {
+      console.error("Erro ao imprimir:", error);
+      toast.error("A ação não foi concluída. Tente novamente; a venda permanecerá disponível nesta tela.");
+    } finally {
+      setIsLoading(false);
     }
   };
 

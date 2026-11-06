@@ -68,15 +68,16 @@ test("o Dashboard não retorna uma tela global de carregamento", () => {
   assert.match(dashboardSource, /Tentar novamente/);
 });
 
-test("as métricas independentes do Dashboard são consultadas em paralelo e com payload mínimo", () => {
+test("as métricas do Dashboard usam agregação no servidor e a agenda consulta fontes independentes em paralelo", () => {
   const productionHook = readFileSync(
     new URL("../src/hooks/useHistoricoProducao.ts", import.meta.url),
     "utf8",
   );
 
-  assert.match(productionHook, /const \[\s*\{ count: osEmAberto[\s\S]+?\] = await Promise\.all\(/);
-  assert.match(productionHook, /\.select\("id", \{ count: "exact", head: true \}\)/);
-  assert.match(productionHook, /id, horario, status,/);
+  assert.match(productionHook, /supabase\.rpc\("consultar_metricas_producao"/);
+  assert.match(productionHook, /Promise\.all\(\[agendamentosQuery, osProntasQuery\]\)/);
+  assert.match(productionHook, /id, cliente_id, horario, status,/);
+  assert.match(productionHook, /id, cliente_id, numero, data_previsao_entrega,/);
   assert.doesNotMatch(productionHook, /\.select\(`\s*\*,\s*cliente:clientes\(razao_social\)/);
   assert.match(dashboardSource, /useFaturas\(inicioMes, fimMes, temFinanceiro, true\)/);
   assert.match(readFileSync(new URL("../src/hooks/useFaturas.ts", import.meta.url), "utf8"), /incluirPeriodosSobrepostos/);
@@ -90,7 +91,6 @@ test("os joins do Dashboard desambiguam as FKs de tenant", () => {
   const invoicesHook = readFileSync(new URL("../src/hooks/useFaturas.ts", import.meta.url), "utf8");
 
   assert.match(productionHook, /ordem:ordens_servico!historico_producao_ordem_servico_id_fkey/);
-  assert.match(productionHook, /ordem:ordens_servico!itens_ordem_servico_ordem_servico_id_fkey/);
   assert.match(productionHook, /cliente:clientes!fk_agendamentos_cliente/);
   assert.match(productionHook, /cliente:clientes!ordens_servico_cliente_id_fkey/);
   assert.match(productionHook, /historico:historico_producao!historico_producao_ordem_servico_id_fkey/);

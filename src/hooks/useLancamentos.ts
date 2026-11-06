@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 
 export interface Lancamento {
   id: string;
@@ -24,6 +23,7 @@ export interface Lancamento {
     email: string | null;
     telefone: string | null;
     classificacao: string;
+    tabela_preco_tipo?: string;
   };
   itens?: ItemLancamento[];
 }
@@ -31,6 +31,7 @@ export interface Lancamento {
 export interface ItemLancamento {
   id: string;
   lancamento_id: string;
+  produto_id?: string | null;
   produto_nome: string;
   quantidade: number;
   unidade: string;
@@ -58,8 +59,6 @@ export interface ItemLancamentoInsert {
 }
 
 export function useLancamentos(status?: string) {
-  const queryClient = useQueryClient();
-
   const { data: lancamentos = [], isLoading, error } = useQuery({
     queryKey: ["lancamentos", status],
     queryFn: async () => {
@@ -81,120 +80,11 @@ export function useLancamentos(status?: string) {
     },
   });
 
-  const createLancamento = useMutation({
-    mutationFn: async (lancamento: LancamentoInsert) => {
-      const { data, error } = await supabase
-        .from("lancamentos")
-        .insert(lancamento)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as Lancamento;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
-    },
-    onError: (error) => {
-      toast.error("Erro ao criar lançamento: " + error.message);
-    },
-  });
-
-  const updateLancamento = useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & Partial<LancamentoInsert>) => {
-      const { data, error } = await supabase
-        .from("lancamentos")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as Lancamento;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
-      toast.success("Lançamento atualizado com sucesso");
-    },
-    onError: (error) => {
-      toast.error("Erro ao atualizar lançamento: " + error.message);
-    },
-  });
-
-  const deleteLancamento = useMutation({
-    mutationFn: async (id: string) => {
-      // First delete items
-      const { error: itemsError } = await supabase
-        .from("itens_lancamento")
-        .delete()
-        .eq("lancamento_id", id);
-      if (itemsError) throw itemsError;
-
-      // Then delete lancamento
-      const { error } = await supabase
-        .from("lancamentos")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
-      toast.success("Lançamento excluído com sucesso");
-    },
-    onError: (error) => {
-      toast.error("Erro ao excluir lançamento: " + error.message);
-    },
-  });
-
   return {
     lancamentos,
     isLoading,
     error,
-    createLancamento,
-    updateLancamento,
-    deleteLancamento,
   };
-}
-
-export function useUpdateItemLancamento() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (item: ItemLancamento) => {
-      const { data, error } = await supabase
-        .from("itens_lancamento")
-        .update({
-          quantidade: item.quantidade,
-          preco_unitario: item.preco_unitario,
-          subtotal: item.subtotal,
-        })
-        .eq("id", item.id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["itens_lancamento"] });
-      queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
-    },
-  });
-}
-
-export function useDeleteItemLancamento() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("itens_lancamento")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["itens_lancamento"] });
-      queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
-    },
-  });
 }
 
 export function useLancamentosPendentes() {
@@ -214,25 +104,6 @@ export function useItensLancamento(lancamentoId: string | null) {
       return data as ItemLancamento[];
     },
     enabled: !!lancamentoId,
-  });
-}
-
-export function useCreateItemLancamento() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (item: ItemLancamentoInsert) => {
-      const { data, error } = await supabase
-        .from("itens_lancamento")
-        .insert(item)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as ItemLancamento;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["itens_lancamento"] });
-    },
   });
 }
 
@@ -264,49 +135,12 @@ export function useLinkLancamentosToFatura() {
   return useMutation({
     mutationFn: async ({ lancamentoIds, faturaId }: { lancamentoIds: string[]; faturaId: string }) => {
       const uniqueLancamentoIds = [...new Set(lancamentoIds)];
-      const { data: previousLancamentos, error: snapshotError } = await supabase
-        .from("lancamentos")
-        .select("id, status")
-        .in("id", uniqueLancamentoIds);
-      if (snapshotError) throw snapshotError;
-      if ((previousLancamentos?.length ?? 0) !== uniqueLancamentoIds.length) {
-        throw new Error("Um ou mais lançamentos não estão disponíveis");
-      }
-
-      const links = uniqueLancamentoIds.map((lancamento_id) => ({
-        lancamento_id,
-        fatura_id: faturaId,
-      }));
-
-      const { error: linkError } = await supabase
-        .from("lancamentos_fatura")
-        .insert(links);
-      if (linkError) throw linkError;
-
-      const { data: updatedLancamentos, error: updateError } = await supabase
-        .from("lancamentos")
-        .update({ status: "faturado" })
-        .in("id", uniqueLancamentoIds)
-        .select("id");
-      if (updateError || (updatedLancamentos?.length ?? 0) !== uniqueLancamentoIds.length) {
-        const { error: unlinkError } = await supabase
-          .from("lancamentos_fatura")
-          .delete()
-          .eq("fatura_id", faturaId)
-          .in("lancamento_id", uniqueLancamentoIds);
-        const restoreResults = await Promise.all(
-          (previousLancamentos ?? []).map(({ id, status }) =>
-            supabase.from("lancamentos").update({ status }).eq("id", id)
-          ),
-        );
-        const restoreFailed = restoreResults.some(({ error }) => Boolean(error));
-        if (unlinkError || restoreFailed) {
-          throw new Error("Falha crítica ao reverter o vínculo dos lançamentos");
-        }
-        throw updateError ?? new Error("Nem todos os lançamentos puderam ser atualizados");
-      }
-
-      return { success: true };
+      const { data, error } = await supabase.rpc("vincular_lancamentos_fatura", {
+        _fatura_id: faturaId,
+        _lancamento_ids: uniqueLancamentoIds,
+      });
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lancamentos"] });

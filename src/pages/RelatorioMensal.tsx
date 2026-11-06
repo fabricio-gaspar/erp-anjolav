@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +47,8 @@ const RelatorioMensal = () => {
     lines.push(`Total Receitas;;R$ ${formatNumberToCurrency(data.receitasTotais)}`);
     lines.push("");
     lines.push("DESPESAS");
-    lines.push(`Folha de Funcionários;;R$ ${formatNumberToCurrency(data.despesasFolha)}`);
+    lines.push(`Salários da Folha;;R$ ${formatNumberToCurrency(data.despesasFolha)}`);
+    lines.push(`Benefícios da Folha;;R$ ${formatNumberToCurrency(data.despesasBeneficiosExtras)}`);
     lines.push(`Produtos / Insumos;;R$ ${formatNumberToCurrency(data.despesasProdutos)}`);
     lines.push(`Contas Mensais;;R$ ${formatNumberToCurrency(data.despesasContasMensais)}`);
     lines.push(`Impostos;;R$ ${formatNumberToCurrency(data.despesasImpostos)}`);
@@ -58,7 +60,7 @@ const RelatorioMensal = () => {
 
     lines.push("");
     lines.push("DETALHE FOLHA");
-    lines.push("Funcionário;Cargo;Salário+Comissão;Benefícios;Descontos;Líquido;Custo Total");
+    lines.push("Funcionário;Cargo;Salário Base;Benefícios;Descontos;Líquido;Valor Operacional");
     data.folhaItens.forEach((f) => {
       lines.push(
         `${f.funcionario};${f.cargo};${formatNumberToCurrency(f.salario)};${formatNumberToCurrency(f.beneficios)};${formatNumberToCurrency(f.descontos)};${formatNumberToCurrency(f.liquido)};${formatNumberToCurrency(f.custoTotal)}`,
@@ -85,7 +87,18 @@ const RelatorioMensal = () => {
 
   return (
     <AppLayout title="Relatório Mensal" subtitle="Despesas, faturamento e lucro do mês">
-      <div className="content-panel space-y-4">
+      <div className="page-shell">
+        <PageHeader
+          eyebrow="Inteligência financeira"
+          title="Relatório Mensal"
+          description="Despesas, faturamento, resultado e margem do período"
+          actions={(
+            <Button variant="outline" onClick={exportCSV} disabled={!data} className="w-full gap-2 sm:w-auto">
+              <Download className="h-4 w-4" />Exportar CSV
+            </Button>
+          )}
+        />
+        <div className="content-panel space-y-4">
         <Card className="p-4">
           <div className="flex flex-wrap items-end gap-3">
             <div>
@@ -103,9 +116,6 @@ const RelatorioMensal = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" onClick={exportCSV} disabled={!data}>
-              <Download className="w-4 h-4 mr-2" /> Exportar CSV
-            </Button>
           </div>
         </Card>
 
@@ -191,7 +201,7 @@ const RelatorioMensal = () => {
 
             {/* Despesas - Folha */}
             <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2"><Users className="w-4 h-4 text-orange-600" />Folha de Funcionários — R$ {formatNumberToCurrency(data.despesasFolha)}</h3>
+              <h3 className="font-semibold mb-3 flex items-center gap-2"><Users className="w-4 h-4 text-orange-600" />Salários da folha — R$ {formatNumberToCurrency(data.despesasFolha)}</h3>
               {data.folhaPorEmpregador && data.folhaPorEmpregador.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
                   {data.folhaPorEmpregador.map((e) => (
@@ -214,7 +224,7 @@ const RelatorioMensal = () => {
                       <TableHead className="text-right">Benefícios</TableHead>
                       <TableHead className="text-right">Descontos</TableHead>
                       <TableHead className="text-right">Líquido</TableHead>
-                      <TableHead className="text-right">Custo Total</TableHead>
+                      <TableHead className="text-right">Valor operacional</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -273,12 +283,12 @@ const RelatorioMensal = () => {
               )}
             </Card>
 
-            {/* Benefícios extras da folha */}
+            {/* Benefícios da folha */}
             {data.beneficiosExtrasItens.length > 0 && (
               <Card className="p-4">
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <TrendingDown className="w-4 h-4 text-amber-600" />
-                  Benefícios Extras da Folha
+                  Benefícios da Folha
                   <Badge variant="outline" className="ml-2">Total: R$ {formatNumberToCurrency(data.despesasBeneficiosExtras)}</Badge>
                 </h3>
                 {data.beneficiosExtrasPorCategoria.length > 0 && (
@@ -330,12 +340,12 @@ const RelatorioMensal = () => {
               <h3 className="font-semibold mb-3">Resultado Final</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Faturamento</span><span className="font-mono">R$ {formatNumberToCurrency(data.receitasTotais)}</span></div>
-                <div className="flex justify-between text-destructive"><span>(-) Folha de Funcionários</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasFolha)}</span></div>
+                <div className="flex justify-between text-destructive"><span>(-) Salários da folha</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasFolha)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Produtos / Insumos</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasProdutos)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Contas Mensais</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasContasMensais)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Impostos</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasImpostos)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Outras Despesas</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasOutras)}</span></div>
-                <div className="flex justify-between text-destructive"><span>(-) Benefícios Extras Folha</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasBeneficiosExtras)}</span></div>
+                <div className="flex justify-between text-destructive"><span>(-) Benefícios da folha</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasBeneficiosExtras)}</span></div>
                 <div className="border-t-2 border-primary pt-2 mt-2 flex justify-between text-lg font-black">
                   <span>= Lucro Líquido</span>
                   <span className={`font-mono ${data.lucro >= 0 ? "text-emerald-600" : "text-destructive"}`}>R$ {formatNumberToCurrency(data.lucro)}</span>
@@ -348,6 +358,7 @@ const RelatorioMensal = () => {
             </Card>
           </>
         )}
+        </div>
       </div>
     </AppLayout>
   );

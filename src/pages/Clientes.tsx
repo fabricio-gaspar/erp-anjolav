@@ -1,10 +1,18 @@
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -19,17 +27,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Plus, Eye, Pencil, Ban, Trash2, Building2, Loader2, User, MoreHorizontal, Settings } from "lucide-react";
+import { Archive, Building2, ChevronLeft, ChevronRight, Eye, Loader2, MoreHorizontal, Pencil, Plus, RotateCcw, Search, User } from "lucide-react";
 import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
 import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
 import { ClientePagamento } from "@/components/clientes/ClientePagamento";
 import { ClienteConfiguracao } from "@/components/clientes/ClienteConfiguracao";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
 import { ClienteTabelaPrecos } from "@/components/clientes/ClienteTabelaPrecos";
+import { ClienteResumo } from "@/components/clientes/ClienteResumo";
 import { useClientes, useClienteById, type Cliente } from "@/hooks/useClientes";
-import { useFilteredClientes } from "@/hooks/useFilteredClientes";
+import { useClienteDirectory } from "@/hooks/useClienteDirectory";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { BrasilApiCnpjResponse } from "@/services/apiServices";
+import {
+  CLIENT_DIRECTORY_PAGE_SIZE,
+  normalizeClientDirectoryPage,
+  type ClientDirectoryStatus,
+} from "@/lib/clientDirectory";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,29 +58,39 @@ import { cn } from "@/lib/utils";
 
 const Clientes = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("lista");
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [clienteToDelete, setClienteToDelete] = useState<string | null>(null);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [clienteToArchive, setClienteToArchive] = useState<string | null>(null);
   const [cnpjData, setCnpjData] = useState<BrasilApiCnpjResponse | null>(null);
 
   const { activeArea } = useWorkspace();
-  const { deleteCliente, updateCliente } = useClientes();
+  const { archiveCliente, updateCliente } = useClientes({ enabled: false });
+  const searchTerm = searchParams.get("q") ?? "";
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const page = normalizeClientDirectoryPage(searchParams.get("pagina"));
+  const requestedStatus = searchParams.get("situacao");
+  const statusFilter: ClientDirectoryStatus = requestedStatus === "active" || requestedStatus === "inactive"
+    ? requestedStatus
+    : "all";
   const {
-    data: clientes = [],
+    data: directory,
     isLoading,
+    isFetching,
     error: clientesError,
     refetch,
-  } = useFilteredClientes();
-  const { data: selectedCliente } = useClienteById(selectedClienteId);
-
-  const filteredClientes = clientes.filter((cliente) => {
-    const matchesSearch =
-      cliente.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (cliente.cpf_cnpj && cliente.cpf_cnpj.includes(searchTerm));
-    return matchesSearch;
+  } = useClienteDirectory({
+    page,
+    pageSize: CLIENT_DIRECTORY_PAGE_SIZE,
+    search: deferredSearchTerm,
+    status: statusFilter,
   });
+  const { data: selectedCliente } = useClienteById(selectedClienteId);
+  const clientes = directory?.clientes ?? [];
+  const totalClientes = directory?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalClientes / CLIENT_DIRECTORY_PAGE_SIZE));
+  const firstVisible = totalClientes === 0 ? 0 : (page - 1) * CLIENT_DIRECTORY_PAGE_SIZE + 1;
+  const lastVisible = Math.min(page * CLIENT_DIRECTORY_PAGE_SIZE, totalClientes);
 
   const handleNovoCliente = () => {
     setSelectedClienteId(null);
@@ -85,18 +109,18 @@ const Clientes = () => {
   const handleEditCliente = (clienteId: string) => {
     setSelectedClienteId(clienteId);
     setCnpjData(null);
-    setActiveTab("dados");
+    setActiveTab("resumo");
   };
 
   const handleClienteSaved = (clienteId: string) => {
     setSelectedClienteId(clienteId);
   };
 
-  const handleDeleteCliente = () => {
-    if (clienteToDelete) {
-      deleteCliente.mutate(clienteToDelete);
-      setDeleteDialogOpen(false);
-      setClienteToDelete(null);
+  const handleArchiveCliente = () => {
+    if (clienteToArchive) {
+      archiveCliente.mutate(clienteToArchive);
+      setArchiveDialogOpen(false);
+      setClienteToArchive(null);
     }
   };
 
@@ -116,112 +140,152 @@ const Clientes = () => {
     return classificacao === "industrial" ? "ID1" : "ID2";
   };
 
-  const areaLabel = activeArea === "residencial" ? "Residencial" : "Industrial";
-  const operationLabel = activeArea === "residencial" ? "OPERAÇÃO RESIDENCIAL" : "OPERAÇÃO INDUSTRIAL";
+  const areaLabel = activeArea === "residencial" ? "Doméstico" : "Industrial";
+  const operationLabel = activeArea === "residencial" ? "OPERAÇÃO DOMÉSTICA" : "OPERAÇÃO INDUSTRIAL";
   const pageTitle = `Clientes ${areaLabel}`;
   const pageSubtitle = "AnjoLav";
 
+  const updateDirectoryParams = (updates: { query?: string; status?: ClientDirectoryStatus; page?: number }) => {
+    const next = new URLSearchParams(searchParams);
+    if (updates.query !== undefined) {
+      if (updates.query.trim()) next.set("q", updates.query);
+      else next.delete("q");
+    }
+    if (updates.status !== undefined) {
+      if (updates.status === "all") next.delete("situacao");
+      else next.set("situacao", updates.status);
+    }
+    if (updates.page !== undefined) {
+      if (updates.page > 1) next.set("pagina", String(updates.page));
+      else next.delete("pagina");
+    }
+    if (updates.query !== undefined || updates.status !== undefined) next.delete("pagina");
+    setSearchParams(next, { replace: true });
+  };
+
+  useEffect(() => {
+    if (isLoading || totalClientes === 0 || page <= totalPages) return;
+    const next = new URLSearchParams(searchParams);
+    if (totalPages > 1) next.set("pagina", String(totalPages));
+    else next.delete("pagina");
+    setSearchParams(next, { replace: true });
+  }, [isLoading, page, searchParams, setSearchParams, totalClientes, totalPages]);
+
   return (
     <AppLayout title={pageTitle} subtitle={pageSubtitle}>
-      <div className="w-full space-y-8">
-        {/* Visual Content Header mirroring the high-fidelity layout */}
-        <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">{operationLabel}</span>
-          </div>
-          <h1 className="page-title">
-            {pageTitle}
-          </h1>
-          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
-            Cadastros exclusivos da operação {areaLabel.toLowerCase()}
-          </p>
-        </div>
+      <div className="page-shell">
+        <PageHeader
+          eyebrow={operationLabel}
+          title={pageTitle}
+          description={`Cadastros exclusivos da operação ${areaLabel.toLowerCase()}`}
+          actions={activeTab === "lista" ? (
+            <Button
+              onClick={handleNovoCliente}
+              className="w-full gap-2 bg-primary font-bold shadow-sm hover:bg-primary/90 sm:w-auto"
+            >
+              <Plus className="h-4 w-4" />
+              Novo Cliente
+            </Button>
+          ) : undefined}
+        />
 
         {activeTab !== "lista" && (
-          <div className="space-y-3 px-1">
-            <div className="flex justify-end">
-              <Button variant="outline" onClick={handleBackToList}>
-                Voltar para Lista
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                {selectedCliente ? (
-                  <Building2 className="h-5 w-5 text-primary" />
-                ) : (
-                  <User className="h-5 w-5 text-primary" />
-                )}
+          <div className="surface-panel flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                {selectedCliente ? <Building2 className="h-5 w-5 text-primary" /> : <User className="h-5 w-5 text-primary" />}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-semibold text-foreground truncate">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="truncate font-semibold text-foreground">
                     {selectedCliente?.razao_social || "Novo Cliente"}
                   </h3>
                   {selectedCliente && (
-                    <StatusBadge
-                      variant={selectedCliente.classificacao === "industrial" ? "warning" : "info"}
-                    >
-                      {selectedCliente.classificacao === "industrial" ? "Industrial" : "Residencial"}
+                    <StatusBadge variant={selectedCliente.classificacao === "industrial" ? "warning" : "info"}>
+                      {selectedCliente.classificacao === "industrial" ? "Industrial" : "Doméstico"}
                     </StatusBadge>
                   )}
                 </div>
                 {selectedCliente && (
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    {selectedCliente.nome_fantasia && (
-                      <span>{selectedCliente.nome_fantasia}</span>
-                    )}
-                    {selectedCliente.cpf_cnpj && (
-                      <span>• {selectedCliente.cpf_cnpj}</span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
+                    {selectedCliente.nome_fantasia && <span>{selectedCliente.nome_fantasia}</span>}
+                    {selectedCliente.cpf_cnpj && <span>• {selectedCliente.cpf_cnpj}</span>}
                   </div>
                 )}
               </div>
             </div>
+            <Button variant="outline" onClick={handleBackToList} className="w-full shrink-0 sm:w-auto">
+              Voltar para Lista
+            </Button>
           </div>
         )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
-            <TabsList className="bg-slate-200/50 p-1 rounded-lg flex min-w-max border-none">
-              <TabsTrigger value="lista" className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Lista</TabsTrigger>
-              <TabsTrigger value="dados" className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Dados</TabsTrigger>
-              <TabsTrigger value="endereco" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Endereço</TabsTrigger>
-              <TabsTrigger value="pagamento" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Pagamento</TabsTrigger>
-              <TabsTrigger value="configuracao" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Config.</TabsTrigger>
-              <TabsTrigger value="contrato" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Contrato</TabsTrigger>
-              <TabsTrigger value="precos" disabled={!selectedClienteId} className="data-[state=active]:bg-[#f5f7fa] data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-3 py-1.5 text-sm font-medium">Preços</TabsTrigger>
+          <div className="max-w-full overflow-x-auto pb-1 scrollbar-hide">
+            <TabsList className="page-tabs-list">
+              <TabsTrigger value="lista" className="page-tab-trigger">Lista</TabsTrigger>
+              <TabsTrigger value="resumo" disabled={!selectedClienteId} className="page-tab-trigger">Resumo</TabsTrigger>
+              <TabsTrigger value="dados" className="page-tab-trigger">Dados</TabsTrigger>
+              <TabsTrigger value="endereco" disabled={!selectedClienteId} className="page-tab-trigger">Endereço</TabsTrigger>
+              <TabsTrigger value="pagamento" disabled={!selectedClienteId} className="page-tab-trigger">Pagamento</TabsTrigger>
+              <TabsTrigger value="configuracao" disabled={!selectedClienteId} className="page-tab-trigger">Config.</TabsTrigger>
+              <TabsTrigger value="contrato" disabled={!selectedClienteId} className="page-tab-trigger">Contrato</TabsTrigger>
+              <TabsTrigger value="precos" disabled={!selectedClienteId} className="page-tab-trigger">Preços</TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="lista" className="mt-6">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Pesquisar..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 bg-white border-[#bccadc] text-slate-900 h-10"
-                />
+          <TabsContent value="lista" className="mt-4">
+            <div className="content-panel space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Nome, CPF/CNPJ ou telefone..."
+                    value={searchTerm}
+                    onChange={(event) => updateDirectoryParams({ query: event.target.value })}
+                    className="h-10 bg-background pl-9"
+                    aria-label="Pesquisar clientes por nome, CPF, CNPJ ou telefone"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex h-10 items-center gap-2 rounded-lg border bg-muted/20 px-3 text-sm font-medium text-muted-foreground" aria-label={`Escopo ${areaLabel}`}>
+                    <Building2 className="h-4 w-4 text-primary" />
+                    {areaLabel}
+                  </div>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(value: ClientDirectoryStatus) => updateDirectoryParams({ status: value })}
+                  >
+                    <SelectTrigger className="h-10 w-full bg-background sm:w-40" aria-label="Filtrar clientes por situação">
+                      <SelectValue placeholder="Situação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="active">Ativos</SelectItem>
+                      <SelectItem value="inactive">Arquivados</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {(searchTerm || statusFilter !== "all") && (
+                    <Button
+                      variant="ghost"
+                      className="h-10 shrink-0 gap-2"
+                      onClick={() => updateDirectoryParams({ query: "", status: "all" })}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Limpar
+                    </Button>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Button variant="outline" className="gap-2 shrink-0 border-slate-200 text-slate-700 bg-slate-50/50 hover:bg-slate-100">
-                  <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Somente {areaLabel}</span>
-                </Button>
-                <Button className="gap-2 shrink-0 bg-[#009ee3] hover:bg-[#008dcb] text-white border-none font-black text-[11px] uppercase tracking-[0.1em] shadow-sm" onClick={handleNovoCliente}>
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Novo Cliente</span>
-                </Button>
-              </div>
-            </div>
+              {isFetching && !isLoading && (
+                <p className="text-xs text-muted-foreground" role="status" aria-live="polite">Atualizando a lista…</p>
+              )}
 
-            <div className="bg-transparent overflow-x-auto">
+              <div className="overflow-x-auto">
               {isLoading ? (
-                <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-16">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                   <span className="ml-2 text-muted-foreground">Carregando clientes...</span>
                 </div>
@@ -232,13 +296,28 @@ const Clientes = () => {
                     Tentar novamente
                   </Button>
                 </div>
-              ) : filteredClientes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <Building2 className="w-12 h-12 mb-4 opacity-50" />
-                  <p>Nenhum cliente encontrado</p>
-                  <Button variant="link" onClick={handleNovoCliente}>
-                    Cadastrar primeiro cliente
-                  </Button>
+              ) : clientes.length === 0 ? (
+                <div className="flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-6 py-12 text-center text-muted-foreground">
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                    <Building2 className="h-7 w-7 text-primary/70" />
+                  </div>
+                  <p className="font-semibold text-foreground">
+                    {searchTerm || statusFilter !== "all" ? "Nenhum cliente encontrado" : "Nenhum cliente cadastrado"}
+                  </p>
+                  <p className="mt-1 max-w-sm text-sm">
+                    {searchTerm || statusFilter !== "all"
+                      ? "Revise a busca ou limpe os filtros para consultar todo o cadastro desta operação."
+                      : "Cadastre o primeiro cliente para começar a organizar esta operação."}
+                  </p>
+                  {searchTerm || statusFilter !== "all" ? (
+                    <Button variant="link" onClick={() => updateDirectoryParams({ query: "", status: "all" })} className="mt-1 px-0 font-semibold">
+                      Limpar filtros
+                    </Button>
+                  ) : (
+                    <Button variant="link" onClick={handleNovoCliente} className="mt-1 px-0 font-semibold">
+                      Cadastrar primeiro cliente
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <Table>
@@ -253,7 +332,7 @@ const Clientes = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredClientes.map((cliente) => (
+                    {clientes.map((cliente) => (
                       <TableRow key={cliente.id} className="hover:bg-slate-50/50 border-b border-slate-100 transition-colors">
                         <TableCell className="py-3 px-3">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-100/50 uppercase tracking-tight">
@@ -290,7 +369,12 @@ const Clientes = () => {
                         <TableCell className="py-3 px-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-slate-100"
+                                aria-label={`Ações do cliente ${cliente.razao_social}`}
+                              >
                                 <MoreHorizontal className="w-4 h-4 text-slate-400" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -301,18 +385,20 @@ const Clientes = () => {
                               <DropdownMenuItem onClick={() => handleEditCliente(cliente.id)}>
                                 <Pencil className="w-4 h-4 mr-2" /> Editar
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleToggleAtivo(cliente)}>
-                                <Ban className="w-4 h-4 mr-2" /> {cliente.ativo ? "Desativar" : "Ativar"}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => {
-                                  setClienteToDelete(cliente.id);
-                                  setDeleteDialogOpen(true);
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                              </DropdownMenuItem>
+                              {cliente.ativo ? (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setClienteToArchive(cliente.id);
+                                    setArchiveDialogOpen(true);
+                                  }}
+                                >
+                                  <Archive className="mr-2 h-4 w-4" /> Arquivar
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => handleToggleAtivo(cliente)}>
+                                  <RotateCcw className="mr-2 h-4 w-4" /> Reativar
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -321,19 +407,58 @@ const Clientes = () => {
                   </TableBody>
                 </Table>
               )}
+              </div>
+
+              {!isLoading && !clientesError && totalClientes > 0 && (
+                <nav className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Paginação de clientes">
+                  <p className="text-sm text-muted-foreground" aria-live="polite">
+                    Exibindo <span className="font-semibold text-foreground">{firstVisible}–{lastVisible}</span> de {totalClientes} clientes
+                  </p>
+                  <div className="flex items-center justify-between gap-2 sm:justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateDirectoryParams({ page: page - 1 })}
+                      disabled={page <= 1 || isFetching}
+                      aria-label="Página anterior de clientes"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline">Anterior</span>
+                    </Button>
+                    <span className="min-w-24 text-center text-sm tabular-nums text-muted-foreground">
+                      Página {page} de {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateDirectoryParams({ page: page + 1 })}
+                      disabled={page >= totalPages || isFetching}
+                      aria-label="Próxima página de clientes"
+                    >
+                      <span className="hidden sm:inline">Próxima</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </nav>
+              )}
             </div>
           </TabsContent>
 
-          <TabsContent value="dados" className="mt-6 px-1">
+          <TabsContent value="resumo" className="mt-4 px-1">
+            <ClienteResumo clienteId={selectedClienteId} onOpenTab={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="dados" className="mt-4 px-1">
             <ClienteDadosBasicos 
               clienteId={selectedClienteId}
               onNext={() => setActiveTab("endereco")} 
               onClienteSaved={handleClienteSaved}
+              onOpenExistingClient={handleEditCliente}
               onCnpjDataLoaded={setCnpjData}
             />
           </TabsContent>
 
-          <TabsContent value="endereco" className="mt-6 px-1">
+          <TabsContent value="endereco" className="mt-4 px-1">
             <ClienteEndereco 
               clienteId={selectedClienteId}
               onNext={() => setActiveTab("pagamento")} 
@@ -342,7 +467,7 @@ const Clientes = () => {
             />
           </TabsContent>
 
-          <TabsContent value="pagamento" className="mt-6 px-1">
+          <TabsContent value="pagamento" className="mt-4 px-1">
             <ClientePagamento 
               clienteId={selectedClienteId}
               onBack={() => setActiveTab("endereco")} 
@@ -350,35 +475,35 @@ const Clientes = () => {
             />
           </TabsContent>
 
-          <TabsContent value="configuracao" className="mt-6 px-1">
+          <TabsContent value="configuracao" className="mt-4 px-1">
             <ClienteConfiguracao 
               clienteId={selectedClienteId}
               onSave={() => setActiveTab("contrato")} 
             />
           </TabsContent>
 
-          <TabsContent value="contrato" className="mt-6 px-1">
+          <TabsContent value="contrato" className="mt-4 px-1">
             <ClienteContrato clienteId={selectedClienteId} />
           </TabsContent>
 
-          <TabsContent value="precos" className="mt-6 px-1">
+          <TabsContent value="precos" className="mt-4 px-1">
             <ClienteTabelaPrecos clienteId={selectedClienteId} />
           </TabsContent>
         </Tabs>
       </div>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Cliente</AlertDialogTitle>
+            <AlertDialogTitle>Arquivar cliente</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.
+              O cliente deixará de aparecer entre os ativos, mas pedidos, pagamentos, contratos e demais históricos serão preservados. Ele poderá ser reativado depois.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteCliente} className="bg-destructive text-destructive-foreground">
-              Excluir
+            <AlertDialogAction onClick={handleArchiveCliente}>
+              Arquivar cliente
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

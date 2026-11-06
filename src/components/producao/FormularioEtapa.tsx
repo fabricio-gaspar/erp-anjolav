@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Loader2, Info, CheckCircle, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { dispararNotificacao } from "@/services/notificacaoService";
 import { supabase } from "@/integrations/supabase/client";
+import { createIdempotencyKey } from "@/lib/idempotency";
 
 interface ItemSeparacao {
   produto_id: string;
@@ -79,6 +80,7 @@ export function FormularioEtapa({
   onSuccess,
 }: FormularioEtapaProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const commandKeyRef = useRef<string | null>(null);
   const [observacoes, setObservacoes] = useState("");
   const [funcionarioId, setFuncionarioId] = useState("");
 
@@ -180,6 +182,7 @@ export function FormularioEtapa({
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    commandKeyRef.current ??= createIdempotencyKey("production");
 
     try {
       // Construir dados do formulário baseado na etapa ATUAL
@@ -228,6 +231,7 @@ export function FormularioEtapa({
             etiqueta_aplicada: etiquetaAplicada,
             conferencia_final: conferenciaFinal,
             pronto_para_entrega: prontoParaEntrega,
+            localizacao_estoque: localizacaoEstoque,
           };
           break;
         case "expedicao":
@@ -259,6 +263,7 @@ export function FormularioEtapa({
         itens: etapaAtual === "separacao"
           ? itensSeparacao.map((item) => ({ produto_id: item.produto_id, quantidade: item.quantidade }))
           : [],
+        idempotency_key: commandKeyRef.current,
       });
 
       toast.success(`OS avançada para ${etapaLabels[proximaEtapa] || proximaEtapa}`);
@@ -286,6 +291,7 @@ export function FormularioEtapa({
               numero: osAtual.numero,
               ordem_servico_id: ordemServicoId,
               cliente_id: osAtual.cliente_id,
+              idempotencyKey: `whatsapp:ordem:${ordemServicoId}:${eventoNotificacao}`,
             });
             if (enviado) {
               toast.success("WhatsApp confirmado pela Evolution API!");
@@ -300,6 +306,7 @@ export function FormularioEtapa({
       }
 
       onSuccess();
+      commandKeyRef.current = null;
     } catch (error) {
       console.error("Erro ao avançar etapa:", error);
       toast.error("Erro ao avançar etapa");
@@ -609,6 +616,14 @@ export function FormularioEtapa({
                 onChange={(e) => setPesoFinalKg(e.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Localização na Expedição *</Label>
+              <Input
+                placeholder="Ex.: Expedição A2, prateleira 5"
+                value={localizacaoEstoque}
+                onChange={(e) => setLocalizacaoEstoque(e.target.value)}
+              />
+            </div>
             <div className="space-y-3 p-3 bg-muted/50 rounded-md">
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -744,6 +759,23 @@ export function FormularioEtapa({
   // Determinar título e descrição baseado na etapa ATUAL
   const tituloModal = etapaLabels[etapaAtual] || etapaAtual;
   const descricaoModal = etapaDescricoes[etapaAtual] || "Preencha os dados para registrar esta etapa.";
+  const qualidadePendenteNaExpedicao = etapaAtual === "embalagem"
+    && osAtual?.status_qualidade !== "aprovada";
+  const etapaValida = (() => {
+    if (etapaAtual === "lavagem" || etapaAtual === "secagem") {
+      return maquinaUtilizada.trim().length > 0;
+    }
+    if (etapaAtual === "embalagem") {
+      return !qualidadePendenteNaExpedicao
+        && tipoEmbalagem.trim().length > 0
+        && Number(quantidadeVolumes) > 0
+        && localizacaoEstoque.trim().length >= 2
+        && etiquetaAplicada
+        && conferenciaFinal
+        && prontoParaEntrega;
+    }
+    return true;
+  })();
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -778,6 +810,15 @@ export function FormularioEtapa({
           {/* Campos Específicos da Etapa */}
           {renderCamposEspecificos()}
 
+          {qualidadePendenteNaExpedicao && (
+            <Alert className="border-warning/30 bg-warning/10">
+              <Info className="h-4 w-4 text-warning" />
+              <AlertDescription>
+                A liberação para expedição ficará disponível após a aprovação integral da qualidade.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Observações */}
           <div className="space-y-2">
             <Label>Observações Gerais</Label>
@@ -794,7 +835,7 @@ export function FormularioEtapa({
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || !etapaValida}>
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

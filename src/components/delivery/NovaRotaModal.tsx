@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { format, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Dialog,
@@ -41,12 +41,14 @@ interface NovaRotaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (rotaId: string) => void;
+  defaultDate?: string;
 }
 
 export function NovaRotaModal({
   open,
   onOpenChange,
   onSuccess,
+  defaultDate,
 }: NovaRotaModalProps) {
   const { motoristasAtivos, isLoading: isLoadingMotoristas } = useMotoristas();
   const { veiculosAtivos, isLoading: isLoadingVeiculos } = useVeiculos();
@@ -61,13 +63,13 @@ export function NovaRotaModal({
   // Reset form when modal opens
   useEffect(() => {
     if (open) {
-      setData(new Date());
+      setData(defaultDate ? new Date(`${defaultDate}T12:00:00`) : new Date());
       setMotoristaId("");
       setVeiculoId("");
       setKmInicial("");
       setObservacoes("");
     }
-  }, [open]);
+  }, [defaultDate, open]);
 
   const handleSubmit = async () => {
     const result = await createRota.mutateAsync({
@@ -76,11 +78,10 @@ export function NovaRotaModal({
       veiculo_id: veiculoId || null,
       km_inicial: kmInicial ? parseFloat(kmInicial) : null,
       observacoes: observacoes || null,
-      status: "pendente",
     });
 
     onOpenChange(false);
-    onSuccess?.(result.id);
+    onSuccess?.(result.routeId);
   };
 
   const isLoading = createRota.isPending;
@@ -121,6 +122,7 @@ export function NovaRotaModal({
                   onSelect={(d) => d && setData(d)}
                   initialFocus
                   locale={ptBR}
+                  disabled={{ before: startOfDay(new Date()) }}
                 />
               </PopoverContent>
             </Popover>
@@ -130,14 +132,13 @@ export function NovaRotaModal({
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <User className="w-4 h-4" />
-              Motorista
+              Motorista <span className="text-destructive">*</span>
             </Label>
-            <Select value={motoristaId || "none"} onValueChange={(val) => setMotoristaId(val === "none" ? "" : val)}>
+            <Select value={motoristaId} onValueChange={setMotoristaId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o motorista" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Nenhum</SelectItem>
                 {isLoadingMotoristas ? (
                   <div className="p-2 text-center text-sm text-muted-foreground">
                     Carregando...
@@ -161,14 +162,13 @@ export function NovaRotaModal({
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <Truck className="w-4 h-4" />
-              Veículo
+              Veículo <span className="text-destructive">*</span>
             </Label>
-            <Select value={veiculoId || "none"} onValueChange={(val) => setVeiculoId(val === "none" ? "" : val)}>
+            <Select value={veiculoId} onValueChange={setVeiculoId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o veículo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Nenhum</SelectItem>
                 {isLoadingVeiculos ? (
                   <div className="p-2 text-center text-sm text-muted-foreground">
                     Carregando...
@@ -222,7 +222,7 @@ export function NovaRotaModal({
           >
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading}>
+          <Button onClick={handleSubmit} disabled={isLoading || data < startOfDay(new Date()) || !motoristaId || !veiculoId}>
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

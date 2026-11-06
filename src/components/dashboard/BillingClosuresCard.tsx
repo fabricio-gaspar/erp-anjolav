@@ -4,22 +4,9 @@ import { CalendarClock, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useFechamentosProximos } from "@/hooks/useFechamentosProximos";
 import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-const condicaoLabels: Record<string, string> = {
-  a_vista: "À Vista",
-  "5_dias": "5 dias",
-  "7_dias": "7 dias",
-  "10_dias": "10 dias",
-  "15_dias": "15 dias",
-  "20_dias": "20 dias",
-  "30_dias": "30 dias",
-  mensal_15: "15 dias",
-  mensal_30: "30 dias",
-  mensal_45: "45 dias",
-  semanal: "7 dias",
-};
+import { BILLING_FREQUENCY_LABELS } from "@/lib/customerPaymentTerms";
 
 function getBadgeForDias(dias: number) {
   if (dias === 0) {
@@ -39,7 +26,7 @@ export function BillingClosuresCard() {
   const navigate = useNavigate();
 
   const handleClienteClick = (clienteId: string) => {
-    navigate(`/faturamento?cliente=${clienteId}`);
+    navigate(`/industrial/lancamentos?tab=pendentes&cliente=${clienteId}`);
   };
 
   if (isLoading) {
@@ -90,17 +77,18 @@ export function BillingClosuresCard() {
     >
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">
-          {f.nome_fantasia || f.razao_social}
+          {f.nomeFantasia || f.razaoSocial}
         </p>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{format(f.dataFechamento, "dd/MM", { locale: ptBR })}</span>
-          {f.condicao_pagamento && (
-            <>
-              <span>•</span>
-              <span>{condicaoLabels[f.condicao_pagamento] || f.condicao_pagamento}</span>
-            </>
-          )}
+          <span>{format(parseISO(f.dataFechamento), "dd/MM", { locale: ptBR })}</span>
+          <span>•</span>
+          <span>{BILLING_FREQUENCY_LABELS[f.periodicidade]}</span>
+          <span>•</span>
+          <span>{f.quantidadePendente} origem{f.quantidadePendente === 1 ? "" : "s"}</span>
         </div>
+        <p className="mt-0.5 text-xs font-medium text-primary">
+          {f.valorPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} pendente
+        </p>
       </div>
       {getBadgeForDias(f.diasRestantes)}
     </div>

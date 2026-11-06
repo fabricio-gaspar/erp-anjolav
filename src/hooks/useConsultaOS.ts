@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { parseCanonicalOrderScan } from "@/lib/orderScanner";
 
 export interface ItemOS {
   id: string;
@@ -42,6 +43,10 @@ export interface OrdemServicoConsulta {
     telefone: string | null;
   };
   itens: ItemOS[];
+  leitura?: {
+    tipo: "pedido" | "item";
+    itemId?: string;
+  };
 }
 
 export function useConsultaOS(searchTerm: string, statusFilter?: string, options: { enabled?: boolean; recent?: boolean } = {}) {
@@ -55,7 +60,20 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string, options
         return [];
       }
 
-      // Build the query
+      const leitura = parseCanonicalOrderScan(term);
+      let scannedOrderId: string | null = null;
+      if (leitura?.kind === "item") {
+        const { data: scannedItem, error: scannedItemError } = await supabase
+          .from("itens_ordem_servico")
+          .select("ordem_servico_id")
+          .eq("id", leitura.itemId)
+          .maybeSingle();
+        if (scannedItemError) throw scannedItemError;
+        if (!scannedItem) return [];
+        scannedOrderId = scannedItem.ordem_servico_id;
+      }
+
+      // Build the tenant- and area-scoped order query. RLS remains authoritative.
       let query = supabase
         .from("ordens_servico")
         .select(`
@@ -80,8 +98,12 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string, options
 
       // Search by OS number or client name
       const isNumeroOS = /^\d+$/.test(term) || /^(?:OS|ROL)?[-\s]*\d/i.test(term);
-      
-      if (isNumeroOS) {
+
+      if (scannedOrderId) {
+        query = query.eq("id", scannedOrderId);
+      } else if (leitura?.kind === "order") {
+        query = query.eq("numero", leitura.orderNumber);
+      } else if (isNumeroOS) {
         query = query.ilike("numero", `%${term}%`);
       } else if (term) {
         // Need to search by client name - first get matching clients
@@ -94,7 +116,7 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string, options
           .eq("classificacao", activeArea)
           .or(`razao_social.ilike.%${safeTerm}%,nome_fantasia.ilike.%${safeTerm}%`);
         if (clientesError) throw clientesError;
-        
+
         if (clientesData && clientesData.length > 0) {
           const clienteIds = clientesData.map(c => c.id);
           query = query.in("cliente_id", clienteIds);
@@ -135,6 +157,10 @@ export function useConsultaOS(searchTerm: string, statusFilter?: string, options
           return {
             ...ordem,
             cliente: ordem.cliente as OrdemServicoConsulta["cliente"],
+            leitura: leitura ? {
+              tipo: leitura.kind === "item" ? "item" : "pedido",
+              itemId: leitura.kind === "item" ? leitura.itemId : undefined,
+            } : undefined,
             itens: (itensData || []).map(item => ({
               ...item,
               produto: item.produto as ItemOS["produto"]

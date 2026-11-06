@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   getAllowedOrderOrigins,
   getCanonicalOrderOrigin,
@@ -26,7 +27,12 @@ export interface OrdemServico {
   valor_total: number | null;
   valor_desconto: number | null;
   forma_pagamento: string | null;
+  condicao_pagamento?: string | null;
   status_pagamento: "pendente" | "parcial" | "pago" | null;
+  status_qualidade?: "nao_iniciada" | "em_analise" | "aprovada" | "com_pendencias";
+  status_logistica?: "nao_iniciada" | "aguardando_coleta" | "coletado" | "aguardando_entrega" | "em_rota" | "entrega_parcial" | "entregue" | "tentativa_falha" | "cancelada";
+  status_fiscal?: "nao_aplicavel" | "pendente" | "emitida" | "cancelada";
+  versao_producao?: number;
   pago_na_entrada: boolean | null;
   valor_pago: number | null;
   urgente: boolean | null;
@@ -51,6 +57,10 @@ export interface ItemOrdemServico {
   ordem_servico_id: string;
   produto_id: string;
   quantidade: number;
+  quantidade_aprovada?: number;
+  quantidade_retida?: number;
+  quantidade_retrabalho?: number;
+  quantidade_entregue?: number;
   preco_unitario: number;
   subtotal: number;
   observacoes: string | null;
@@ -68,14 +78,19 @@ export interface ItemOrdemServico {
 export type OrdemServicoInsert = Omit<OrdemServico, "id" | "numero" | "created_at" | "updated_at" | "cliente" | "motorista" | "veiculo">;
 export type OrdemServicoUpdate = Partial<Omit<OrdemServicoInsert, "cliente_id">>;
 
-export function useOrdensServico() {
+export function useOrdensServico({ enabled = true }: { enabled?: boolean } = {}) {
   const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
+  const { activeTenant, session } = useAuth();
   const allowedOrigins = getAllowedOrderOrigins(activeArea);
 
   const { data: ordensServico = [], isLoading, error } = useQuery({
-    queryKey: ["ordens_servico", activeArea],
+    queryKey: ["ordens_servico", session?.user.id, activeTenant?.id, activeArea],
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
     queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para listar pedidos");
+      }
       let query = supabase
         .from("ordens_servico")
         .select(`
@@ -84,6 +99,7 @@ export function useOrdensServico() {
           motorista:motoristas(nome),
           veiculo:veiculos(placa, modelo)
         `)
+        .filter("tenant_id", "eq", activeTenant.id)
         .order("created_at", { ascending: false });
       if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
       const { data, error } = await query;
@@ -114,6 +130,7 @@ export function useOrdensServico() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
+      queryClient.invalidateQueries({ queryKey: ["order-directory"] });
       toast.success(`OS ${data.numero} criada com sucesso!`);
     },
     onError: (error) => {
@@ -123,6 +140,7 @@ export function useOrdensServico() {
 
   const updateOrdemServico = useMutation({
     mutationFn: async ({ id, ...updates }: OrdemServicoUpdate & { id: string }) => {
+      if (!activeTenant?.id) throw new Error("Empresa ativa não encontrada");
       if (updates.origem && !isOrderOriginAllowed(activeArea, updates.origem)) {
         throw new Error("Não é permitido mover a OS para outro painel");
       }
@@ -132,7 +150,8 @@ export function useOrdensServico() {
       let query = supabase
         .from("ordens_servico")
         .update(scopedUpdates)
-        .eq("id", id);
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant.id);
       if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
       const { data, error } = await query.select().single();
       if (error) throw error;
@@ -140,6 +159,7 @@ export function useOrdensServico() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
+      queryClient.invalidateQueries({ queryKey: ["order-directory"] });
       toast.success("OS atualizada com sucesso!");
     },
     onError: (error) => {
@@ -149,16 +169,16 @@ export function useOrdensServico() {
 
   const deleteOrdemServico = useMutation({
     mutationFn: async (id: string) => {
-      if (allowedOrigins) {
-        const { data: scopedOrder, error: scopeError } = await supabase
-          .from("ordens_servico")
-          .select("id")
-          .eq("id", id)
-          .in("origem", [...allowedOrigins])
-          .maybeSingle();
-        if (scopeError) throw scopeError;
-        if (!scopedOrder) throw new Error("OS não encontrada neste painel");
-      }
+      if (!activeTenant?.id) throw new Error("Empresa ativa não encontrada");
+      let scopeQuery = supabase
+        .from("ordens_servico")
+        .select("id")
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant.id);
+      if (allowedOrigins) scopeQuery = scopeQuery.in("origem", [...allowedOrigins]);
+      const { data: scopedOrder, error: scopeError } = await scopeQuery.maybeSingle();
+      if (scopeError) throw scopeError;
+      if (!scopedOrder) throw new Error("OS não encontrada neste painel");
       const { error } = await supabase.rpc("cancelar_ordem_servico", {
         _ordem_servico_id: id,
         _motivo: "Cancelada pelo usuário no módulo de ordens de serviço.",
@@ -167,6 +187,7 @@ export function useOrdensServico() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
+      queryClient.invalidateQueries({ queryKey: ["order-directory"] });
       toast.success("OS cancelada e preservada no histórico.");
     },
     onError: (error) => {
@@ -188,40 +209,42 @@ export function useOrdensServico() {
 export function useItensOrdemServico(ordemServicoId: string | null) {
   const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
+  const { activeTenant, session } = useAuth();
   const allowedOrigins = getAllowedOrderOrigins(activeArea);
 
   const { data: itens = [], isLoading } = useQuery({
-    queryKey: ["itens_ordem_servico", ordemServicoId, activeArea],
+    queryKey: ["itens_ordem_servico", session?.user.id, activeTenant?.id, ordemServicoId, activeArea],
     queryFn: async () => {
-      if (!ordemServicoId) return [];
+      if (!ordemServicoId || !session?.user.id || !activeTenant?.id) return [];
       let query = supabase
         .from("itens_ordem_servico")
         .select(`
           *,
           produto:produtos(nome, unidade),
-          ordem:ordens_servico!inner(origem)
+          ordem:ordens_servico!inner(origem, tenant_id)
         `)
-        .eq("ordem_servico_id", ordemServicoId);
+        .eq("ordem_servico_id", ordemServicoId)
+        .filter("ordem.tenant_id", "eq", activeTenant.id);
       if (allowedOrigins) query = query.in("ordem.origem", [...allowedOrigins]);
       const { data, error } = await query;
       if (error) throw error;
       return data as ItemOrdemServico[];
     },
-    enabled: !!ordemServicoId,
+    enabled: Boolean(ordemServicoId && session?.user.id && activeTenant?.id),
   });
 
   const addItem = useMutation({
     mutationFn: async (item: Omit<ItemOrdemServico, "id" | "created_at" | "produto">) => {
-      if (allowedOrigins) {
-        const { data: scopedOrder, error: scopeError } = await supabase
-          .from("ordens_servico")
-          .select("id")
-          .eq("id", item.ordem_servico_id)
-          .in("origem", [...allowedOrigins])
-          .maybeSingle();
-        if (scopeError) throw scopeError;
-        if (!scopedOrder) throw new Error("OS não encontrada neste painel");
-      }
+      if (!activeTenant?.id) throw new Error("Empresa ativa não encontrada");
+      let scopeQuery = supabase
+        .from("ordens_servico")
+        .select("id")
+        .eq("id", item.ordem_servico_id)
+        .filter("tenant_id", "eq", activeTenant.id);
+      if (allowedOrigins) scopeQuery = scopeQuery.in("origem", [...allowedOrigins]);
+      const { data: scopedOrder, error: scopeError } = await scopeQuery.maybeSingle();
+      if (scopeError) throw scopeError;
+      if (!scopedOrder) throw new Error("OS não encontrada neste painel");
       const { data, error } = await supabase
         .from("itens_ordem_servico")
         .insert(item)
@@ -241,16 +264,16 @@ export function useItensOrdemServico(ordemServicoId: string | null) {
 
   const removeItem = useMutation({
     mutationFn: async (id: string) => {
-      if (allowedOrigins) {
-        const { data: scopedItem, error: scopeError } = await supabase
-          .from("itens_ordem_servico")
-          .select("id, ordem:ordens_servico!inner(origem)")
-          .eq("id", id)
-          .in("ordem.origem", [...allowedOrigins])
-          .maybeSingle();
-        if (scopeError) throw scopeError;
-        if (!scopedItem) throw new Error("Item não encontrado neste painel");
-      }
+      if (!activeTenant?.id) throw new Error("Empresa ativa não encontrada");
+      let scopeQuery = supabase
+        .from("itens_ordem_servico")
+        .select("id, ordem:ordens_servico!inner(origem, tenant_id)")
+        .eq("id", id)
+        .filter("ordem.tenant_id", "eq", activeTenant.id);
+      if (allowedOrigins) scopeQuery = scopeQuery.in("ordem.origem", [...allowedOrigins]);
+      const { data: scopedItem, error: scopeError } = await scopeQuery.maybeSingle();
+      if (scopeError) throw scopeError;
+      if (!scopedItem) throw new Error("Item não encontrado neste painel");
       const { error } = await supabase
         .from("itens_ordem_servico")
         .delete()

@@ -102,7 +102,7 @@ test("total persistido da OS preserva desconto e urgência em vez de imprimir a 
   assert.equal(details.valorDesconto, 10);
   assert.equal(details.valorUrgencia, 27);
   const html = generateROLHTMLWithData(config, order({ ...details }));
-  assert.match(html, /Atendimento:<\/strong> Residencial/);
+  assert.match(html, /Atendimento:<\/strong> Doméstico/);
   assert.match(html, /Subtotal:<\/span><span>R\$ 100\.00/);
   assert.match(html, /Desconto:<\/span><span>- R\$ 10\.00/);
   assert.match(html, /Urgência:<\/span><span>\+ R\$ 27\.00/);
@@ -146,9 +146,9 @@ test("conteúdo dinâmico do ROL é escapado, inclusive unidade industrial", () 
   assert.match(html, /1,25 &lt;img src=x&gt;/);
 });
 
-test("origem loja histórica continua residencial sem inferir crédito pela área", () => {
+test("origem loja histórica continua doméstica sem inferir crédito pela área", () => {
   const info = getRolCommercialSummary(order({ origem: "loja", condicaoPagamento: null }));
-  assert.equal(info.area, "Residencial");
+  assert.equal(info.area, "Doméstico");
   assert.equal(info.condition, "Pagamento na retirada");
 });
 

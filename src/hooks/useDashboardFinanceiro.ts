@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { format, subDays } from "date-fns";
+import { endOfMonth, format, startOfMonth } from "date-fns";
 import { useWorkspace, type WorkspaceArea } from "@/contexts/WorkspaceContext";
 import {
   useFinanceiroAgregado,
@@ -8,7 +8,7 @@ import {
   type SetorFinanceiro,
 } from "./useFinanceiroAgregado";
 
-export type { SetorFinanceiro } from "./useFinanceiroAgregado";
+export type { PeriodoFinanceiro, SetorFinanceiro } from "./useFinanceiroAgregado";
 
 export interface DashboardFinanceiroData extends FinanceiroAgregado {
   error: Error | null;
@@ -18,8 +18,6 @@ export interface DashboardFinanceiroData extends FinanceiroAgregado {
   retry: () => void;
   setorEfetivo: SetorFinanceiro;
 }
-
-const DASHBOARD_WINDOW_DAYS = 365;
 
 const EMPTY_FINANCEIRO: FinanceiroAgregado = {
   resultadoRegistrado: 0,
@@ -51,13 +49,12 @@ function resolveSetorFinanceiro(area: WorkspaceArea, setorSolicitado: SetorFinan
   return setorSolicitado;
 }
 
-function createDefaultPeriod(): PeriodoFinanceiro {
-  const fim = new Date();
-  const inicio = subDays(fim, DASHBOARD_WINDOW_DAYS);
+export function createDefaultFinancialPeriod(): PeriodoFinanceiro {
+  const currentDate = new Date();
 
   return {
-    inicio: format(inicio, "yyyy-MM-dd"),
-    fim: format(fim, "yyyy-MM-dd"),
+    inicio: format(startOfMonth(currentDate), "yyyy-MM-dd"),
+    fim: format(endOfMonth(currentDate), "yyyy-MM-dd"),
   };
 }
 
@@ -66,9 +63,13 @@ function createErrorReference(errorUpdatedAt: number): string | null {
   return `FIN-${errorUpdatedAt.toString(36).toUpperCase()}`;
 }
 
-export function useDashboardFinanceiro(setor: SetorFinanceiro = "todos"): DashboardFinanceiroData {
+export function useDashboardFinanceiro(
+  setor: SetorFinanceiro = "todos",
+  selectedPeriod?: PeriodoFinanceiro,
+): DashboardFinanceiroData {
   const { activeArea } = useWorkspace();
-  const periodo = useMemo(createDefaultPeriod, []);
+  const defaultPeriod = useMemo(createDefaultFinancialPeriod, []);
+  const periodo = selectedPeriod ?? defaultPeriod;
   const setorEfetivo = resolveSetorFinanceiro(activeArea, setor);
   const consulta = useFinanceiroAgregado(periodo, setorEfetivo);
   const retry = () => {

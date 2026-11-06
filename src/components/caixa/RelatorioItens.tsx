@@ -27,6 +27,7 @@ import {
   Filter,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -43,6 +44,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { CashReportError } from "./CashReportError";
 
 interface RelatorioItensProps {
   startDate: Date;
@@ -75,13 +77,15 @@ interface ItemDetalhado {
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"];
 
 export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
+  const { activeTenant, session } = useAuth();
   const [viewMode, setViewMode] = useState<"resumo" | "detalhado">("resumo");
   const [filterProduto, setFilterProduto] = useState("todos");
 
   // Buscar itens do período
-  const { data: itens = [], isLoading } = useQuery({
-    queryKey: ["relatorio-itens", startDate.toISOString(), endDate.toISOString()],
+  const itemsQuery = useQuery({
+    queryKey: ["relatorio-itens", activeTenant?.id, session?.user.id, startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) return [] as ItemDetalhado[];
       const { data, error } = await supabase
         .from("itens_ordem_servico")
         .select(`
@@ -100,6 +104,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
             clientes(razao_social, nome_fantasia)
           )
         `)
+        .filter("tenant_id", "eq", activeTenant.id)
         .gte("ordens_servico.data_retirada", format(startDate, "yyyy-MM-dd"))
         .lte("ordens_servico.data_retirada", format(endDate, "yyyy-MM-dd"))
         .order("created_at", { ascending: false });
@@ -122,7 +127,10 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
         data: item.ordens_servico?.data_retirada || "",
       }));
     },
+    enabled: Boolean(activeTenant?.id && session?.user.id),
   });
+  const itens = itemsQuery.data ?? [];
+  const { isLoading } = itemsQuery;
 
   // Agrupar por produto
   const resumoPorProduto = useMemo(() => {
@@ -245,14 +253,19 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
       </div>
     );
   }
+  if (itemsQuery.isError) {
+    return <CashReportError onRetry={() => void itemsQuery.refetch()} />;
+  }
 
   return (
     <div className="space-y-6">
       {/* Actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Select value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
-            <SelectTrigger className="w-[150px]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Select value={viewMode} onValueChange={(value) => {
+            if (value === "resumo" || value === "detalhado") setViewMode(value);
+          }}>
+            <SelectTrigger className="min-h-11 w-full sm:w-[150px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -263,7 +276,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
 
           {viewMode === "detalhado" && (
             <Select value={filterProduto} onValueChange={setFilterProduto}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="min-h-11 w-full sm:w-[220px]">
                 <SelectValue placeholder="Filtrar produto" />
               </SelectTrigger>
               <SelectContent>
@@ -278,12 +291,12 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
           )}
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportCSV}>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button variant="outline" className="min-h-11" onClick={handleExportCSV}>
             <Download className="w-4 h-4 mr-2" />
             Exportar CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={handlePrint}>
+          <Button variant="outline" className="min-h-11" onClick={handlePrint}>
             <Printer className="w-4 h-4 mr-2" />
             Imprimir
           </Button>

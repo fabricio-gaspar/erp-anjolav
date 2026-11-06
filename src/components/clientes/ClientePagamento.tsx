@@ -17,6 +17,7 @@ import {
   type PaymentCondition, type PreferredPaymentMethod, type BillingFrequency,
 } from "@/lib/customerPaymentTerms";
 import { Textarea } from "@/components/ui/textarea";
+import { useContratoCliente } from "@/hooks/useContratosAluguel";
 
 interface ClientePagamentoProps {
   clienteId: string | null;
@@ -32,6 +33,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
   const commercialPermission = usePermissaoModulo("alterar_condicoes_comerciais");
   const canManageCommercialTerms = commercialPermission.allowed && !commercialPermission.isLoading && !commercialPermission.isError;
   const { configuracao, isLoading, isError, refetch, upsertConfiguracao } = useConfiguracaoPagamentoCliente(clienteId);
+  const { data: activeContract } = useContratoCliente(clienteId);
   const { configuracoes: configuracoesFiscais, isLoading: isLoadingFiscal } = useConfiguracoesFiscaisOperacionais();
   const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
 
@@ -45,6 +47,8 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
   const [listarItensDetalhados, setListarItensDetalhados] = useState<boolean>(true);
   const [observacaoFaturamento, setObservacaoFaturamento] = useState<string>("");
   const paymentMethodError = customerPaymentMethodError(condicao, formaPagamento);
+  const commercialTermsLocked = activeContract?.ativo === true;
+  const canEditPaymentTerms = canManageCommercialTerms && !commercialTermsLocked;
 
   useEffect(() => {
     const current = configuracao?.cliente_id === clienteId ? configuracao : null;
@@ -143,11 +147,19 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
       </div>
 
       {!canManageCommercialTerms && <p className="text-sm text-muted-foreground">Consulta apenas. A edição exige permissão para gerenciar condições comerciais.</p>}
+      {commercialTermsLocked && (
+        <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <p>
+            Condição, periodicidade e vencimento são controlados pelo contrato industrial ativo. Use a aba <strong>Contrato</strong> para alterá-los. Os padrões fiscais abaixo continuam editáveis.
+          </p>
+        </div>
+      )}
       <fieldset disabled={!canManageCommercialTerms || isSaving} className="space-y-6 min-w-0">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-2">
             <Label>Condição de pagamento</Label>
-            <Select disabled={!canManageCommercialTerms || isSaving} value={condicao ?? ""} onValueChange={(value) => setCondicao(value as PaymentCondition)}>
+            <Select disabled={!canEditPaymentTerms || isSaving} value={condicao ?? ""} onValueChange={(value) => setCondicao(value as PaymentCondition)}>
               <SelectTrigger><SelectValue placeholder="Não configurada" /></SelectTrigger>
               <SelectContent>
                 {Object.entries(PAYMENT_CONDITION_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
@@ -157,7 +169,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
           </div>
           <div className="space-y-2">
             <Label>Método preferido</Label>
-            <Select disabled={!canManageCommercialTerms || isSaving} value={formaPagamento ?? "none"} onValueChange={(value) => setFormaPagamento(value === "none" ? null : value as PreferredPaymentMethod)}>
+            <Select disabled={!canEditPaymentTerms || isSaving} value={formaPagamento ?? "none"} onValueChange={(value) => setFormaPagamento(value === "none" ? null : value as PreferredPaymentMethod)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Não definido</SelectItem>
@@ -176,7 +188,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
         {condicao === "faturado" && <>
           <div className="space-y-2">
             <Label>Periodicidade do faturamento</Label>
-            <Select disabled={!canManageCommercialTerms || isSaving} value={tipoFechamento} onValueChange={(value) => {
+            <Select disabled={!canEditPaymentTerms || isSaving} value={tipoFechamento} onValueChange={(value) => {
               setTipoFechamento(value as BillingFrequency);
               setDiaFechamento(value === "avulso" ? null : value === "quinzenal" ? 16 : 1);
             }}>
@@ -187,7 +199,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
             </Select>
             {tipoFechamento !== "avulso" && <>
               <Label htmlFor="cliente-dia-fechamento">Dia de fechamento</Label>
-                <Input id="cliente-dia-fechamento" type="number" min={1} max={31} step={1} value={diaFechamento ?? ""} onChange={(event) => setDiaFechamento(event.target.value === "" ? null : Number(event.target.value))} />
+                <Input disabled={!canEditPaymentTerms || isSaving} id="cliente-dia-fechamento" type="number" min={1} max={tipoFechamento === "quinzenal" ? 16 : 31} step={1} value={diaFechamento ?? ""} onChange={(event) => setDiaFechamento(event.target.value === "" ? null : Number(event.target.value))} />
             </>}
             <p className="text-xs text-muted-foreground">Referência para o fechamento das pendências. A emissão deve ser realizada no fluxo de faturamento.</p>
           </div>
@@ -203,6 +215,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
                   <button
                     key={day}
                     type="button"
+                    disabled={!canEditPaymentTerms || isSaving}
                     onClick={() => setDiaVencimento(day)}
                     className={`h-7 w-full rounded-full text-xs font-medium transition-colors ${
                       diaVencimento === day

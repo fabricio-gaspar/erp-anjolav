@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,14 +7,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, AlertTriangle, CheckCircle } from "lucide-react";
-import { useFecharCaixa, Caixa, useCaixaMovimentacoes } from "@/hooks/useCaixa";
+import { useFecharCaixa, Caixa, useResumoCaixa } from "@/hooks/useCaixa";
 import { formatNumberToCurrency, parseCurrencyToNumber } from "@/lib/currencyUtils";
 import { cn } from "@/lib/utils";
+import { createIdempotencyKey } from "@/lib/idempotency";
 
 interface FecharCaixaModalProps {
   open: boolean;
@@ -45,32 +45,21 @@ export function FecharCaixaModal({
   const [valorCartaoCredito, setValorCartaoCredito] = useState("0");
   const [valorCartaoDebito, setValorCartaoDebito] = useState("0");
   const [observacoes, setObservacoes] = useState("");
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const fecharCaixa = useFecharCaixa();
-  const { data: movimentacoes } = useCaixaMovimentacoes(caixa?.id);
+  const { data: resumo, isLoading: resumoLoading, isError: resumoError, refetch: refetchResumo } = useResumoCaixa(caixa?.id, open);
 
   // Calculate expected values by payment method
   const valoresEsperados = useMemo<ValoresEsperados>(() => {
     const esperado: ValoresEsperados = {
-      DINHEIRO: caixa?.valor_abertura || 0,
-      PIX: 0,
-      CARTAO_CREDITO: 0,
-      CARTAO_DEBITO: 0,
+      DINHEIRO: Number(resumo?.dinheiro ?? caixa?.valor_esperado ?? caixa?.valor_abertura ?? 0),
+      PIX: Number(resumo?.pix ?? 0),
+      CARTAO_CREDITO: Number(resumo?.cartaoCredito ?? 0),
+      CARTAO_DEBITO: Number(resumo?.cartaoDebito ?? 0),
     };
-
-    movimentacoes?.forEach((mov) => {
-      const formaPagamento = (mov.forma_pagamento || "DINHEIRO") as keyof ValoresEsperados;
-      if (mov.tipo === "VENDA") {
-        esperado[formaPagamento] += Number(mov.valor);
-      } else if (mov.tipo === "SANGRIA") {
-        esperado.DINHEIRO -= Number(mov.valor);
-      } else if (mov.tipo === "REFORCO") {
-        esperado.DINHEIRO += Number(mov.valor);
-      }
-    });
-
     return esperado;
-  }, [caixa, movimentacoes]);
+  }, [caixa, resumo]);
 
   useEffect(() => {
     if (open) {
@@ -112,19 +101,36 @@ export function FecharCaixaModal({
            valoresEsperados.CARTAO_CREDITO + valoresEsperados.CARTAO_DEBITO;
   }, [valoresEsperados]);
 
+  const precisaJustificativa = Object.values(diferencas).some(
+    (diferenca) => Math.abs(diferenca) > 0.009,
+  );
+  const canSubmit = !resumoLoading && !resumoError && (!precisaJustificativa || observacoes.trim().length >= 5);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    await fecharCaixa.mutateAsync({
-      caixa_id: caixa.id,
-      valor_contado_dinheiro: parseValue(valorDinheiro),
-      valor_contado_pix: parseValue(valorPix),
-      valor_contado_cartao_credito: parseValue(valorCartaoCredito),
-      valor_contado_cartao_debito: parseValue(valorCartaoDebito),
-      observacoes: observacoes || undefined,
-    });
-    
+    idempotencyKeyRef.current ??= createIdempotencyKey("cash-close");
+    try {
+      await fecharCaixa.mutateAsync({
+        caixa_id: caixa.id,
+        valor_contado_dinheiro: parseValue(valorDinheiro),
+        valor_contado_pix: parseValue(valorPix),
+        valor_contado_cartao_credito: parseValue(valorCartaoCredito),
+        valor_contado_cartao_debito: parseValue(valorCartaoDebito),
+        observacoes: observacoes || undefined,
+        idempotency_key: idempotencyKeyRef.current,
+      });
+    } catch {
+      return;
+    }
+
+    idempotencyKeyRef.current = null;
     onOpenChange(false);
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !fecharCaixa.isPending) idempotencyKeyRef.current = null;
+    onOpenChange(nextOpen);
   };
 
   const renderDiferencaIndicator = (diferenca: number) => {
@@ -148,16 +154,23 @@ export function FecharCaixaModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Fechar Caixa</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {resumoLoading && <p role="status" className="text-sm text-muted-foreground">Atualizando o resumo transacional do caixa...</p>}
+          {resumoError && (
+            <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+              <span>Não foi possível conferir o caixa. O fechamento está bloqueado.</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => void refetchResumo()}>Tentar novamente</Button>
+            </div>
+          )}
           {/* Summary Card */}
           <div className="bg-muted/50 rounded-lg p-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
               <div>
                 <p className="text-muted-foreground">Operador</p>
                 <p className="font-medium">{caixa?.operador}</p>
@@ -184,7 +197,7 @@ export function FecharCaixaModal({
             <h3 className="font-semibold text-foreground">Contagem por Forma de Pagamento</h3>
 
             {/* Dinheiro */}
-            <div className="grid grid-cols-3 gap-4 items-end p-3 rounded-lg border">
+            <div className="grid grid-cols-1 gap-4 rounded-lg border p-3 sm:grid-cols-3 sm:items-end">
               <div>
                 <Label>Dinheiro (Contado)</Label>
                 <CurrencyInput
@@ -208,9 +221,9 @@ export function FecharCaixaModal({
             </div>
 
             {/* PIX */}
-            <div className="grid grid-cols-3 gap-4 items-end p-3 rounded-lg border">
+            <div className="grid grid-cols-1 gap-4 rounded-lg border p-3 sm:grid-cols-3 sm:items-end">
               <div>
-                <Label>PIX (Contado)</Label>
+                <Label>PIX (Conferido)</Label>
                 <CurrencyInput
                   value={valorPix}
                   onChange={(e) => setValorPix(e.target.value)}
@@ -232,9 +245,9 @@ export function FecharCaixaModal({
             </div>
 
             {/* Cartão Crédito */}
-            <div className="grid grid-cols-3 gap-4 items-end p-3 rounded-lg border">
+            <div className="grid grid-cols-1 gap-4 rounded-lg border p-3 sm:grid-cols-3 sm:items-end">
               <div>
-                <Label>Cartão Crédito (Contado)</Label>
+                <Label>Cartão Crédito (Conferido)</Label>
                 <CurrencyInput
                   value={valorCartaoCredito}
                   onChange={(e) => setValorCartaoCredito(e.target.value)}
@@ -256,9 +269,9 @@ export function FecharCaixaModal({
             </div>
 
             {/* Cartão Débito */}
-            <div className="grid grid-cols-3 gap-4 items-end p-3 rounded-lg border">
+            <div className="grid grid-cols-1 gap-4 rounded-lg border p-3 sm:grid-cols-3 sm:items-end">
               <div>
-                <Label>Cartão Débito (Contado)</Label>
+                <Label>Cartão Débito (Conferido)</Label>
                 <CurrencyInput
                   value={valorCartaoDebito}
                   onChange={(e) => setValorCartaoDebito(e.target.value)}
@@ -287,7 +300,7 @@ export function FecharCaixaModal({
             diferencaTotal > 0 ? "bg-emerald-50 border border-emerald-200" :
             "bg-red-50 border border-red-200"
           )}>
-            <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
               <div>
                 <p className="text-sm text-muted-foreground">Total Contado</p>
                 <p className="text-xl font-bold">{formatCurrency(totalContado)}</p>
@@ -322,11 +335,11 @@ export function FecharCaixaModal({
 
           {/* Observations */}
           <div className="space-y-2">
-            <Label>Observações</Label>
+            <Label>Observações {precisaJustificativa ? "*" : ""}</Label>
             <Textarea
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}
-              placeholder="Adicione observações sobre o fechamento..."
+              placeholder={precisaJustificativa ? "Justifique a diferença (mínimo 5 caracteres)" : "Adicione observações sobre o fechamento..."}
               className="resize-none"
               rows={3}
             />
@@ -336,11 +349,11 @@ export function FecharCaixaModal({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={fecharCaixa.isPending}>
+            <Button type="submit" disabled={!canSubmit || fecharCaixa.isPending}>
               {fecharCaixa.isPending && (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               )}

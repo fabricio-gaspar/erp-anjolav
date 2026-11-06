@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+// Kept for the legacy print components while the operational screen consumes
+// the canonical statement contract below.
 export interface LancamentoComItens {
   id: string;
   cliente_id: string;
@@ -22,47 +24,121 @@ export interface ItemLancamento {
   subtotal: number;
 }
 
+export interface DemonstrativoItem {
+  id: string;
+  descricao: string;
+  quantidade: number;
+  unidade: string;
+  valorUnitario: number;
+  valorTotal: number;
+}
+
+export interface DemonstrativoOrigem {
+  id: string;
+  numero: string;
+  data: string;
+  dataEntrega: string | null;
+  status: string;
+  etapa: string;
+  valor: number;
+  ajuste: number;
+  faturaId: string | null;
+  ordemServicoId: string | null;
+  observacao: string | null;
+  itens: DemonstrativoItem[];
+}
+
+export interface DemonstrativoServico {
+  descricao: string;
+  unidade: string;
+  valorUnitario: number;
+  quantidade: number;
+  valorTotal: number;
+  quantidadeOrigens: number;
+}
+
+export interface DemonstrativoFatura {
+  id: string;
+  numero: string;
+  periodoInicio?: string;
+  periodoFim?: string;
+  status: string;
+  statusPagamento: string;
+  valor: number;
+  valorPago: number;
+  saldo: number;
+  vencimento: string | null;
+  cancelamentoMotivo?: string | null;
+}
+
+export interface DemonstrativoContrato {
+  id: string;
+  descricao: string;
+  ativo: boolean;
+  periodicidade: string;
+  valorFixoReferencia: number;
+  autorizaFaturamento: boolean;
+  vigenciaInicio: string;
+  vigenciaFim: string | null;
+}
+
+export interface DemonstrativoIndustrial {
+  cliente: {
+    id: string;
+    razaoSocial: string;
+    nomeFantasia: string | null;
+    documento: string | null;
+  };
+  periodo: { inicio: string; fim: string };
+  escopo: "periodo" | "fatura";
+  contratos: DemonstrativoContrato[];
+  fatura: DemonstrativoFatura | null;
+  totais: {
+    quantidadeOrigens: number;
+    quantidadeItens: number;
+    quantidadeServicos: number;
+    valorItens: number;
+    valorOrigens: number;
+    valorAjustes: number;
+    valorFaturado: number;
+    valorPago: number;
+    saldoFaturado: number;
+  };
+  servicos: DemonstrativoServico[];
+  origens: DemonstrativoOrigem[];
+  faturas: DemonstrativoFatura[];
+}
+
+function readStatement(data: unknown): DemonstrativoIndustrial {
+  if (!data || typeof data !== "object" || !("cliente" in data) || !("totais" in data)) {
+    throw new Error("O demonstrativo não retornou um resultado válido");
+  }
+  return data as DemonstrativoIndustrial;
+}
+
 export function useRelatorioCliente(
   clienteId: string | null,
   periodoInicio: string | null,
-  periodoFim: string | null
+  periodoFim: string | null,
+  faturaId: string | null = null,
 ) {
+  const hasValidPeriod = Boolean(
+    clienteId && periodoInicio && periodoFim && periodoFim >= periodoInicio,
+  );
+
   return useQuery({
-    queryKey: ["relatorio_cliente", clienteId, periodoInicio, periodoFim],
+    queryKey: ["demonstrativo-industrial", clienteId, periodoInicio, periodoFim, faturaId],
     queryFn: async () => {
-      if (!clienteId || !periodoInicio || !periodoFim) return [];
-
-      // Buscar lançamentos do cliente no período
-      const { data: lancamentos, error: lancError } = await supabase
-        .from("lancamentos")
-        .select("*")
-        .eq("cliente_id", clienteId)
-        .gte("data_lancamento", periodoInicio)
-        .lte("data_lancamento", periodoFim)
-        .order("data_lancamento", { ascending: true });
-
-      if (lancError) throw lancError;
-      if (!lancamentos || lancamentos.length === 0) return [];
-
-      // Para cada lançamento, buscar os itens
-      const lancamentosComItens: LancamentoComItens[] = await Promise.all(
-        lancamentos.map(async (lanc) => {
-          const { data: itens, error: itensError } = await supabase
-            .from("itens_lancamento")
-            .select("*")
-            .eq("lancamento_id", lanc.id);
-
-          if (itensError) throw itensError;
-
-          return {
-            ...lanc,
-            itens: (itens || []) as ItemLancamento[],
-          };
-        })
-      );
-
-      return lancamentosComItens;
+      if (!clienteId || !periodoInicio || !periodoFim) return null;
+      const { data, error } = await supabase.rpc("obter_demonstrativo_industrial", {
+        _cliente_id: clienteId,
+        _periodo_inicio: periodoInicio,
+        _periodo_fim: periodoFim,
+        _fatura_id: faturaId,
+      });
+      if (error) throw error;
+      return readStatement(data);
     },
-    enabled: !!clienteId && !!periodoInicio && !!periodoFim,
+    enabled: hasValidPeriod,
   });
 }

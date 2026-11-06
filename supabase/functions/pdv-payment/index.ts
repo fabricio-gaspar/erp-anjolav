@@ -39,6 +39,12 @@ interface SaleInput {
   items: SaleItemInput[];
   payment: ManualPaymentInput | { method: "PIX" } | null;
   idempotencyKey: string;
+  intakeDate: string | null;
+  notes: string | null;
+  receiptMode: "balcao" | "coleta";
+  deliveryMode: "balcao" | "entrega";
+  addressSnapshot: Record<string, string>;
+  capacityOverride: boolean;
 }
 
 interface AsaasPayment {
@@ -168,6 +174,9 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
     throw new RequestError("Percentual de urgência inválido");
   }
   const discountAmount = money(raw.discountAmount, "Desconto", true);
+  if (raw.capacityOverride !== undefined && typeof raw.capacityOverride !== "boolean") {
+    throw new RequestError("Exceção de capacidade inválida");
+  }
   const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
   const driverId = raw.driverId === undefined ? undefined : requireUuid(raw.driverId, "Motorista");
   const vehicleId = raw.vehicleId === undefined ? undefined : requireUuid(raw.vehicleId, "Veículo");
@@ -203,6 +212,55 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
     payment = method === "PIX" ? { method: "PIX" } : validateManualPayment(raw.payment, false);
   }
   if (payment && !cashRegisterId) throw new RequestError("Abra um caixa para receber o pagamento");
+  const intakeDate = raw.intakeDate == null
+    ? null
+    : typeof raw.intakeDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw.intakeDate)
+      ? raw.intakeDate
+      : (() => { throw new RequestError("Data de recebimento inválida"); })();
+  let notes: string | null = null;
+  if (raw.notes != null) {
+    if (typeof raw.notes !== "string") throw new RequestError("Observações inválidas");
+    const normalizedNotes = raw.notes.trim();
+    if (normalizedNotes.length > 2_000) {
+      throw new RequestError("As observações devem ter no máximo 2000 caracteres");
+    }
+    notes = normalizedNotes || null;
+  }
+  const receiptMode = raw.receiptMode == null ? "balcao" : raw.receiptMode;
+  const deliveryMode = raw.deliveryMode == null ? "balcao" : raw.deliveryMode;
+  if (receiptMode !== "balcao" && receiptMode !== "coleta") {
+    throw new RequestError("Modalidade de recebimento inválida");
+  }
+  if (deliveryMode !== "balcao" && deliveryMode !== "entrega") {
+    throw new RequestError("Modalidade de entrega inválida");
+  }
+  const addressSource = raw.addressSnapshot == null ? {} : raw.addressSnapshot;
+  if (!addressSource || typeof addressSource !== "object" || Array.isArray(addressSource)) {
+    throw new RequestError("Endereço do atendimento inválido");
+  }
+  const addressInput = addressSource as Record<string, unknown>;
+  const addressLimits = {
+    cep: 20,
+    logradouro: 200,
+    numero: 30,
+    complemento: 120,
+    bairro: 120,
+    cidade: 120,
+    uf: 2,
+    pais: 80,
+  } as const;
+  const addressSnapshot = Object.fromEntries(
+    Object.entries(addressLimits).flatMap(([key, limit]) => {
+      if (addressInput[key] == null || addressInput[key] === "") return [];
+      const value = boundedText(addressInput[key], limit);
+      if (!value) throw new RequestError("Endereço do atendimento inválido");
+      return [[key, key === "uf" ? value.toUpperCase() : value]];
+    }),
+  );
+  if ((receiptMode === "coleta" || deliveryMode === "entrega") &&
+      (!addressSnapshot.logradouro || !addressSnapshot.cidade || !addressSnapshot.uf)) {
+    throw new RequestError("Informe um endereço completo para coleta ou entrega");
+  }
   return {
     action: "create_sale",
     clientId,
@@ -216,7 +274,20 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
     items,
     payment,
     idempotencyKey,
+    intakeDate,
+    notes,
+    receiptMode,
+    deliveryMode,
+    addressSnapshot,
+    capacityOverride: raw.capacityOverride === true,
   };
+}
+
+function requireIsoDate(value: unknown, field: string): string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new RequestError(`${field} inválida`);
+  }
+  return value;
 }
 
 function loyaltyPoints(value: unknown): number {
@@ -721,15 +792,39 @@ Deno.serve(async (req) => {
     let authorization = await requireModule(req, supabase, "caixa");
     // Billing staff may create unpaid orders, but cannot receive money or
     // access payment histories/provider actions without the caixa permission.
-    if (!authorization.ok && authorization.response.status === 403 && action === "create_sale" && raw.payment == null) {
+    if (!authorization.ok && authorization.response.status === 403
+      && ((action === "create_sale" && raw.payment == null) || action === "get_capacity")) {
       authorization = await requireModule(req, supabase, "faturamento");
     }
     if (!authorization.ok) return authorization.response;
     const scope = await loadPdvScope(supabase, authorization.tenantId, authorization.user.id);
 
+    if (action === "get_capacity") {
+      const clientId = requireUuid(raw.clientId, "Cliente");
+      const deliveryDate = requireIsoDate(raw.deliveryDate, "Data de entrega");
+      const client = await assertScopedClient(supabase, scope, clientId);
+      const { data, error } = await supabase.rpc("consultar_capacidade_pdv", {
+        _tenant_id: scope.tenantId,
+        _area: client.classificacao,
+        _data: deliveryDate,
+      });
+      if (error) throw error;
+      if (!data || typeof data !== "object" || Array.isArray(data)) {
+        throw new RequestError("Resposta de capacidade inválida", 500);
+      }
+      return jsonResponse(req, { success: true, capacity: data });
+    }
+
     if (action === "create_sale") {
       const sale = validateSale(raw);
       await assertScopedClient(supabase, scope, sale.clientId);
+      if (sale.capacityOverride) {
+        const capacityAuthorization = await requireModule(req, supabase, "alterar_condicoes_comerciais");
+        if (!capacityAuthorization.ok) return capacityAuthorization.response;
+        if (capacityAuthorization.tenantId !== scope.tenantId) {
+          throw new RequestError("A empresa ativa mudou. Tente novamente", 409);
+        }
+      }
       if (sale.cashRegisterId) await assertScopedCash(supabase, scope.tenantId, sale.cashRegisterId);
       for (const [table, id] of [["motoristas", sale.driverId], ["veiculos", sale.vehicleId]] as const) {
         if (!id) continue;
@@ -748,7 +843,7 @@ Deno.serve(async (req) => {
             codigo_autorizacao: sale.payment.authorizationCode ?? null,
           }
         : sale.payment?.method === "PIX" ? { metodo: "PIX" } : null;
-      const { data, error } = await supabase.rpc("criar_venda_pdv", {
+      const { data, error } = await supabase.rpc("criar_pedido_atendimento", {
         _cliente_id: sale.clientId,
         _caixa_id: sale.cashRegisterId,
         _data_previsao_entrega: sale.deliveryDate,
@@ -761,6 +856,12 @@ Deno.serve(async (req) => {
         _pagamento: rpcPayment,
         _criado_por: authorization.user.id,
         _idempotency_key: sale.idempotencyKey,
+        _data_retirada: sale.intakeDate,
+        _observacoes: sale.notes,
+        _recebimento_modalidade: sale.receiptMode,
+        _entrega_modalidade: sale.deliveryMode,
+        _endereco_snapshot: sale.addressSnapshot,
+        _permitir_excecao_capacidade: sale.capacityOverride,
       });
       if (error) throw error;
       const order = data.order as { id: string };
@@ -815,7 +916,7 @@ Deno.serve(async (req) => {
 
       const { data: payments, error: paymentsError } = await supabase
         .from("pdv_pagamentos")
-        .select("id, metodo, provedor, momento, status, status_provedor, valor, valor_recebido, troco, parcelas, bandeira, nsu, codigo_autorizacao, confirmado_em, cancelado_em, created_at, metadata")
+        .select("id, metodo, provedor, momento, status, status_provedor, valor, valor_alocado, valor_nao_alocado, valor_recebido, troco, parcelas, bandeira, nsu, codigo_autorizacao, confirmado_em, cancelado_em, created_at, metadata")
         .eq("tenant_id", authorization.tenantId)
         .eq("ordem_servico_id", orderId)
         .order("created_at", { ascending: false });

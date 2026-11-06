@@ -22,7 +22,9 @@ test("fluxos comerciais resolvem preço padrão ou personalizado conforme o clie
   const conferencia = readFileSync(new URL("../src/components/lancamentos/ConferenciaModal.tsx", import.meta.url), "utf8");
   const migration = readFileSync(new URL("../supabase/migrations/20261016133000_apply_client_price_modes.sql", import.meta.url), "utf8");
 
-  assert.match(pdv, /tabela_preco_tipo.*personalizada/);
+  assert.match(pdv, /buildClientPriceCatalog\(/);
+  assert.match(pdv, /selectedClient\?\.tabela_preco_tipo \?\? "padrao"/);
+  assert.match(pdv, /normalizeClientPriceMode\(selectedClient\.tabela_preco_tipo\)/);
   assert.match(lancamentos, /useProdutos/);
   assert.match(lancamentos, /tabela_preco_tipo/);
   assert.match(producao, /useProdutos/);

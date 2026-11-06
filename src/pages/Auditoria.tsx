@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AlertCircle, ChevronLeft, ChevronRight, FilterX, Loader2, ShieldCheck } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -142,24 +143,17 @@ export default function Auditoria() {
 
   return (
     <AppLayout title="Auditoria" subtitle="Eventos administrativos da empresa ativa">
-      <div className="mx-auto w-full max-w-6xl space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-primary">
-              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs font-semibold uppercase tracking-[0.18em]">Administração</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">Registro de auditoria</h1>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Consulta somente leitura das ações registradas para a empresa ativa.
-              </p>
-            </div>
-          </div>
-          <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            Detalhes e dados sensíveis não são exibidos nesta tela.
-          </p>
-        </div>
+      <div className="page-shell mx-auto max-w-6xl">
+        <PageHeader
+          eyebrow="Administração"
+          title="Registro de auditoria"
+          description="Consulta somente leitura das ações registradas para a empresa ativa."
+          actions={(
+            <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              Detalhes e dados sensíveis não são exibidos nesta tela.
+            </p>
+          )}
+        />
 
         <Card>
           <CardHeader className="pb-4">

@@ -29,6 +29,24 @@ interface TenantContext {
   isPlatformAdmin: boolean;
 }
 
+export interface AuthSecurityContext {
+  tenantId: string | null;
+  isAdmin: boolean;
+  requireMfaForAdmins: boolean;
+  currentAal: "aal1" | "aal2" | null;
+  mfaSatisfied: boolean;
+  policyUpdatedAt: string | null;
+}
+
+const EMPTY_SECURITY_CONTEXT: AuthSecurityContext = {
+  tenantId: null,
+  isAdmin: false,
+  requireMfaForAdmins: false,
+  currentAal: null,
+  mfaSatisfied: true,
+  policyUpdatedAt: null,
+};
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -36,9 +54,14 @@ interface AuthContextType {
   activeTenant: TenantSummary | null;
   tenants: TenantSummary[];
   isPlatformAdmin: boolean;
+  security: AuthSecurityContext;
+  mfaChallengeRequired: boolean;
   loading: boolean;
   signIn: (login: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  signOutAllSessions: () => Promise<void>;
+  revokeOtherSessions: () => Promise<{ error: Error | null }>;
+  refreshSecurityContext: () => Promise<AuthSecurityContext>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
   switchTenant: (tenantId: string) => Promise<{ error: Error | null }>;
@@ -56,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tenants: [],
     isPlatformAdmin: false,
   });
+  const [security, setSecurity] = useState<AuthSecurityContext>(EMPTY_SECURITY_CONTEXT);
   const [loading, setLoading] = useState(true);
 
   // Fetch funcionario data linked to user
@@ -110,14 +134,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return context;
   }, [normalizeTenantContext]);
 
+  const normalizeSecurityContext = useCallback((value: unknown): AuthSecurityContext => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("Contexto de segurança inválido");
+    }
+    const source = value as Record<string, unknown>;
+    const currentAal = source.currentAal === "aal2" ? "aal2" : "aal1";
+    return {
+      tenantId: typeof source.tenantId === "string" ? source.tenantId : null,
+      isAdmin: source.isAdmin === true,
+      requireMfaForAdmins: source.requireMfaForAdmins === true,
+      currentAal,
+      mfaSatisfied: source.mfaSatisfied === true,
+      policyUpdatedAt: typeof source.policyUpdatedAt === "string" ? source.policyUpdatedAt : null,
+    };
+  }, []);
+
+  const fetchSecurityContext = useCallback(async (): Promise<AuthSecurityContext> => {
+    const { data, error } = await supabase.rpc("get_my_security_context");
+    if (error) throw error;
+    const context = normalizeSecurityContext(data);
+    if (!context.tenantId) throw new Error("Empresa ativa não encontrada no contexto de segurança");
+    return context;
+  }, [normalizeSecurityContext]);
+
   const loadUserContext = useCallback(async (userId: string) => {
-    const [employee, tenants] = await Promise.all([
+    const [employee, tenants, securityContext] = await Promise.all([
       fetchFuncionario(userId),
       fetchTenantContext(),
+      fetchSecurityContext(),
     ]);
     setFuncionario(employee);
     setTenantContext(tenants);
-  }, [fetchFuncionario, fetchTenantContext]);
+    setSecurity(securityContext);
+  }, [fetchFuncionario, fetchSecurityContext, fetchTenantContext]);
+
+  const refreshSecurityContext = useCallback(async () => {
+    const nextSecurity = await fetchSecurityContext();
+    setSecurity(nextSecurity);
+    await queryClient.invalidateQueries({ queryKey: ["authorization"] });
+    return nextSecurity;
+  }, [fetchSecurityContext, queryClient]);
 
   useEffect(() => {
     // Set up auth state listener BEFORE checking session
@@ -136,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               console.error("Não foi possível carregar o contexto da empresa", error);
               setFuncionario(null);
               setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
+              setSecurity(EMPTY_SECURITY_CONTEXT);
             } finally {
               setLoading(false);
             }
@@ -143,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setFuncionario(null);
           setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
+          setSecurity(EMPTY_SECURITY_CONTEXT);
           setLoading(false);
         }
       }
@@ -161,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setFuncionario(null);
           setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
+          setSecurity(EMPTY_SECURITY_CONTEXT);
         }
       })
       .catch(() => {
@@ -169,6 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setFuncionario(null);
         setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
+        setSecurity(EMPTY_SECURITY_CONTEXT);
       })
       .finally(() => setLoading(false));
 
@@ -220,15 +281,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
       queryClient.clear();
       setFuncionario(null);
       setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
+      setSecurity(EMPTY_SECURITY_CONTEXT);
       toast.success("Logout realizado com sucesso!");
     } catch (err) {
       console.error("Error signing out:", err);
       toast.error("Erro ao fazer logout");
+    }
+  };
+
+  const signOutAllSessions = async () => {
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "global" });
+      if (error) throw error;
+      queryClient.clear();
+      setFuncionario(null);
+      setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
+      setSecurity(EMPTY_SECURITY_CONTEXT);
+      toast.success("Todas as sessões foram encerradas.");
+    } catch (caught) {
+      console.error("Error signing out all sessions:", caught);
+      toast.error("Não foi possível encerrar todas as sessões.");
+    }
+  };
+
+  const revokeOtherSessions = async () => {
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "others" });
+      if (error) throw error;
+      toast.success("As outras sessões foram encerradas.");
+      return { error: null };
+    } catch (caught) {
+      const error = caught instanceof Error ? caught : new Error("Não foi possível encerrar as outras sessões");
+      toast.error(error.message);
+      return { error };
     }
   };
 
@@ -244,6 +334,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.clear();
       setTenantContext(nextContext);
       setFuncionario(await fetchFuncionario(session.user.id));
+      setSecurity(await fetchSecurityContext());
       toast.success("Empresa alterada com segurança.");
       return { error: null };
     } catch (caught) {
@@ -311,9 +402,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         activeTenant,
         tenants: tenantContext.tenants,
         isPlatformAdmin: tenantContext.isPlatformAdmin,
+        security,
+        mfaChallengeRequired:
+          security.isAdmin && security.requireMfaForAdmins && !security.mfaSatisfied,
         loading,
         signIn,
         signOut,
+        signOutAllSessions,
+        revokeOtherSessions,
+        refreshSecurityContext,
         resetPassword,
         updatePassword,
         switchTenant,

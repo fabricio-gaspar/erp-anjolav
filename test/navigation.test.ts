@@ -65,30 +65,31 @@ test("todo redirecionamento legado termina em uma rota autorizada", () => {
   }
 });
 
-test("aliases de PDV escolhem apenas um PDV autorizado, sem fallback de dashboard", () => {
-  for (const alias of ["/pdv", "/caixa"]) {
-    const redirect = LEGACY_ROUTE_REDIRECTS.find(item => item.from === alias);
-    assert.ok(redirect);
-    for (const area of ["industrial", "residencial"] as const) {
-      for (const moduleKey of ["caixa", "faturamento"]) {
-        assert.equal(resolveLegacyRouteRedirect(redirect, {
-          accessibleAreas: { central: true, [area]: true },
-          modulePermissions: { dashboard: true, [moduleKey]: true },
-          isAdmin: false,
-        }), `/${area}/caixa`);
-      }
+test("alias legado de caixa escolhe apenas um PDV autorizado e usa a rota canônica", () => {
+  const redirect = LEGACY_ROUTE_REDIRECTS.find(item => item.from === "/caixa");
+  assert.ok(redirect);
+  if (!redirect) return;
+
+  for (const area of ["industrial", "residencial"] as const) {
+    for (const moduleKey of ["caixa", "faturamento"]) {
+      assert.equal(resolveLegacyRouteRedirect(redirect, {
+        accessibleAreas: { central: true, [area]: true },
+        modulePermissions: { dashboard: true, [moduleKey]: true },
+        isAdmin: false,
+      }), area === "residencial" ? "/pdv/domestico" : "/pdv/industrial");
     }
-    assert.equal(resolveLegacyRouteRedirect(redirect, {
-      accessibleAreas: { central: true, industrial: true, residencial: true },
-      modulePermissions: { dashboard: true },
-      isAdmin: false,
-    }), null);
-    assert.equal(resolveLegacyRouteRedirect(redirect, {
-      accessibleAreas: { industrial: true, residencial: true },
-      modulePermissions: { faturamento: true },
-      isAdmin: false,
-    }), "/residencial/caixa");
   }
+  assert.equal(resolveLegacyRouteRedirect(redirect, {
+    accessibleAreas: { central: true, industrial: true, residencial: true },
+    modulePermissions: { dashboard: true },
+    isAdmin: false,
+  }), null);
+  assert.equal(resolveLegacyRouteRedirect(redirect, {
+    accessibleAreas: { industrial: true, residencial: true },
+    modulePermissions: { faturamento: true },
+    isAdmin: false,
+  }), "/pdv/domestico");
+  assert.equal(LEGACY_ROUTE_REDIRECTS.some(item => item.from === "/pdv"), false);
 });
 
 test("cada rota do menu lateral pertence ao catálogo centralizado", () => {
@@ -178,12 +179,14 @@ test("seletor de painel encontra a primeira rota autorizada mesmo sem Dashboard"
   assert.equal(resolveFirstAccessibleRouteInArea("industrial", access)?.path, "/industrial/clientes");
 });
 
-test("grupos de navegação usam rótulos semânticos por área", () => {
+test("grupos de navegação usam rótulos operacionais por área", () => {
   const industrialGroups = getSidebarNavigationGroups("industrial");
   const residentialGroups = getSidebarNavigationGroups("residencial");
 
-  assert.equal(industrialGroups.find((group) => group.id === "industrial-customers")?.label, "Cadastros");
-  assert.equal(industrialGroups.find((group) => group.id === "industrial-billing")?.label, "Financeiro e relatórios");
-  assert.equal(industrialGroups.some((group) => group.id === "industrial-analysis"), false);
-  assert.equal(residentialGroups.find((group) => group.id === "residential-billing")?.label, "Financeiro e relatórios");
+  assert.equal(industrialGroups.find((group) => group.id === "industrial-pdv")?.label, "PDV / Caixa");
+  assert.equal(industrialGroups.find((group) => group.id === "industrial-orders")?.label, "Pedidos e Produção");
+  assert.equal(industrialGroups.find((group) => group.id === "industrial-finance")?.label, "Financeiro");
+  assert.equal(residentialGroups.find((group) => group.id === "residential-pdv")?.label, "PDV / Caixa");
+  assert.equal(residentialGroups.find((group) => group.id === "residential-orders")?.label, "Pedidos e Produção");
+  assert.equal(residentialGroups.find((group) => group.id === "residential-finance")?.label, "Financeiro");
 });

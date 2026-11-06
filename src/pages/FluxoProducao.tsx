@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,50 +19,29 @@ import {
   Calendar,
   Filter,
   RefreshCw,
-  Truck,
-  Scissors,
-  Droplets,
-  Package,
-  CheckCircle,
   Clock,
   Loader2,
   Scale,
   Shirt,
   User,
-  Wind,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useOrdensServico } from "@/hooks/useOrdensServico";
 import { useFilteredOrdensServico } from "@/hooks/useFilteredOrdensServico";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useHistoricoMultiplasOS } from "@/hooks/useHistoricoProducaoResumo";
 import { useAgendamentosRetiradaPendentes } from "@/hooks/useFluxoProducao";
-import { format, formatDistanceToNow, isSameDay } from "date-fns";
+import { format, formatDistanceToNow, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FormularioEtapa } from "@/components/producao/FormularioEtapa";
 import { MiniHistorico, extrairDadosHistorico } from "@/components/producao/MiniHistorico";
 import { AgendamentoCard } from "@/components/producao/AgendamentoCard";
 import { FinalizadasLista } from "@/components/producao/FinalizadasLista";
-
-interface KanbanColumn {
-  id: string;
-  title: string;
-  icon: React.ElementType;
-  iconColor: string;
-  statuses: string[];
-  nextStatus?: string;
-}
-
-// Quadro enxuto: 6 colunas (lavagem+secagem juntas; entregue movido para aba)
-const columns: KanbanColumn[] = [
-  { id: "retirada", title: "AGUARDANDO RETIRADA", icon: Truck, iconColor: "text-warning", statuses: ["retirada"], nextStatus: "separacao" },
-  { id: "separacao", title: "SEPARAÇÃO", icon: Scissors, iconColor: "text-info", statuses: ["separacao"], nextStatus: "lavagem" },
-  { id: "lavagem", title: "LAVAGEM + SECAGEM", icon: Droplets, iconColor: "text-primary", statuses: ["lavagem", "secagem"], nextStatus: "passadoria" },
-  { id: "passadoria", title: "ACABAMENTO", icon: Wind, iconColor: "text-purple-500", statuses: ["passadoria"], nextStatus: "embalagem" },
-  { id: "embalagem", title: "EMBALAGEM", icon: Package, iconColor: "text-success", statuses: ["embalagem"], nextStatus: "expedicao" },
-  { id: "expedicao", title: "PRONTO / SAIU", icon: CheckCircle, iconColor: "text-emerald-600", statuses: ["expedicao"], nextStatus: "entregue" },
-];
+import {
+  ExpeditionWorkspace,
+  ProductionQueueWorkspace,
+} from "@/components/producao/ProductionQueueWorkspace";
+import { getNextProductionStage, productionColumns } from "@/lib/productionWorkflow";
 
 const FluxoProducao = () => {
   const { activeArea } = useWorkspace();
@@ -70,8 +50,7 @@ const FluxoProducao = () => {
   const [filtroPrevisao, setFiltroPrevisao] = useState<Date | null>(null);
   const [filtroPrioridade, setFiltroPrioridade] = useState<string | null>(null);
 
-  const { isLoading, error } = useOrdensServico();
-  const { data: ordensServico = [] } = useFilteredOrdensServico();
+  const { data: ordensServico = [], isLoading, error } = useFilteredOrdensServico();
   const { data: agendamentosPendentes = [] } = useAgendamentosRetiradaPendentes();
 
   const osIds = useMemo(() => ordensServico.map((os) => os.id), [ordensServico]);
@@ -79,7 +58,7 @@ const FluxoProducao = () => {
 
   const osByStatus = useMemo(() => {
     const grouped: Record<string, typeof ordensServico> = {};
-    columns.forEach((col) => {
+    productionColumns.forEach((col) => {
       grouped[col.id] = [];
     });
 
@@ -97,14 +76,14 @@ const FluxoProducao = () => {
       .filter((os) => {
         if (!filtroPrevisao) return true;
         if (!os.data_previsao_entrega) return false;
-        return isSameDay(new Date(os.data_previsao_entrega), filtroPrevisao);
+        return isSameDay(parseISO(os.data_previsao_entrega), filtroPrevisao);
       })
       .filter((os) => {
         if (!filtroPrioridade) return true;
         return os.prioridade === filtroPrioridade;
       })
       .forEach((os) => {
-        const col = columns.find((c) => c.statuses.includes(os.status));
+        const col = productionColumns.find((c) => (c.statuses as readonly string[]).includes(os.status));
         if (col) grouped[col.id].push(os);
       });
 
@@ -123,6 +102,10 @@ const FluxoProducao = () => {
     }
   };
 
+  const handleOrderAdvance = (order: (typeof ordensServico)[number], nextStatus: string) => {
+    setSelectedOS({ id: order.id, status: order.status, next: nextStatus });
+  };
+
   const getPrioridadeVariant = (prioridade: string | null) => {
     switch (prioridade) {
       case "urgente": return "danger";
@@ -136,31 +119,33 @@ const FluxoProducao = () => {
 
   return (
     <AppLayout title="Fluxo de Produção" subtitle={`${subtitle} - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
-      <div className="w-full space-y-8">
-        {/* Visual Content Header mirroring high-fidelity layout */}
-        <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">PRODUÇÃO INDUSTRIAL</span>
-          </div>
-          <h1 className="page-title">
-            Fluxo de Produção
-          </h1>
-          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
-            Monitoramento em tempo real das etapas operacionais
-          </p>
-        </div>
+      <div className="page-shell">
+        <PageHeader
+          eyebrow={`Produção ${activeArea === "residencial" ? "doméstica" : "industrial"}`}
+          title="Fluxo de Produção"
+          description="Filas por etapa, prazo e prioridade com operação individual ou em lote"
+        />
 
         <div className="content-panel">
-        <Tabs defaultValue="kanban" className="space-y-3">
-          <TabsList>
-            <TabsTrigger value="kanban">Kanban</TabsTrigger>
-            <TabsTrigger value="finalizadas">Aguardando / Finalizadas</TabsTrigger>
+        <Tabs defaultValue="filas" className="space-y-3">
+          <TabsList className="page-tabs-list">
+            <TabsTrigger value="filas" className="page-tab-trigger">Filas</TabsTrigger>
+            <TabsTrigger value="kanban" className="page-tab-trigger">Kanban</TabsTrigger>
+            <TabsTrigger value="expedicao" className="page-tab-trigger">Expedição</TabsTrigger>
+            <TabsTrigger value="finalizadas" className="page-tab-trigger">Finalizadas</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="filas" className="mt-0">
+            <ProductionQueueWorkspace
+              orders={ordensServico}
+              isLoading={isLoading}
+              onAdvance={handleOrderAdvance}
+            />
+          </TabsContent>
 
           <TabsContent value="kanban" className="space-y-3 mt-0">
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="page-toolbar">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -229,7 +214,7 @@ const FluxoProducao = () => {
             ) : (
               <div className="overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
                 <div className="flex gap-3 min-w-[1200px] xl:grid xl:grid-cols-6 xl:min-w-0">
-                  {columns.map((column) => {
+                  {productionColumns.map((column) => {
                     const columnItems = osByStatus[column.id] || [];
                     const agendamentosNaColuna = column.id === "retirada" ? agendamentosPendentes : [];
                     const totalCount = columnItems.length + agendamentosNaColuna.length;
@@ -264,10 +249,10 @@ const FluxoProducao = () => {
                                 return (
                                   <div
                                     key={os.id}
-                                    onClick={() => handleCardClick(os.id, os.status, column.nextStatus)}
+                                    onClick={() => handleCardClick(os.id, os.status, getNextProductionStage(os.status) || undefined)}
                                     className={cn(
                                       "bg-card border rounded-lg p-3 shadow-sm transition-all",
-                                      column.nextStatus ? "cursor-pointer hover:shadow-md hover:border-primary/50 hover:-translate-y-0.5" : ""
+                                      getNextProductionStage(os.status) ? "cursor-pointer hover:shadow-md hover:border-primary/50 hover:-translate-y-0.5" : ""
                                     )}
                                   >
                                     <div className="flex items-start justify-between mb-2">
@@ -296,7 +281,7 @@ const FluxoProducao = () => {
                                     )}
                                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                       <Calendar className="w-3 h-3" />
-                                      <span>Prev.: {os.data_previsao_entrega ? format(new Date(os.data_previsao_entrega), "dd/MM", { locale: ptBR }) : "-"}</span>
+                                      <span>Prev.: {os.data_previsao_entrega ? format(parseISO(os.data_previsao_entrega), "dd/MM", { locale: ptBR }) : "-"}</span>
                                     </div>
                                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
                                       <Badge variant="secondary" className="text-[10px] bg-info/10 text-info">
@@ -322,6 +307,14 @@ const FluxoProducao = () => {
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="expedicao" className="mt-0">
+            <ExpeditionWorkspace
+              orders={ordensServico}
+              histories={historicosPorOS}
+              onAdvance={handleOrderAdvance}
+            />
           </TabsContent>
 
           <TabsContent value="finalizadas" className="mt-0">

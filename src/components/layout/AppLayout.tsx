@@ -1,11 +1,7 @@
-import { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
-import { AppSidebar } from "./AppSidebar";
-import { AppHeader } from "./AppHeader";
-import { useSidebarContext } from "@/contexts/SidebarContext";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { cn } from "@/lib/utils";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Outlet, useLocation } from "react-router-dom";
+
+import { AdminLayout } from "./AdminLayout";
+import { PdvLayout } from "./PdvLayout";
 
 interface AppLayoutProps {
   title?: string;
@@ -13,45 +9,28 @@ interface AppLayoutProps {
   children?: React.ReactNode;
 }
 
-export function AppLayout({
-  title,
-  subtitle,
-  children
-}: AppLayoutProps) {
-  const { isCollapsed } = useSidebarContext();
-  const isMobile = useIsMobile();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
+function isOperationalPath(pathname: string): boolean {
   return (
-    <div className="min-h-screen bg-background flex w-full overflow-x-hidden">
-      {/* Desktop Sidebar */}
-      {!isMobile && <AppSidebar />}
-      
-      {/* Mobile Sidebar (Sheet) */}
-      {isMobile && (
-        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetContent side="left" className="w-[280px] max-w-[88vw] border-none bg-card p-0">
-            <AppSidebar isMobile onItemClick={() => setMobileMenuOpen(false)} />
-          </SheetContent>
-        </Sheet>
-      )}
-      
-      <div className={cn(
-        "flex-1 min-w-0 transition-all duration-300 flex flex-col h-screen overflow-hidden",
-        !isMobile && (isCollapsed ? "ml-16" : "ml-56")
-      )}>
-        <AppHeader 
-          title={title} 
-          subtitle={subtitle} 
-          onMenuClick={() => setMobileMenuOpen(true)}
-          showMenuButton={isMobile}
-        />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 w-full max-w-[1920px] mx-auto">
-          <div className="w-full h-full">
-            {children || <Outlet />}
-          </div>
-        </main>
-      </div>
-    </div>
+    pathname.startsWith("/pdv/")
+    || pathname === "/industrial"
+    || pathname.startsWith("/industrial/")
+    || pathname === "/residencial"
+    || pathname.startsWith("/residencial/")
   );
+}
+
+/**
+ * The ERP exposes only two visual shells. Legacy Industrial and Residential
+ * URLs remain valid, but render in the operational shell instead of reviving
+ * separate dashboards or a second administrative menu.
+ */
+export function AppLayout({ title, subtitle, children }: AppLayoutProps) {
+  const { pathname } = useLocation();
+  const content = children || <Outlet />;
+
+  if (isOperationalPath(pathname)) {
+    return <PdvLayout title={title} subtitle={subtitle}>{content}</PdvLayout>;
+  }
+
+  return <AdminLayout title={title} subtitle={subtitle}>{content}</AdminLayout>;
 }

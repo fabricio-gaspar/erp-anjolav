@@ -3,9 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, startOfDay, subDays } from "date-fns";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { invalidateDashboardQueriesAfterProductionAdvance } from "@/lib/queryDefaults";
 import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 import type { Json } from "@/integrations/supabase/types";
+import { createIdempotencyKey } from "@/lib/idempotency";
 
 export interface HistoricoProducao {
   id: string;
@@ -60,76 +62,30 @@ export interface DadosFormularioEntrega {
 export function useHistoricoProducao(ordemServicoId: string | null) {
   const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
+  const { activeTenant, session } = useAuth();
   const allowedOrigins = getAllowedOrderOrigins(activeArea);
 
   const { data: historico = [], isLoading } = useQuery({
-    queryKey: ["historico_producao", ordemServicoId, activeArea],
+    queryKey: ["historico_producao", session?.user.id, activeTenant?.id, ordemServicoId, activeArea],
     queryFn: async () => {
-      if (!ordemServicoId) return [];
+      if (!ordemServicoId || !session?.user.id || !activeTenant?.id) return [];
       let query = supabase
         .from("historico_producao")
         .select(`
           *,
           funcionario:funcionarios(nome),
-          ordem:ordens_servico!historico_producao_ordem_servico_id_fkey!inner(origem)
+          ordem:ordens_servico!historico_producao_ordem_servico_id_fkey!inner(origem, tenant_id)
         `)
         .eq("ordem_servico_id", ordemServicoId)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("ordem.tenant_id", "eq", activeTenant.id)
         .order("created_at", { ascending: true });
       if (allowedOrigins) query = query.in("ordem.origem", [...allowedOrigins]);
       const { data, error } = await query;
       if (error) throw error;
       return data as HistoricoProducao[];
     },
-    enabled: !!ordemServicoId,
-  });
-
-  const registrarMudancaEtapa = useMutation({
-    mutationFn: async ({
-      ordem_servico_id,
-      etapa_anterior,
-      etapa_nova,
-      funcionario_id,
-      observacoes,
-      dados_formulario,
-    }: {
-      ordem_servico_id: string;
-      etapa_anterior?: string;
-      etapa_nova: string;
-      funcionario_id?: string;
-      observacoes?: string;
-      dados_formulario?: Record<string, unknown>;
-    }) => {
-      if (allowedOrigins) {
-        const { data: scopedOrder, error: scopeError } = await supabase
-          .from("ordens_servico")
-          .select("id")
-          .eq("id", ordem_servico_id)
-          .in("origem", [...allowedOrigins])
-          .maybeSingle();
-        if (scopeError) throw scopeError;
-        if (!scopedOrder) throw new Error("OS não encontrada neste painel");
-      }
-      const { data, error } = await supabase
-        .from("historico_producao")
-        .insert([{
-          ordem_servico_id,
-          etapa_anterior: etapa_anterior || null,
-          etapa_nova,
-          funcionario_id: funcionario_id || null,
-          observacoes: observacoes || null,
-          dados_formulario: (dados_formulario || {}) as unknown as Record<string, never>,
-        }])
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["historico_producao"] });
-    },
-    onError: (error) => {
-      toast.error("Erro ao registrar histórico: " + error.message);
-    },
+    enabled: Boolean(ordemServicoId && session?.user.id && activeTenant?.id),
   });
 
   const avancarEtapa = useMutation({
@@ -141,6 +97,7 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
       observacoes,
       dados_formulario,
       itens,
+      idempotency_key,
     }: {
       ordem_servico_id: string;
       etapa_esperada: string;
@@ -149,15 +106,24 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
       observacoes?: string;
       dados_formulario?: Record<string, unknown>;
       itens?: Array<{ produto_id: string; quantidade: number }>;
+      idempotency_key?: string;
     }) => {
-      const { data, error } = await supabase.rpc("avancar_etapa_producao", {
-        _ordem_servico_id: ordem_servico_id,
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para avançar a produção");
+      }
+      const { data, error } = await supabase.rpc("processar_fila_producao", {
+        _ordens: [{
+          id: ordem_servico_id,
+          dados_formulario: dados_formulario || {},
+          itens: itens || [],
+        }] as unknown as Json,
         _etapa_esperada: etapa_esperada,
         _proxima_etapa: proxima_etapa,
         _funcionario_id: funcionario_id || null,
-        _observacoes: observacoes || null,
-        _dados_formulario: (dados_formulario || {}) as Json,
-        _itens: (itens || []) as Json,
+        _recurso: String(dados_formulario?.maquina_utilizada || dados_formulario?.recurso || "") || null,
+        _ocorrencia: observacoes || null,
+        _nova_previsao: null,
+        _idempotency_key: idempotency_key || createIdempotencyKey("production"),
       });
       if (error) throw error;
       return data;
@@ -165,6 +131,7 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["historico_producao"] });
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
+      queryClient.invalidateQueries({ queryKey: ["order-directory"] });
       queryClient.invalidateQueries({ queryKey: ["itens_ordem_servico"] });
       void invalidateDashboardQueriesAfterProductionAdvance(queryClient);
     },
@@ -173,96 +140,45 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
     },
   });
 
-  return { historico, isLoading, registrarMudancaEtapa, avancarEtapa };
+  return { historico, isLoading, avancarEtapa };
 }
 
 // Hook para métricas do Dashboard
 export function useMetricasProducao(enabled = true) {
   const { activeArea } = useWorkspace();
-  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const { activeTenant, session } = useAuth();
   const { data: metricas, isLoading, error } = useQuery({
-    queryKey: ["metricas_producao", activeArea],
+    queryKey: ["metricas_producao", session?.user.id, activeTenant?.id, activeArea],
     queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para resumir a produção");
+      }
       const agora = new Date();
-      const hoje = format(agora, "yyyy-MM-dd");
       const inicioHoje = startOfDay(agora).toISOString();
       const trintaDiasAtras = subDays(agora, 30).toISOString();
-
-      // OS em aberto
-      let osEmAbertoQuery = supabase
-        .from("ordens_servico")
-        .select("id", { count: "exact", head: true })
-        .not("status", "in", '("entregue","cancelada")');
-      if (allowedOrigins) osEmAbertoQuery = osEmAbertoQuery.in("origem", [...allowedOrigins]);
-
-      // Entregas atrasadas
-      let entregasAtrasadasQuery = supabase
-        .from("ordens_servico")
-        .select("id", { count: "exact", head: true })
-        .lt("data_previsao_entrega", hoje)
-        .not("status", "eq", "entregue")
-        .not("status", "eq", "cancelada");
-      if (allowedOrigins) entregasAtrasadasQuery = entregasAtrasadasQuery.in("origem", [...allowedOrigins]);
-
-      // Clientes ativos (últimos 30 dias)
-      let clientesAtivosQuery = supabase
-        .from("ordens_servico")
-        .select("cliente_id")
-        .gte("created_at", trintaDiasAtras);
-      if (allowedOrigins) clientesAtivosQuery = clientesAtivosQuery.in("origem", [...allowedOrigins]);
-
-      // Peças registradas hoje
-      let itensHojeQuery = supabase
-        .from("itens_ordem_servico")
-        .select("quantidade, ordem:ordens_servico!itens_ordem_servico_ordem_servico_id_fkey!inner(origem)")
-        .gte("created_at", inicioHoje);
-      if (allowedOrigins) itensHojeQuery = itensHojeQuery.in("ordem.origem", [...allowedOrigins]);
-
-      // OS por etapa (para gargalos)
-      let osPorEtapaQuery = supabase
-        .from("ordens_servico")
-        .select("status")
-        .not("status", "in", '("entregue","cancelada")');
-      if (allowedOrigins) osPorEtapaQuery = osPorEtapaQuery.in("origem", [...allowedOrigins]);
-      const [
-        { count: osEmAberto, error: osEmAbertoError },
-        { count: entregasAtrasadas, error: entregasAtrasadasError },
-        { data: clientesAtivosData, error: clientesAtivosError },
-        { data: itensHoje, error: itensHojeError },
-        { data: osPorEtapa, error: osPorEtapaError },
-      ] = await Promise.all([
-        osEmAbertoQuery,
-        entregasAtrasadasQuery,
-        clientesAtivosQuery,
-        itensHojeQuery,
-        osPorEtapaQuery,
-      ]);
-      const firstError = [
-        osEmAbertoError,
-        entregasAtrasadasError,
-        clientesAtivosError,
-        itensHojeError,
-        osPorEtapaError,
-      ].find(Boolean);
-      if (firstError) throw firstError;
-
-      const clientesAtivos = new Set(clientesAtivosData?.map(o => o.cliente_id)).size;
-      const pecasProcessadasHoje = itensHoje?.reduce((acc, item) => acc + Number(item.quantidade), 0) || 0;
-      
-      const gargalos = osPorEtapa?.reduce((acc, os) => {
-        acc[os.status] = (acc[os.status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>) || {};
+      const { data, error: metricsError } = await supabase.rpc("consultar_metricas_producao", {
+        _setor: activeArea,
+        _inicio_hoje: inicioHoje,
+        _trinta_dias_atras: trintaDiasAtras,
+      });
+      if (metricsError) throw metricsError;
+      const result = data as {
+        osEmAberto?: number;
+        entregasAtrasadas?: number;
+        clientesAtivos?: number;
+        pecasProcessadasHoje?: number;
+        gargalos?: Record<string, number>;
+      } | null;
 
       return {
-        osEmAberto: osEmAberto || 0,
-        entregasAtrasadas: entregasAtrasadas || 0,
-        clientesAtivos,
-        pecasProcessadasHoje,
-        gargalos,
+        osEmAberto: Number(result?.osEmAberto ?? 0),
+        entregasAtrasadas: Number(result?.entregasAtrasadas ?? 0),
+        clientesAtivos: Number(result?.clientesAtivos ?? 0),
+        pecasProcessadasHoje: Number(result?.pecasProcessadasHoje ?? 0),
+        gargalos: result?.gargalos ?? {},
       };
     },
-    enabled,
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
   });
 
   return { metricas, isLoading, error };
@@ -272,17 +188,28 @@ export function useMetricasProducao(enabled = true) {
 export function useAgendaDia(enabled = true) {
   const { activeArea } = useWorkspace();
   const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const { activeTenant, session } = useAuth();
   const hoje = format(new Date(), "yyyy-MM-dd");
 
-  const { data: retiradas = [], isLoading: isLoadingRetiradas, error: retiradasError } = useQuery({
-    queryKey: ["agenda_retiradas", hoje, activeArea],
+  const {
+    data: retiradas = [],
+    isLoading: isLoadingRetiradas,
+    error: retiradasError,
+    refetch: refetchRetiradas,
+  } = useQuery({
+    queryKey: ["agenda_retiradas", session?.user.id, activeTenant?.id, hoje, activeArea],
     queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para resumir a agenda");
+      }
       let query = supabase
         .from("agendamentos")
         .select(`
-          id, horario, status,
-          cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao)
+          id, cliente_id, horario, status,
+          cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao, tenant_id)
         `)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("cliente.tenant_id", "eq", activeTenant.id)
         .eq("tipo", "retirada")
         .eq("data", hoje)
         .order("horario");
@@ -291,19 +218,29 @@ export function useAgendaDia(enabled = true) {
       if (error) throw error;
       return data;
     },
-    enabled,
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
   });
 
-  const { data: entregas = [], isLoading: isLoadingEntregas, error: entregasError } = useQuery({
-    queryKey: ["agenda_entregas", hoje, activeArea],
+  const {
+    data: entregas = [],
+    isLoading: isLoadingEntregas,
+    error: entregasError,
+    refetch: refetchEntregas,
+  } = useQuery({
+    queryKey: ["agenda_entregas", session?.user.id, activeTenant?.id, hoje, activeArea],
     queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para resumir a agenda");
+      }
       // 1. Buscar agendamentos de entrega do dia
       let agendamentosQuery = supabase
         .from("agendamentos")
         .select(`
-          id, horario, status,
-          cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao)
+          id, cliente_id, horario, status,
+          cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao, tenant_id)
         `)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("cliente.tenant_id", "eq", activeTenant.id)
         .eq("tipo", "entrega")
         .eq("data", hoje)
         .neq("status", "realizado")
@@ -317,6 +254,7 @@ export function useAgendaDia(enabled = true) {
           id, cliente_id, numero, data_previsao_entrega,
           cliente:clientes!ordens_servico_cliente_id_fkey(razao_social)
         `)
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("status", "expedicao")
         .order("created_at");
       if (allowedOrigins) osProntasQuery = osProntasQuery.in("origem", [...allowedOrigins]);
@@ -352,7 +290,7 @@ export function useAgendaDia(enabled = true) {
 
       return [...entregasProntas, ...entregasAgendadas];
     },
-    enabled,
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
   });
 
   return {
@@ -360,6 +298,9 @@ export function useAgendaDia(enabled = true) {
     entregas,
     isLoading: isLoadingRetiradas || isLoadingEntregas,
     error: retiradasError || entregasError,
+    refetch: async () => {
+      await Promise.all([refetchRetiradas(), refetchEntregas()]);
+    },
   };
 }
 
@@ -367,9 +308,13 @@ export function useAgendaDia(enabled = true) {
 export function useResumoProcessamento(enabled = true) {
   const { activeArea } = useWorkspace();
   const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const { activeTenant, session } = useAuth();
   const { data: osEmProcessamento = [], isLoading, error } = useQuery({
-    queryKey: ["resumo_processamento", activeArea],
+    queryKey: ["resumo_processamento", session?.user.id, activeTenant?.id, activeArea],
     queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para resumir o processamento");
+      }
       let query = supabase
         .from("ordens_servico")
         .select(`
@@ -385,6 +330,7 @@ export function useResumoProcessamento(enabled = true) {
             )
           )
         `)
+        .filter("tenant_id", "eq", activeTenant.id)
         .not("status", "in", '("entregue","cancelada")')
         .order("created_at", { ascending: false })
         .limit(10);
@@ -393,7 +339,7 @@ export function useResumoProcessamento(enabled = true) {
       if (error) throw error;
       return data;
     },
-    enabled,
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
   });
 
   return { osEmProcessamento, isLoading, error };

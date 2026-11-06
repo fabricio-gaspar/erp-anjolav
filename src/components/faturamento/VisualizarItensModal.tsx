@@ -1,14 +1,18 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Package, Calendar, FileText } from "lucide-react";
 import type { Lancamento, ItemLancamento } from "@/hooks/useLancamentos";
+
+type LancamentoVisualizacao = Pick<Lancamento, "id" | "data_lancamento" | "valor_total" | "observacao"> & {
+  cliente?: { razao_social: string };
+};
 
 interface VisualizarItensModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  lancamento: Lancamento | null;
+  lancamento: LancamentoVisualizacao | null;
   itens: ItemLancamento[];
   isLoading?: boolean;
 }
@@ -49,7 +53,7 @@ export function VisualizarItensModal({
               <div>
                 <p className="text-xs text-muted-foreground">Data</p>
                 <p className="font-medium">
-                  {format(new Date(lancamento.data_lancamento), "dd/MM/yyyy")}
+                  {format(parseISO(lancamento.data_lancamento), "dd/MM/yyyy")}
                 </p>
               </div>
             </div>

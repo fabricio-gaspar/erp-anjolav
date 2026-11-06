@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Package, Truck, Plus, Loader2, Eye, EyeOff } from "lucide-react";
@@ -13,10 +14,11 @@ import { AgendaEventCard } from "@/components/agenda/AgendaEventCard";
 import { NovoAgendamentoModal } from "@/components/agenda/NovoAgendamentoModal";
 import { CancelarAgendamentoModal } from "@/components/agenda/CancelarAgendamentoModal";
 import { DetalhesAgendamentoModal } from "@/components/agenda/DetalhesAgendamentoModal";
-import { ExcluirAgendamentoModal } from "@/components/agenda/ExcluirAgendamentoModal";
 import { AtribuirMotoristaModal } from "@/components/agenda/AtribuirMotoristaModal";
 import { ObservacaoModal } from "@/components/agenda/ObservacaoModal";
 import { ReagendarModal } from "@/components/agenda/ReagendarModal";
+import { RouteWorkspace } from "@/components/delivery/RouteWorkspace";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type ViewType = "semanal" | "quinzenal" | "mensal";
 
@@ -27,16 +29,18 @@ export default function Agenda() {
   const { activeArea } = useWorkspace();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>("semanal");
-  const [filterRetirada, setFilterRetirada] = useState(true);
-  const [filterEntrega, setFilterEntrega] = useState(true);
+  const [filterRetirada, setFilterRetirada] = useState(searchParams.get("tipo") !== "entrega");
+  const [filterEntrega, setFilterEntrega] = useState(searchParams.get("tipo") !== "retirada");
   const [showCanceled, setShowCanceled] = useState(false);
   const [showCompleted, setShowCompleted] = useState(true);
+  const [workspaceView, setWorkspaceView] = useState<"agenda" | "rotas">(
+    searchParams.get("view") === "rotas" ? "rotas" : "agenda",
+  );
 
   // Modals state
   const [novoModalOpen, setNovoModalOpen] = useState(false);
   const [cancelarModalOpen, setCancelarModalOpen] = useState(false);
   const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
-  const [excluirModalOpen, setExcluirModalOpen] = useState(false);
   const [motoristaModalOpen, setMotoristaModalOpen] = useState(false);
   const [observacaoModalOpen, setObservacaoModalOpen] = useState(false);
   const [reagendarModalOpen, setReagendarModalOpen] = useState(false);
@@ -49,6 +53,17 @@ export default function Agenda() {
     nextParams.delete("novo");
     setSearchParams(nextParams, { replace: true });
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const requestedType = searchParams.get("tipo");
+    if (requestedType === "retirada") {
+      setFilterRetirada(true);
+      setFilterEntrega(false);
+    } else if (requestedType === "entrega") {
+      setFilterRetirada(false);
+      setFilterEntrega(true);
+    }
+  }, [searchParams]);
 
   const getWeeksToShow = () => {
     switch (viewType) {
@@ -76,8 +91,7 @@ export default function Agenda() {
   const {
     createAgendamento,
     updateAgendamento,
-    deleteAgendamento,
-  } = useAgendamentos(filtroData);
+  } = useAgendamentos();
 
   const { data: agendamentos = [], isLoading } = useFilteredAgendamentos(filtroData);
 
@@ -144,12 +158,6 @@ export default function Agenda() {
     );
   };
 
-  const handleDeleteAgendamento = (id: string) => {
-    deleteAgendamento.mutate(id, {
-      onSuccess: () => setExcluirModalOpen(false),
-    });
-  };
-
   const handleUpdateAgendamento = (id: string, updates: AgendamentoUpdate) => {
     updateAgendamento.mutate({ id, ...updates });
   };
@@ -177,11 +185,6 @@ export default function Agenda() {
     setDetalhesModalOpen(true);
   };
 
-  const openExcluirModal = (agendamento: Agendamento) => {
-    setSelectedAgendamento(agendamento);
-    setExcluirModalOpen(true);
-  };
-
   const openMotoristaModal = (agendamento: Agendamento) => {
     setSelectedAgendamento(agendamento);
     setMotoristaModalOpen(true);
@@ -199,24 +202,34 @@ export default function Agenda() {
 
   return (
     <AppLayout title="Agenda" subtitle={`Programação de retiradas e entregas - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
-      <div className="w-full space-y-8">
-        {/* Visual Content Header mirroring high-fidelity layout */}
-        <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">LOGÍSTICA E AGENDAMENTOS</span>
-          </div>
-          <h1 className="page-title">
-            Agenda Operacional
-          </h1>
-          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
-            Controle integrado de coletas e entregas planejadas
-          </p>
-        </div>
+      <div className="page-shell">
+        <PageHeader
+          eyebrow="Logística e agendamentos"
+          title="Agenda Operacional"
+          description="Controle integrado de coletas e entregas planejadas"
+          actions={(
+            <Button onClick={() => setNovoModalOpen(true)} className="w-full gap-2 font-bold sm:w-auto">
+              <Plus className="h-4 w-4" />
+              Novo Agendamento
+            </Button>
+          )}
+        />
 
+        <Tabs value={workspaceView} onValueChange={(value) => setWorkspaceView(value as "agenda" | "rotas")}>
+          <TabsList className="grid h-auto w-full grid-cols-2 rounded-xl bg-muted/70 p-1 sm:w-[360px]">
+            <TabsTrigger value="agenda" className="gap-2 py-2.5 font-bold">
+              <Package className="h-4 w-4" /> Agenda
+            </TabsTrigger>
+            <TabsTrigger value="rotas" className="gap-2 py-2.5 font-bold">
+              <Truck className="h-4 w-4" /> Rotas
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {workspaceView === "agenda" ? (
         <div className="space-y-3">
         {/* Header with filters and navigation */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="page-toolbar md:justify-between">
           {/* Left side - Filters */}
           <div className="flex items-center gap-2 flex-wrap">
             <Button
@@ -277,12 +290,6 @@ export default function Agenda() {
 
           {/* Right side - Navigation and Actions */}
           <div className="flex items-center gap-2 flex-wrap">
-            <Button size="sm" onClick={() => setNovoModalOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Novo Agendamento</span>
-              <span className="sm:hidden">Novo</span>
-            </Button>
-
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={navigatePrevious}>
                 <ChevronLeft className="h-4 w-4" />
@@ -386,7 +393,6 @@ export default function Agenda() {
                               onReschedule={openReagendarModal}
                               onAssignDriver={openMotoristaModal}
                               onAddObservation={openObservacaoModal}
-                              onDelete={openExcluirModal}
                               onViewDetails={openDetalhesModal}
                             />
                           ))
@@ -403,6 +409,13 @@ export default function Agenda() {
             ))}
         </div>
       </div>
+        ) : (
+          <RouteWorkspace
+            date={format(currentDate, "yyyy-MM-dd")}
+            onPreviousDay={() => setCurrentDate(addDays(currentDate, -1))}
+            onNextDay={() => setCurrentDate(addDays(currentDate, 1))}
+          />
+        )}
 
       {/* Modals */}
       <NovoAgendamentoModal
@@ -423,13 +436,6 @@ export default function Agenda() {
         onOpenChange={setDetalhesModalOpen}
         agendamento={selectedAgendamento}
         onSave={handleUpdateAgendamento}
-      />
-
-      <ExcluirAgendamentoModal
-        open={excluirModalOpen}
-        onOpenChange={setExcluirModalOpen}
-        agendamento={selectedAgendamento}
-        onConfirm={handleDeleteAgendamento}
       />
 
       <AtribuirMotoristaModal

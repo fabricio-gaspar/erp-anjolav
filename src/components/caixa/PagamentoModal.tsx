@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -11,41 +12,29 @@ import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { parseCurrencyToNumber } from "@/lib/currencyUtils";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { 
   Loader2, 
   Banknote, 
   Smartphone, 
   CreditCard, 
-  Clock,
-  Zap,
   Percent,
-  CalendarIcon,
   Calculator,
   Gift,
-  Settings2,
   MapPin,
   UserRound,
   Check,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { addDays, format, isWeekend, nextMonday } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { LogisticaSection } from "@/components/delivery/LogisticaSection";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CARD_BRANDS } from "@/lib/pdvPayment";
 import { validarCpfCnpj } from "@/lib/validacoesFiscais";
 import type { PdvLoyaltySummary } from "@/hooks/usePdvPayments";
 import type { ConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
+import type { PdvFulfillmentSettings } from "@/components/caixa/PdvFulfillmentPanel";
 
-import { parseCustomerPaymentTerms, customerPaymentTermsLabels, initialCustomerPayment, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
+import { parseCustomerPaymentTerms, initialCustomerPayment, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
 
 interface CartItem {
   id: string;
@@ -79,12 +68,19 @@ interface PagamentoModalProps {
   loyalty: PdvLoyaltySummary | null;
   loyaltyLoading?: boolean;
   configuracaoPagamento?: ConfiguracaoPagamentoCliente | null;
-  onEditConfiguracaoPagamento?: () => void;
   canManageCommercialTerms?: boolean;
   /** The parent must pass false whenever the cash register is unavailable. */
   canReceivePayments?: boolean;
   termsLoading?: boolean;
   termsError?: boolean;
+  fulfillment: PdvFulfillmentSettings;
+  fulfillmentAddressSnapshot?: DadosPagamento["addressSnapshot"];
+  fulfillmentBlockReason?: string | null;
+  /** A escolha rápida é só uma preferência visual; as regras comerciais ainda são validadas neste modal e no servidor. */
+  initialSelection?: {
+    pagoAgora: boolean;
+    formaPagamento: PdvPaymentMethod | null;
+  } | null;
   onConfirm: (dados: DadosPagamento) => Promise<void>;
   isLoading?: boolean;
 }
@@ -97,8 +93,18 @@ export interface DadosPagamento {
   valorDesconto: number;
   valorTotal: number;
   previsaoEntrega: Date;
-  // Novos campos de logística
-  tipoLogistica: "buscar" | "entregar";
+  receiptMode: "balcao" | "coleta";
+  deliveryMode: "balcao" | "entrega";
+  addressSnapshot?: {
+    cep?: string | null;
+    logradouro?: string | null;
+    numero?: string | null;
+    complemento?: string | null;
+    bairro?: string | null;
+    cidade?: string | null;
+    uf?: string | null;
+    pais?: string | null;
+  };
   motoristaId?: string;
   veiculoId?: string;
   // Novos campos de parcelamento e troco
@@ -111,7 +117,8 @@ export interface DadosPagamento {
   pontosResgate?: number;
 }
 
-type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE";
+export type PdvPaymentMethod = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE";
+type FormaPagamento = PdvPaymentMethod;
 
 const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; icon: React.ReactNode }[] = [
   { value: "DINHEIRO", label: "Dinheiro", icon: <Banknote className="w-5 h-5" /> },
@@ -123,7 +130,6 @@ const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; icon: React.Reac
 
 const PARCELAS_OPCOES = [1, 2, 3, 4, 5, 6, 10, 12];
 
-const DIAS_ENTREGA_PADRAO = 3;
 const PERCENTUAL_URGENCIA_PADRAO = 30;
 
 export function PagamentoModal(props: PagamentoModalProps) {
@@ -134,6 +140,7 @@ export function PagamentoModal(props: PagamentoModalProps) {
     config?.cliente_id, config?.condicao_pagamento, config?.forma_pagamento,
     config?.tipo_faturamento, config?.dia_fechamento, config?.dia_vencimento,
     props.canReceivePayments, props.canManageCommercialTerms,
+    props.initialSelection?.pagoAgora, props.initialSelection?.formaPagamento,
   ]);
   return <PagamentoModalForm key={formKey} {...props} />;
 }
@@ -148,33 +155,32 @@ function PagamentoModalForm({
   loyalty,
   loyaltyLoading = false,
   configuracaoPagamento = null,
-  onEditConfiguracaoPagamento,
   canManageCommercialTerms = false,
   canReceivePayments = true,
   termsLoading = false,
   termsError = false,
+  fulfillment,
+  fulfillmentAddressSnapshot,
+  fulfillmentBlockReason = null,
+  initialSelection = null,
   onConfirm,
   isLoading = false,
 }: PagamentoModalProps) {
   const termsMismatch = !!configuracaoPagamento && configuracaoPagamento.cliente_id !== cliente?.id;
   const terms = parseCustomerPaymentTerms(termsMismatch ? null : configuracaoPagamento);
-  const termsLabels = customerPaymentTermsLabels(terms);
-  const initialPayment = initialCustomerPayment(terms);
   const isBilled = terms.condition === "faturado";
   const isEntry = terms.condition === "entrada";
+  const customerInitialPayment = initialCustomerPayment(terms);
+  const initialPayment = initialSelection && !isBilled
+    ? {
+        pagoAgora: initialSelection.pagoAgora,
+        formaPagamento: initialSelection.pagoAgora ? initialSelection.formaPagamento : null,
+      }
+    : customerInitialPayment;
   const [pagoAgora, setPagoAgora] = useState(initialPayment.pagoAgora);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(initialPayment.formaPagamento);
-  const [urgente, setUrgente] = useState(false);
   const [descontoTipo, setDescontoTipo] = useState<"percentual" | "valor">("percentual");
   const [descontoInput, setDescontoInput] = useState("");
-  const [previsaoEntrega, setPrevisaoEntrega] = useState<Date>(() => {
-    const data = addDays(new Date(), DIAS_ENTREGA_PADRAO);
-    return isWeekend(data) ? nextMonday(data) : data;
-  });
-  // Estados de logística
-  const [tipoLogistica, setTipoLogistica] = useState<"buscar" | "entregar">("buscar");
-  const [motoristaId, setMotoristaId] = useState("");
-  const [veiculoId, setVeiculoId] = useState("");
   // Novos estados para parcelamento e troco
   const [parcelas, setParcelas] = useState(1);
   const [valorRecebido, setValorRecebido] = useState("");
@@ -182,16 +188,7 @@ function PagamentoModalForm({
   const [nsu, setNsu] = useState("");
   const [codigoAutorizacao, setCodigoAutorizacao] = useState("");
   const [pontosResgate, setPontosResgate] = useState("");
-
-  // Update delivery date when urgency changes
-  useEffect(() => {
-    const diasEntrega = urgente ? 1 : DIAS_ENTREGA_PADRAO;
-    let data = addDays(new Date(), diasEntrega);
-    if (isWeekend(data)) {
-      data = nextMonday(data);
-    }
-    setPrevisaoEntrega(data);
-  }, [urgente]);
+  const { deliveryDate: previsaoEntrega, urgent: urgente, receiptMode, deliveryMode, driverId: motoristaId, vehicleId: veiculoId } = fulfillment;
 
   // Reset parcelas when payment method changes
   useEffect(() => {
@@ -253,34 +250,49 @@ function PagamentoModalForm({
     }).format(value);
   };
 
-  const canSubmit = (() => {
-    if (termsLoading || termsError || termsMismatch || !cliente || isLoading) return false;
-    if (!isCustomerPaymentAllowed(terms, { pagoAgora, formaPagamento: pagoAgora ? formaPagamento : null, canReceivePayments })) return false;
-    if (isBilled && (urgente || calculos.valorDesconto > 0)) return false;
-    if (!canManageCommercialTerms && calculos.valorDesconto > 0) return false;
-    if (!Number.isFinite(calculos.valorTotal) || !Number.isFinite(calculos.valorDesconto)) return false;
-    if (calculos.valorDesconto > totalOriginal || calculos.valorTotal <= 0) return false;
-    if (tipoLogistica === "entregar" && (!motoristaId || !veiculoId)) return false;
-    // Para dinheiro, verificar se valor recebido é suficiente
+  const requiresAddress = receiptMode === "coleta" || deliveryMode === "entrega";
+
+  const submitBlockReason = (() => {
+    if (isLoading) return "A venda está sendo processada.";
+    if (!cliente) return "Selecione um cliente antes de finalizar.";
+    if (termsLoading) return "Aguarde o carregamento das condições comerciais.";
+    if (termsError || termsMismatch) return "Não foi possível validar as condições comerciais do cliente.";
+    if (fulfillmentBlockReason) return fulfillmentBlockReason;
+    if (!isCustomerPaymentAllowed(terms, { pagoAgora, formaPagamento: pagoAgora ? formaPagamento : null, canReceivePayments })) {
+      if (pagoAgora && !canReceivePayments) return "Abra o caixa e confirme sua permissão para receber agora.";
+      if (pagoAgora && !formaPagamento) return "Escolha a forma de pagamento.";
+      return "O pagamento escolhido não é permitido pela condição comercial deste cliente.";
+    }
+    if (isBilled && (urgente || calculos.valorDesconto > 0)) return "Pedidos faturados não aceitam urgência ou desconto neste fluxo.";
+    if (!canManageCommercialTerms && calculos.valorDesconto > 0) return "Seu perfil não permite conceder desconto.";
+    if (!Number.isFinite(calculos.valorTotal) || !Number.isFinite(calculos.valorDesconto)) return "Revise os valores da venda.";
+    if (calculos.valorDesconto > totalOriginal) return "O desconto não pode ser maior que o subtotal.";
+    if (calculos.valorTotal <= 0) return "O total da venda deve ser maior que zero.";
     if (pagoAgora && formaPagamento === "DINHEIRO") {
       const recebido = parseCurrencyToNumber(valorRecebido);
-      if (!Number.isFinite(recebido) || recebido < calculos.valorTotal) return false;
+      if (!Number.isFinite(recebido) || recebido < calculos.valorTotal) return "Informe um valor recebido igual ou maior que o total.";
     }
     if (pagoAgora && formaPagamento === "PIX") {
-      if (!cliente?.cpf_cnpj || !validarCpfCnpj(cliente.cpf_cnpj).valid) return false;
+      if (!cliente.cpf_cnpj || !validarCpfCnpj(cliente.cpf_cnpj).valid) return "Cadastre um CPF/CNPJ válido no cliente para gerar o PIX.";
     }
     if (pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO")) {
-      if (!bandeira || (!nsu.trim() && !codigoAutorizacao.trim())) return false;
+      if (!bandeira || (!nsu.trim() && !codigoAutorizacao.trim())) {
+        return !bandeira
+          ? "Selecione a bandeira do cartão."
+          : "Informe o NSU ou o código de autorização da maquininha.";
+      }
     }
     if (pagoAgora && formaPagamento === "FIDELIDADE") {
       const pontos = Number(pontosResgate);
       const valorResgate = pontos * Number(loyalty?.valorPorPonto ?? 0);
-      if (loyaltyLoading || !loyalty?.programaAtivo) return false;
-      if (!Number.isInteger(pontos) || pontos < loyalty.pontosMinimosResgate || pontos > loyalty.saldoPontos) return false;
-      if (valorResgate <= 0 || valorResgate > calculos.valorTotal + 0.009) return false;
+      if (loyaltyLoading) return "Aguarde a consulta do saldo de fidelidade.";
+      if (!loyalty?.programaAtivo) return "O programa de fidelidade não está ativo.";
+      if (!Number.isInteger(pontos) || pontos < loyalty.pontosMinimosResgate || pontos > loyalty.saldoPontos) return "Informe uma quantidade válida de pontos dentro do saldo disponível.";
+      if (valorResgate <= 0 || valorResgate > calculos.valorTotal + 0.009) return "O resgate não pode ultrapassar o total da venda.";
     }
-    return true;
+    return null;
   })();
+  const canSubmit = submitBlockReason === null;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -295,9 +307,11 @@ function PagamentoModalForm({
       valorDesconto: calculos.valorDesconto,
       valorTotal: calculos.valorTotal,
       previsaoEntrega,
-      tipoLogistica,
-      motoristaId: tipoLogistica === "entregar" ? motoristaId : undefined,
-      veiculoId: tipoLogistica === "entregar" ? veiculoId : undefined,
+      receiptMode,
+      deliveryMode,
+      addressSnapshot: requiresAddress ? fulfillmentAddressSnapshot : undefined,
+      motoristaId: requiresAddress && motoristaId ? motoristaId : undefined,
+      veiculoId: requiresAddress && veiculoId ? veiculoId : undefined,
       parcelas: pagoAgora && formaPagamento === "CARTAO_CREDITO" ? parcelas : 1,
       valorRecebido: pagoAgora && formaPagamento === "DINHEIRO" ? recebido : undefined,
       troco: pagoAgora && formaPagamento === "DINHEIRO" ? troco : undefined,
@@ -315,6 +329,7 @@ function PagamentoModalForm({
       <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[1200px] xl:max-w-[1320px] max-h-[calc(100vh-1rem)] overflow-y-auto rounded-2xl border-strong bg-card p-4 sm:p-6">
         <DialogHeader className="mb-1">
           <DialogTitle className="text-2xl font-black tracking-tight sm:text-3xl">Finalizar Venda</DialogTitle>
+          <DialogDescription className="sr-only">Revise valores e a forma de pagamento antes de confirmar o ROL. Prazo, capacidade e logística foram definidos no atendimento.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -369,92 +384,28 @@ function PagamentoModalForm({
             </div>
           </div>
 
-          {/* Configuração de pagamento do cliente */}
-          <div className="flex items-center justify-between gap-4 rounded-xl border border-strong bg-card p-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <Settings2 className="mt-0.5 h-7 w-7 shrink-0 text-foreground" />
-              <div className="min-w-0">
-                <p className="text-lg font-black">Configuração de pagamento do cliente</p>
-                <div className="mt-1 space-y-1 text-sm text-muted-foreground">
-                  <p>Condição: <strong className="text-foreground">{termsLabels.condition}</strong></p>
-                  <p>Método preferido: <strong className="text-foreground">{termsLabels.preferredMethod}</strong>. A preferência não comprova pagamento.</p>
-                  {isBilled && <p>Periodicidade: {termsLabels.frequency}. Fechamento: {terms.closingDay ? "dia " + terms.closingDay : "sob demanda / não definido"}. Vencimento: {terms.dueDay ? "dia " + terms.dueDay : "não definido"}.</p>}
-                </div>
-              </div>
-            </div>
-            {canManageCommercialTerms && onEditConfiguracaoPagamento && (
-              <Button type="button" variant="outline" className="h-11 shrink-0 gap-2 px-5 text-base font-bold" disabled={termsLoading || isLoading} onClick={onEditConfiguracaoPagamento}>
-                <Settings2 className="h-5 w-5" />
-                {configuracaoPagamento ? "Editar" : "Configurar"}
-              </Button>
-            )}
-          </div>
-
           {termsLoading && <p role="status" className="text-sm text-muted-foreground">Carregando condições de pagamento. Aguarde para finalizar.</p>}
           {(termsError || termsMismatch) && <p role="alert" className="text-sm text-destructive">Não foi possível validar as condições deste cliente. Recarregue os dados antes de finalizar.</p>}
           {isBilled && <p className="text-sm text-muted-foreground">Será gerada uma pendência para fechamento no faturamento, sem recebimento imediato. Desconto e urgência estão indisponíveis neste fluxo para manter o valor da OS igual ao lançamento. Nenhum boleto ou nota é emitido automaticamente aqui.</p>}
           {!canManageCommercialTerms && <p className="text-xs text-muted-foreground">Alterar configurações e conceder desconto exige permissão para gerenciar condições comerciais.</p>}
           {!canReceivePayments && <p role="alert" className="text-sm text-warning">Recebimentos indisponíveis: é necessário caixa disponível e permissão para receber. {isEntry ? "A condição de entrada exige recebimento; a finalização está bloqueada." : "Você pode finalizar sem recebimento imediato conforme a condição do cliente."}</p>}
           {isEntry && <p className="text-sm text-muted-foreground">Entrada exige o pagamento integral. Fidelidade está desabilitada porque o resgate pode deixar saldo pendente.</p>}
-          {!isBilled && initialPayment.unsupportedPreference && <p role="alert" className="text-sm text-warning">O método preferido ({termsLabels.preferredMethod}) não possui cobrança ou confirmação imediata neste PDV. Para receber agora, escolha PIX, dinheiro ou cartão e siga o fluxo de confirmação. A preferência não registra pagamento.</p>}
 
-          {/* Previsão, desconto e urgência */}
-          <div className="grid gap-3 lg:grid-cols-[1.18fr_1fr_0.9fr]">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-base font-bold"><CalendarIcon className="h-5 w-5 text-primary" /> Previsão de entrega</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="h-12 w-full justify-start rounded-lg border-strong bg-background text-left font-semibold">
-                    <CalendarIcon className="mr-2 h-5 w-5 text-primary" />
-                    <span className="truncate text-primary">{format(previsaoEntrega, "EEEE, dd 'de' MMMM", { locale: ptBR })}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={previsaoEntrega} onSelect={(date) => date && setPrevisaoEntrega(date)} disabled={(date) => date < new Date()} initialFocus className="pointer-events-auto p-3" locale={ptBR} />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-base font-bold"><Percent className="h-5 w-5 text-primary" /> Desconto</Label>
-              <div className="flex gap-2">
-                <div className="flex shrink-0 overflow-hidden rounded-lg border border-strong">
-                  <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("percentual")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "percentual" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>%</button>
-                  <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("valor")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "valor" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>R$</button>
-                </div>
-                {descontoTipo === "valor" ? (
-                  <CurrencyInput disabled={!canManageCommercialTerms || isBilled} value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} className="h-12 flex-1" />
-                ) : (
-                  <Input disabled={!canManageCommercialTerms || isBilled} type="text" value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} placeholder="0" className="h-12 flex-1" />
-                )}
+          <div className="space-y-2 rounded-xl border border-strong bg-muted/20 p-3">
+            <Label className="flex items-center gap-2 text-base font-bold"><Percent className="h-5 w-5 text-primary" /> Desconto</Label>
+            <p className="text-xs text-muted-foreground">O prazo, capacidade, urgência e logística foram definidos antes deste resumo.</p>
+            <div className="flex gap-2">
+              <div className="flex shrink-0 overflow-hidden rounded-lg border border-strong">
+                <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("percentual")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "percentual" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>%</button>
+                <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("valor")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "valor" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>R$</button>
               </div>
-            </div>
-
-            <div className="flex min-h-12 items-center justify-between rounded-xl border border-warning/40 bg-warning/5 p-3">
-              <div className="flex items-center gap-3">
-                <Zap className={cn("h-7 w-7", urgente ? "text-warning" : "text-muted-foreground")} />
-                <div>
-                  <p className="text-base font-black">Urgente (+{PERCENTUAL_URGENCIA_PADRAO}%)</p>
-                  <p className="text-sm text-muted-foreground">Entrega prioritária</p>
-                </div>
-              </div>
-              <Switch disabled={isBilled} checked={urgente} onCheckedChange={setUrgente} />
+              {descontoTipo === "valor" ? (
+                <CurrencyInput disabled={!canManageCommercialTerms || isBilled} value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} className="h-12 flex-1" />
+              ) : (
+                <Input disabled={!canManageCommercialTerms || isBilled} type="text" value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} placeholder="0" className="h-12 flex-1" />
+              )}
             </div>
           </div>
-
-          {/* Seção de Logística */}
-          <LogisticaSection
-            clienteId={cliente?.id || null}
-            tipoLogistica={tipoLogistica}
-            onTipoChange={setTipoLogistica}
-            dataEntrega={previsaoEntrega}
-            onDataEntregaChange={setPrevisaoEntrega}
-            motoristaId={motoristaId}
-            onMotoristaChange={setMotoristaId}
-            veiculoId={veiculoId}
-            onVeiculoChange={setVeiculoId}
-            mostrarDataEntrega={false}
-          />
 
           <Separator className="my-1" />
           {!isBilled && <div className="space-y-2">
@@ -728,7 +679,14 @@ function PagamentoModalForm({
           </div>
         </div>
 
-        <DialogFooter className="mt-1 gap-2 sm:gap-3">
+        <div className="sticky -bottom-4 -mx-4 mt-1 border-t bg-card/95 px-4 pb-4 pt-3 backdrop-blur sm:-bottom-6 sm:-mx-6 sm:px-6 sm:pb-6">
+          {submitBlockReason && !isLoading && (
+            <p role="alert" className="mb-3 flex items-start gap-2 text-sm font-medium text-destructive">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              {submitBlockReason}
+            </p>
+          )}
+          <DialogFooter className="gap-2 sm:gap-3">
           <Button
             type="button"
             variant="outline"
@@ -755,7 +713,8 @@ function PagamentoModalForm({
               </>
             )}
           </Button>
-        </DialogFooter>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -48,10 +48,11 @@ import {
   Check,
   X,
   Undo2,
+  ScanLine,
 } from "lucide-react";
 import { useConsultaOS, getStatusConfig, OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { useEditPdvPayment, usePdvPaymentsForOrder, useReversePdvPayment, type PdvPaymentSummary } from "@/hooks/usePdvPayments";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +60,13 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import {
+  getOrderScanKey,
+  isDuplicateOrderScan,
+  normalizeOrderScanInput,
+  parseCanonicalOrderScan,
+  type RecentOrderScan,
+} from "@/lib/orderScanner";
 
 interface ConsultarOSModalProps {
   recent?: boolean;
@@ -75,6 +83,11 @@ interface EditingPosition {
   corredor: string;
   secao: string;
   prateleira: string;
+}
+
+interface ScannerFeedback {
+  tone: "pending" | "success" | "warning" | "error";
+  message: string;
 }
 
 const paymentMethodLabels: Record<string, string> = {
@@ -198,9 +211,21 @@ function PaymentHistory({ orderId }: { orderId: string }) {
                   {payment.reversalUnavailableReason && payment.status !== "ESTORNADO" && (
                     <p className="text-xs text-muted-foreground mt-1">{payment.reversalUnavailableReason}</p>
                   )}
+                  {Number(payment.valor_nao_alocado) > 0 && (
+                    <p role="alert" className="mt-1 text-xs font-medium text-warning">
+                      {formatPaymentCurrency(payment.valor_nao_alocado)} recebido e ainda não alocado. Exige conciliação.
+                    </p>
+                  )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">{formatPaymentCurrency(payment.valor)}</span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className="text-right">
+                    <span className="block font-semibold">{formatPaymentCurrency(payment.valor)}</span>
+                    {Number(payment.valor_alocado) !== Number(payment.valor) && (
+                      <span className="text-xs text-muted-foreground">
+                        Alocado: {formatPaymentCurrency(payment.valor_alocado)}
+                      </span>
+                    )}
+                  </div>
                   {payment.canEdit && (
                     <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditDialog(payment)}>
                       <Pencil className="w-3.5 h-3.5" />
@@ -326,14 +351,76 @@ export function ConsultarOSModal({
 }: ConsultarOSModalProps) {
   const { activeArea } = useWorkspace();
   const { allowed: canOperateCaixa } = usePermissaoModulo("caixa");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [manualSearchTerm, setManualSearchTerm] = useState("");
+  const [queryTerm, setQueryTerm] = useState("");
+  const [scannerValue, setScannerValue] = useState("");
+  const [scanAttempt, setScanAttempt] = useState<{ value: string; submittedAt: number } | null>(null);
+  const [scannerFeedback, setScannerFeedback] = useState<ScannerFeedback | null>(null);
   const [statusFilter, setStatusFilter] = useState("todos");
   const [expandedOS, setExpandedOS] = useState<string | null>(null);
   const [editingPosition, setEditingPosition] = useState<EditingPosition | null>(null);
   const [isSavingPosition, setIsSavingPosition] = useState(false);
+  const recentScanRef = useRef<RecentOrderScan | null>(null);
 
-  const { data: ordens, isLoading, isError, refetch } = useConsultaOS(searchTerm, statusFilter, { enabled: open, recent });
+  const { data: ordens, isLoading, isFetching, isError, refetch } = useConsultaOS(queryTerm, statusFilter, { enabled: open, recent });
   const queryClient = useQueryClient();
+
+  const handleManualSearch = (value: string) => {
+    setManualSearchTerm(value);
+    setQueryTerm(value);
+    setScanAttempt(null);
+    setScannerFeedback(null);
+  };
+
+  const submitScannerValue = () => {
+    const value = normalizeOrderScanInput(scannerValue);
+    if (!value) {
+      setScannerFeedback({ tone: "error", message: "Aponte o leitor para uma etiqueta ou informe o número da OS." });
+      return;
+    }
+
+    const now = Date.now();
+    if (isDuplicateOrderScan(recentScanRef.current, value, now)) {
+      setScannerValue("");
+      setScannerFeedback({ tone: "warning", message: "Leitura duplicada ignorada. O mesmo código já está em processamento ou foi localizado." });
+      return;
+    }
+
+    const key = getOrderScanKey(value);
+    if (!key) return;
+    recentScanRef.current = { key, scannedAt: now };
+    setScannerValue("");
+    setScanAttempt({ value, submittedAt: now });
+    setScannerFeedback({ tone: "pending", message: "Validando a etiqueta no setor atual…" });
+    if (queryTerm === value) void refetch();
+    else setQueryTerm(value);
+  };
+
+  useEffect(() => {
+    if (!scanAttempt || isFetching) return;
+    if (isError) {
+      setScannerFeedback({ tone: "error", message: "Não foi possível validar a etiqueta. Tente novamente sem alterar o pedido." });
+      return;
+    }
+
+    const ordem = ordens?.[0];
+    if (!ordem) {
+      setScannerFeedback({ tone: "error", message: "Etiqueta não encontrada nesta empresa e neste setor." });
+      return;
+    }
+
+    setExpandedOS(ordem.id);
+    const leitura = parseCanonicalOrderScan(scanAttempt.value);
+    if (leitura?.kind === "item") {
+      const item = ordem.itens.find(candidate => candidate.id === leitura.itemId);
+      setScannerFeedback({
+        tone: "success",
+        message: `Item ${item?.produto?.nome || leitura.itemId.slice(0, 8)} localizado na OS ${ordem.numero}.`,
+      });
+    } else {
+      setScannerFeedback({ tone: "success", message: `OS ${ordem.numero} localizada e aberta para conferência.` });
+    }
+  }, [isError, isFetching, ordens, scanAttempt]);
 
   const toggleExpand = (ordemId: string) => {
     setExpandedOS(expandedOS === ordemId ? null : ordemId);
@@ -410,11 +497,11 @@ export function ConsultarOSModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-4xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {positionMode && !recent ? <MapPin className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
-            {recent ? "Histórico de atendimentos" : positionMode ? "Posição de peças / ROL" : "Consultar ROL / Ordem de Serviço"} · {activeArea === "industrial" ? "Industrial" : "Residencial"}
+            {recent ? "Histórico de atendimentos" : positionMode ? "Posição de peças / ROL" : "Consultar ROL / Ordem de Serviço"} · {activeArea === "industrial" ? "Industrial" : "Doméstico"}
           </DialogTitle>
         </DialogHeader>
         <DialogDescription>
@@ -425,20 +512,65 @@ export function ConsultarOSModal({
               : "Busque pelo número do ROL ou pelo nome do cliente deste setor."}
         </DialogDescription>
 
+        <div className="min-w-0 shrink-0 overflow-x-hidden rounded-xl border border-primary/20 bg-primary/[0.04] p-3 sm:p-4">
+          <div className="mb-2 flex items-start gap-3">
+            <div className="rounded-lg bg-primary/10 p-2 text-primary"><ScanLine className="h-5 w-5" /></div>
+            <div>
+              <label htmlFor="order-scanner-input" className="text-sm font-semibold">Leitor de código de barras</label>
+              <p className="text-xs text-muted-foreground">Identifica a OS ou a linha do item. A quantidade da linha não representa uma peça individual.</p>
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+            <Input
+              id="order-scanner-input"
+              aria-label="Leitor de código de barras"
+              value={scannerValue}
+              onChange={event => setScannerValue(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  submitScannerValue();
+                }
+              }}
+              placeholder="Escaneie a etiqueta ou digite o número da OS"
+              className="h-11 min-w-0 bg-background font-mono"
+              autoComplete="off"
+              autoFocus
+            />
+            <Button type="button" className="h-11 w-full min-w-0 shrink-0 gap-2 sm:w-auto" onClick={submitScannerValue}>
+              <ScanLine className="h-4 w-4" /> Localizar código
+            </Button>
+          </div>
+          {scannerFeedback && (
+            <p
+              role="status"
+              aria-live="polite"
+              className={cn(
+                "mt-2 text-sm font-medium",
+                scannerFeedback.tone === "success" && "text-emerald-700",
+                scannerFeedback.tone === "warning" && "text-amber-700",
+                scannerFeedback.tone === "error" && "text-destructive",
+                scannerFeedback.tone === "pending" && "text-muted-foreground",
+              )}
+            >
+              {scannerFeedback.message}
+            </p>
+          )}
+        </div>
+
         {/* Search and Filters */}
-        <div className="flex gap-3">
-          <div className="relative flex-1">
+        <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
+          <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder={positionMode ? "Buscar ROL ou cliente para atualizar posição..." : "Buscar por número da OS ou nome do cliente..."}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={manualSearchTerm}
+              onChange={(e) => handleManualSearch(e.target.value)}
               className="pl-10"
-              autoFocus
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -453,14 +585,14 @@ export function ConsultarOSModal({
         </div>
 
         {/* Results */}
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        <ScrollArea className="min-h-0 flex-1">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : isError ? (
             <div role="alert" className="py-8 text-center"><p>Não foi possível carregar as ordens deste setor.</p><Button variant="outline" onClick={() => void refetch()}>Tentar novamente</Button></div>
-          ) : !recent && searchTerm.length < 2 ? (
+          ) : !recent && queryTerm.length < 2 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>Digite pelo menos 2 caracteres para buscar</p>
@@ -483,18 +615,19 @@ export function ConsultarOSModal({
                     key={ordem.id}
                     className={cn(
                       "border rounded-lg overflow-hidden transition-all",
-                      isExpanded && "ring-2 ring-primary/20"
+                      isExpanded && "ring-2 ring-primary/20",
+                      ordem.leitura && "border-primary/40 bg-primary/[0.02]",
                     )}
                   >
                     {/* Order Header - Clickable */}
                     <button
                       onClick={() => toggleExpand(ordem.id)}
-                      className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
+                      className="flex w-full flex-col items-stretch gap-3 p-4 text-left transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="whitespace-nowrap font-mono font-bold">
                               OS {ordem.numero}
                             </span>
                             {ordem.urgente && (
@@ -512,7 +645,7 @@ export function ConsultarOSModal({
                               </Badge>
                             )}
                             <Badge variant="secondary">
-                              Retirada {format(new Date(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
+                              Retirada {format(parseISO(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
                             </Badge>
                             {!isPendente && (
                               <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">
@@ -525,7 +658,7 @@ export function ConsultarOSModal({
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-end">
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">
                             {totalPecas(ordem)} peças
@@ -546,18 +679,18 @@ export function ConsultarOSModal({
                     {isExpanded && (
                       <div className="border-t bg-muted/30">
                         {/* Order Info */}
-                        <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div className="grid grid-cols-2 gap-4 p-4 text-sm md:grid-cols-4">
                           <div>
                             <p className="text-muted-foreground">Retirada</p>
                             <p className="font-medium">
-                              {format(new Date(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
+                              {format(parseISO(ordem.data_retirada), "dd/MM/yyyy", { locale: ptBR })}
                             </p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">Previsão Entrega</p>
                             <p className="font-medium">
                               {ordem.data_previsao_entrega
-                                ? format(new Date(ordem.data_previsao_entrega), "dd/MM/yyyy", { locale: ptBR })
+                                ? format(parseISO(ordem.data_previsao_entrega), "dd/MM/yyyy", { locale: ptBR })
                                 : "-"}
                             </p>
                           </div>
@@ -593,7 +726,10 @@ export function ConsultarOSModal({
                               return (
                                 <div
                                   key={item.id}
-                                  className={cn("flex items-center justify-between rounded-lg border bg-background p-3", positionMode && "border-primary/30")}
+                                  className={cn(
+                                    "flex flex-col items-stretch justify-between gap-3 rounded-lg border bg-background p-3 sm:flex-row sm:items-center",
+                                    positionMode && "border-primary/30",
+                                  )}
                                 >
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2">
@@ -603,6 +739,9 @@ export function ConsultarOSModal({
                                       <span className="text-sm text-muted-foreground">
                                         x{item.quantidade}
                                       </span>
+                                      {ordem.leitura?.tipo === "item" && ordem.leitura.itemId === item.id && (
+                                        <Badge className="bg-emerald-600 hover:bg-emerald-600">Item lido</Badge>
+                                      )}
                                     </div>
                                     <div className="flex flex-wrap gap-2 mt-1">
                                       {item.cor_item && (
@@ -626,7 +765,7 @@ export function ConsultarOSModal({
 
                                   {/* Shelf Position - Editable */}
                                   {isEditing ? (
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex flex-wrap items-center gap-1 sm:flex-nowrap">
                                       <Input
                                         value={editingPosition.corredor}
                                         onChange={(e) =>
@@ -669,8 +808,8 @@ export function ConsultarOSModal({
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8"
-                                        aria-label={`Editar posição de ${item.produto?.nome || "item"}`}
-                                        title="Editar posição de armazenamento"
+                                        aria-label={`Salvar posição de ${item.produto?.nome || "item"}`}
+                                        title="Salvar posição de armazenamento"
                                         onClick={savePosition}
                                         disabled={isSavingPosition}
                                       >
@@ -680,13 +819,15 @@ export function ConsultarOSModal({
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8"
+                                        aria-label={`Cancelar edição da posição de ${item.produto?.nome || "item"}`}
+                                        title="Cancelar edição da posição"
                                         onClick={cancelEditingPosition}
                                       >
                                         <X className="w-4 h-4 text-destructive" />
                                       </Button>
                                     </div>
                                   ) : (
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center justify-between gap-2 sm:justify-end">
                                       {item.posicao_prateleira ? (
                                         <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg border border-primary/20">
                                           <MapPin className="w-4 h-4 text-primary" />
@@ -703,6 +844,8 @@ export function ConsultarOSModal({
                                         size="icon"
                                         variant="ghost"
                                         className="h-8 w-8"
+                                        aria-label={`Editar posição de ${item.produto?.nome || "item"}`}
+                                        title="Editar posição de armazenamento"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           startEditingPosition(item.id, item.posicao_prateleira);
@@ -725,7 +868,7 @@ export function ConsultarOSModal({
                           <>
                             <Separator />
                             <div className="p-4 bg-amber-50 border-t border-amber-200">
-                              <div className="flex items-center justify-between">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                   <p className="text-sm text-amber-700">Valor Pendente</p>
                                   <p className="text-xl font-bold text-amber-800">
@@ -748,7 +891,7 @@ export function ConsultarOSModal({
 
                         {/* Actions */}
                         <Separator />
-                        <div className="p-4 flex gap-2">
+                        <div className="flex flex-wrap gap-2 p-4">
                           <Button
                             variant="outline"
                             size="sm"

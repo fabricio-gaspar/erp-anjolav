@@ -1,6 +1,7 @@
 import type { ROLPreviewConfig } from "../components/configuracoes/ROLPreview.tsx";
 import { escapeHtml, safeHttpsUrl } from "./safePrint.ts";
 import { parseCustomerPaymentTerms, PAYMENT_CONDITION_LABELS, PAYMENT_METHOD_LABELS, BILLING_FREQUENCY_LABELS } from "./customerPaymentTerms.ts";
+import { CLIENT_PRICE_MODE_LABELS, isClientPriceMode } from "./clientPricing.ts";
 
 /** Temporary, narrow extension for OS columns absent from generated database types. */
 export interface RolOrderCommercialSnapshot {
@@ -27,7 +28,7 @@ export interface PrintOSData extends RolCommercialData {
   clienteNome: string;
   clienteTelefone?: string;
   clienteEmail?: string;
-  itens: { nome: string; unidade?: string; quantidade: number; precoUnitario: number; subtotal: number }[];
+  itens: { id?: string; nome: string; unidade?: string; quantidade: number; precoUnitario: number; subtotal: number }[];
   valorTotal: number;
   dataEmissao: Date;
   previsaoEntrega?: Date;
@@ -97,7 +98,7 @@ export function getRolCommercialSummary(data: RolCommercialData) {
     dia_fechamento: typeof snapshot.dia_fechamento === "number" ? snapshot.dia_fechamento : null,
     dia_vencimento: typeof snapshot.dia_vencimento === "number" ? snapshot.dia_vencimento : null,
   });
-  const tableLabel = (value: unknown) => value === "padrao" ? "Padrão" : value === "personalizada" ? "Personalizada" : null;
+  const tableLabel = (value: unknown) => isClientPriceMode(value) ? CLIENT_PRICE_MODE_LABELS[value] : null;
   const snapshotTable = tableLabel(snapshot.tabela_preco_tipo);
   const currentTable = tableLabel(data.tabelaPrecoAtual);
   const table = snapshotTable
@@ -125,7 +126,7 @@ export function getRolCommercialSummary(data: RolCommercialData) {
   return {
     condition: PAYMENT_CONDITION_LABELS[terms.condition],
     table,
-    area: data.origem === "industrial" ? "Industrial" : data.origem === "residencial" || data.origem === "loja" ? "Residencial" : null,
+    area: data.origem === "industrial" ? "Industrial" : data.origem === "residencial" || data.origem === "loja" ? "Doméstico" : null,
     preferredMethod: terms.preferredMethod ? PAYMENT_METHOD_LABELS[terms.preferredMethod] : null,
     frequency,
     closingDay: terms.closingDay,

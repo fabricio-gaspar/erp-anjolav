@@ -195,6 +195,7 @@ export function EtapaEnvio({
         cliente_id: dados.clienteId,
         mensagem,
         evento: "fatura_envio",
+        idempotency_key: `whatsapp:fatura:${faturaId}:fatura_envio`,
       },
     });
     if (error || data?.success !== true) {
@@ -202,14 +203,16 @@ export function EtapaEnvio({
       return false;
     }
 
-    await createEnvio.mutateAsync({
-      fatura_id: faturaId,
-      canal: "whatsapp",
-      destinatario: dados.clienteTelefone || "telefone cadastrado",
-      mensagem,
-      documentos_enviados: [],
-      status: "enviado",
-    });
+    if (data?.idempotent !== true) {
+      await createEnvio.mutateAsync({
+        fatura_id: faturaId,
+        canal: "whatsapp",
+        destinatario: dados.clienteTelefone || "telefone cadastrado",
+        mensagem,
+        documentos_enviados: [],
+        status: "enviado",
+      });
+    }
 
     return true;
   };
@@ -265,7 +268,7 @@ export function EtapaEnvio({
       if (faturaId && canaisEnviados.length > 0) {
         await updateFatura.mutateAsync({
           id: faturaId,
-          status: "enviado",
+          status: "enviada",
           data_envio: new Date().toISOString(),
           canais_envio: canaisEnviados,
           destinatario_envio: destinatarioFinal,

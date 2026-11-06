@@ -12,14 +12,17 @@ export type NavigationGroup =
   | "central-management"
   | "central-admin"
   | "industrial-dashboard"
-  | "industrial-customers"
-  | "industrial-operations"
-  | "industrial-billing"
-  | "industrial-analysis"
+  | "industrial-pdv"
+  | "industrial-orders"
+  | "industrial-logistics"
+  | "industrial-finance"
+  | "industrial-support"
   | "residential-dashboard"
-  | "residential-service"
-  | "residential-operations"
-  | "residential-billing";
+  | "residential-pdv"
+  | "residential-orders"
+  | "residential-logistics"
+  | "residential-finance"
+  | "residential-support";
 
 export interface AppRouteDefinition {
   path: string;
@@ -28,6 +31,7 @@ export interface AppRouteDefinition {
   adminOnly: boolean;
   platformAdminOnly?: boolean;
   label: string;
+  sidebarLabel?: string;
   navigationGroup: NavigationGroup;
 }
 
@@ -37,7 +41,8 @@ export const APP_ROUTES = [
     area: "central",
     requiredModules: ["dashboard"],
     adminOnly: false,
-    label: "Painel Central",
+    label: "Painel Administrativo",
+    sidebarLabel: "Visão geral",
     navigationGroup: "central-dashboard",
   },
   {
@@ -110,7 +115,8 @@ export const APP_ROUTES = [
     area: "industrial",
     requiredModules: ["dashboard"],
     adminOnly: false,
-    label: "Painel Industrial",
+    label: "Visão operacional Industrial",
+    sidebarLabel: "Meu dia",
     navigationGroup: "industrial-dashboard",
   },
   {
@@ -119,7 +125,7 @@ export const APP_ROUTES = [
     requiredModules: ["clientes"],
     adminOnly: false,
     label: "Clientes",
-    navigationGroup: "industrial-customers",
+    navigationGroup: "industrial-support",
   },
   {
     path: "/industrial/produtos",
@@ -127,15 +133,16 @@ export const APP_ROUTES = [
     requiredModules: ["produtos"],
     adminOnly: false,
     label: "Produtos/Serviços",
-    navigationGroup: "industrial-customers",
+    sidebarLabel: "Serviços e preços",
+    navigationGroup: "industrial-support",
   },
   {
     path: "/industrial/fornecedores",
     area: "industrial",
-    requiredModules: ["clientes"],
+    requiredModules: ["produtos"],
     adminOnly: false,
     label: "Fornecedores",
-    navigationGroup: "industrial-customers",
+    navigationGroup: "industrial-support",
   },
   {
     path: "/industrial/agenda",
@@ -143,7 +150,8 @@ export const APP_ROUTES = [
     requiredModules: ["agenda"],
     adminOnly: false,
     label: "Agenda Industrial",
-    navigationGroup: "industrial-operations",
+    sidebarLabel: "Coletas e entregas",
+    navigationGroup: "industrial-logistics",
   },
   {
     path: "/industrial/ordens",
@@ -151,7 +159,8 @@ export const APP_ROUTES = [
     requiredModules: ["ordens"],
     adminOnly: false,
     label: "Ordens de Serviço",
-    navigationGroup: "industrial-operations",
+    sidebarLabel: "Pedidos",
+    navigationGroup: "industrial-orders",
   },
   {
     path: "/industrial/producao",
@@ -159,7 +168,8 @@ export const APP_ROUTES = [
     requiredModules: ["producao"],
     adminOnly: false,
     label: "Produção Industrial",
-    navigationGroup: "industrial-operations",
+    sidebarLabel: "Produção",
+    navigationGroup: "industrial-orders",
   },
   {
     path: "/industrial/caixa",
@@ -167,7 +177,8 @@ export const APP_ROUTES = [
     requiredModules: ["caixa", "faturamento"],
     adminOnly: false,
     label: "PDV Atendimento",
-    navigationGroup: "industrial-operations",
+    sidebarLabel: "PDV / Caixa",
+    navigationGroup: "industrial-pdv",
   },
   {
     path: "/industrial/lancamentos",
@@ -175,7 +186,8 @@ export const APP_ROUTES = [
     requiredModules: ["faturamento"],
     adminOnly: false,
     label: "Fechamento e histórico",
-    navigationGroup: "industrial-billing",
+    sidebarLabel: "Fechamentos",
+    navigationGroup: "industrial-finance",
   },
   {
     path: "/industrial/financeiro",
@@ -183,7 +195,8 @@ export const APP_ROUTES = [
     requiredModules: ["faturamento"],
     adminOnly: false,
     label: "Financeiro Industrial",
-    navigationGroup: "industrial-billing",
+    sidebarLabel: "Financeiro",
+    navigationGroup: "industrial-finance",
   },
   {
     path: "/industrial/estoque",
@@ -191,15 +204,17 @@ export const APP_ROUTES = [
     requiredModules: ["produtos"],
     adminOnly: false,
     label: "Estoque",
-    navigationGroup: "industrial-billing",
+    sidebarLabel: "Estoque e compras",
+    navigationGroup: "industrial-support",
   },
   {
     path: "/industrial/relatorios/clientes",
     area: "industrial",
     requiredModules: ["relatorios"],
     adminOnly: false,
-    label: "Relatório de Clientes",
-    navigationGroup: "industrial-billing",
+    label: "Demonstrativos industriais",
+    sidebarLabel: "Demonstrativos",
+    navigationGroup: "industrial-support",
   },
   {
     path: "/industrial/relatorios/proximidade",
@@ -207,14 +222,16 @@ export const APP_ROUTES = [
     requiredModules: ["relatorios"],
     adminOnly: false,
     label: "Proximidade",
-    navigationGroup: "industrial-billing",
+    sidebarLabel: "Planejamento de rotas",
+    navigationGroup: "industrial-logistics",
   },
   {
     path: "/residencial",
     area: "residencial",
     requiredModules: ["dashboard"],
     adminOnly: false,
-    label: "Painel Residencial",
+    label: "Visão operacional Doméstica",
+    sidebarLabel: "Meu dia",
     navigationGroup: "residential-dashboard",
   },
   {
@@ -223,7 +240,8 @@ export const APP_ROUTES = [
     requiredModules: ["caixa", "faturamento"],
     adminOnly: false,
     label: "PDV Atendimento",
-    navigationGroup: "residential-service",
+    sidebarLabel: "PDV / Caixa",
+    navigationGroup: "residential-pdv",
   },
   {
     path: "/residencial/clientes",
@@ -231,15 +249,16 @@ export const APP_ROUTES = [
     requiredModules: ["clientes"],
     adminOnly: false,
     label: "Clientes",
-    navigationGroup: "residential-service",
+    navigationGroup: "residential-support",
   },
   {
     path: "/residencial/agenda",
     area: "residencial",
     requiredModules: ["agenda"],
     adminOnly: false,
-    label: "Agenda Residencial",
-    navigationGroup: "residential-operations",
+    label: "Agenda Doméstica",
+    sidebarLabel: "Coletas e entregas",
+    navigationGroup: "residential-logistics",
   },
   {
     path: "/residencial/ordens",
@@ -247,15 +266,17 @@ export const APP_ROUTES = [
     requiredModules: ["ordens"],
     adminOnly: false,
     label: "Ordens de Serviço",
-    navigationGroup: "residential-operations",
+    sidebarLabel: "Pedidos",
+    navigationGroup: "residential-orders",
   },
   {
     path: "/residencial/producao",
     area: "residencial",
     requiredModules: ["producao"],
     adminOnly: false,
-    label: "Produção Residencial",
-    navigationGroup: "residential-operations",
+    label: "Produção Doméstica",
+    sidebarLabel: "Produção",
+    navigationGroup: "residential-orders",
   },
   {
     path: "/residencial/lancamentos",
@@ -263,15 +284,17 @@ export const APP_ROUTES = [
     requiredModules: ["faturamento"],
     adminOnly: false,
     label: "Fechamento e histórico",
-    navigationGroup: "residential-billing",
+    sidebarLabel: "Fechamentos",
+    navigationGroup: "residential-finance",
   },
   {
     path: "/residencial/financeiro",
     area: "residencial",
     requiredModules: ["faturamento"],
     adminOnly: false,
-    label: "Financeiro Residencial",
-    navigationGroup: "residential-billing",
+    label: "Financeiro Doméstico",
+    sidebarLabel: "Financeiro",
+    navigationGroup: "residential-finance",
   },
   {
     path: "/residencial/produtos",
@@ -279,7 +302,8 @@ export const APP_ROUTES = [
     requiredModules: ["produtos"],
     adminOnly: false,
     label: "Produtos/Serviços",
-    navigationGroup: "residential-billing",
+    sidebarLabel: "Serviços e preços",
+    navigationGroup: "residential-support",
   },
   {
     path: "/residencial/relatorios/caixa",
@@ -287,7 +311,7 @@ export const APP_ROUTES = [
     requiredModules: ["relatorios"],
     adminOnly: false,
     label: "Relatório de Caixa",
-    navigationGroup: "residential-billing",
+    navigationGroup: "residential-support",
   },
 ] as const satisfies readonly AppRouteDefinition[];
 
@@ -313,15 +337,19 @@ const SIDEBAR_GROUP_DEFINITIONS: Readonly<Record<WorkspaceArea, readonly Sidebar
   ],
   industrial: [
     { id: "industrial-dashboard", label: null },
-    { id: "industrial-customers", label: "Cadastros" },
-    { id: "industrial-operations", label: "Operação" },
-    { id: "industrial-billing", label: "Financeiro e relatórios" },
+    { id: "industrial-pdv", label: "PDV / Caixa" },
+    { id: "industrial-orders", label: "Pedidos e Produção" },
+    { id: "industrial-logistics", label: "Coletas e entregas" },
+    { id: "industrial-finance", label: "Financeiro" },
+    { id: "industrial-support", label: "Apoio" },
   ],
   residencial: [
     { id: "residential-dashboard", label: null },
-    { id: "residential-service", label: "Atendimento" },
-    { id: "residential-operations", label: "Pedidos e Produção" },
-    { id: "residential-billing", label: "Financeiro e relatórios" },
+    { id: "residential-pdv", label: "PDV / Caixa" },
+    { id: "residential-orders", label: "Pedidos e Produção" },
+    { id: "residential-logistics", label: "Coletas e entregas" },
+    { id: "residential-finance", label: "Financeiro" },
+    { id: "residential-support", label: "Apoio" },
   ],
 };
 
@@ -336,7 +364,6 @@ export const LEGACY_ROUTE_REDIRECTS: readonly LegacyRouteRedirect[] = [
   { from: "/configuracoes", to: "/central/configuracoes" },
   { from: "/financeiro", to: "/central/financeiro" },
   { from: "/caixa", to: "/residencial/caixa" },
-  { from: "/pdv", to: "/residencial/caixa" },
   { from: "/lancamentos", to: "/industrial/lancamentos" },
   { from: "/contas", to: "/central/contas" },
   { from: "/clientes", to: "/industrial/clientes" },

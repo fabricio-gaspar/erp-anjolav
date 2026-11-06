@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+import type { FolhaPagamento } from "@/hooks/useFolhaPagamento";
+import type { FolhaBeneficio } from "@/hooks/useFolhaBeneficios";
 
 export type SetorRelatorio = "todos" | "industrial" | "loja";
 
@@ -65,6 +68,7 @@ const CAT_IMPOSTOS = ["impostos", "Impostos"];
 const CAT_FOLHA = ["folha_pagamento", "Salários"];
 
 export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos") {
+  const { activeTenant, user } = useAuth();
   const inicio = startOfMonth(mesRef);
   const fim = endOfMonth(mesRef);
   const inicioStr = format(inicio, "yyyy-MM-dd");
@@ -72,8 +76,9 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
   const competencia = format(inicio, "yyyy-MM-dd");
 
   return useQuery<RelatorioMensalData>({
-    queryKey: ["relatorio-mensal", inicioStr, fimStr, setor],
+    queryKey: ["relatorio-mensal", activeTenant?.id, user?.id, inicioStr, fimStr, setor],
     queryFn: async () => {
+      if (!activeTenant) throw new Error("Empresa ativa não identificada");
       // 1. Faturas pagas no período
       const incluiIndustrial = setor === "todos" || setor === "industrial";
       const incluiLoja = setor === "todos" || setor === "loja";
@@ -81,6 +86,7 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
       const faturasQuery = supabase
         .from("faturas")
         .select("id, valor_total, status, created_at, cliente:clientes!faturas_cliente_id_fkey(razao_social, classificacao)")
+        .eq("tenant_id", activeTenant.id)
         .eq("status", "pago")
         .gte("created_at", inicioStr + "T00:00:00")
         .lte("created_at", fimStr + "T23:59:59");
@@ -95,14 +101,17 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
 
       // 3. Folha do mês
       const folhaQuery = supabase
-        .from("folha_pagamento" as any)
+        .from("folha_pagamento")
         .select("*, funcionario:funcionarios!folha_pagamento_funcionario_id_fkey(nome, cargo, empregador_cnpj, empregador_nome)")
-        .eq("competencia", competencia);
+        .eq("tenant_id", activeTenant.id)
+        .eq("competencia", competencia)
+        .neq("status", "cancelado");
 
       // 4. Contas a pagar do mês (por vencimento)
       const contasQuery = supabase
         .from("contas_pagar")
         .select("*")
+        .eq("tenant_id", activeTenant.id)
         .gte("vencimento", inicioStr)
         .lte("vencimento", fimStr);
 
@@ -119,50 +128,54 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
       if (cr.error) throw cr.error;
 
       // 5. Benefícios extras vinculados às folhas do mês
-      const folhaIds = (flr.data || []).map((f: any) => f.id);
-      let beneficiosExtras: any[] = [];
+      const payrollRows = (flr.data ?? []) as unknown as FolhaPagamento[];
+      const folhaIds = payrollRows.map((payroll) => payroll.id);
+      let beneficiosExtras: FolhaBeneficio[] = [];
       if (folhaIds.length) {
         const { data: bx, error: ebx } = await supabase
-          .from("folha_beneficios" as any)
+          .from("folha_beneficios")
           .select("*")
+          .eq("tenant_id", activeTenant.id)
+          .eq("ativo", true)
           .in("folha_id", folhaIds);
         if (ebx) throw ebx;
-        beneficiosExtras = bx || [];
+        beneficiosExtras = (bx ?? []) as unknown as FolhaBeneficio[];
       }
 
-      const faturasFiltered = (fr.data || []).filter((f: any) => {
+      const faturasFiltered = (fr.data || []).filter((f) => {
         if (!incluiIndustrial) return false;
         if (setor === "industrial") return f.cliente?.classificacao === "industrial";
         return true;
       });
-      const receitasFaturas = faturasFiltered.reduce((s: number, f: any) => s + Number(f.valor_total), 0);
+      const receitasFaturas = faturasFiltered.reduce((sum, invoice) => sum + Number(invoice.valor_total), 0);
 
       const receitasLoja = incluiLoja
-        ? (vr.data || []).reduce((s: number, v: any) => s + Number(v.valor), 0)
+        ? (vr.data || []).reduce((sum, sale) => sum + Number(sale.valor), 0)
         : 0;
       const receitasLojaCount = incluiLoja ? (vr.data || []).length : 0;
 
       const receitasTotais = receitasFaturas + receitasLoja;
 
       // Folha
-      const folhaItens = (flr.data || []).map((f: any) => ({
+      const benefitsByPayroll = new Map<string, number>();
+      beneficiosExtras.forEach((benefit) => {
+        benefitsByPayroll.set(
+          benefit.folha_id,
+          (benefitsByPayroll.get(benefit.folha_id) || 0) + Number(benefit.valor || 0),
+        );
+      });
+      const folhaItens = payrollRows.map((f) => ({
         funcionario: f.funcionario?.nome || "—",
         cargo: f.funcionario?.cargo || "—",
         empregadorCnpj: f.funcionario?.empregador_cnpj || "",
         empregadorNome: f.funcionario?.empregador_nome || "—",
-        salario: Number(f.salario_base || 0) + Number(f.horas_extras || 0) + Number(f.horas_extras_50 || 0) + Number(f.horas_extras_70 || 0) + Number(f.horas_extras_100 || 0) + Number(f.reflexo_dsr || 0) + Number(f.comissoes || 0) + Number(f.gratificacao || 0),
-        beneficios:
-          Number(f.vale_transporte || 0) +
-          Number(f.vale_alimentacao || 0) +
-          Number(f.vale_refeicao || 0) +
-          Number(f.plano_saude || 0) +
-          Number(f.plano_odontologico || 0) +
-          Number(f.outros_beneficios || 0),
+        salario: Number(f.salario_base || 0),
+        beneficios: benefitsByPayroll.get(f.id) || 0,
         descontos: Number(f.total_descontos || 0),
         liquido: Number(f.liquido || 0),
-        custoTotal: Number(f.custo_total_empresa || 0),
+        custoTotal: Number(f.salario_base || 0) + (benefitsByPayroll.get(f.id) || 0),
       }));
-      const despesasFolha = folhaItens.reduce((s, x) => s + x.custoTotal, 0);
+      const despesasFolha = folhaItens.reduce((sum, item) => sum + item.salario, 0);
 
       const folhaPorEmpregadorMap = new Map<string, { cnpj: string; nome: string; total: number; count: number }>();
       folhaItens.forEach((it) => {
@@ -180,31 +193,31 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
         c ? list.some((x) => x.toLowerCase() === c.toLowerCase()) : false;
 
       const despesasProdutos = contas
-        .filter((c: any) => isCat(c.categoria, CAT_PRODUTOS))
-        .reduce((s: number, c: any) => s + Number(c.valor), 0);
+        .filter((account) => isCat(account.categoria, CAT_PRODUTOS))
+        .reduce((sum, account) => sum + Number(account.valor), 0);
 
       const despesasContasMensais = contas
-        .filter((c: any) => isCat(c.categoria, CAT_CONTAS_MENSAIS))
-        .reduce((s: number, c: any) => s + Number(c.valor), 0);
+        .filter((account) => isCat(account.categoria, CAT_CONTAS_MENSAIS))
+        .reduce((sum, account) => sum + Number(account.valor), 0);
 
       const despesasImpostos = contas
-        .filter((c: any) => isCat(c.categoria, CAT_IMPOSTOS))
-        .reduce((s: number, c: any) => s + Number(c.valor), 0);
+        .filter((account) => isCat(account.categoria, CAT_IMPOSTOS))
+        .reduce((sum, account) => sum + Number(account.valor), 0);
 
       // Outros = não folha (folha já está em folha_pagamento) e não nas demais
       const despesasOutras = contas
         .filter(
-          (c: any) =>
-            !isCat(c.categoria, CAT_FOLHA) &&
-            !isCat(c.categoria, CAT_PRODUTOS) &&
-            !isCat(c.categoria, CAT_CONTAS_MENSAIS) &&
-            !isCat(c.categoria, CAT_IMPOSTOS),
+          (account) =>
+            !isCat(account.categoria, CAT_FOLHA) &&
+            !isCat(account.categoria, CAT_PRODUTOS) &&
+            !isCat(account.categoria, CAT_CONTAS_MENSAIS) &&
+            !isCat(account.categoria, CAT_IMPOSTOS),
         )
-        .reduce((s: number, c: any) => s + Number(c.valor), 0);
+        .reduce((sum, account) => sum + Number(account.valor), 0);
 
       // Benefícios extras
-      const folhaMap = new Map((flr.data || []).map((x: any) => [x.id, x]));
-      const beneficiosExtrasItens = beneficiosExtras.map((b: any) => {
+      const folhaMap = new Map(payrollRows.map((payroll) => [payroll.id, payroll]));
+      const beneficiosExtrasItens = beneficiosExtras.map((b) => {
         const fol = folhaMap.get(b.folha_id);
         return {
           id: b.id,
@@ -217,7 +230,7 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
         };
       });
       const despesasBeneficiosExtras = beneficiosExtrasItens.reduce(
-        (s, b) => s + (b.tipo === "beneficio" ? b.valor : 0),
+        (sum, benefit) => sum + benefit.valor,
         0,
       );
       const catMap = new Map<string, { categoria: string; total: number; count: number }>();
@@ -256,17 +269,18 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
         beneficiosExtrasItens,
         beneficiosExtrasPorCategoria,
         contasItens: contas
-          .filter((c: any) => !isCat(c.categoria, CAT_FOLHA))
-          .map((c: any) => ({
-            id: c.id,
-            descricao: c.descricao,
-            fornecedor: c.fornecedor || "—",
-            categoria: c.categoria || "Sem categoria",
-            valor: Number(c.valor),
-            vencimento: c.vencimento,
-            status: c.status,
+          .filter((account) => !isCat(account.categoria, CAT_FOLHA))
+          .map((account) => ({
+            id: account.id,
+            descricao: account.descricao,
+            fornecedor: account.fornecedor || "—",
+            categoria: account.categoria || "Sem categoria",
+            valor: Number(account.valor),
+            vencimento: account.vencimento,
+            status: account.status,
           })),
       };
     },
+    enabled: Boolean(activeTenant && user),
   });
 }

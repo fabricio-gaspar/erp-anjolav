@@ -5,7 +5,7 @@ import {
   getRoutePermissionRequirement,
   hasAnyModulePermission,
   isRouteAccessible,
-  resolveDefaultAccessibleRoute,
+  resolveDefaultAccessiblePath,
   resolveFirstAccessibleRouteInArea,
   resolveLegacyRouteRedirect,
   type ModulePermissionKey,
@@ -20,10 +20,10 @@ import {
 import { useAccessibleWorkspaces } from "@/hooks/useAccessibleWorkspaces";
 
 export const usePermissoesUsuario = () => {
-  const { funcionario } = useAuth();
+  const { activeTenant, funcionario } = useAuth();
 
   return useQuery({
-    queryKey: ["permissoes-usuario", funcionario?.id],
+    queryKey: ["permissoes-usuario", activeTenant?.id, funcionario?.id],
     queryFn: async () => {
       if (!funcionario?.id) return null;
 
@@ -41,16 +41,16 @@ export const usePermissoesUsuario = () => {
       });
       return map;
     },
-    enabled: !!funcionario?.id,
+    enabled: !!activeTenant?.id && !!funcionario?.id,
   });
 };
 
 export const useIsAdmin = () => {
-  const { session } = useAuth();
+  const { activeTenant, session } = useAuth();
   const userId = session?.user.id;
 
   return useQuery({
-    queryKey: ["authorization", "is-admin", userId],
+    queryKey: ["authorization", "is-admin", activeTenant?.id, userId],
     queryFn: async () => {
       if (!userId) return false;
 
@@ -62,7 +62,7 @@ export const useIsAdmin = () => {
       if (error) throw error;
       return data === true;
     },
-    enabled: !!userId,
+    enabled: !!activeTenant?.id && !!userId,
     retry: false,
   });
 };
@@ -169,7 +169,7 @@ export const useNavigationAccess = (): NavigationAccessState => {
 
   const resolveDefaultRoute = (): string | null => {
     if (isLoading || isError) return null;
-    return resolveDefaultAccessibleRoute(access)?.path ?? null;
+    return resolveDefaultAccessiblePath(access);
   };
 
   const resolveWorkspaceRoute = (area: WorkspaceArea): string | null => {

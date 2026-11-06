@@ -19,7 +19,7 @@ import { Download, Printer, DollarSign, CreditCard, Smartphone, Wallet } from "l
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useRelatorioMovimentacoes, useTotaisPeriodo } from "@/hooks/useRelatorioCaixa";
-import { cn } from "@/lib/utils";
+import { CashReportError } from "./CashReportError";
 
 interface RelatorioMovimentacoesProps {
   startDate: Date;
@@ -36,8 +36,11 @@ const chartConfig = {
 };
 
 export const RelatorioMovimentacoes = ({ startDate, endDate }: RelatorioMovimentacoesProps) => {
-  const { data: relatorio = [], isLoading } = useRelatorioMovimentacoes(startDate, endDate);
-  const { data: totais } = useTotaisPeriodo(startDate, endDate);
+  const reportQuery = useRelatorioMovimentacoes(startDate, endDate);
+  const totalsQuery = useTotaisPeriodo(startDate, endDate);
+  const relatorio = reportQuery.data ?? [];
+  const totais = totalsQuery.data;
+  const isLoading = reportQuery.isLoading || totalsQuery.isLoading;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -98,16 +101,19 @@ export const RelatorioMovimentacoes = ({ startDate, endDate }: RelatorioMoviment
       </div>
     );
   }
+  if (reportQuery.isError || totalsQuery.isError) {
+    return <CashReportError onRetry={() => void Promise.all([reportQuery.refetch(), totalsQuery.refetch()])} />;
+  }
 
   return (
     <div className="space-y-6">
       {/* Actions */}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={handleExportCSV}>
+      <div className="flex flex-col justify-end gap-2 sm:flex-row">
+        <Button variant="outline" className="min-h-11" onClick={handleExportCSV}>
           <Download className="w-4 h-4 mr-2" />
           Exportar CSV
         </Button>
-        <Button variant="outline" size="sm" onClick={handlePrint}>
+        <Button variant="outline" className="min-h-11" onClick={handlePrint}>
           <Printer className="w-4 h-4 mr-2" />
           Imprimir
         </Button>

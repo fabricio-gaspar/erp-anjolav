@@ -170,7 +170,7 @@ export function RotasDoDiaDrawer({
                                 className={cn(
                                   "text-xs",
                                   parada.status === "realizada" && "bg-success/10 text-success border-success/30",
-                                  parada.status === "nao_entregue" && "bg-destructive/10 text-destructive border-destructive/30"
+                                  ["tentativa_falha", "reagendada"].includes(parada.status) && "bg-destructive/10 text-destructive border-destructive/30"
                                 )}
                               >
                                 {index + 1}. {parada.tipo === "retirada" ? "R" : "E"}

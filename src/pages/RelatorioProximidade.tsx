@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useClientes, useEnderecoCliente } from "@/hooks/useClientes";
+import { useClientes } from "@/hooks/useClientes";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { useAuth } from "@/contexts/AuthContext";
 import { calcularDistanciaKm } from "@/services/apiServices";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -55,17 +57,24 @@ const RelatorioProximidade = () => {
 
   const { clientes, isLoading: loadingClientes } = useClientes();
   const { configuracao, isLoading: loadingConfig } = useConfiguracoesGerais();
+  const { activeTenant, session } = useAuth();
 
   // Buscar todos os endereços de clientes
   const { data: enderecos, isLoading: loadingEnderecos } = useQuery({
-    queryKey: ["enderecos_clientes_todos"],
+    queryKey: ["enderecos_clientes_todos", session?.user.id, activeTenant?.id],
     queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) return [];
       const { data, error } = await supabase
         .from("enderecos_clientes")
-        .select("*");
+        .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
+        .eq("ativo", true)
+        .order("principal", { ascending: false })
+        .order("updated_at", { ascending: false });
       if (error) throw error;
       return data;
     },
+    enabled: Boolean(session?.user.id && activeTenant?.id),
   });
 
   const empresaLat = configuracao?.endereco_latitude;
@@ -200,27 +209,17 @@ const RelatorioProximidade = () => {
 
   return (
     <AppLayout title="Relatório de Proximidade" subtitle="Logística otimizada por geolocalização">
-      <div className="w-full space-y-8">
-        {/* Visual Content Header mirroring high-fidelity layout */}
-        <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">OTIMIZAÇÃO DE ROTAS</span>
-          </div>
-          <h1 className="page-title">
-            Proximidade
-          </h1>
-          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
-            Análise de densidade geográfica para eficiência logística
-          </p>
-        </div>
-
-        <div className="flex justify-end">
-          <Button onClick={exportarCSV} variant="outline" className="gap-2 border-slate-200 text-slate-700 bg-slate-50/50 hover:bg-slate-100 h-10">
-            <Download className="w-4 h-4" />
-            Exportar CSV
-          </Button>
-        </div>
+      <div className="page-shell">
+        <PageHeader
+          eyebrow="Otimização de rotas"
+          title="Proximidade"
+          description="Análise de densidade geográfica para eficiência logística"
+          actions={(
+            <Button onClick={exportarCSV} variant="outline" className="w-full gap-2 sm:w-auto">
+              <Download className="h-4 w-4" />Exportar CSV
+            </Button>
+          )}
+        />
 
         {/* Endereço da Empresa */}
         {configuracao?.endereco_logradouro && (

@@ -1,14 +1,35 @@
-import { useState, useMemo } from "react";
+import { useCallback, useDeferredValue, useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Plus, Loader2, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Loader2, Package, Plus, RotateCcw } from "lucide-react";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
+import { useProductDirectory } from "@/hooks/useProductDirectory";
 import { toast } from "sonner";
-import { ProdutoFilters } from "@/components/produtos/ProdutoFilters";
+import { CATEGORIAS, ProdutoFilters } from "@/components/produtos/ProdutoFilters";
 import { ProdutoCard } from "@/components/produtos/ProdutoCard";
 import { ProdutoForm, ProdutoFormData } from "@/components/produtos/ProdutoForm";
 import { ProdutoStats } from "@/components/produtos/ProdutoStats";
 import { useSearchParams } from "react-router-dom";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { getAllowedProductUnits } from "@/lib/workspaceScope";
+import {
+  buildProductDirectoryCsv,
+  normalizeProductDirectoryLetter,
+  normalizeProductDirectoryPage,
+  PRODUCT_DIRECTORY_PAGE_SIZE,
+  type ProductDirectoryStatus,
+} from "@/lib/productDirectory";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const defaultFormData: ProdutoFormData = {
   codigo: "",
@@ -31,20 +52,64 @@ const defaultFormData: ProdutoFormData = {
 };
 
 const Produtos = () => {
-  const [searchParams] = useSearchParams();
-  const { produtos, isLoading, createProduto, updateProduto, deleteProduto } = useProdutos();
-  
-  // Filters state
-  const [selectedLetter, setSelectedLetter] = useState("TODOS");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategoria, setSelectedCategoria] = useState("todas");
-  const [selectedUnidadeNegocio, setSelectedUnidadeNegocio] = useState("todas");
-  const [selectedStatus, setSelectedStatus] = useState("todos");
-  
-  // Form state
-  const [showForm, setShowForm] = useState(searchParams.get("novo") === "1");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { activeArea } = useWorkspace();
+  const { createProduto, updateProduto, setProdutoStatus } = useProdutos({ enabled: false });
+  const availableBusinessUnits = getAllowedProductUnits(activeArea);
+  const searchTerm = searchParams.get("q") ?? "";
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const page = normalizeProductDirectoryPage(searchParams.get("pagina"));
+  const selectedLetter = normalizeProductDirectoryLetter(searchParams.get("letra"));
+  const requestedCategory = searchParams.get("categoria");
+  const selectedCategoria = CATEGORIAS.some(category => category.value === requestedCategory)
+    ? requestedCategory as string
+    : "all";
+  const requestedBusinessUnit = searchParams.get("unidade");
+  const validBusinessUnits = ["ID1", "ID2", "ambos"];
+  const selectedUnidadeNegocio = requestedBusinessUnit && validBusinessUnits.includes(requestedBusinessUnit) &&
+    (availableBusinessUnits === null || availableBusinessUnits.includes(requestedBusinessUnit))
+    ? requestedBusinessUnit
+    : "all";
+  const requestedStatus = searchParams.get("situacao");
+  const selectedStatus: ProductDirectoryStatus = requestedStatus === "active" || requestedStatus === "inactive"
+    ? requestedStatus
+    : "all";
+  const {
+    data: directory,
+    isLoading,
+    isFetching,
+    error: productsError,
+    refetch,
+  } = useProductDirectory({
+    page,
+    pageSize: PRODUCT_DIRECTORY_PAGE_SIZE,
+    search: deferredSearchTerm,
+    letter: selectedLetter,
+    category: selectedCategoria,
+    businessUnit: selectedUnidadeNegocio,
+    status: selectedStatus,
+  });
+  const produtos = directory?.produtos ?? [];
+  const totalProdutos = directory?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalProdutos / PRODUCT_DIRECTORY_PAGE_SIZE));
+  const firstVisible = totalProdutos === 0 ? 0 : (page - 1) * PRODUCT_DIRECTORY_PAGE_SIZE + 1;
+  const lastVisible = Math.min(page * PRODUCT_DIRECTORY_PAGE_SIZE, totalProdutos);
+
+  const [showForm, setShowForm] = useState(false);
   const [editingProduto, setEditingProduto] = useState<Produto | null>(null);
   const [formData, setFormData] = useState<ProdutoFormData>(defaultFormData);
+  const [produtoToArchive, setProdutoToArchive] = useState<Produto | null>(null);
+
+  useEffect(() => {
+    const openNewProduct = searchParams.get("novo") === "1";
+    if (!openNewProduct) return;
+    setEditingProduto(null);
+    setFormData(defaultFormData);
+    setShowForm(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("novo");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const resetForm = () => {
     setFormData(defaultFormData);
@@ -141,10 +206,16 @@ const Produtos = () => {
     toast.info("Produto duplicado! Ajuste os dados e salve.");
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Deseja realmente excluir este produto?")) {
-      deleteProduto.mutate(id);
-    }
+  const handleArchive = () => {
+    if (!produtoToArchive) return;
+    setProdutoStatus.mutate(
+      { id: produtoToArchive.id, status: "inativo" },
+      { onSuccess: () => setProdutoToArchive(null) },
+    );
+  };
+
+  const handleReactivate = (produto: Produto) => {
+    setProdutoStatus.mutate({ id: produto.id, status: "ativo" });
   };
 
   const handleExportCSV = () => {
@@ -168,155 +239,256 @@ const Produtos = () => {
       p.temperatura_maxima || "",
     ]);
 
-    const csv = [headers.join(";"), ...rows.map(r => r.join(";"))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const csv = buildProductDirectoryCsv(headers, rows);
+    const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `produtos_${new Date().toISOString().split("T")[0]}.csv`;
+    const objectUrl = URL.createObjectURL(blob);
+    link.href = objectUrl;
+    link.download = `produtos_pagina_${page}_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
-    toast.success("Exportação realizada com sucesso!");
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+    toast.success("Página exportada com sucesso!");
   };
 
-  // Filtered products
-  const filteredProdutos = useMemo(() => {
-    return (produtos || []).filter((produto) => {
-      // Letter filter
-      if (selectedLetter !== "TODOS") {
-        if (!produto.nome.toUpperCase().startsWith(selectedLetter)) return false;
-      }
+  const updateDirectoryParams = useCallback((updates: {
+    query?: string;
+    letter?: string;
+    category?: string;
+    businessUnit?: string;
+    status?: ProductDirectoryStatus;
+    page?: number;
+  }) => {
+    const next = new URLSearchParams(searchParams);
+    if (updates.query !== undefined) {
+      if (updates.query.trim()) next.set("q", updates.query);
+      else next.delete("q");
+    }
+    if (updates.letter !== undefined) {
+      if (updates.letter === "TODOS") next.delete("letra");
+      else next.set("letra", updates.letter);
+    }
+    if (updates.category !== undefined) {
+      if (updates.category === "all") next.delete("categoria");
+      else next.set("categoria", updates.category);
+    }
+    if (updates.businessUnit !== undefined) {
+      if (updates.businessUnit === "all") next.delete("unidade");
+      else next.set("unidade", updates.businessUnit);
+    }
+    if (updates.status !== undefined) {
+      if (updates.status === "all") next.delete("situacao");
+      else next.set("situacao", updates.status);
+    }
+    if (updates.page !== undefined) {
+      if (updates.page > 1) next.set("pagina", String(updates.page));
+      else next.delete("pagina");
+    }
+    if (
+      updates.query !== undefined || updates.letter !== undefined || updates.category !== undefined ||
+      updates.businessUnit !== undefined || updates.status !== undefined
+    ) next.delete("pagina");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-      // Search filter
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const matchName = produto.nome.toLowerCase().includes(term);
-        const matchCode = produto.codigo?.toLowerCase().includes(term);
-        if (!matchName && !matchCode) return false;
-      }
+  const hasFilters = Boolean(
+    searchTerm || selectedLetter !== "TODOS" || selectedCategoria !== "all" ||
+    selectedUnidadeNegocio !== "all" || selectedStatus !== "all",
+  );
+  const clearFilters = () => updateDirectoryParams({
+    query: "",
+    letter: "TODOS",
+    category: "all",
+    businessUnit: "all",
+    status: "all",
+  });
 
-      // Category filter
-      if (selectedCategoria !== "todas" && produto.categoria !== selectedCategoria) {
-        return false;
-      }
+  useEffect(() => {
+    if (isLoading || totalProdutos === 0 || page <= totalPages) return;
+    updateDirectoryParams({ page: totalPages });
+  }, [isLoading, page, totalPages, totalProdutos, updateDirectoryParams]);
 
-      // Business unit filter
-      if (selectedUnidadeNegocio !== "todas" && produto.unidade_negocio !== selectedUnidadeNegocio) {
-        return false;
-      }
-
-      // Status filter
-      if (selectedStatus !== "todos" && produto.status !== selectedStatus) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [produtos, selectedLetter, searchTerm, selectedCategoria, selectedUnidadeNegocio, selectedStatus]);
-
-  const isSaving = createProduto.isPending || updateProduto.isPending;
+  const isSaving = createProduto.isPending || updateProduto.isPending || setProdutoStatus.isPending;
+  const areaLabel = activeArea === "residencial" ? "Doméstico" : activeArea === "industrial" ? "Industrial" : "Central";
 
   return (
     <AppLayout title="Produtos & Serviços" subtitle="Cadastro de produtos e serviços de lavanderia">
-      <div className="w-full space-y-8">
-        {/* Visual Content Header mirroring high-fidelity layout */}
-        <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.6)] animate-pulse" />
-            <span className="text-[11px] font-black uppercase tracking-[0.25em] text-slate-500/90">CATÁLOGO TÉCNICO</span>
-          </div>
-          <h1 className="page-title">
-            Produtos & Serviços
-          </h1>
-          <p className="text-[14px] text-slate-400 font-bold uppercase tracking-wider">
-            Definições técnicas e precificação da lavanderia
-          </p>
-        </div>
-
-        <div className="space-y-3">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 -mt-1">
-          <Button variant="outline" size="sm" onClick={handleExportCSV} className="w-full sm:w-auto">
-            <Download className="w-4 h-4 mr-1" />
-            <span className="sm:hidden">Exportar</span>
-            <span className="hidden sm:inline">Exportar CSV</span>
-          </Button>
-          <Button
-            size="sm"
-            className="w-full sm:w-auto"
-            onClick={() => {
-              if (showForm) {
-                resetForm();
-              } else {
-                setShowForm(true);
-              }
-            }}
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Novo Produto
-          </Button>
-        </div>
-
-        {/* Stats */}
-        <ProdutoStats produtos={produtos} />
-
-        {/* Content Panel */}
-        <div className="content-panel">
-        {/* Form */}
-        {showForm && (
-          <div className="bg-card border rounded-lg p-4">
-            <h3 className="font-medium text-foreground mb-2">
-              {editingProduto ? "Editar Produto" : "Novo Produto"}
-            </h3>
-            <ProdutoForm
-              formData={formData}
-              onChange={handleFormChange}
-              onSubmit={handleSubmit}
-              onCancel={resetForm}
-              isEditing={!!editingProduto}
-              isSaving={isSaving}
-            />
-          </div>
-        )}
-
-        {/* Filters */}
-        <ProdutoFilters
-          selectedLetter={selectedLetter}
-          onLetterChange={setSelectedLetter}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          selectedCategoria={selectedCategoria}
-          onCategoriaChange={setSelectedCategoria}
-          selectedUnidadeNegocio={selectedUnidadeNegocio}
-          onUnidadeNegocioChange={setSelectedUnidadeNegocio}
-          selectedStatus={selectedStatus}
-          onStatusChange={setSelectedStatus}
+      <div className="page-shell">
+        <PageHeader
+          eyebrow={`OPERAÇÃO ${areaLabel.toLocaleUpperCase("pt-BR")} · CATÁLOGO TÉCNICO`}
+          title="Produtos & Serviços"
+          description={`Definições técnicas e precificação da operação ${areaLabel.toLocaleLowerCase("pt-BR")}`}
+          actions={(
+            <>
+              <Button
+                variant="outline"
+                onClick={handleExportCSV}
+                disabled={produtos.length === 0}
+                className="w-full gap-2 sm:w-auto"
+              >
+                <Download className="h-4 w-4" />Exportar página
+              </Button>
+              <Button
+                className="w-full gap-2 font-bold sm:w-auto"
+                onClick={() => {
+                  if (showForm) resetForm();
+                  else setShowForm(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />Novo Produto
+              </Button>
+            </>
+          )}
         />
 
-        {/* Products Grid */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-            <span className="ml-2 text-muted-foreground">Carregando produtos...</span>
-          </div>
-        ) : filteredProdutos.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            Nenhum produto encontrado
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2">
-            {filteredProdutos.map((produto) => (
-              <ProdutoCard
-                key={produto.id}
-                produto={produto}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onDuplicate={handleDuplicate}
+        <div className="space-y-3">
+          <ProdutoStats produtos={produtos} total={totalProdutos} />
+
+          <div className="content-panel space-y-5">
+            {showForm && (
+              <section className="rounded-xl border bg-muted/10 p-4" aria-label={editingProduto ? "Editar produto" : "Novo produto"}>
+                <h2 className="mb-3 font-semibold text-foreground">
+                  {editingProduto ? "Editar produto" : "Novo produto"}
+                </h2>
+                <ProdutoForm
+                  formData={formData}
+                  onChange={handleFormChange}
+                  onSubmit={handleSubmit}
+                  onCancel={resetForm}
+                  isEditing={!!editingProduto}
+                  isSaving={isSaving}
+                />
+              </section>
+            )}
+
+            <div className="space-y-3">
+              <ProdutoFilters
+                selectedLetter={selectedLetter}
+                onLetterChange={letter => updateDirectoryParams({ letter })}
+                searchTerm={searchTerm}
+                onSearchChange={query => updateDirectoryParams({ query })}
+                selectedCategoria={selectedCategoria}
+                onCategoriaChange={category => updateDirectoryParams({ category })}
+                selectedUnidadeNegocio={selectedUnidadeNegocio}
+                onUnidadeNegocioChange={businessUnit => updateDirectoryParams({ businessUnit })}
+                selectedStatus={selectedStatus}
+                onStatusChange={status => updateDirectoryParams({ status: status as ProductDirectoryStatus })}
+                availableBusinessUnits={availableBusinessUnits}
               />
-            ))}
+              <div className="flex min-h-9 flex-wrap items-center justify-between gap-2 border-t pt-3">
+                <p className="text-xs text-muted-foreground">
+                  A consulta considera somente produtos autorizados para esta empresa e operação.
+                </p>
+                {hasFilters && (
+                  <Button variant="ghost" size="sm" className="gap-2" onClick={clearFilters}>
+                    <RotateCcw className="h-4 w-4" /> Limpar filtros
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {isFetching && !isLoading && (
+              <p className="text-xs text-muted-foreground" role="status" aria-live="polite">Atualizando o catálogo…</p>
+            )}
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">Carregando produtos...</span>
+              </div>
+            ) : productsError ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-destructive" role="alert">
+                <p>Não foi possível carregar os produtos.</p>
+                <Button variant="outline" onClick={() => void refetch()}>Tentar novamente</Button>
+              </div>
+            ) : produtos.length === 0 ? (
+              <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+                  <Package className="h-7 w-7 text-primary/70" />
+                </div>
+                <p className="font-semibold text-foreground">
+                  {hasFilters ? "Nenhum produto encontrado" : "Nenhum produto cadastrado"}
+                </p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  {hasFilters
+                    ? "Revise a busca ou limpe os filtros para consultar todo o catálogo desta operação."
+                    : "Cadastre o primeiro produto ou serviço para montar o catálogo desta operação."}
+                </p>
+                <Button
+                  variant="link"
+                  className="mt-1 px-0 font-semibold"
+                  onClick={hasFilters ? clearFilters : () => setShowForm(true)}
+                >
+                  {hasFilters ? "Limpar filtros" : "Cadastrar primeiro produto"}
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                {produtos.map(produto => (
+                  <ProdutoCard
+                    key={produto.id}
+                    produto={produto}
+                    onEdit={handleEdit}
+                    onArchive={setProdutoToArchive}
+                    onReactivate={handleReactivate}
+                    onDuplicate={handleDuplicate}
+                  />
+                ))}
+              </div>
+            )}
+
+            {!isLoading && !productsError && totalProdutos > 0 && (
+              <nav className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Paginação de produtos">
+                <p className="text-sm text-muted-foreground" aria-live="polite">
+                  Exibindo <span className="font-semibold text-foreground">{firstVisible}–{lastVisible}</span> de {totalProdutos} produtos
+                </p>
+                <div className="flex items-center justify-between gap-2 sm:justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateDirectoryParams({ page: page - 1 })}
+                    disabled={page <= 1 || isFetching}
+                    aria-label="Página anterior de produtos"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </Button>
+                  <span className="min-w-24 text-center text-sm tabular-nums text-muted-foreground">
+                    Página {page} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateDirectoryParams({ page: page + 1 })}
+                    disabled={page >= totalPages || isFetching}
+                    aria-label="Próxima página de produtos"
+                  >
+                    <span className="hidden sm:inline">Próxima</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </nav>
+            )}
           </div>
-        )}
         </div>
       </div>
-    </div>
+
+      <AlertDialog open={Boolean(produtoToArchive)} onOpenChange={open => !open && setProdutoToArchive(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arquivar produto</AlertDialogTitle>
+            <AlertDialogDescription>
+              O produto deixará de aparecer entre os ativos, mas ordens, lançamentos, preços e demais históricos serão preservados. Ele poderá ser reativado depois.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive} disabled={setProdutoStatus.isPending}>
+              Arquivar produto
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };

@@ -16,15 +16,20 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, Tag } from "lucide-react";
-import { useCategoriasFinanceiras, CategoriaFinanceira } from "@/hooks/useCategoriasFinanceiras";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Pencil, Archive, RotateCcw, Loader2, Tag } from "lucide-react";
+import { useCategoriasFinanceiras, type CategoriaFinanceira } from "@/hooks/useCategoriasFinanceiras";
 
 const cores = ["slate", "red", "orange", "amber", "yellow", "lime", "green", "emerald", "teal", "cyan", "blue", "indigo", "violet", "purple", "pink", "rose"];
 
 export function ConfiguracoesCategorias() {
   const [tipo, setTipo] = useState<"receita" | "despesa">("despesa");
-  const { categorias, isLoading, createCategoria, updateCategoria, deleteCategoria } = useCategoriasFinanceiras(tipo);
+  const { categorias, isLoading, createCategoria, updateCategoria, setCategoriaAtiva } = useCategoriasFinanceiras(tipo);
   const [editing, setEditing] = useState<CategoriaFinanceira | null>(null);
+  const [statusTarget, setStatusTarget] = useState<CategoriaFinanceira | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ nome: "", cor: "slate", ordem: 100, ativo: true });
 
@@ -41,60 +46,124 @@ export function ConfiguracoesCategorias() {
 
   const handleSave = async () => {
     if (!form.nome.trim()) return;
-    if (editing) {
-      await updateCategoria.mutateAsync({ id: editing.id, ...form });
-    } else {
-      await createCategoria.mutateAsync({ ...form, tipo });
+    try {
+      if (editing) {
+        await updateCategoria.mutateAsync({ id: editing.id, ...form });
+      } else {
+        await createCategoria.mutateAsync({ ...form, tipo });
+      }
+      setOpen(false);
+    } catch {
+      // The mutation presents the actionable error and keeps the form open.
     }
-    setOpen(false);
   };
 
+  const handleStatusChange = async () => {
+    if (!statusTarget) return;
+    try {
+      await setCategoriaAtiva.mutateAsync({ id: statusTarget.id, ativo: !statusTarget.ativo });
+      setStatusTarget(null);
+    } catch {
+      // The mutation presents the actionable error and keeps the confirmation open.
+    }
+  };
+
+  const actions = (category: CategoriaFinanceira) => (
+    <div className="flex items-center justify-end gap-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9"
+        onClick={() => openEdit(category)}
+        aria-label={`Editar categoria ${category.nome}`}
+      >
+        <Pencil className="h-4 w-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9"
+        onClick={() => setStatusTarget(category)}
+        aria-label={`${category.ativo ? "Arquivar" : "Reativar"} categoria ${category.nome}`}
+      >
+        {category.ativo
+          ? <Archive className="h-4 w-4 text-amber-600" />
+          : <RotateCcw className="h-4 w-4 text-emerald-600" />}
+      </Button>
+    </div>
+  );
+
   return (
-    <Card className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
+    <Card className="overflow-hidden rounded-2xl border-border/70">
+      <div className="flex flex-col gap-3 border-b bg-muted/20 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <Tag className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold text-lg">Categorias Financeiras</h3>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <Tag className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black">Categorias Financeiras</h3>
+            <p className="text-xs text-muted-foreground">Organize receitas e despesas sem apagar vínculos históricos.</p>
+          </div>
         </div>
-        <Button size="sm" onClick={openNew}><Plus className="w-4 h-4 mr-1" />Nova</Button>
+        <Button size="sm" className="w-full sm:w-auto" onClick={openNew}><Plus className="mr-1 h-4 w-4" />Nova categoria</Button>
       </div>
 
-      <Tabs value={tipo} onValueChange={(v) => setTipo(v as any)}>
-        <TabsList>
+      <Tabs value={tipo} onValueChange={(value) => setTipo(value as "receita" | "despesa")} className="p-4 sm:p-5">
+        <TabsList className="grid w-full grid-cols-2 sm:w-80">
           <TabsTrigger value="despesa">Despesas</TabsTrigger>
           <TabsTrigger value="receita">Receitas</TabsTrigger>
         </TabsList>
         <TabsContent value={tipo} className="mt-4">
           {isLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Cor</TableHead>
-                  <TableHead>Ordem</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="hidden overflow-x-auto rounded-xl border md:block">
+                <Table className="min-w-[680px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Cor</TableHead>
+                      <TableHead>Ordem</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {categorias.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="py-10 text-center text-muted-foreground">Nenhuma categoria cadastrada</TableCell></TableRow>
+                    ) : categorias.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell className="font-bold">{category.nome}</TableCell>
+                        <TableCell><Badge variant="outline">{category.cor || "slate"}</Badge></TableCell>
+                        <TableCell>{category.ordem}</TableCell>
+                        <TableCell>{category.ativo ? <Badge>Ativa</Badge> : <Badge variant="secondary">Arquivada</Badge>}</TableCell>
+                        <TableCell>{actions(category)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="space-y-3 md:hidden">
                 {categorias.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhuma categoria</TableCell></TableRow>
-                ) : categorias.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.nome}</TableCell>
-                    <TableCell><Badge variant="outline">{c.cor}</Badge></TableCell>
-                    <TableCell>{c.ordem}</TableCell>
-                    <TableCell>{c.ativo ? <Badge>Ativo</Badge> : <Badge variant="secondary">Inativo</Badge>}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Excluir "${c.nome}"?`)) deleteCategoria.mutate(c.id); }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                    </TableCell>
-                  </TableRow>
+                  <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Nenhuma categoria cadastrada</div>
+                ) : categorias.map((category) => (
+                  <article key={category.id} className="rounded-xl border bg-background p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-black">{category.nome}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Badge variant="outline">{category.cor || "slate"}</Badge>
+                          <Badge variant="outline">Ordem {category.ordem}</Badge>
+                          {category.ativo ? <Badge>Ativa</Badge> : <Badge variant="secondary">Arquivada</Badge>}
+                        </div>
+                      </div>
+                      {actions(category)}
+                    </div>
+                  </article>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </TabsContent>
       </Tabs>
@@ -103,15 +172,15 @@ export function ConfiguracoesCategorias() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Editar" : "Nova"} Categoria ({tipo})</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="space-y-1"><Label>Nome *</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
+            <div className="space-y-1"><Label htmlFor="financial-category-name">Nome *</Label><Input id="financial-category-name" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Cor</Label>
+              <div className="space-y-1"><Label htmlFor="financial-category-color">Cor</Label>
                 <Select value={form.cor} onValueChange={(v) => setForm({ ...form, cor: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="financial-category-color"><SelectValue /></SelectTrigger>
                   <SelectContent>{cores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1"><Label>Ordem</Label><Input type="number" value={form.ordem} onChange={(e) => setForm({ ...form, ordem: Number(e.target.value) })} /></div>
+              <div className="space-y-1"><Label htmlFor="financial-category-order">Ordem</Label><Input id="financial-category-order" type="number" value={form.ordem} onChange={(e) => setForm({ ...form, ordem: Number(e.target.value) })} /></div>
             </div>
           </div>
           <DialogFooter>
@@ -120,6 +189,31 @@ export function ConfiguracoesCategorias() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(statusTarget)} onOpenChange={(nextOpen) => { if (!nextOpen) setStatusTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{statusTarget?.ativo ? "Arquivar categoria?" : "Reativar categoria?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {statusTarget?.ativo
+                ? `“${statusTarget?.nome}” deixará de aparecer em novos lançamentos, mas continuará vinculada ao histórico.`
+                : `“${statusTarget?.nome}” voltará a ficar disponível para novos lançamentos.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void handleStatusChange();
+              }}
+              disabled={setCategoriaAtiva.isPending}
+            >
+              {statusTarget?.ativo ? "Arquivar" : "Reativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

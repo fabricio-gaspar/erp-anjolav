@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfDay, endOfDay, parseISO } from "date-fns";
+import { format } from "date-fns";
 
 export interface RelatorioDiario {
   data: string;
@@ -40,13 +41,16 @@ export interface MovimentacaoAgrupada {
 
 // Hook para relatório de movimentações do caixa
 export const useRelatorioMovimentacoes = (startDate: Date, endDate: Date) => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["relatorio-movimentacoes", startDate.toISOString(), endDate.toISOString()],
+    queryKey: ["relatorio-movimentacoes", activeTenant?.id, session?.user.id, startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) return [] as RelatorioDiario[];
       // Buscar todos os caixas fechados no período
       const { data: caixas, error: caixasError } = await supabase
         .from("caixas")
         .select("id, data_fechamento")
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("status", "FECHADO")
         .gte("data_fechamento", startDate.toISOString())
         .lte("data_fechamento", endDate.toISOString());
@@ -63,6 +67,7 @@ export const useRelatorioMovimentacoes = (startDate: Date, endDate: Date) => {
       const { data: movimentacoes, error: movError } = await supabase
         .from("caixa_movimentacoes")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .in("caixa_id", caixaIds)
         .order("created_at", { ascending: true });
 
@@ -125,14 +130,17 @@ export const useRelatorioMovimentacoes = (startDate: Date, endDate: Date) => {
 
       return Array.from(porDia.values()).sort((a, b) => a.data.localeCompare(b.data));
     },
+    enabled: Boolean(activeTenant?.id && session?.user.id),
   });
 };
 
 // Hook para relatório de peças (entrada e saída)
 export const useRelatorioPecas = (startDate: Date, endDate: Date) => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["relatorio-pecas", startDate.toISOString(), endDate.toISOString()],
+    queryKey: ["relatorio-pecas", activeTenant?.id, session?.user.id, startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) return [] as RelatorioPecas[];
       // Buscar OS que ENTRARAM no período (data_retirada = data que cliente trouxe)
       const { data: osEntrada, error: entradaError } = await supabase
         .from("ordens_servico")
@@ -141,6 +149,7 @@ export const useRelatorioPecas = (startDate: Date, endDate: Date) => {
           data_retirada,
           itens_ordem_servico (quantidade)
         `)
+        .filter("tenant_id", "eq", activeTenant.id)
         .gte("data_retirada", format(startDate, "yyyy-MM-dd"))
         .lte("data_retirada", format(endDate, "yyyy-MM-dd"));
 
@@ -154,6 +163,7 @@ export const useRelatorioPecas = (startDate: Date, endDate: Date) => {
           data_entrega,
           itens_ordem_servico (quantidade)
         `)
+        .filter("tenant_id", "eq", activeTenant.id)
         .not("data_entrega", "is", null)
         .gte("data_entrega", format(startDate, "yyyy-MM-dd"))
         .lte("data_entrega", format(endDate, "yyyy-MM-dd"));
@@ -212,17 +222,21 @@ export const useRelatorioPecas = (startDate: Date, endDate: Date) => {
 
       return resultado.sort((a, b) => a.data.localeCompare(b.data));
     },
+    enabled: Boolean(activeTenant?.id && session?.user.id),
   });
 };
 
 // Hook para relatório por operador
 export const useRelatorioOperadores = (startDate: Date, endDate: Date) => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["relatorio-operadores", startDate.toISOString(), endDate.toISOString()],
+    queryKey: ["relatorio-operadores", activeTenant?.id, session?.user.id, startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) return [] as RelatorioOperador[];
       const { data: caixas, error } = await supabase
         .from("caixas")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("status", "FECHADO")
         .gte("data_fechamento", startDate.toISOString())
         .lte("data_fechamento", endDate.toISOString());
@@ -259,17 +273,21 @@ export const useRelatorioOperadores = (startDate: Date, endDate: Date) => {
 
       return resultado.sort((a, b) => b.total_vendas - a.total_vendas);
     },
+    enabled: Boolean(activeTenant?.id && session?.user.id),
   });
 };
 
 // Hook para análise de diferenças
 export const useRelatorioDiferencas = (startDate: Date, endDate: Date) => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["relatorio-diferencas", startDate.toISOString(), endDate.toISOString()],
+    queryKey: ["relatorio-diferencas", activeTenant?.id, session?.user.id, startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) return [];
       const { data: caixas, error } = await supabase
         .from("caixas")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("status", "FECHADO")
         .gte("data_fechamento", startDate.toISOString())
         .lte("data_fechamento", endDate.toISOString())
@@ -287,18 +305,31 @@ export const useRelatorioDiferencas = (startDate: Date, endDate: Date) => {
         valor_vendas: Number(caixa.valor_vendas) || 0,
       }));
     },
+    enabled: Boolean(activeTenant?.id && session?.user.id),
   });
 };
 
 // Hook para totais gerais do período
 export const useTotaisPeriodo = (startDate: Date, endDate: Date) => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["totais-periodo", startDate.toISOString(), endDate.toISOString()],
+    queryKey: ["totais-periodo", activeTenant?.id, session?.user.id, startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) {
+        return {
+          totalVendas: 0,
+          totalSangrias: 0,
+          totalReforcos: 0,
+          totalDiferencas: 0,
+          qtdCaixas: 0,
+          porFormaPagamento: { dinheiro: 0, pix: 0, cartao_credito: 0, cartao_debito: 0 },
+        };
+      }
       // Buscar caixas fechados
       const { data: caixas, error: caixasError } = await supabase
         .from("caixas")
         .select("id, valor_vendas, valor_sangrias, valor_reforcos, diferenca")
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("status", "FECHADO")
         .gte("data_fechamento", startDate.toISOString())
         .lte("data_fechamento", endDate.toISOString());
@@ -327,6 +358,7 @@ export const useTotaisPeriodo = (startDate: Date, endDate: Date) => {
       const { data: movimentacoes, error: movError } = await supabase
         .from("caixa_movimentacoes")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .in("caixa_id", caixaIds);
 
       if (movError) throw movError;
@@ -369,5 +401,6 @@ export const useTotaisPeriodo = (startDate: Date, endDate: Date) => {
         porFormaPagamento,
       };
     },
+    enabled: Boolean(activeTenant?.id && session?.user.id),
   });
 };

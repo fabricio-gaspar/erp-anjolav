@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { format } from "date-fns";
 
 export interface EventoAgenda {
   id: string;
@@ -26,11 +28,20 @@ export interface CreateEventoData {
 
 export const useEventosAgenda = (mes?: string) => {
   const queryClient = useQueryClient();
+  const { activeTenant, session } = useAuth();
 
   const query = useQuery({
-    queryKey: ["eventos_agenda", mes],
+    queryKey: ["eventos_agenda", session?.user.id, activeTenant?.id, mes],
     queryFn: async () => {
-      let q = supabase.from("eventos_agenda").select("*").order("data_evento", { ascending: true }).order("horario", { ascending: true });
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar os eventos");
+      }
+      let q = supabase
+        .from("eventos_agenda")
+        .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
+        .order("data_evento", { ascending: true })
+        .order("horario", { ascending: true });
       
       if (mes) {
         const start = `${mes}-01`;
@@ -44,13 +55,17 @@ export const useEventosAgenda = (mes?: string) => {
       if (error) throw error;
       return data as EventoAgenda[];
     },
+    enabled: Boolean(session?.user.id && activeTenant?.id),
   });
 
   const createEvento = useMutation({
     mutationFn: async (data: CreateEventoData) => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para criar o evento");
+      }
       const { data: evento, error } = await supabase
         .from("eventos_agenda")
-        .insert(data)
+        .insert({ ...data, tenant_id: activeTenant.id })
         .select()
         .single();
       if (error) throw error;
@@ -65,7 +80,14 @@ export const useEventosAgenda = (mes?: string) => {
 
   const updateEvento = useMutation({
     mutationFn: async ({ id, ...data }: Partial<EventoAgenda> & { id: string }) => {
-      const { error } = await supabase.from("eventos_agenda").update(data).eq("id", id);
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para atualizar o evento");
+      }
+      const { error } = await supabase
+        .from("eventos_agenda")
+        .update(data)
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -75,7 +97,14 @@ export const useEventosAgenda = (mes?: string) => {
 
   const deleteEvento = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("eventos_agenda").delete().eq("id", id);
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para excluir o evento");
+      }
+      const { error } = await supabase
+        .from("eventos_agenda")
+        .delete()
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -86,7 +115,14 @@ export const useEventosAgenda = (mes?: string) => {
 
   const toggleConcluido = useMutation({
     mutationFn: async ({ id, concluido }: { id: string; concluido: boolean }) => {
-      const { error } = await supabase.from("eventos_agenda").update({ concluido }).eq("id", id);
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para concluir o evento");
+      }
+      const { error } = await supabase
+        .from("eventos_agenda")
+        .update({ concluido })
+        .eq("id", id)
+        .filter("tenant_id", "eq", activeTenant.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -105,18 +141,24 @@ export const useEventosAgenda = (mes?: string) => {
 };
 
 export const useEventosHoje = () => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["eventos_agenda", "hoje"],
+    queryKey: ["eventos_agenda", session?.user.id, activeTenant?.id, "hoje"],
     queryFn: async () => {
-      const hoje = new Date().toISOString().split("T")[0];
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar os eventos");
+      }
+      const hoje = format(new Date(), "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("eventos_agenda")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("data_evento", hoje)
         .eq("concluido", false)
         .order("horario", { ascending: true });
       if (error) throw error;
       return data as EventoAgenda[];
     },
+    enabled: Boolean(session?.user.id && activeTenant?.id),
   });
 };

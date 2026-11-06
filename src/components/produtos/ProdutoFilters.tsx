@@ -60,6 +60,7 @@ interface ProdutoFiltersProps {
   onUnidadeNegocioChange: (unidade: string) => void;
   selectedStatus: string;
   onStatusChange: (status: string) => void;
+  availableBusinessUnits: readonly string[] | null;
 }
 
 export function ProdutoFilters({
@@ -73,27 +74,35 @@ export function ProdutoFilters({
   onUnidadeNegocioChange,
   selectedStatus,
   onStatusChange,
+  availableBusinessUnits,
 }: ProdutoFiltersProps) {
+  const businessUnits = [
+    { value: "ID1", label: "Industrial (ID1)" },
+    { value: "ID2", label: "Doméstico (ID2)" },
+    { value: "ambos", label: "Compartilhado" },
+  ].filter(unit => availableBusinessUnits === null || availableBusinessUnits.includes(unit.value));
+
   return (
     <div className="space-y-4">
       {/* Search and Dropdowns */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_190px_180px_150px]">
+        <div className="relative min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por código ou nome..."
             className="pl-9"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
+            aria-label="Pesquisar produtos por código ou nome"
           />
         </div>
 
         <Select value={selectedCategoria} onValueChange={onCategoriaChange}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full" aria-label="Filtrar produtos por categoria">
             <SelectValue placeholder="Categoria" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todas">Todas Categorias</SelectItem>
+            <SelectItem value="all">Todas as categorias</SelectItem>
             {CATEGORIAS.map((cat) => (
               <SelectItem key={cat.value} value={cat.value}>
                 {cat.label}
@@ -103,25 +112,25 @@ export function ProdutoFilters({
         </Select>
 
         <Select value={selectedUnidadeNegocio} onValueChange={onUnidadeNegocioChange}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full" aria-label="Filtrar produtos por unidade de negócio">
             <SelectValue placeholder="Un. Negócio" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todas">Todas</SelectItem>
-            <SelectItem value="ID1">Industrial (ID1)</SelectItem>
-            <SelectItem value="ID2">Residencial (ID2)</SelectItem>
-            <SelectItem value="ambos">Ambos (ID1+ID2)</SelectItem>
+            <SelectItem value="all">Toda a operação</SelectItem>
+            {businessUnits.map(unit => (
+              <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
         <Select value={selectedStatus} onValueChange={onStatusChange}>
-          <SelectTrigger className="w-[120px]">
+          <SelectTrigger className="w-full" aria-label="Filtrar produtos por situação">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            <SelectItem value="ativo">Ativos</SelectItem>
-            <SelectItem value="inativo">Inativos</SelectItem>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="active">Ativos</SelectItem>
+            <SelectItem value="inactive">Arquivados</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -131,10 +140,13 @@ export function ProdutoFilters({
         <div className="flex gap-0.5 min-w-max sm:flex-wrap sm:min-w-0">
           {alphabet.map((letter) => (
             <button
+              type="button"
               key={letter}
               onClick={() => onLetterChange(letter)}
+              aria-pressed={selectedLetter === letter}
+              aria-label={letter === "TODOS" ? "Todos os produtos" : `Produtos iniciados por ${letter}`}
               className={cn(
-                "min-w-[28px] h-7 px-1.5 rounded text-xs font-medium transition-colors",
+                "h-9 min-w-9 rounded px-2 text-xs font-medium transition-colors",
                 selectedLetter === letter
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"

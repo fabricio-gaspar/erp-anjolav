@@ -62,6 +62,7 @@ const NavItem = ({ route, icon: Icon, compact = false }: NavItemProps) => {
   const location = useLocation();
   const { isCollapsed } = useSidebarContext();
   const end = route.path === `/${route.area}`;
+  const displayLabel = route.sidebarLabel ?? route.label;
 
   const isActive = end ? location.pathname === route.path : location.pathname.startsWith(route.path);
 
@@ -69,17 +70,17 @@ const NavItem = ({ route, icon: Icon, compact = false }: NavItemProps) => {
     <NavLink
       to={route.path}
       className={cn(
-        "group flex items-center gap-3 rounded-lg font-black transition-all duration-200 relative mx-3",
+        "group flex items-center gap-3 rounded-md font-semibold transition-all duration-200 relative mx-3",
         compact ? "px-2 py-1.5 text-[10px] gap-1.5" : "px-3 py-2.5 text-[13px]",
         isActive
-          ? "bg-primary/10 text-primary font-semibold shadow-sm"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+          : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         isCollapsed && "justify-center mx-1 px-2"
       )}
     >
       <Icon className={cn("flex-shrink-0", compact ? "w-4 h-4" : "w-5 h-5")} />
       {!isCollapsed && (
-        <span className="flex-1 truncate">{route.label}</span>
+        <span className="flex-1 truncate">{displayLabel}</span>
       )}
     </NavLink>
   );
@@ -91,7 +92,7 @@ const NavItem = ({ route, icon: Icon, compact = false }: NavItemProps) => {
           {content}
         </TooltipTrigger>
         <TooltipContent side="right" className="flex items-center gap-2 bg-popover text-popover-foreground border-border shadow-md">
-          {route.label}
+          {displayLabel}
         </TooltipContent>
       </Tooltip>
     );
@@ -149,11 +150,11 @@ const NavGroup = ({ title, icon: GroupIcon, children, defaultOpen = true, compac
       <button
         onClick={toggle}
         className={cn(
-          "flex items-center gap-3 w-full rounded-lg font-black transition-all duration-200",
+          "flex items-center gap-3 w-full rounded-md font-semibold transition-all duration-200",
           compact ? "px-2 py-1.5 mx-1.5 text-[10px] gap-1.5" : "px-3 py-2.5 mx-2 text-[12px]",
           (isOpen || hasActiveChild)
-            ? "bg-accent text-foreground"
-            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}
         style={{ width: 'calc(100% - 16px)' }}
       >
@@ -216,13 +217,13 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
 
   const userButton = (
     <button className={cn(
-      "flex items-center w-full rounded-lg hover:bg-accent transition-colors text-foreground",
+      "flex items-center w-full rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-foreground",
       compact ? "gap-2 p-1.5" : "gap-3 p-2",
       isCollapsed && "justify-center p-2"
     )}>
       <div className="relative">
         <div className={cn(
-          "rounded-full bg-primary/10 flex items-center justify-center overflow-hidden",
+          "rounded-full bg-sidebar-primary/15 flex items-center justify-center overflow-hidden",
           compact ? "w-7 h-7" : "w-9 h-9"
         )}>
           {avatarUrl ? (
@@ -232,18 +233,18 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
               className="w-full h-full object-cover"
             />
           ) : (
-            <span className={cn("text-primary font-semibold", compact ? "text-xs" : "text-sm")}>{getInitials(displayName)}</span>
+            <span className={cn("text-sidebar-primary font-semibold", compact ? "text-xs" : "text-sm")}>{getInitials(displayName)}</span>
           )}
         </div>
       </div>
       {!isCollapsed && (
         <div className="flex-1 min-w-0 text-left">
-          <p className={cn("font-medium text-foreground truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
-          <p className={cn("text-muted-foreground truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
+          <p className={cn("font-medium text-sidebar-foreground truncate", compact ? "text-xs" : "text-sm")}>{displayName}</p>
+          <p className={cn("text-sidebar-muted truncate", compact ? "text-[10px]" : "text-xs")}>{displayRole}</p>
         </div>
       )}
       {!isCollapsed && (
-        <Settings className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
+        <Settings className="w-4 h-4 text-sidebar-muted hover:text-sidebar-foreground transition-colors" />
       )}
     </button>
   );
@@ -302,14 +303,17 @@ const NAVIGATION_GROUP_ICONS: Record<NavigationGroup, ElementType> = {
   "central-management": PieChart,
   "central-admin": Settings,
   "industrial-dashboard": LayoutDashboard,
-  "industrial-customers": Users,
-  "industrial-operations": Factory,
-  "industrial-billing": Wallet,
-  "industrial-analysis": PieChart,
+  "industrial-pdv": CreditCard,
+  "industrial-orders": ClipboardList,
+  "industrial-logistics": Route,
+  "industrial-finance": Wallet,
+  "industrial-support": Package,
   "residential-dashboard": LayoutDashboard,
-  "residential-service": Users,
-  "residential-operations": Factory,
-  "residential-billing": Wallet,
+  "residential-pdv": CreditCard,
+  "residential-orders": ClipboardList,
+  "residential-logistics": Route,
+  "residential-finance": Wallet,
+  "residential-support": Package,
 };
 
 const ROUTE_ICONS: Readonly<Record<string, ElementType>> = {
@@ -353,8 +357,8 @@ const CollapseButton = () => {
     <button
       onClick={toggleSidebar}
       className={cn(
-      "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground shadow-md hover:scale-110 transition-all duration-200 z-50",
-        "border border-background"
+      "absolute -right-3 top-6 flex items-center justify-center w-6 h-6 rounded-full bg-sidebar-primary text-sidebar-primary-foreground shadow-md hover:scale-110 transition-all duration-200 z-50",
+        "border border-sidebar-background"
       )}
     >
       {isCollapsed ? (
@@ -393,7 +397,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
   return (
     <TooltipProvider>
       <aside className={cn(
-        "h-screen bg-card border-r border-border flex flex-col transition-all duration-300",
+        "h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col transition-all duration-300 shadow-[4px_0_18px_rgba(23,30,46,0.08)]",
         isMobile ? "w-full" : "fixed left-0 top-0 z-40",
         !isMobile && (effectiveCollapsed ? "w-16" : "w-56")
       )}>
@@ -401,20 +405,20 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
 
         {/* Logo */}
         <div className={cn(
-          "flex items-center justify-center transition-all border-b border-border",
+          "flex items-center justify-center transition-all border-b border-sidebar-border",
           effectiveCollapsed ? "h-16 px-2" : "h-20 px-4"
         )}>
           <div className="flex items-center gap-3">
             <span className={cn(
-              "flex items-center justify-center rounded-lg bg-primary shadow-md shadow-primary/20 shrink-0",
+              "flex items-center justify-center rounded-md bg-sidebar-primary shadow-md shadow-primary/20 shrink-0",
               effectiveCollapsed ? "h-9 w-9" : "h-10 w-10"
             )}>
-              <Droplets className={cn("text-primary-foreground", effectiveCollapsed ? "h-5 w-5" : "h-6 w-6")} />
+              <Droplets className={cn("text-sidebar-primary-foreground", effectiveCollapsed ? "h-5 w-5" : "h-6 w-6")} />
             </span>
             {!effectiveCollapsed && (
               <div className="min-w-0">
-                <p className="text-sm font-bold tracking-tight text-foreground truncate">AnjoLav ERP</p>
-                <p className="text-[9px] font-semibold uppercase tracking-wider text-primary truncate">Gestão Integrada</p>
+                <p className="text-sm font-bold tracking-tight text-sidebar-foreground truncate">AnjoLav ERP</p>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-sidebar-primary truncate">Gestão Integrada</p>
               </div>
             )}
           </div>
@@ -451,7 +455,7 @@ export function AppSidebar({ isMobile, onItemClick }: AppSidebarProps) {
         </nav>
 
         {/* User Section */}
-        <div className={cn("border-t border-border", compact ? "p-2" : "p-3")}>
+        <div className={cn("border-t border-sidebar-border", compact ? "p-2" : "p-3")}>
           <UserSection compact={compact} />
         </div>
       </aside>

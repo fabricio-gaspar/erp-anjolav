@@ -1,4 +1,18 @@
-export type ClientPriceMode = "padrao" | "personalizada";
+export type ClientPriceMode = "padrao" | "personalizada" | "cesto";
+
+export const CLIENT_PRICE_MODE_LABELS: Record<ClientPriceMode, string> = {
+  padrao: "Padrão",
+  personalizada: "Personalizada",
+  cesto: "Cesto",
+};
+
+export function isClientPriceMode(value: unknown): value is ClientPriceMode {
+  return value === "padrao" || value === "personalizada" || value === "cesto";
+}
+
+export function normalizeClientPriceMode(value: unknown): ClientPriceMode {
+  return isClientPriceMode(value) ? value : "padrao";
+}
 
 export type PriceCatalogProduct = {
   id: string;
@@ -41,7 +55,9 @@ export function buildClientPriceCatalog<T extends PriceCatalogProduct>(
   const overridesByProduct = new Map(overrides.map((override) => [override.produto_id, override]));
   return products
     .filter((product) => isProductAvailableForArea(product, area))
-    .filter((product) => mode === "padrao" || overridesByProduct.has(product.id))
+    // Cesto is a named commercial table that intentionally shares the base
+    // product price with Padrão. Only Personalizada needs an override entry.
+    .filter((product) => mode !== "personalizada" || overridesByProduct.has(product.id))
     .map((product) => ({
       ...product,
       precoAplicado: resolveClientProductPrice(product, mode, overridesByProduct.get(product.id)),

@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
+  Archive,
   Search,
   FileSearch,
   ArrowDownCircle,
@@ -17,29 +17,33 @@ import {
   CreditCard,
   Loader2,
   FileText,
+  Info,
   AlertTriangle,
-  DoorOpen,
   Maximize,
   Minimize,
-  History,
   Keyboard,
-  Clock,
-  BarChart3,
-  Settings2,
   UserRound,
   UserPlus,
-  PackagePlus,
-  ClipboardPlus,
-  CalendarPlus,
+  CalendarDays,
+  ChevronDown,
   MapPin,
+  Phone,
+  IdCard,
+  Pencil,
+  Printer,
+  Package,
+  ClipboardList,
+  Truck,
+  MoreHorizontal,
+  CircleCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
 import { usePrecosEspeciais } from "@/hooks/useProdutos";
-import { useClientes, useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
+import { useClientes, useConfiguracaoPagamentoCliente, useEnderecoCliente } from "@/hooks/useClientes";
 import { useCaixaAberto } from "@/hooks/useCaixa";
 import { ItemDetalhesModal } from "@/components/caixa/ItemDetalhesModal";
-import { PagamentoModal, DadosPagamento } from "@/components/caixa/PagamentoModal";
+import { PagamentoModal, type DadosPagamento } from "@/components/caixa/PagamentoModal";
 import { ImpressaoPosVendaModal } from "@/components/caixa/ImpressaoPosVendaModal";
 import { AbrirCaixaModal } from "@/components/caixa/AbrirCaixaModal";
 import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
@@ -48,29 +52,59 @@ import { SuprimentoModal } from "@/components/caixa/SuprimentoModal";
 import { ConsultarOSModal } from "@/components/caixa/ConsultarOSModal";
 import { ReceberPagamentoModal, type PixRecebimentoRequest } from "@/components/caixa/ReceberPagamentoModal";
 import { PixPagamentoModal } from "@/components/caixa/PixPagamentoModal";
+import { ListaDoDiaModal } from "@/components/caixa/ListaDoDiaModal";
+import { PdvFulfillmentPanel, type PdvFulfillmentSettings } from "@/components/caixa/PdvFulfillmentPanel";
+import { CadastroRapidoClienteModal } from "@/components/caixa/CadastroRapidoClienteModal";
 
 import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
-import { ClientePagamentoDialog } from "@/components/caixa/ClientePagamentoDialog";
 import { OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePrintOS } from "@/hooks/usePrintOS";
-import { useCreatePdvSale, usePdvCustomerLoyaltySummary, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
+import { useCreatePdvSale, usePdvCapacity, usePdvCustomerLoyaltySummary, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
 import { createPdvIdempotencyKey, type PdvPixPayment } from "@/lib/pdvPayment";
+import { getCanonicalPdvPath } from "@/lib/authorization";
 
 
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useOperationalContext } from "@/contexts/OperationalContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
-import { buildClientPriceCatalog } from "@/lib/clientPricing";
-import { parseCustomerPaymentTerms, customerPaymentTermsLabels, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
+import { buildClientPriceCatalog, CLIENT_PRICE_MODE_LABELS, normalizeClientPriceMode } from "@/lib/clientPricing";
+import { getDefaultPdvDeliveryDate } from "@/lib/pdvFulfillment";
+import { parseCustomerPaymentTerms, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import "@/styles/pdv-cashier.css";
 
 interface CartItem {
   id: string;
   nome: string;
+  codigo?: string | null;
+  descricao?: string | null;
   preco: number;
   unidade: string;
   quantidade: number;
@@ -102,6 +136,13 @@ interface PixFlowContext {
   source: "sale" | "receivable";
 }
 
+interface DiscardRequest {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  action: () => void;
+}
+
 const getUnidadeLabel = (unidade: string | null) => {
   switch (unidade) {
     case "kg": return "Kg";
@@ -112,36 +153,69 @@ const getUnidadeLabel = (unidade: string | null) => {
   }
 };
 
+const getPdvUnitDisplay = (unidade: string) => {
+  switch (unidade) {
+    case "Pç": return "Peça";
+    case "Kg": return "Kg";
+    case "Mt": return "Mt";
+    case "Un": return "Un";
+    default: return unidade;
+  }
+};
+
+const formatCarga = (value: number) => new Intl.NumberFormat("pt-BR", {
+  maximumFractionDigits: 2,
+}).format(value);
 
 const isValidQuantity = (value: number, unidade: string) =>
   Number.isFinite(value) && value > 0 && value <= 999 &&
   (["Kg", "Mt"].includes(unidade) || Number.isInteger(value));
+
+const createInitialFulfillment = (): PdvFulfillmentSettings => ({
+  deliveryDate: getDefaultPdvDeliveryDate(),
+  urgent: false,
+  receiptMode: "balcao",
+  deliveryMode: "balcao",
+  driverId: "",
+  vehicleId: "",
+  capacityOverride: false,
+});
 
 // Remount the sale and its dialogs whenever the security context changes.
 const CaixaPDV = () => {
   const { activeArea } = useWorkspace();
   const { activeTenant, user } = useAuth();
   const { pathname } = useLocation();
-  if (!activeTenant || !user || !pathname.startsWith("/" + activeArea + "/")) {
-    return <AppLayout title="PDV Atendimento"><p>Carregando contexto do atendimento...</p></AppLayout>;
+  const isExpectedWorkspace = pathname.startsWith("/" + activeArea + "/")
+    || (activeArea !== "central" && pathname === getCanonicalPdvPath(activeArea));
+  if (!activeTenant || !user || !isExpectedWorkspace) {
+    return <AppLayout title="PDV / Caixa"><p>Carregando contexto do atendimento...</p></AppLayout>;
   }
   return <PdvAtendimento key={[activeTenant.id, user.id, activeArea].join(":")} />;
 };
 
 const PdvAtendimento = () => {
 
-  const navigate = useNavigate();
+  const { search } = useLocation();
   const { activeArea } = useWorkspace();
   const area = activeArea === "industrial" ? "industrial" : "residencial";
-  const areaLabel = area === "industrial" ? "Industrial" : "Residencial";
+  const areaLabel = area === "industrial" ? "Industrial" : "Doméstico";
+  const { setOperationSwitchLocked } = useOperationalContext();
   const { canAccessRoute } = useNavigationAccess();
   const { allowed: canOperateCaixa } = usePermissaoModulo("caixa");
   const canUseLoyalty = area === "residencial" && canOperateCaixa;
   const { allowed: canManageCommercialTerms } = usePermissaoModulo("alterar_condicoes_comerciais");
   const canManageContracts = canAccessRoute("/" + area + "/clientes");
+  const canCreateClient = canAccessRoute("/" + area + "/clientes");
   const canCreateSale = canAccessRoute("/" + area + "/caixa");
+  const canViewDayList = area === "residencial" && canAccessRoute("/residencial/agenda");
   const { produtos, isLoading: isLoadingProdutos, isError: productsError, refetch: refetchProducts } = useProdutos();
-  const { clientes, isLoading: isLoadingClientes, isError: clientsError, refetch: refetchClients } = useClientes();
+  const {
+    clientes,
+    isLoading: isLoadingClientes,
+    isError: clientsError,
+    refetch: refetchClients,
+  } = useClientes();
   const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto(canOperateCaixa);
   const canReceivePayments = canOperateCaixa && !!caixaAberto;
   const createPdvSale = useCreatePdvSale();
@@ -161,6 +235,10 @@ const PdvAtendimento = () => {
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showClientList, setShowClientList] = useState(false);
+  const [showQuickClientModal, setShowQuickClientModal] = useState(false);
+  const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(createInitialFulfillment);
+  const [fulfillmentDraft, setFulfillmentDraft] = useState<PdvFulfillmentSettings | null>(null);
+  const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
   
   // Estado para modal de detalhes
   const [detalhesModalOpen, setDetalhesModalOpen] = useState(false);
@@ -168,13 +246,13 @@ const PdvAtendimento = () => {
   
   // Estados para modais de pagamento e impressão
   const [showPagamentoModal, setShowPagamentoModal] = useState(false);
-  const [showClientePagamentoDialog, setShowClientePagamentoDialog] = useState(false);
   const [showImpressaoModal, setShowImpressaoModal] = useState(false);
   const [osRecemCriada, setOsRecemCriada] = useState<OSRecemCriada | null>(null);
   const [isProcessingVenda, setIsProcessingVenda] = useState(false);
   const [pixContext, setPixContext] = useState<PixFlowContext | null>(null);
   const saleIdempotencyRef = useRef<string | null>(null);
   const submittingRef = useRef(false);
+  const prefilledClientRef = useRef(false);
   
   // Estados para modais de caixa
   const [showAbrirCaixaModal, setShowAbrirCaixaModal] = useState(false);
@@ -188,10 +266,10 @@ const PdvAtendimento = () => {
   
   // Novos estados para funcionalidades profissionais
   const [showHistoricoVendas, setShowHistoricoVendas] = useState(false);
+  const [showListaDia, setShowListaDia] = useState(false);
   const [showAjudaAtalhos, setShowAjudaAtalhos] = useState(false);
-  const [showOperations, setShowOperations] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [discardRequest, setDiscardRequest] = useState<DiscardRequest | null>(null);
   
 
   const { precos: precosEspeciais, isLoading: pricesLoading, isError: pricesError, refetch: refetchPrices } = usePrecosEspeciais(selectedClientId);
@@ -199,14 +277,29 @@ const PdvAtendimento = () => {
   const [ultimoClienteId, setUltimoClienteId] = useState<string | null>(null);
   const clientesFiltradosPorTipo = useMemo(() => clientes.filter(c => c.ativo && c.classificacao === area), [clientes, area]);
   const selectedClient = useMemo(() => clientesFiltradosPorTipo.find(c => c.id === selectedClientId), [clientesFiltradosPorTipo, selectedClientId]);
+  const selectedClientPriceTable = selectedClient
+    ? CLIENT_PRICE_MODE_LABELS[normalizeClientPriceMode(selectedClient.tabela_preco_tipo)]
+    : null;
+  const { endereco: enderecoCliente, isLoading: enderecoLoading, isError: enderecoError } = useEnderecoCliente(selectedClient?.id ?? null);
   const { configuracao: configuracaoPagamento, isLoading: termsLoading, isError: termsError, refetch: refetchTerms } = useConfiguracaoPagamentoCliente(selectedClient?.id ?? null);
   const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(selectedClient?.id ?? null, canUseLoyalty);
+  const deliveryDateKey = format(fulfillment.deliveryDate, "yyyy-MM-dd");
+  const { data: capacity, isLoading: capacityLoading, isError: capacityError } = usePdvCapacity(selectedClient?.id ?? null, deliveryDateKey, Boolean(selectedClient));
+  const fulfillmentDraftDateKey = format((fulfillmentDraft ?? fulfillment).deliveryDate, "yyyy-MM-dd");
+  const {
+    data: fulfillmentDraftCapacity,
+    isLoading: fulfillmentDraftCapacityLoading,
+    isError: fulfillmentDraftCapacityError,
+  } = usePdvCapacity(
+    selectedClient?.id ?? null,
+    fulfillmentDraftDateKey,
+    Boolean(selectedClient && showFulfillmentModal),
+  );
   const catalogLoading = isLoadingProdutos || isLoadingClientes || pricesLoading || termsLoading;
   const catalogError = pricesError || termsError || productsError || clientsError;
   const catalogReady = canCreateSale && !!selectedClient && !catalogLoading && !catalogError;
   const isFaturado = configuracaoPagamento?.condicao_pagamento === "faturado";
   const paymentTerms = parseCustomerPaymentTerms(configuracaoPagamento);
-  const paymentLabels = customerPaymentTermsLabels(paymentTerms);
   const produtosAtivos = useMemo(() => catalogReady ? buildClientPriceCatalog(
     produtos, precosEspeciais, selectedClient?.tabela_preco_tipo ?? "padrao", area,
   ) : [], [catalogReady, produtos, precosEspeciais, selectedClient?.tabela_preco_tipo, area]);
@@ -219,6 +312,40 @@ const PdvAtendimento = () => {
   const cartValid = catalogReady && cart.length > 0 && !invalidQuantity && cart.every(item =>
     isValidQuantity(item.quantidade, item.unidade) && Number.isFinite(item.preco) && item.preco >= 0 &&
     produtosAtivos.some(p => p.id === item.id && p.precoAplicado === item.preco && getUnidadeLabel(p.unidade) === item.unidade));
+  const totalItems = cart.reduce((sum, item) => sum + item.quantidade, 0);
+  const totalValue = cart.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
+  const capacityLimit = Number(capacity?.limit ?? 0);
+  const capacityReserved = Number(capacity?.reserved ?? 0);
+  const capacityProgress = capacity?.configured && Number.isFinite(capacityLimit) && capacityLimit > 0
+    ? Math.min(100, Math.max(0, ((capacityReserved + totalItems) / capacityLimit) * 100))
+    : 0;
+  const capacityAvailableAfterThisSale = capacity?.configured
+    ? Number(capacity.available ?? 0) - totalItems
+    : null;
+  const isCapacityExceeded = capacityAvailableAfterThisSale !== null && capacityAvailableAfterThisSale < -0.0001;
+  const requiresOperationalAddress = fulfillment.receiptMode === "coleta" || fulfillment.deliveryMode === "entrega";
+  const addressReady = Boolean(enderecoCliente?.logradouro?.trim() && enderecoCliente?.cidade?.trim() && enderecoCliente?.uf?.trim());
+  const fulfillmentAddressSnapshot = enderecoCliente ? {
+    cep: enderecoCliente.cep,
+    logradouro: enderecoCliente.logradouro,
+    numero: enderecoCliente.numero,
+    complemento: enderecoCliente.complemento,
+    bairro: enderecoCliente.bairro,
+    cidade: enderecoCliente.cidade,
+    uf: enderecoCliente.uf,
+    pais: enderecoCliente.pais,
+  } : undefined;
+  const fulfillmentBlockReason = (() => {
+    if (!selectedClient) return "Selecione um cliente antes de definir prazo e entrega.";
+    if (isFaturado && fulfillment.urgent) return "Pedidos faturados não aceitam urgência neste fluxo.";
+    if (capacityLoading) return "Aguarde a consulta de capacidade para a data escolhida.";
+    if (capacityError) return "Não foi possível validar a capacidade da data escolhida.";
+    if (isCapacityExceeded && (!fulfillment.capacityOverride || !canManageCommercialTerms)) return "A data escolhida está sem capacidade para este pedido.";
+    if (requiresOperationalAddress && enderecoLoading) return "Aguarde o carregamento do endereço para coleta ou delivery.";
+    if (requiresOperationalAddress && enderecoError) return "Não foi possível validar o endereço para coleta ou delivery.";
+    if (requiresOperationalAddress && !addressReady) return "Cadastre um endereço principal completo para coleta ou delivery.";
+    return null;
+  })();
 
   const filteredProdutos = useMemo(() => {
     return produtosAtivos.filter((produto) => {
@@ -248,6 +375,11 @@ const PdvAtendimento = () => {
     ).slice(0, 10);
   }, [clientesFiltradosPorTipo, clientSearch]);
 
+  const focusClientSearch = useCallback(() => {
+    setShowClientList(true);
+    requestAnimationFrame(() => clientSearchRef.current?.focus());
+  }, []);
+
   const addToCart = useCallback((produto: Produto) => {
     if (!catalogReady || !produtosAtivos.some(p => p.id === produto.id)) {
       toast.error("Selecione um cliente e aguarde a tabela e a condição de pagamento");
@@ -269,6 +401,8 @@ const PdvAtendimento = () => {
       return [...prev, { 
         id: produto.id,
         nome: produto.nome,
+        codigo: produto.codigo,
+        descricao: produto.descricao,
         preco,
         precoOriginal: produto.preco,
         unidade: getUnidadeLabel(produto.unidade),
@@ -310,7 +444,48 @@ const PdvAtendimento = () => {
   const clearCart = useCallback(() => {
     setCart([]);
     setQuantityDrafts({});
+    setFulfillment(createInitialFulfillment());
+    setFulfillmentDraft(null);
+    setShowFulfillmentModal(false);
   }, []);
+
+  const openFulfillmentModal = useCallback((preset: Partial<PdvFulfillmentSettings> = {}) => {
+    // As escolhas operacionais ficam em rascunho até o atendente confirmá-las.
+    setFulfillmentDraft({ ...fulfillment, ...preset });
+    setShowFulfillmentModal(true);
+  }, [fulfillment]);
+
+  const closeFulfillmentModal = useCallback(() => {
+    setShowFulfillmentModal(false);
+    setFulfillmentDraft(null);
+  }, []);
+
+  const applyFulfillmentChanges = useCallback(() => {
+    if (!fulfillmentDraft) return;
+    setFulfillment(fulfillmentDraft);
+    closeFulfillmentModal();
+  }, [closeFulfillmentModal, fulfillmentDraft]);
+
+  const requestDiscard = useCallback((request: Omit<DiscardRequest, "confirmLabel"> & { confirmLabel?: string }) => {
+    if (cart.length === 0) {
+      request.action();
+      return;
+    }
+    setDiscardRequest({ ...request, confirmLabel: request.confirmLabel ?? "Descartar e continuar" });
+  }, [cart.length]);
+
+  const requestClearSale = useCallback(() => {
+    if (cart.length === 0) {
+      toast.info("Não há itens para limpar");
+      return;
+    }
+    requestDiscard({
+      title: "Descartar esta venda?",
+      description: "Os itens e detalhes lançados no ROL serão removidos. Esta ação não pode ser desfeita.",
+      confirmLabel: "Descartar venda",
+      action: clearCart,
+    });
+  }, [cart.length, clearCart, requestDiscard]);
 
   const editQuantity = (item: CartItem, raw: string) => {
     setQuantityDrafts(prev => ({ ...prev, [item.id]: raw }));
@@ -345,13 +520,35 @@ const PdvAtendimento = () => {
     return !!(item.cor_item || item.marca_item || item.avarias || item.posicao_prateleira || item.observacoes);
   };
 
-  const selectClient = useCallback((clientId: string) => {
+  const applySelectedClient = useCallback((clientId: string) => {
     if (!clientesFiltradosPorTipo.some(c => c.id === clientId)) return;
     clearCart();
     setSelectedClientId(clientId);
     setShowClientList(false);
     setClientSearch("");
+    requestAnimationFrame(() => searchInputRef.current?.focus());
   }, [clientesFiltradosPorTipo, clearCart]);
+
+  const selectClient = useCallback((clientId: string) => {
+    if (clientId === selectedClientId) {
+      setShowClientList(false);
+      return;
+    }
+    requestDiscard({
+      title: "Trocar o cliente desta venda?",
+      description: "O ROL atual possui itens. Para evitar preços e condições incorretos, eles serão descartados ao trocar o cliente.",
+      action: () => applySelectedClient(clientId),
+    });
+  }, [applySelectedClient, requestDiscard, selectedClientId]);
+
+  useEffect(() => {
+    if (prefilledClientRef.current || clientesFiltradosPorTipo.length === 0) return;
+    const requestedClient = new URLSearchParams(search).get("cliente");
+    prefilledClientRef.current = true;
+    if (requestedClient && clientesFiltradosPorTipo.some((client) => client.id === requestedClient)) {
+      selectClient(requestedClient);
+    }
+  }, [clientesFiltradosPorTipo, search, selectClient]);
 
   useEffect(() => {
     if (!catalogReady) return;
@@ -367,9 +564,16 @@ const PdvAtendimento = () => {
   }, [catalogReady, produtosAtivos]);
 
   const clearClient = () => {
-    setSelectedClientId(null);
-    setClientSearch("");
-    clearCart();
+    requestDiscard({
+      title: "Remover o cliente desta venda?",
+      description: "O ROL atual possui itens e será descartado junto com a seleção do cliente.",
+      action: () => {
+        setSelectedClientId(null);
+        setClientSearch("");
+        clearCart();
+        requestAnimationFrame(() => clientSearchRef.current?.focus());
+      },
+    });
   };
 
   // Função para abrir modal de pagamento
@@ -390,28 +594,22 @@ const PdvAtendimento = () => {
       toast.error("Selecione um cliente");
       return;
     }
-    saleIdempotencyRef.current ??= createPdvIdempotencyKey("sale");
-    setShowPagamentoModal(true);
-  }, [catalogReady, cartValid, cart.length, selectedClientId, osRecemCriada]);
-
-  const handleOpenClientePagamento = useCallback(() => {
-    if (!canManageCommercialTerms) return;
-    if (!selectedClientId) {
-      toast.error("Selecione um cliente para configurar o pagamento");
+    if (fulfillmentBlockReason) {
+      toast.error(fulfillmentBlockReason);
       return;
     }
-    setShowClientePagamentoDialog(true);
-  }, [selectedClientId, canManageCommercialTerms]);
-
-  const handleEditClientePagamento = useCallback(() => {
-    setShowPagamentoModal(false);
-    handleOpenClientePagamento();
-  }, [handleOpenClientePagamento]);
+    saleIdempotencyRef.current ??= createPdvIdempotencyKey("sale");
+    setShowPagamentoModal(true);
+  }, [catalogReady, cartValid, cart.length, selectedClientId, osRecemCriada, fulfillmentBlockReason]);
 
   // Função para finalizar venda
   const handleFinalizarVenda = async (dados: DadosPagamento) => {
     if (submittingRef.current || osRecemCriada || !selectedClient || !cartValid) {
       toast.error("Revise o cliente, a tabela e as quantidades antes de finalizar");
+      return;
+    }
+    if (fulfillmentBlockReason) {
+      toast.error(fulfillmentBlockReason);
       return;
     }
     if (dados.pagoAgora && (!canReceivePayments || isFaturado || !dados.formaPagamento)) {
@@ -452,8 +650,12 @@ const PdvAtendimento = () => {
         urgent: dados.urgente,
         urgencyPercentage: dados.percentualUrgencia,
         discountAmount: dados.valorDesconto,
-        driverId: dados.tipoLogistica === "entregar" ? dados.motoristaId : undefined,
-        vehicleId: dados.tipoLogistica === "entregar" ? dados.veiculoId : undefined,
+        receiptMode: dados.receiptMode,
+        deliveryMode: dados.deliveryMode,
+        addressSnapshot: dados.addressSnapshot,
+        capacityOverride: isCapacityExceeded && fulfillment.capacityOverride && canManageCommercialTerms,
+        driverId: dados.motoristaId,
+        vehicleId: dados.veiculoId,
         items: cart.map((item) => ({
           produto_id: item.id,
           quantidade: item.quantidade,
@@ -523,8 +725,7 @@ const PdvAtendimento = () => {
     }
     setOsRecemCriada(null);
     saleIdempotencyRef.current = null;
-    setCart([]);
-    setQuantityDrafts({});
+    clearCart();
     setSelectedClientId(null);
     setClientSearch("");
     toast.success("Venda finalizada com sucesso!");
@@ -550,14 +751,6 @@ const PdvAtendimento = () => {
       if (!confirmed) toast.info("O pagamento da OS permanece pendente");
     }
   };
-
-  // Atualizar hora a cada segundo
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Detectar leitura de código de barras (digitação rápida)
   useEffect(() => {
@@ -632,26 +825,35 @@ const PdvAtendimento = () => {
       e.preventDefault();
       setShowAjudaAtalhos(true);
     }
-    // F3 - Foco na busca de produtos
+    // F2 - Cliente
+    if (e.key === "F2") {
+      e.preventDefault();
+      focusClientSearch();
+    }
+    // F3 - Agenda do dia
     if (e.key === "F3") {
       e.preventDefault();
-      searchInputRef.current?.focus();
+      if (canViewDayList) setShowListaDia(true);
     }
     // F4 - Pagamento
     if (e.key === "F4") {
       e.preventDefault();
       handleOpenPagamento();
     }
-    // F5 - Consultar OS
+    // F5 - Imprimir ROL recém-finalizada
     if (e.key === "F5") {
+      e.preventDefault();
+      if (osRecemCriada) {
+        void printROL(osRecemCriada.id);
+      } else {
+        toast.info("Finalize o atendimento antes de imprimir a ROL.");
+      }
+    }
+    // F6 - Consultar ordens e ROLs
+    if (e.key === "F6") {
       e.preventDefault();
       setPdvLookupMode("consulta");
       setShowConsultarOSModal(true);
-    }
-    // F6 - Histórico de vendas
-    if (e.key === "F6") {
-      e.preventDefault();
-      if (canCreateSale) setShowHistoricoVendas(true);
     }
     // F7 - Sangria/Suprimento (abre sangria por padrão)
     if (e.key === "F7") {
@@ -663,7 +865,7 @@ const PdvAtendimento = () => {
     // F8 - Limpar carrinho
     if (e.key === "F8") {
       e.preventDefault();
-      clearCart();
+      requestClearSale();
     }
     // F9 - Último cliente
     if (e.key === "F9") {
@@ -704,20 +906,24 @@ const PdvAtendimento = () => {
       }
       if (showHistoricoVendas) setShowHistoricoVendas(false);
       if (showAjudaAtalhos) setShowAjudaAtalhos(false);
-      if (showOperations) setShowOperations(false);
+      if (showFulfillmentModal) closeFulfillmentModal();
     }
   }, [
-    canCreateSale,
     canReceivePayments,
+    canViewDayList,
     cart,
-    clearCart,
+    focusClientSearch,
     handleOpenPagamento,
+    requestClearSale,
+    osRecemCriada,
+    printROL,
     selectLastClient,
     showAjudaAtalhos,
     showConsultarOSModal,
+    closeFulfillmentModal,
+    showFulfillmentModal,
     showHistoricoVendas,
     showPagamentoModal,
-    showOperations,
     toggleFullscreen,
     updateQuantity,
   ]);
@@ -726,6 +932,21 @@ const PdvAtendimento = () => {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  useEffect(() => {
+    const preventAccidentalExit = (event: BeforeUnloadEvent) => {
+      if (cart.length === 0 || osRecemCriada) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", preventAccidentalExit);
+    return () => window.removeEventListener("beforeunload", preventAccidentalExit);
+  }, [cart.length, osRecemCriada]);
+
+  useEffect(() => {
+    setOperationSwitchLocked(cart.length > 0 && !osRecemCriada);
+    return () => setOperationSwitchLocked(false);
+  }, [cart.length, osRecemCriada, setOperationSwitchLocked]);
 
   // Escutar mudanças de fullscreen
   useEffect(() => {
@@ -736,27 +957,12 @@ const PdvAtendimento = () => {
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
-  const totalItems = cart.reduce((sum, item) => sum + item.quantidade, 0);
-  const totalValue = cart.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
   const currentItem = cart[cart.length - 1] ?? null;
-
-  const today = new Date().toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  });
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
     }).format(value);
-  };
-
-  const openQuickCadastro = (path: string) => {
-    if (!canAccessRoute(path)) return;
-    setShowOperations(false);
-    navigate(path);
   };
 
   const openOrderLookup = useCallback((mode: "consulta" | "posicao" = "consulta") => {
@@ -765,395 +971,417 @@ const PdvAtendimento = () => {
   }, []);
 
   return (
-    <AppLayout title="PDV Atendimento" subtitle={`Setor ${areaLabel}`}>
-      <section className="pdv-shell mx-[-1rem] flex w-[calc(100%+2rem)] max-w-none min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-muted/20 shadow-lg sm:mx-[-1.5rem] sm:w-[calc(100%+3rem)] xl:h-[calc(100vh-118px)]">
-        <header className="grid min-h-16 grid-cols-[1fr_auto_1fr] items-center border-b bg-card px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="h-4 w-4 shrink-0 text-primary" />
-            <span className="hidden lg:inline capitalize">{today}</span>
-            <span>{format(currentTime, "HH:mm")}</span>
+    <AppLayout title="Balcão / PDV" subtitle={`Atendimento ${areaLabel}`}>
+      <div className="pdv-cashier-page" data-testid="pdv-cashier-reference">
+        <section className="pdv-client-bar" aria-labelledby="pdv-client-title">
+          <div className="pdv-client-bar-label">
+            <span className="pdv-client-bar-icon"><UserRound className="h-5 w-5" /></span>
+            <h2 id="pdv-client-title">Cliente</h2>
           </div>
-          <div className="text-center">
-            <p className="text-sm font-bold tracking-wide sm:text-base">
-              Atendente: {caixaAberto?.operador || "—"}
-            </p>
+
+          <div className="pdv-customer-search">
+            <Search className="h-4 w-4" />
+            <Input
+              id="pdv-client-search"
+              ref={clientSearchRef}
+              placeholder="Buscar por nome, telefone ou CPF..."
+              value={clientSearch}
+              onChange={(event) => {
+                setClientSearch(event.target.value);
+                setShowClientList(true);
+              }}
+              onFocus={() => setShowClientList(true)}
+              skipUppercase
+              className="pl-10 text-sm"
+            />
+            {showClientList && (
+              <div className="pdv-customer-result-list">
+                {isLoadingClientes ? (
+                  <p className="p-3 text-center text-sm text-muted-foreground">Carregando clientes…</p>
+                ) : filteredClientes.length === 0 ? (
+                  <div className="space-y-2 p-3 text-center text-sm text-muted-foreground">
+                    <p>Nenhum cliente encontrado.</p>
+                    {canCreateClient && <Button type="button" size="sm" onClick={() => setShowQuickClientModal(true)}><UserPlus className="mr-2 h-4 w-4" />Cadastrar cliente</Button>}
+                  </div>
+                ) : (
+                  filteredClientes.map((cliente) => (
+                    <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)}>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{cliente.nome_fantasia || cliente.razao_social}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{cliente.cpf_cnpj || "Sem documento"} · {cliente.telefone || "Sem telefone"}</span>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex items-center justify-end gap-2">
-            <p className="hidden text-sm font-black uppercase tracking-[0.14em] lg:block">{areaLabel}</p>
-            {!canOperateCaixa ? <Badge variant="outline">Sem recebimento</Badge> : isLoadingCaixa ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            ) : caixaAberto ? (
-              <Badge variant="outline" className="border-success text-success">Aberto</Badge>
+
+          <div className="pdv-client-summary" aria-live="polite">
+            {selectedClient ? (
+              <>
+                <span className="pdv-customer-avatar"><UserRound className="h-5 w-5" /></span>
+                <div className="min-w-0">
+                  <p className="pdv-customer-name">{selectedClient.nome_fantasia || selectedClient.razao_social}</p>
+                  <div className="pdv-client-contact">
+                    {selectedClient.telefone && <span><Phone className="h-3.5 w-3.5" />{selectedClient.telefone}</span>}
+                    {selectedClient.cpf_cnpj && <span><IdCard className="h-3.5 w-3.5" />{selectedClient.cpf_cnpj}</span>}
+                  </div>
+                  <div className="pdv-client-indicators">
+                    <span className="pdv-customer-badge">
+                      {pricesLoading ? "Carregando tabela…" : pricesError ? "Tabela indisponível" : `Tabela ${selectedClientPriceTable}`}
+                    </span>
+                    {canUseLoyalty && isLoadingCustomerLoyalty ? (
+                      <span className="pdv-customer-loyalty text-muted-foreground">Consultando pontos…</span>
+                    ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
+                      <span className="pdv-customer-loyalty text-success">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</span>
+                    ) : null}
+                  </div>
+                </div>
+              </>
             ) : (
-              <Button size="sm" className="h-8 gap-1" onClick={() => setShowAbrirCaixaModal(true)}>
-                <DoorOpen className="h-3.5 w-3.5" />
-                Abrir caixa
+              <p className="pdv-client-empty">Selecione um cliente para liberar preços, serviços e finalização.</p>
+            )}
+          </div>
+
+          <div className="pdv-client-actions">
+            <Button type="button" variant="outline" size="sm" className="gap-2" onClick={requestClearSale}>
+              <Plus className="h-4 w-4" /> Novo ROL
+            </Button>
+            {selectedClient && (
+              <Button type="button" variant="outline" size="sm" className="gap-2" onClick={clearClient}>
+                <UserRound className="h-4 w-4" /> Trocar cliente
+              </Button>
+            )}
+            {canCreateClient && (
+              <Button type="button" size="sm" className="gap-2" onClick={() => setShowQuickClientModal(true)}>
+                <UserPlus className="h-4 w-4" /> Novo cliente
               </Button>
             )}
           </div>
-        </header>
-        <nav aria-label="Atalhos do atendimento" className="flex flex-wrap items-center gap-2 border-b bg-card px-4 py-2">
-          <Badge variant="secondary">Setor {areaLabel}</Badge>
-          {canAccessRoute("/" + area + "/lancamentos") && <>
-            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=pendentes")}>Fechamento</Button>
-            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=faturas")}>Faturas</Button>
-            <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=historico")}>Histórico de ROLs faturados</Button>
-          </>}
-          {canManageContracts && <Button variant="outline" size="sm" disabled={!selectedClient} onClick={() => { if (selectedClient && canManageContracts) setShowContracts(true); }}>Contrato do cliente</Button>}
-          {canAccessRoute("/" + area + "/clientes") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/clientes?novo=1")}><UserPlus className="mr-2 h-4 w-4" />Novo cliente</Button>}
-          {canAccessRoute("/" + area + "/produtos") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/produtos?novo=1")}><PackagePlus className="mr-2 h-4 w-4" />Novo produto/serviço</Button>}
-          {canAccessRoute("/" + area + "/ordens") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/ordens")}><ClipboardPlus className="mr-2 h-4 w-4" />Ordens de serviço</Button>}
-          {canAccessRoute("/" + area + "/agenda") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/" + area + "/agenda?novo=1")}><CalendarPlus className="mr-2 h-4 w-4" />Agendamento</Button>}
-        </nav>
-        {(catalogError || (selectedClient && catalogLoading)) && <div role="status" className="border-b p-3 text-sm">
-          {catalogError ? <>Não foi possível carregar clientes, tabela ou condição de pagamento. <Button variant="outline" size="sm" onClick={() => { void refetchPrices(); void refetchTerms(); void refetchProducts(); void refetchClients(); }}>Tentar novamente</Button></> : "Carregando tabela e condição de pagamento..."}
-        </div>}
-        {invalidQuantity && <p role="alert" className="px-4 py-2 text-sm text-destructive">Quantidade deve ser maior que zero e até 999. Use decimais apenas para kg ou metro; peças exigem inteiros.</p>}
+        </section>
 
-
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 sm:p-4 xl:grid-cols-[minmax(350px,410px)_minmax(0,1fr)] 2xl:grid-cols-[420px_minmax(0,1fr)]">
-          <aside className="relative flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5">
-            {!isLoadingCaixa && !canReceivePayments && (
-              <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                Atendimento sem recebimento disponível. Pagar agora exige permissão de caixa e caixa aberto.
-              </div>
-            )}
-
-            <div className="pdv-entry-card relative z-20 rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <label htmlFor="pdv-client-search" className="flex items-center gap-2 text-base font-bold">
-                  <UserRound className="h-5 w-5 text-primary" /> Cliente
-                </label>
-                <span className="rounded-md bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">1º passo</span>
-              </div>
-              {selectedClient ? (
-                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-primary">{selectedClient.nome_fantasia || selectedClient.razao_social}</p>
-                      <p className="text-xs text-muted-foreground">{selectedClient.cpf_cnpj}</p>
-                      <p className="mt-1 text-[11px] font-semibold text-primary">
-                        {selectedClient.tabela_preco_tipo === "personalizada" ? "Tabela personalizada ativa" : "Tabela padrão ativa"}
-                      </p>
-                      <p className="mt-1 text-xs">Condição: {termsLoading ? "Carregando..." : termsError ? "Não foi possível carregar" : paymentLabels.condition}</p>
-                      {!termsLoading && !termsError && <p className="mt-1 text-xs text-muted-foreground">Forma preferida: {paymentLabels.preferredMethod}{paymentLabels.frequency ? ` · Fechamento: ${paymentLabels.frequency}` : ""}</p>}
-                      {canUseLoyalty && isLoadingCustomerLoyalty ? (
-                        <p className="mt-1 text-xs text-muted-foreground">Consultando pontos...</p>
-                      ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
-                        <p className="mt-1 text-xs text-primary">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
-                      ) : null}
-                    </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={clearClient} title="Trocar cliente">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+        <div className="pdv-cashier-grid">
+          <section className="pdv-center-column">
+            <section className="pdv-items-card overflow-hidden" aria-labelledby="pdv-items-title">
+              <div className="pdv-items-header">
+                <div className="pdv-items-title">
+                  <div className="pdv-items-title-copy">
+                    <h2 id="pdv-items-title">Itens do ROL</h2>
+                    <p>Adicione as peças, serviços e observações deste atendimento.</p>
                   </div>
-                  {canManageCommercialTerms && <Button type="button" variant="outline" size="sm" className="mt-2 h-7 w-full gap-1 text-xs" onClick={handleOpenClientePagamento}>
-                    <Settings2 className="h-3.5 w-3.5" />
-                    {configuracaoPagamento ? "Editar pagamento" : "Configurar pagamento"}
-                  </Button>}
                 </div>
-              ) : (
-                <>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="pdv-client-search"
-                      ref={clientSearchRef}
-                      placeholder="Buscar cliente (nome, CPF/CNPJ, telefone)..."
-                      value={clientSearch}
-                      onChange={(event) => {
-                        setClientSearch(event.target.value);
-                        setShowClientList(true);
-                      }}
-                      onFocus={() => setShowClientList(true)}
-                      className="h-10 pl-9 text-sm"
-                    />
-                    {showClientList && (
-                      <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-lg border border-strong bg-card shadow-xl">
-                        {isLoadingClientes ? (
-                          <p className="p-3 text-center text-sm text-muted-foreground">Carregando...</p>
-                        ) : filteredClientes.length === 0 ? (
-                          <p className="p-3 text-center text-sm text-muted-foreground">Nenhum cliente encontrado.</p>
-                        ) : (
-                          filteredClientes.map((cliente) => (
-                            <button key={cliente.id} type="button" onClick={() => selectClient(cliente.id)} className="w-full border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5">
-                              <p className="truncate text-sm font-medium">{cliente.nome_fantasia || cliente.razao_social}</p>
-                              <p className="text-xs text-muted-foreground">{cliente.cpf_cnpj} · {cliente.telefone}</p>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="pdv-entry-card relative z-10 rounded-xl border border-strong bg-card p-3 shadow-sm sm:p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <label htmlFor="pdv-product-search" className="flex items-center gap-2 text-base font-bold">
-                  <ShoppingCart className="h-5 w-5 text-primary" /> Produto / Serviço
-                </label>
-                <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-bold text-muted-foreground">2º passo</span>
+                <div className="flex items-center gap-3 whitespace-nowrap">
+                  <span className="pdv-items-stats">{cart.length} {cart.length === 1 ? "produto" : "produtos"} · {formatCarga(totalItems)} {totalItems === 1 ? "unidade" : "unidades"}</span>
+                </div>
               </div>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="pdv-product-search"
-                  ref={searchInputRef}
-                  placeholder="Digite código ou nome do produto/serviço"
-                  value={searchTerm}
-                  onChange={(event) => {
-                    setSearchTerm(event.target.value);
-                    setShowProductList(true);
-                  }}
-                  onFocus={() => setShowProductList(true)}
-                  className="h-11 pl-9 pr-3"
-                />
-                {showProductList && (
-                  <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-strong bg-card shadow-xl">
-                    {isLoadingProdutos ? (
-                      <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Carregando produtos...
-                      </div>
-                    ) : filteredProdutos.length === 0 ? (
-                      <p className="p-3 text-center text-sm text-muted-foreground">Nenhum produto ou serviço encontrado.</p>
-                    ) : (
-                      filteredProdutos.slice(0, 8).map((produto) => {
-                        const preco = getPrecoForProduto(produto);
-                        return (
-                          <button
-                            key={produto.id}
-                            type="button"
-                            disabled={!catalogReady}
-                            onClick={() => addToCart(produto)}
-                            className="flex w-full items-center justify-between gap-3 border-b px-3 py-2 text-left last:border-b-0 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <span className="min-w-0">
-                              <span className="block truncate text-sm font-medium">{produto.nome}</span>
-                              <span className="block text-[11px] text-muted-foreground">{produto.codigo || "Sem código"}</span>
-                            </span>
-                            <span className="shrink-0 text-sm font-bold text-primary">{formatCurrency(preco)}</span>
-                          </button>
-                        );
-                      })
-                    )}
+
+              <div className="pdv-product-entry">
+                <div className="pdv-product-search">
+                  <Search className="h-4 w-4" />
+                  <Input
+                    id="pdv-product-search"
+                    ref={searchInputRef}
+                    disabled={!selectedClient || catalogLoading || catalogError}
+                    placeholder={!selectedClient ? "Selecione primeiro o cliente" : catalogLoading ? "Carregando tabela de preços..." : catalogError ? "Tabela indisponível" : "Buscar produto ou serviço (ex.: camisa, calça, lençol...)"}
+                    value={searchTerm}
+                    onChange={(event) => {
+                      setSearchTerm(event.target.value);
+                      setShowProductList(true);
+                    }}
+                    onFocus={() => setShowProductList(true)}
+                    skipUppercase
+                  />
+                  {showProductList && (
+                    <div className="pdv-product-result-list">
+                      {isLoadingProdutos ? (
+                        <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando produtos…</div>
+                      ) : filteredProdutos.length === 0 ? (
+                        <p className="p-3 text-center text-sm text-muted-foreground">Nenhum produto ou serviço encontrado.</p>
+                      ) : (
+                        filteredProdutos.slice(0, 8).map((produto) => {
+                          const preco = getPrecoForProduto(produto);
+                          return (
+                            <button key={produto.id} type="button" disabled={!catalogReady} onClick={() => addToCart(produto)}>
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-semibold">{produto.nome}</span>
+                                <span className="block text-[11px] text-muted-foreground">{produto.codigo || "Sem código"}</span>
+                              </span>
+                              <span className="shrink-0 text-sm font-bold text-success">{formatCurrency(preco)}</span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pdv-product-quantity-field">
+                  <span>Quantidade</span>
+                  <div className="pdv-product-quantity">
+                    <button type="button" disabled={!currentItem} onClick={() => currentItem && updateQuantity(currentItem.id, -1)} aria-label="Diminuir quantidade do item atual"><Minus className="h-4 w-4" /></button>
+                    <Input aria-label="Quantidade do item atual" inputMode="decimal" disabled={!currentItem} value={currentItem ? quantityDrafts[currentItem.id] ?? String(currentItem.quantidade) : "1"} onChange={(event) => currentItem && editQuantity(currentItem, event.target.value)} />
+                    <button type="button" disabled={!currentItem || !catalogReady} onClick={() => currentItem && updateQuantity(currentItem.id, 1)} aria-label="Aumentar quantidade do item atual"><Plus className="h-4 w-4" /></button>
+                  </div>
+                </div>
+
+                <Button type="button" className="pdv-add-button gap-2" disabled={!catalogReady} onClick={handleAddCurrentProduct}>
+                  <ShoppingCart className="h-4 w-4" /> Adicionar
+                </Button>
+
+                {(catalogError || (selectedClient && catalogLoading) || invalidQuantity) && (
+                  <div className="col-span-3 rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
+                    {catalogError ? <>Não foi possível carregar clientes, tabela ou condição de pagamento. <Button variant="link" size="sm" className="h-auto px-1 text-xs" onClick={() => { void refetchPrices(); void refetchTerms(); void refetchProducts(); void refetchClients(); }}>Tentar novamente</Button></> : invalidQuantity ? "Quantidade deve ser maior que zero e até 999. Peças exigem valores inteiros." : "Carregando tabela e condição de pagamento…"}
                   </div>
                 )}
               </div>
-              <Button type="button" className="mt-3 h-10 w-full gap-2 font-bold" disabled={!catalogReady} onClick={handleAddCurrentProduct}>
-                <ShoppingCart className="h-4 w-4" />
-                Adicionar item
-                <span className="text-primary-foreground/70">↵</span>
-              </Button>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="col-span-2">
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Quantidade</p>
-                  <div className="flex h-10 items-center rounded-md border bg-background">
-                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem} onClick={() => currentItem && updateQuantity(currentItem.id, -1)} aria-label="Diminuir quantidade do item atual">
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <Input aria-label="Quantidade do item atual" inputMode="decimal" className="flex-1 min-w-0 border-0 text-center" disabled={!currentItem} value={currentItem ? quantityDrafts[currentItem.id] ?? String(currentItem.quantidade) : ""} onChange={e => currentItem && editQuantity(currentItem, e.target.value)} />
-                    <Button type="button" variant="ghost" size="icon" className="h-full w-10 rounded-none" disabled={!currentItem || !catalogReady} onClick={() => currentItem && updateQuantity(currentItem.id, 1)} aria-label="Aumentar quantidade do item atual">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Preço unitário</p>
-                  <div className="flex h-10 items-center justify-end rounded-md border bg-background px-3 text-base font-semibold tabular-nums">{formatCurrency(currentItem?.preco ?? 0)}</div>
-                </div>
-                <div>
-                  <p className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">Subtotal</p>
-                  <div className="flex h-10 items-center justify-end rounded-md border bg-background px-3 text-base font-semibold tabular-nums">{formatCurrency(currentItem ? currentItem.preco * currentItem.quantidade : 0)}</div>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs">
-                <span className="font-semibold text-muted-foreground">Item atual</span>
-                <span className="max-w-[65%] truncate font-bold">{currentItem?.nome || "Aguardando item"}</span>
-              </div>
-            </div>
 
-            <div className="pdv-entry-card rounded-xl border border-strong bg-card p-2.5 shadow-sm sm:p-3">
-              <div className="mb-2 flex items-center gap-2 text-base font-bold">
-                <Keyboard className="h-5 w-5 text-primary" /> Ações rápidas
-              </div>
-              <p className="mb-2 text-xs text-muted-foreground">Atalhos do atendimento, consulta e operação do ROL.</p>
-              <div className="pdv-shortcuts-grid grid grid-cols-3 gap-1.5 sm:grid-cols-4 xl:grid-cols-4">
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => { setShowProductList(true); searchInputRef.current?.focus(); }}>
-                  <span className="flex flex-col items-center justify-center gap-1"><ShoppingCart className="h-5 w-5" />Produtos<span>F3</span></span>
-                </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openOrderLookup()}>
-                  <span className="flex flex-col items-center justify-center gap-1"><FileSearch className="h-5 w-5" />Consultar<span>F5</span></span>
-                </Button>
-                <Button type="button" variant="outline" title="Localizar um ROL e registrar a posição da peça" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[10px] leading-tight hover:bg-primary/10" onClick={() => openOrderLookup("posicao")}>
-                  <span className="flex flex-col items-center justify-center gap-1"><MapPin className="h-5 w-5 text-primary" />Posição<span>do ROL</span></span>
-                </Button>
-                {canAccessRoute("/" + area + "/agenda") && <Button type="button" variant="outline" title="Criar um novo agendamento" className="pdv-shortcut-button h-[58px] rounded-lg border-primary/30 bg-primary/5 px-1 text-[10px] leading-tight hover:bg-primary/10" onClick={() => openQuickCadastro("/" + area + "/agenda?novo=1")}>
-                  <span className="flex flex-col items-center justify-center gap-1"><CalendarPlus className="h-5 w-5 text-primary" />Agendar<span>cliente</span></span>
-                </Button>}
-                {canAccessRoute("/" + area + "/ordens") && <Button type="button" variant="outline" title="Abrir as ordens de serviço" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/ordens")}>
-                  <span className="flex flex-col items-center justify-center gap-1"><ClipboardPlus className="h-5 w-5" />Ordens<span>de serviço</span></span>
-                </Button>}
-                {canAccessRoute("/" + area + "/lancamentos") && <Button type="button" variant="outline" title="Consultar as faturas do setor" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=faturas")}>
-                  <span className="flex flex-col items-center justify-center gap-1"><CreditCard className="h-5 w-5" />Faturas<span>do setor</span></span>
-                </Button>}
-                {canAccessRoute("/" + area + "/lancamentos") && <Button type="button" variant="outline" title="Abrir fechamento e pendências" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/lancamentos?tab=pendentes")}>
-                  <span className="flex flex-col items-center justify-center gap-1"><Lock className="h-5 w-5" />Fechamento<span>e pendências</span></span>
-                </Button>}
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => setShowHistoricoVendas(true)}>
-                  <span className="flex flex-col items-center justify-center gap-1"><History className="h-5 w-5" />Histórico<span>F6</span></span>
-                </Button>
-                {canAccessRoute("/" + area + "/clientes") && <Button type="button" variant="outline" title="Cadastrar um novo cliente" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => openQuickCadastro("/" + area + "/clientes?novo=1")}>
-                  <span className="flex flex-col items-center justify-center gap-1"><UserPlus className="h-5 w-5" />Novo<span>cliente</span></span>
-                </Button>}
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => {
-                  if (!currentItem) {
-                    toast.info("Adicione ou selecione um item para editar os detalhes");
-                    return;
-                  }
-                  openDetalhesModal(currentItem);
-                }}>
-                  <span className="flex flex-col items-center justify-center gap-1"><FileText className="h-5 w-5" />Detalhes<span>Item</span></span>
-                </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight text-destructive" onClick={() => {
-                  if (cart.length === 0) {
-                    toast.info("Não há itens para cancelar");
-                    return;
-                  }
-                  clearCart();
-                }}>
-                  <span className="flex flex-col items-center justify-center gap-1"><Trash2 className="h-5 w-5" />Cancelar<span>F8</span></span>
-                </Button>
-                <Button type="button" variant="outline" className="pdv-shortcut-button h-[58px] rounded-lg px-1 text-[10px] leading-tight" onClick={() => setShowOperations((open) => !open)} aria-expanded={showOperations}>
-                  <span className="flex flex-col items-center justify-center gap-1"><Settings2 className="h-5 w-5" />Mais<span>Ações</span></span>
-                </Button>
-              </div>
-              {showOperations && (
-                <div className="grid grid-cols-1 gap-2 mt-2 sm:grid-cols-2">
-                  {canOperateCaixa && <>
-                    <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowFecharCaixaModal(true); }}><Lock className="mr-2 h-4 w-4" /> Fechar caixa (F10)</Button>
-                    <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowSangriaModal(true); }}><ArrowDownCircle className="mr-2 h-4 w-4" /> Sangria (F7)</Button>
-                    <Button variant="outline" size="sm" disabled={!canReceivePayments} onClick={() => { if (canReceivePayments) setShowSuprimentoModal(true); }}><ArrowUpCircle className="mr-2 h-4 w-4" /> Suprimento</Button>
-                  </>}
-                  {canAccessRoute("/residencial/relatorios/caixa") && <Button variant="outline" size="sm" onClick={() => openQuickCadastro("/residencial/relatorios/caixa")}><BarChart3 className="mr-2 h-4 w-4" /> Relatório de caixa</Button>}
-                  <Button variant="outline" size="sm" onClick={() => setShowAjudaAtalhos(true)}><Keyboard className="mr-2 h-4 w-4" /> Atalhos</Button>
-                  <Button variant="outline" size="sm" onClick={toggleFullscreen}>{isFullscreen ? <Minimize className="mr-2 h-4 w-4" /> : <Maximize className="mr-2 h-4 w-4" />}Tela cheia</Button>
-                </div>
-              )}
-            </div>
-          </aside>
-
-          <section className="flex min-h-[430px] min-w-0 flex-col overflow-hidden rounded-xl border border-strong bg-card shadow-sm xl:min-h-0">
-            <div className="flex items-center justify-between gap-3 border-b px-3 py-2.5 sm:px-4">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="h-5 w-5 text-primary" />
-                <p className="text-base font-bold uppercase tracking-wide">Itens da venda</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <p className="hidden text-xs text-muted-foreground sm:block">{cart.length} produtos · {totalItems} unidades</p>
-                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-destructive" onClick={() => {
-                  if (cart.length === 0) {
-                    toast.info("Não há itens para limpar");
-                    return;
-                  }
-                  clearCart();
-                }}><Trash2 className="h-3.5 w-3.5" /> Limpar venda</Button>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full min-w-[720px] table-fixed text-sm">
-                <thead className="sticky top-0 z-10 bg-muted/60 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="w-12 border-b px-3 py-1.5 text-center">Item</th>
-                    <th className="border-b px-3 py-1.5">Descrição</th>
-                    <th className="w-32 border-b px-3 py-1.5 text-right">Preço unit.</th>
-                    <th className="w-36 border-b px-3 py-1.5 text-center">Qtd.</th>
-                    <th className="w-32 border-b px-3 py-1.5 text-right">Total</th>
-                    <th className="w-24 border-b px-3 py-1.5 text-center">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <div className="pdv-items-content">
+                <div className="pdv-mobile-cart" data-testid="pdv-mobile-cart">
                   {cart.length === 0 ? (
+                    <div className="pdv-items-empty">
+                      <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
+                      <p className="font-medium">Nenhum item lançado</p>
+                      <p className="mt-1 text-xs">Selecione o cliente e adicione um serviço.</p>
+                    </div>
+                  ) : cart.map((item, index) => (
+                    <article key={item.id} className={cn("rounded-lg border p-3", item.avarias && "border-warning/40 bg-warning/5")}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-muted-foreground">ITEM {index + 1}</p>
+                          <p className="truncate font-black">{item.nome}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{formatCurrency(item.preco)} / {item.unidade}</p>
+                        </div>
+                        <p className="shrink-0 text-lg font-black text-success">{formatCurrency(item.preco * item.quantidade)}</p>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <div className="pdv-table-quantity">
+                          <button type="button" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}><Minus className="h-3.5 w-3.5" /></button>
+                          <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={(event) => editQuantity(item, event.target.value)} />
+                          <button type="button" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}><Plus className="h-3.5 w-3.5" /></button>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openDetalhesModal(item)} aria-label={`Detalhes de ${item.nome}`}><FileText className="h-4 w-4" /></Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromCart(item.id)} aria-label={`Remover ${item.nome}`}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                <table className="pdv-items-table">
+                  <thead>
                     <tr>
-                      <td colSpan={6} className="h-40 px-4 text-center text-muted-foreground">
-                        <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
-                        <p className="font-medium">Nenhum item lançado</p>
-                        <p className="mt-1 text-xs">Selecione primeiro o cliente e pesquise um produto ou serviço para iniciar a venda.</p>
-                      </td>
+                      <th className="w-14 text-center">#</th>
+                      <th className="w-[105px]">Item</th>
+                      <th>Descrição</th>
+                      <th className="w-[128px] text-center">Quant.</th>
+                      <th className="w-[94px] text-center">Unidade</th>
+                      <th className="w-[105px] text-right">Preço unit.</th>
+                      <th className="w-[113px] text-right">Total</th>
+                      <th className="w-[110px] text-center">Ações</th>
                     </tr>
-                  ) : (
-                    cart.map((item, index) => {
-                      const temDetalhes = hasItemDetalhes(item);
-                      return (
-                        <tr key={item.id} className={cn("border-b align-top hover:bg-muted/30", item.avarias && "bg-warning/5")}>
-                          <td className="px-3 py-2 text-center font-semibold text-muted-foreground">{index + 1}</td>
-                          <td className="min-w-0 px-3 py-2">
-                            <div className="flex items-start gap-1.5">
-                              <p className="min-w-0 flex-1 truncate font-semibold">{item.nome}</p>
-                              {item.avarias ? <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" /> : null}
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                              <span>{item.unidade}</span>
-                              {temDetalhes ? <span className="inline-flex items-center gap-1"><FileText className="h-3 w-3 text-primary" />Detalhes</span> : null}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium tabular-nums">{formatCurrency(item.preco)}</td>
-                          <td className="px-3 py-2">
-                            <div className="mx-auto flex w-fit items-center border bg-background">
-                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}>
-                                <Minus className="h-3.5 w-3.5" />
-                              </Button>
-                              <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} className="h-8 w-16 border-0 px-1 text-center" value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={e => editQuantity(item, e.target.value)} />
-                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}>
-                                <Plus className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <span className="font-bold tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openDetalhesModal(item)} title="Editar detalhes do item"><FileText className="h-3.5 w-3.5" /></Button>
-                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromCart(item.id)} title="Remover item"><Trash2 className="h-3.5 w-3.5" /></Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="border-t bg-card p-2.5 sm:p-3">
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_minmax(220px,280px)] sm:items-center">
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{totalItems} itens · {cart.length} produtos</p>
-                  <p className="mt-1 truncate text-sm font-semibold">{selectedClient ? `Cliente: ${selectedClient.nome_fantasia || selectedClient.razao_social}` : "Nenhum cliente selecionado"}</p>
-                </div>
-                <div className="border-l pl-3 sm:min-w-[120px]">
-                  <p className="text-xs text-muted-foreground">Subtotal</p>
-                  <p className="text-lg font-bold tabular-nums">{formatCurrency(totalValue)}</p>
-                </div>
-                <div className="border-l pl-3 sm:min-w-[100px]">
-                  <p className="text-xs text-muted-foreground">Desconto</p>
-                  <p className="text-lg font-bold tabular-nums">{formatCurrency(0)}</p>
-                </div>
-                <div className="rounded-lg bg-primary/10 px-4 py-2 sm:text-right">
-                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Total</p>
-                  <p className="text-2xl font-black tabular-nums text-primary sm:text-3xl">{formatCurrency(totalValue)}</p>
-                </div>
+                  </thead>
+                  <tbody>
+                    {cart.length === 0 ? (
+                      <tr>
+                        <td colSpan={8}>
+                          <div className="pdv-items-empty">
+                            <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
+                            <p className="font-medium">Nenhum item lançado</p>
+                            <p className="mt-1 text-xs">Selecione primeiro o cliente e pesquise um produto ou serviço para iniciar a venda.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      cart.map((item, index) => {
+                        const temDetalhes = hasItemDetalhes(item);
+                        return (
+                          <tr key={item.id} className={cn(item.avarias && "bg-warning/5")}>
+                            <td className="text-center font-semibold text-muted-foreground">{index + 1}</td>
+                            <td>
+                              <div className="pdv-item-product">
+                                <span className="pdv-item-thumb"><Package className="h-5 w-5" /></span>
+                                <span className="min-w-0"><span className="pdv-item-code">{item.codigo || String(index + 1).padStart(3, "0")}</span></span>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="flex min-w-0 items-center gap-1.5">
+                                <span className="pdv-item-name">{item.nome}</span>
+                                {item.avarias && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />}
+                              </div>
+                              <span className="pdv-item-description">{item.descricao || (temDetalhes ? "Detalhes de peça registrados" : "Lavagem e processamento")}</span>
+                            </td>
+                            <td>
+                              <div className="pdv-table-quantity">
+                                <button type="button" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}><Minus className="h-3.5 w-3.5" /></button>
+                                <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={(event) => editQuantity(item, event.target.value)} />
+                                <button type="button" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}><Plus className="h-3.5 w-3.5" /></button>
+                              </div>
+                            </td>
+                            <td className="text-center"><span className="pdv-unit-chip"><span>{getPdvUnitDisplay(item.unidade)}</span><ChevronDown className="h-3.5 w-3.5" /></span></td>
+                            <td className="text-right font-semibold tabular-nums">{formatCurrency(item.preco)}</td>
+                            <td className="text-right font-black tabular-nums">{formatCurrency(item.preco * item.quantidade)}</td>
+                            <td>
+                              <div className="pdv-item-actions">
+                                <Button type="button" variant="outline" size="icon" className="h-10 w-10 text-primary" onClick={() => openDetalhesModal(item)} aria-label={`Detalhes de ${item.nome}`} title="Editar detalhes do item"><Pencil className="h-4 w-4" /></Button>
+                                <Button type="button" variant="outline" size="icon" className="h-10 w-10 text-destructive" onClick={() => removeFromCart(item.id)} aria-label={`Remover ${item.nome}`} title="Remover item"><Trash2 className="h-4 w-4" /></Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(180px,1fr)_minmax(240px,1.6fr)]">
-                <Button type="button" variant="outline" className="h-11 gap-2 font-semibold" onClick={() => openOrderLookup()}><FileSearch className="h-4 w-4" /> Consultar ROL (F5)</Button>
-                <Button type="button" className="h-11 gap-2 bg-success text-success-foreground hover:bg-success/90" disabled={!cartValid || isProcessingVenda} onClick={handleOpenPagamento}><CreditCard className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar atendimento"} <span className="text-success-foreground/75">F4</span></Button>
-              </div>
-            </div>
+            </section>
           </section>
+
+          <aside className="pdv-right-column" aria-label="Entrega, resumo e finalização do pedido">
+            <section className="pdv-fulfillment-card" aria-labelledby="pdv-fulfillment-title">
+              <header>
+                <div>
+                  <h2 id="pdv-fulfillment-title">Entrega / retirada</h2>
+                  <p>Defina a logística do ROL antes de finalizar.</p>
+                </div>
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={!selectedClient} onClick={() => openFulfillmentModal()} aria-label="Editar prazo e logística">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </header>
+
+              <div className="pdv-fulfillment-modes" aria-label="Modalidade de entrega">
+                <button type="button" className={cn("pdv-fulfillment-mode", fulfillment.deliveryMode === "balcao" && "is-active")} disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "balcao" })}>
+                  <Archive className="h-4 w-4" /> Retirada
+                </button>
+                <button type="button" className={cn("pdv-fulfillment-mode", fulfillment.deliveryMode === "entrega" && "is-active")} disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "entrega" })}>
+                  <Truck className="h-4 w-4" /> Delivery
+                </button>
+              </div>
+
+              <div className="pdv-fulfillment-date">
+                <span className="pdv-capacity-date-icon"><CalendarDays className="h-4 w-4" /></span>
+                <span className="min-w-0">
+                  <small>Data prevista</small>
+                  <strong>{format(fulfillment.deliveryDate, "dd/MM/yyyy")} <span>({format(fulfillment.deliveryDate, "EEEE", { locale: ptBR })})</span></strong>
+                </span>
+              </div>
+
+              <div className="pdv-capacity-summary">
+                <div className="pdv-capacity-heading">
+                  <span>Capacidade da data <Info className="h-3.5 w-3.5 text-primary" /></span>
+                </div>
+                {capacityLoading ? (
+                  <p className="pdv-compact-status"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Consultando agenda…</p>
+                ) : capacityError ? (
+                  <p role="alert" className="pdv-compact-status text-destructive">Não foi possível validar a capacidade.</p>
+                ) : !capacity?.configured ? (
+                  <p className="pdv-compact-status">Sem limite diário configurado para este setor.</p>
+                ) : (
+                  <div className="pdv-capacity-meter-row">
+                    <div className="pdv-capacity-meter" aria-label={`Capacidade utilizada: ${capacityProgress.toFixed(0)}%`}><span style={{ width: `${capacityProgress}%` }} /></div>
+                    <strong>{formatCarga(capacityReserved + totalItems)} de {formatCarga(capacityLimit)} cargas</strong>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="pdv-summary-card" aria-labelledby="pdv-summary-title">
+              <header>
+                <div>
+                  <h2 id="pdv-summary-title">Resumo do ROL</h2>
+                  <p>Pagamento, descontos e regras comerciais são confirmados na finalização.</p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" className="pdv-more-actions-trigger" aria-label="Mais ações"><MoreHorizontal className="h-4 w-4" /></button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64 p-2">
+                    <DropdownMenuLabel className="px-2 pb-1 text-xs uppercase tracking-wide text-muted-foreground">Ações do atendimento</DropdownMenuLabel>
+                    {canManageContracts && <DropdownMenuItem disabled={!selectedClient} onSelect={() => { if (selectedClient) setShowContracts(true); }}><FileText className="mr-2 h-4 w-4" />Contrato do cliente</DropdownMenuItem>}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger><FileText className="mr-2 h-4 w-4" />Venda atual</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-64 p-2">
+                        <DropdownMenuItem disabled={!currentItem} onSelect={() => { if (currentItem) openDetalhesModal(currentItem); }}><FileText className="mr-2 h-4 w-4" />Detalhes do item</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={requestClearSale}><Trash2 className="mr-2 h-4 w-4" />Cancelar venda<DropdownMenuShortcut>F8</DropdownMenuShortcut></DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger><CreditCard className="mr-2 h-4 w-4" />Caixa e financeiro</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-72 p-2">
+                        {canOperateCaixa && <>
+                          <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowFecharCaixaModal(true); }}><Lock className="mr-2 h-4 w-4" />Fechar caixa<DropdownMenuShortcut>F10</DropdownMenuShortcut></DropdownMenuItem>
+                          <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowSangriaModal(true); }}><ArrowDownCircle className="mr-2 h-4 w-4" />Sangria<DropdownMenuShortcut>F7</DropdownMenuShortcut></DropdownMenuItem>
+                          <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowSuprimentoModal(true); }}><ArrowUpCircle className="mr-2 h-4 w-4" />Suprimento</DropdownMenuItem>
+                        </>}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger><Keyboard className="mr-2 h-4 w-4" />Tela e atalhos</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-56 p-2">
+                        <DropdownMenuItem onSelect={() => setShowAjudaAtalhos(true)}><Keyboard className="mr-2 h-4 w-4" />Atalhos<DropdownMenuShortcut>F1</DropdownMenuShortcut></DropdownMenuItem>
+                        <DropdownMenuItem onSelect={toggleFullscreen}>{isFullscreen ? <Minimize className="mr-2 h-4 w-4" /> : <Maximize className="mr-2 h-4 w-4" />}Tela cheia<DropdownMenuShortcut>F11</DropdownMenuShortcut></DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </header>
+
+              <div className="pdv-summary-lines">
+                <div className="pdv-summary-line"><span>Itens</span><strong>{cart.length} produtos · {formatCarga(totalItems)} peças</strong></div>
+                <div className="pdv-summary-line"><span>Subtotal</span><strong>{formatCurrency(totalValue)}</strong></div>
+                <p className="pdv-payment-note"><CreditCard className="h-4 w-4" /> Pagamento e ajustes serão definidos na finalização.</p>
+              </div>
+              <div className="pdv-total-banner">
+                <small>Total estimado</small>
+                <strong>{formatCurrency(totalValue)}</strong>
+              </div>
+
+              {!isLoadingCaixa && !canReceivePayments && !isFaturado && <p className="pdv-summary-warning">Abra o caixa e confirme sua permissão para receber agora.</p>}
+              {!isLoadingCaixa && canOperateCaixa && !caixaAberto && (
+                <Button type="button" variant="outline" size="sm" className="mt-3 w-full" onClick={() => setShowAbrirCaixaModal(true)}>
+                  Abrir caixa para receber
+                </Button>
+              )}
+              {fulfillmentBlockReason && <p role="alert" className="pdv-summary-warning">{fulfillmentBlockReason}</p>}
+
+              <div className="pdv-payment-actions">
+                <Button type="button" data-testid="pdv-workflow-finalize" className="pdv-finish-button gap-2" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={handleOpenPagamento}>
+                  <CircleCheck className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar ROL (F4)"}
+                </Button>
+                <Button type="button" variant="outline" className="pdv-print-button gap-2" onClick={() => {
+                  if (osRecemCriada) {
+                    void printROL(osRecemCriada.id);
+                    return;
+                  }
+                  toast.info("Finalize o atendimento antes de imprimir a ROL.");
+                }}>
+                  <Printer className="h-4 w-4" /> Imprimir ROL (F5)
+                </Button>
+              </div>
+            </section>
+          </aside>
         </div>
-      </section>
+
+        <nav aria-label="Atalhos do atendimento" className="scrollbar-hide" data-testid="pdv-primary-shortcuts">
+          <div className="pdv-quick-actions">
+            <div className="pdv-quick-actions-heading">
+              <div className="min-w-0">
+                <h2>Ações rápidas</h2>
+                <p>Consultas e operação do ROL sem repetir os controles já visíveis.</p>
+              </div>
+            </div>
+            <button data-testid="pdv-workflow-day-list" type="button" className="pdv-quick-action" aria-label="Lista do dia" disabled={!canViewDayList} onClick={() => setShowListaDia(true)}><CalendarDays className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Agenda</span><span className="pdv-quick-action-hotkey">F3</span></span></button>
+            <button type="button" className="pdv-quick-action" onClick={() => openOrderLookup()}><ClipboardList className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Consultar ROL</span><span className="pdv-quick-action-hotkey">F6</span></span></button>
+            <button type="button" className="pdv-quick-action" aria-label="Posição do ROL" onClick={() => openOrderLookup("posicao")}><MapPin className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Posição</span></span></button>
+            <button type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => setShowHistoricoVendas(true)}><FileSearch className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Histórico</span></span></button>
+            <button type="button" className="pdv-quick-action" onClick={() => setShowAjudaAtalhos(true)}><Keyboard className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Atalhos</span><span className="pdv-quick-action-hotkey">F1</span></span></button>
+          </div>
+        </nav>
+      </div>
 
       {/* Modal de Detalhes do Item */}
       {selectedCartItem && (
@@ -1171,6 +1399,42 @@ const PdvAtendimento = () => {
           }}
           onSave={saveDetalhes}
         />
+      )}
+
+      {selectedClient && (
+        <Dialog open={showFulfillmentModal} onOpenChange={(open) => {
+          if (open) return;
+          closeFulfillmentModal();
+        }}>
+          <DialogContent className="flex max-h-[90vh] max-w-5xl flex-col overflow-hidden">
+            <DialogHeader className="shrink-0">
+              <DialogTitle>Prazo, capacidade e entrega</DialogTitle>
+              <DialogDescription>Defina prazo, capacidade, entrega ou retirada sem abandonar o pedido atual.</DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 overflow-y-auto pr-1">
+              <PdvFulfillmentPanel
+                clienteNome={selectedClient.nome_fantasia || selectedClient.razao_social}
+                endereco={enderecoCliente}
+                enderecoLoading={enderecoLoading}
+                enderecoError={enderecoError}
+                settings={fulfillmentDraft ?? fulfillment}
+                requestedLoad={totalItems}
+                capacity={fulfillmentDraftCapacity}
+                capacityLoading={fulfillmentDraftCapacityLoading}
+                capacityError={fulfillmentDraftCapacityError}
+                canOverrideCapacity={canManageCommercialTerms}
+                canSetUrgency={!isFaturado}
+                onChange={setFulfillmentDraft}
+              />
+            </div>
+            <DialogFooter className="shrink-0 border-t pt-4 sm:gap-3">
+              <Button type="button" variant="outline" onClick={closeFulfillmentModal}>Cancelar</Button>
+              <Button type="button" data-testid="pdv-fulfillment-apply" className="gap-2" onClick={applyFulfillmentChanges}>
+                <CircleCheck className="h-4 w-4" /> Aplicar alterações
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Modal de Pagamento */}
@@ -1193,16 +1457,12 @@ const PdvAtendimento = () => {
         termsError={catalogError || !cartValid}
         loyaltyLoading={isLoadingCustomerLoyalty}
         configuracaoPagamento={configuracaoPagamento ?? null}
-        onEditConfiguracaoPagamento={canManageCommercialTerms ? handleEditClientePagamento : undefined}
+        fulfillment={fulfillment}
+        fulfillmentAddressSnapshot={fulfillmentAddressSnapshot}
+        fulfillmentBlockReason={fulfillmentBlockReason}
         onConfirm={handleFinalizarVenda}
         isLoading={isProcessingVenda}
       />
-
-      {canManageCommercialTerms && <ClientePagamentoDialog
-        open={showClientePagamentoDialog}
-        onOpenChange={setShowClientePagamentoDialog}
-        clienteId={selectedClientId}
-      />}
 
       {/* Modal de Impressão Pós-Venda */}
       {osRecemCriada && (
@@ -1309,6 +1569,12 @@ const PdvAtendimento = () => {
         onImprimirEtiquetas={osId => { void printEtiqueta(osId); }}
       />
 
+      {canViewDayList && <ListaDoDiaModal
+        open={showListaDia}
+        onOpenChange={setShowListaDia}
+        onSelectClient={selectClient}
+      />}
+
       {canManageContracts && selectedClient && <Dialog open={showContracts} onOpenChange={setShowContracts}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Contrato · {selectedClient.nome_fantasia || selectedClient.razao_social}</DialogTitle>
@@ -1318,11 +1584,47 @@ const PdvAtendimento = () => {
         </DialogContent>
       </Dialog>}
 
+      {canCreateClient && <CadastroRapidoClienteModal
+        open={showQuickClientModal}
+        onOpenChange={setShowQuickClientModal}
+        classification={area}
+        onCreated={(clientId) => {
+          setSelectedClientId(clientId);
+          setShowClientList(false);
+          setClientSearch("");
+          void refetchClients();
+          requestAnimationFrame(() => searchInputRef.current?.focus());
+        }}
+        onUseExisting={selectClient}
+      />}
+
       {/* Modal Ajuda Atalhos */}
       <AjudaAtalhosModal
         open={showAjudaAtalhos}
         onOpenChange={setShowAjudaAtalhos}
       />
+
+      <AlertDialog open={Boolean(discardRequest)} onOpenChange={(open) => !open && setDiscardRequest(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{discardRequest?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{discardRequest?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar nesta venda</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                const action = discardRequest?.action;
+                setDiscardRequest(null);
+                action?.();
+              }}
+            >
+              {discardRequest?.confirmLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };

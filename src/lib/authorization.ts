@@ -51,6 +51,12 @@ export interface RouteAccessContext {
   isPlatformAdmin?: boolean;
 }
 
+export type PdvArea = Extract<AppRouteDefinition["area"], "industrial" | "residencial">;
+
+export function getCanonicalPdvPath(area: PdvArea): "/pdv/domestico" | "/pdv/industrial" {
+  return area === "residencial" ? "/pdv/domestico" : "/pdv/industrial";
+}
+
 export function isRouteAccessible(
   route: AppRouteDefinition | null | undefined,
   { accessibleAreas, modulePermissions, isAdmin, isPlatformAdmin = false }: RouteAccessContext,
@@ -109,15 +115,34 @@ export function resolveDefaultAccessibleRoute(
   );
 }
 
+export function resolveAccessiblePdvPath(access: RouteAccessContext): string | null {
+  for (const area of ["residencial", "industrial"] as const) {
+    const route = getAppRoute(`/${area}/caixa`);
+    if (isRouteAccessible(route, access)) return getCanonicalPdvPath(area);
+  }
+
+  return null;
+}
+
+export function resolveDefaultAccessiblePath(access: RouteAccessContext): string | null {
+  if (access.isAdmin || access.isPlatformAdmin) {
+    const controlCenter = getWorkspaceRoute("central");
+    if (isRouteAccessible(controlCenter, access)) return "/admin/visao-geral";
+  }
+
+  const pdv = resolveAccessiblePdvPath(access);
+  if (pdv) return "/pdv";
+
+  return getFirstAccessibleRoute(access)?.path ?? null;
+}
+
 export function resolveLegacyRouteRedirect(
   redirect: LegacyRouteRedirect,
   access: RouteAccessContext,
 ): string | null {
   if (redirect.from === "/pdv" || redirect.from === "/caixa") {
-    const pdv = ["/residencial/caixa", "/industrial/caixa"]
-      .map(path => getAppRoute(path))
-      .find(route => isRouteAccessible(route, access));
-    return pdv ? `${pdv.path}${redirect.search ?? ""}` : null;
+    const pdv = resolveAccessiblePdvPath(access);
+    return pdv ? `${pdv}${redirect.search ?? ""}` : null;
   }
   const destination = resolvePreferredAccessibleRoute(getAppRoute(redirect.to), access);
   if (!destination) return null;

@@ -19,6 +19,7 @@ import { Download, Printer, Users, Trophy, TrendingUp, AlertTriangle } from "luc
 import { format } from "date-fns";
 import { useRelatorioOperadores } from "@/hooks/useRelatorioCaixa";
 import { cn } from "@/lib/utils";
+import { CashReportError } from "./CashReportError";
 
 interface RelatorioOperadoresProps {
   startDate: Date;
@@ -31,7 +32,9 @@ const chartConfig = {
 };
 
 export const RelatorioOperadores = ({ startDate, endDate }: RelatorioOperadoresProps) => {
-  const { data: operadores = [], isLoading } = useRelatorioOperadores(startDate, endDate);
+  const reportQuery = useRelatorioOperadores(startDate, endDate);
+  const operadores = reportQuery.data ?? [];
+  const { isLoading } = reportQuery;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -100,16 +103,19 @@ export const RelatorioOperadores = ({ startDate, endDate }: RelatorioOperadoresP
       </div>
     );
   }
+  if (reportQuery.isError) {
+    return <CashReportError onRetry={() => void reportQuery.refetch()} />;
+  }
 
   return (
     <div className="space-y-6">
       {/* Actions */}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={handleExportCSV}>
+      <div className="flex flex-col justify-end gap-2 sm:flex-row">
+        <Button variant="outline" className="min-h-11" onClick={handleExportCSV}>
           <Download className="w-4 h-4 mr-2" />
           Exportar CSV
         </Button>
-        <Button variant="outline" size="sm" onClick={handlePrint}>
+        <Button variant="outline" className="min-h-11" onClick={handlePrint}>
           <Printer className="w-4 h-4 mr-2" />
           Imprimir
         </Button>

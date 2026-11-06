@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ShoppingCart, Calendar as CalendarIcon, X, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, isSameDay } from "date-fns";
+import { format, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,7 @@ export function RolsLojaCard() {
     if (!filtroData) return true;
     const campo = filtroTipo === "retirada" ? rol.data_retirada : rol.data_previsao_entrega;
     if (!campo) return false;
-    return isSameDay(new Date(campo), filtroData);
+    return isSameDay(parseISO(campo), filtroData);
   });
 
   const activeRols = filteredRols.filter((r) => r.status !== "entregue");
@@ -136,7 +136,7 @@ export function RolsLojaCard() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                       {rol.data_previsao_entrega
-                        ? format(new Date(rol.data_previsao_entrega), "dd/MM", { locale: ptBR })
+                        ? format(parseISO(rol.data_previsao_entrega), "dd/MM", { locale: ptBR })
                         : "-"}
                     </span>
                     {rol.valor_total != null && (

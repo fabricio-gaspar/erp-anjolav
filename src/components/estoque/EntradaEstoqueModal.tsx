@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { EstoqueProduto } from "@/hooks/useEstoque";
 import { useFornecedores } from "@/hooks/useFornecedores";
 import { useMovimentacoesEstoque } from "@/hooks/useMovimentacoesEstoque";
+import { createIdempotencyKey } from "@/lib/idempotency";
+import { useEstoqueLocais } from "@/hooks/useCompras";
 
 interface Props {
   open: boolean;
@@ -18,24 +20,34 @@ interface Props {
 export function EntradaEstoqueModal({ open, onOpenChange, produtos }: Props) {
   const { fornecedores } = useFornecedores();
   const { registrarMovimentacao } = useMovimentacoesEstoque();
-  const [form, setForm] = useState({ estoque_produto_id: "", quantidade: "", custo_unitario: "", fornecedor_id: "", motivo: "" });
+  const { locais } = useEstoqueLocais({ enabled: open, includeBalances: false });
+  const [form, setForm] = useState({ estoque_produto_id: "", estoque_local_id: "", quantidade: "", custo_unitario: "", fornecedor_id: "", motivo: "" });
+  const commandKey = useRef<string | null>(null);
 
   const salvar = async () => {
-    if (!form.estoque_produto_id || !form.quantidade) return;
+    const localId = form.estoque_local_id || locais.find((local) => local.ativo)?.id;
+    if (!form.estoque_produto_id || !localId || !form.quantidade) return;
+    commandKey.current ??= createIdempotencyKey("stock-in");
     await registrarMovimentacao.mutateAsync({
       estoque_produto_id: form.estoque_produto_id,
       tipo: "entrada",
       quantidade: Number(form.quantidade),
-      custo_unitario: Number(form.custo_unitario) || 0,
+      custo_unitario: form.custo_unitario ? Number(form.custo_unitario) : undefined,
       fornecedor_id: form.fornecedor_id || undefined,
+      estoque_local_id: localId,
       motivo: form.motivo || "Compra",
+      idempotency_key: commandKey.current,
     });
-    setForm({ estoque_produto_id: "", quantidade: "", custo_unitario: "", fornecedor_id: "", motivo: "" });
+    commandKey.current = null;
+    setForm({ estoque_produto_id: "", estoque_local_id: "", quantidade: "", custo_unitario: "", fornecedor_id: "", motivo: "" });
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      if (!nextOpen) commandKey.current = null;
+      onOpenChange(nextOpen);
+    }}>
       <DialogContent className="wide-form-dialog">
         <DialogHeader><DialogTitle>Entrada de Estoque</DialogTitle></DialogHeader>
         <div className="space-y-4">
@@ -44,6 +56,13 @@ export function EntradaEstoqueModal({ open, onOpenChange, produtos }: Props) {
             <Select value={form.estoque_produto_id} onValueChange={(v) => setForm({ ...form, estoque_produto_id: v })}>
               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>{produtos.filter(p => p.ativo).map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Local de entrada *</Label>
+            <Select value={form.estoque_local_id} onValueChange={(v) => setForm({ ...form, estoque_local_id: v })}>
+              <SelectTrigger><SelectValue placeholder={locais.find((local) => local.ativo)?.nome || "Selecione..."} /></SelectTrigger>
+              <SelectContent>{locais.filter((local) => local.ativo).map((local) => <SelectItem key={local.id} value={local.id}>{local.codigo} · {local.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -11,7 +11,11 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
-import { useGlobalSearch, type GlobalSearchResult } from "@/hooks/useGlobalSearch";
+import {
+  sanitizeGlobalSearchTerm,
+  useGlobalSearch,
+  type GlobalSearchResult,
+} from "@/hooks/useGlobalSearch";
 
 const ICONS: Record<GlobalSearchResult["type"], React.ElementType> = {
   cliente: Users,
@@ -25,7 +29,7 @@ const GROUP_LABELS: Record<GlobalSearchResult["type"], string> = {
   cliente: "Clientes",
   produto: "Produtos",
   fornecedor: "Fornecedores",
-  ordem: "Ordens de Serviço",
+  ordem: "Pedidos / ROLs",
   lancamento: "Lançamentos",
 };
 
@@ -34,6 +38,7 @@ export function GlobalSearch() {
   const [term, setTerm] = useState("");
   const { data: results = [], isFetching } = useGlobalSearch(term);
   const navigate = useNavigate();
+  const hasMinimumTerm = sanitizeGlobalSearchTerm(term).replace(/\s/g, "").length >= 2;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -57,19 +62,29 @@ export function GlobalSearch() {
     navigate(r.route);
   };
 
+  const getSearchableItemValue = (result: GlobalSearchResult) => {
+    const rawValue = [term, result.type, result.label, result.sublabel, result.id]
+      .filter(Boolean)
+      .join(" ");
+    const normalizedValue = sanitizeGlobalSearchTerm(rawValue);
+    const digitsOnly = rawValue.replace(/\D/g, "");
+    return `${rawValue} ${normalizedValue} ${digitsOnly}`;
+  };
+
   return (
     <>
       <Button
         variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
+        aria-label="Buscar no sistema"
         className={cn(
-          "hidden md:flex gap-2 transition-colors hover:bg-opacity-10",
+          "flex h-9 w-9 gap-2 px-0 transition-colors hover:bg-opacity-10 md:w-auto md:px-3",
           "text-muted-foreground hover:text-foreground hover:bg-accent"
         )}
       >
         <Search className="w-4 h-4" />
-        <span className="text-sm">Buscar...</span>
+        <span className="hidden text-sm md:inline">Buscar...</span>
         <kbd className={cn(
           "hidden lg:inline-flex h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium",
           "border-border bg-muted text-muted-foreground"
@@ -80,14 +95,15 @@ export function GlobalSearch() {
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Buscar clientes, OS, produtos, fornecedores..."
+          placeholder="Cliente, CPF/CNPJ, telefone ou pedido/ROL..."
           value={term}
           onValueChange={setTerm}
+          className="text-base sm:text-sm"
         />
         <CommandList>
-          {term.trim().length < 2 ? (
+          {!hasMinimumTerm ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
-              Digite ao menos 2 caracteres para buscar.
+              Busque por nome, razão social ou fantasia, CPF/CNPJ, telefone e número do pedido/ROL.
             </div>
           ) : isFetching ? (
             <div className="py-6 text-center text-sm text-muted-foreground">Buscando...</div>
@@ -99,7 +115,11 @@ export function GlobalSearch() {
                 return (
                   <CommandGroup key={type} heading={GROUP_LABELS[type as GlobalSearchResult["type"]]}>
                     {items.map((r) => (
-                      <CommandItem key={`${type}-${r.id}`} value={`${type}-${r.label}-${r.id}`} onSelect={() => handleSelect(r)}>
+                      <CommandItem
+                        key={`${type}-${r.id}`}
+                        value={getSearchableItemValue(r)}
+                        onSelect={() => handleSelect(r)}
+                      >
                         <Icon className="w-4 h-4 mr-2 text-muted-foreground" />
                         <div className="flex flex-col">
                           <span className="text-sm">{r.label}</span>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -11,7 +11,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { useContasPagar, ContaPagarInsert } from "@/hooks/useContasPagar";
+import {
+  criarChaveOperacaoFinanceira,
+  useContasPagar,
+  type ContaPagarInsert,
+} from "@/hooks/useContasPagar";
 import { useFornecedores } from "@/hooks/useFornecedores";
 import { useCategoriasFinanceiras } from "@/hooks/useCategoriasFinanceiras";
 import { useCentrosCusto } from "@/hooks/useCentrosCusto";
@@ -23,10 +27,11 @@ interface NovaContaPagarModalProps {
 }
 
 export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalProps) {
-  const { createConta } = useContasPagar();
-  const { fornecedores } = useFornecedores();
-  const { categorias } = useCategoriasFinanceiras("despesa");
-  const { centros } = useCentrosCusto();
+  const { createConta } = useContasPagar(false);
+  const { fornecedores } = useFornecedores({ enabled: open });
+  const { categorias } = useCategoriasFinanceiras("despesa", { enabled: open });
+  const { centros } = useCentrosCusto({ enabled: open });
+  const idempotencyKey = useRef(criarChaveOperacaoFinanceira("payable-create"));
 
   const [fornecedorMode, setFornecedorMode] = useState<"cadastrado" | "outro">("cadastrado");
   const [formData, setFormData] = useState({
@@ -76,7 +81,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
     const valorNumerico = parseCurrencyToNumber(formData.valor);
     if (isNaN(valorNumerico) || valorNumerico <= 0) return;
 
-    const conta: any = {
+    const conta: ContaPagarInsert = {
       descricao: formData.descricao,
       fornecedor: formData.fornecedor || null,
       fornecedor_id: formData.fornecedor_id || null,
@@ -85,15 +90,18 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
       categoria_id: formData.categoria_id || null,
       centro_custo_id: formData.centro_custo_id || null,
       observacoes: formData.observacoes || null,
-      status: "pendente",
-      data_pagamento: null,
+      idempotencyKey: idempotencyKey.current,
     };
 
-    await createConta.mutateAsync(conta as ContaPagarInsert);
-
-    setFormData({ descricao: "", fornecedor: "", fornecedor_id: "", valor: "", vencimento: "", categoria_id: "", centro_custo_id: "", observacoes: "" });
-    setFornecedorMode("cadastrado");
-    onOpenChange(false);
+    try {
+      await createConta.mutateAsync(conta);
+      setFormData({ descricao: "", fornecedor: "", fornecedor_id: "", valor: "", vencimento: "", categoria_id: "", centro_custo_id: "", observacoes: "" });
+      setFornecedorMode("cadastrado");
+      idempotencyKey.current = criarChaveOperacaoFinanceira("payable-create");
+      onOpenChange(false);
+    } catch {
+      // The mutation displays the error and the form remains open with its values.
+    }
   };
 
   return (
@@ -107,12 +115,12 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
           </div>
 
           <div className="space-y-2">
-            <Label>Fornecedor</Label>
+            <Label htmlFor="new-payable-supplier">Fornecedor</Label>
             {fornecedorMode === "cadastrado" ? (
               <Select value={formData.fornecedor_id || undefined} onValueChange={handleFornecedorSelect}>
-                <SelectTrigger><SelectValue placeholder="Selecione um fornecedor" /></SelectTrigger>
+                <SelectTrigger id="new-payable-supplier"><SelectValue placeholder="Selecione um fornecedor" /></SelectTrigger>
                 <SelectContent>
-                  {fornecedores.map((f) => (
+                  {fornecedores.filter((f) => f.ativo).map((f) => (
                     <SelectItem key={f.id} value={f.id}>{f.nome}{f.valor_recorrente ? ` — R$ ${Number(f.valor_recorrente).toFixed(2)}` : ""}</SelectItem>
                   ))}
                   <SelectItem value="__outro__">✏️ Digitar manualmente</SelectItem>
@@ -126,7 +134,7 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="valor">Valor *</Label>
               <CurrencyInput id="valor" value={formData.valor} onChange={(e) => setFormData({ ...formData, valor: e.target.value })} required />
@@ -137,20 +145,20 @@ export function NovaContaPagarModal({ open, onOpenChange }: NovaContaPagarModalP
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Categoria *</Label>
+              <Label htmlFor="new-payable-category">Categoria *</Label>
               <Select value={formData.categoria_id} onValueChange={(v) => setFormData({ ...formData, categoria_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger id="new-payable-category"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {categorias.filter(c => c.ativo).map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Centro de Custo</Label>
+              <Label htmlFor="new-payable-cost-center">Centro de Custo</Label>
               <Select value={formData.centro_custo_id} onValueChange={(v) => setFormData({ ...formData, centro_custo_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger id="new-payable-cost-center"><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {centros.filter(c => c.ativo).map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
                 </SelectContent>

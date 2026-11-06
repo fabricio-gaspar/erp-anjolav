@@ -224,8 +224,8 @@ test("avançar uma OS invalida todas as fontes operacionais que ela pode alterar
   const rols = readProjectFile("src/components/dashboard/RolsLojaCard.tsx");
 
   assert.match(producao, /invalidateDashboardQueriesAfterProductionAdvance\(queryClient\)/);
-  assert.match(producao, /queryKey:\s*\["resumo_processamento", activeArea\]/);
-  assert.match(producao, /queryKey:\s*\["agenda_entregas", hoje, activeArea\]/);
+  assert.match(producao, /queryKey:\s*\["resumo_processamento", session\?\.user\.id, activeTenant\?\.id, activeArea\]/);
+  assert.match(producao, /queryKey:\s*\["agenda_entregas", session\?\.user\.id, activeTenant\?\.id, hoje, activeArea\]/);
   assert.match(producao, /\.eq\("status", "expedicao"\)/);
   assert.match(rols, /queryKey:\s*\["rols_loja"\]/);
   assert.match(rols, /\.select\("id, numero, status,/);

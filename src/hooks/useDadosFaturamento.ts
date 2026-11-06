@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface DadosClienteCompletos {
   cliente: {
@@ -46,17 +47,20 @@ export interface DadosClienteCompletos {
 }
 
 export function useDadosFaturamentoCompletos(clienteId: string | null) {
+  const { activeTenant, session } = useAuth();
   const { data, isLoading, error } = useQuery({
-    queryKey: ["dados_faturamento_completos", clienteId],
+    queryKey: ["dados_faturamento_completos", session?.user.id, activeTenant?.id, clienteId],
     queryFn: async (): Promise<DadosClienteCompletos> => {
-      if (!clienteId) return { cliente: null, endereco: null, configPagamento: null, configCliente: null };
+      if (!clienteId || !session?.user.id || !activeTenant?.id) {
+        return { cliente: null, endereco: null, configPagamento: null, configCliente: null };
+      }
 
       // Batch all queries in parallel
       const [clienteRes, enderecoRes, configPagRes, configCliRes] = await Promise.all([
-        supabase.from("clientes").select("id, razao_social, nome_fantasia, cpf_cnpj, email, telefone, telefone2, tipo_pessoa, inscricao_municipal, inscricao_estadual, regime_tributario, classificacao, contato").eq("id", clienteId).single(),
-        supabase.from("enderecos_clientes").select("logradouro, numero, complemento, bairro, cidade, uf, cep").eq("cliente_id", clienteId).maybeSingle(),
-        supabase.from("configuracoes_pagamento_cliente").select("forma_pagamento, dia_fechamento, dia_vencimento, condicao_pagamento, tipo_faturamento, cnpj_emissor_id, descricao_nf_id, listar_itens_detalhados, observacao_faturamento").eq("cliente_id", clienteId).maybeSingle(),
-        supabase.from("configuracoes_cliente").select("tipo_relatorio, codigo_acesso, link_acesso, frequencia").eq("cliente_id", clienteId).maybeSingle(),
+        supabase.from("clientes").select("id, razao_social, nome_fantasia, cpf_cnpj, email, telefone, telefone2, tipo_pessoa, inscricao_municipal, inscricao_estadual, regime_tributario, classificacao, contato").eq("id", clienteId).filter("tenant_id", "eq", activeTenant.id).single(),
+        supabase.from("enderecos_clientes").select("logradouro, numero, complemento, bairro, cidade, uf, cep").eq("cliente_id", clienteId).filter("tenant_id", "eq", activeTenant.id).eq("ativo", true).order("principal", { ascending: false }).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("configuracoes_pagamento_cliente").select("forma_pagamento, dia_fechamento, dia_vencimento, condicao_pagamento, tipo_faturamento, cnpj_emissor_id, descricao_nf_id, listar_itens_detalhados, observacao_faturamento").eq("cliente_id", clienteId).filter("tenant_id", "eq", activeTenant.id).maybeSingle(),
+        supabase.from("configuracoes_cliente").select("tipo_relatorio, codigo_acesso, link_acesso, frequencia").eq("cliente_id", clienteId).filter("tenant_id", "eq", activeTenant.id).maybeSingle(),
       ]);
 
       return {
@@ -66,7 +70,7 @@ export function useDadosFaturamentoCompletos(clienteId: string | null) {
         configCliente: configCliRes.data || null,
       };
     },
-    enabled: !!clienteId,
+    enabled: Boolean(clienteId && session?.user.id && activeTenant?.id),
   });
 
   return { dados: data || { cliente: null, endereco: null, configPagamento: null, configCliente: null }, isLoading, error };

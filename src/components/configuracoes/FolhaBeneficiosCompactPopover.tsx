@@ -14,28 +14,38 @@ import {
   useUpsertValorBeneficio,
   type FolhaBeneficio,
 } from "@/hooks/useFolhaBeneficios";
+import type { FolhaPagamento } from "@/hooks/useFolhaPagamento";
 
 interface Props {
-  folhaId: string;
-  funcionarioId: string;
+  folha: FolhaPagamento;
   disabled?: boolean;
 }
 
-export function FolhaBeneficiosCompactPopover({ folhaId, funcionarioId, disabled }: Props) {
+export function FolhaBeneficiosCompactPopover({ folha, disabled }: Props) {
   const { data: catalogo = [] } = useBeneficiosCatalogo();
-  const { data: valores = [] } = useFolhaBeneficiosByFolha([folhaId]);
+  const { data: valores = [] } = useFolhaBeneficiosByFolha([folha.id]);
   const upsert = useUpsertValorBeneficio();
-
-  const ativos = useMemo(() => catalogo.filter((c) => c.ativo), [catalogo]);
 
   const valorMap = useMemo(() => {
     const m = new Map<string, FolhaBeneficio>();
     valores.forEach((v) => v.beneficio_id && m.set(v.beneficio_id, v));
     return m;
   }, [valores]);
+  const beneficiosVisiveis = useMemo(
+    () => catalogo.filter((benefit) => benefit.ativo || Number(valorMap.get(benefit.id)?.valor || 0) > 0),
+    [catalogo, valorMap],
+  );
+  const beneficiosLegados = useMemo(() => {
+    const catalogIds = new Set(catalogo.map((benefit) => benefit.id));
+    return valores.filter((benefit) => benefit.ativo && (
+      !benefit.beneficio_id || !catalogIds.has(benefit.beneficio_id)
+    ));
+  }, [catalogo, valores]);
 
-  const ativosCount = ativos.filter((b) => Number(valorMap.get(b.id)?.valor || 0) > 0).length;
-  const total = ativos.reduce((s, b) => s + Number(valorMap.get(b.id)?.valor || 0), 0);
+  const ativosCount = beneficiosVisiveis.filter((b) => Number(valorMap.get(b.id)?.valor || 0) > 0).length
+    + beneficiosLegados.filter((benefit) => Number(benefit.valor || 0) > 0).length;
+  const total = beneficiosVisiveis.reduce((s, b) => s + Number(valorMap.get(b.id)?.valor || 0), 0)
+    + beneficiosLegados.reduce((sum, benefit) => sum + Number(benefit.valor || 0), 0);
 
   return (
     <Popover>
@@ -43,7 +53,8 @@ export function FolhaBeneficiosCompactPopover({ folhaId, funcionarioId, disabled
         <Button
           variant="outline"
           size="sm"
-          className="h-8 gap-1.5 font-normal"
+          className="min-h-10 gap-1.5 font-normal"
+          aria-label={`Editar benefícios de ${folha.funcionario?.nome || "funcionário"}`}
         >
           <span>Benefícios</span>
           {ativosCount > 0 && (
@@ -65,13 +76,13 @@ export function FolhaBeneficiosCompactPopover({ folhaId, funcionarioId, disabled
             </p>
           </div>
 
-          {ativos.length === 0 ? (
+          {beneficiosVisiveis.length === 0 ? (
             <div className="text-xs text-muted-foreground text-center py-4">
               Nenhum benefício no catálogo. Cadastre em Configurações → Equipe → Benefícios.
             </div>
           ) : (
             <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
-              {ativos.map((b) => {
+              {beneficiosVisiveis.map((b) => {
                 const atual = Number(valorMap.get(b.id)?.valor || 0);
                 return (
                   <div
@@ -83,21 +94,19 @@ export function FolhaBeneficiosCompactPopover({ folhaId, funcionarioId, disabled
                   >
                     <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", corDot(b.cor))} />
                     <span className="min-w-0 flex-1 text-xs font-medium truncate" title={b.nome}>
-                      {b.nome || "(sem nome)"}
+                      {b.nome || "(sem nome)"}{!b.ativo ? " (arquivado)" : ""}
                     </span>
                     <CurrencyInput
                       showPrefix={false}
-                      disabled={disabled}
-                      className="h-7 w-24 text-xs px-2 shrink-0"
+                      disabled={disabled || !b.ativo || upsert.isPending}
+                      className="h-10 w-28 text-sm px-2 shrink-0"
                       defaultValue={formatNumberToCurrency(atual)}
                       onBlur={(e) => {
                         const novo = parseCurrencyToNumber(formatCurrencyInput(e.target.value));
                         if (novo !== atual) {
                           upsert.mutate({
-                            folha_id: folhaId,
-                            funcionario_id: funcionarioId,
-                            beneficio_id: b.id,
-                            nome: b.nome,
+                            folha,
+                            beneficioId: b.id,
                             valor: novo,
                           });
                         }
@@ -106,6 +115,18 @@ export function FolhaBeneficiosCompactPopover({ folhaId, funcionarioId, disabled
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {beneficiosLegados.length > 0 && (
+            <div className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground">Itens históricos preservados</p>
+              {beneficiosLegados.map((benefit) => (
+                <div key={benefit.id} className="mt-1 flex justify-between gap-2">
+                  <span className="truncate">{benefit.nome}</span>
+                  <span className="shrink-0 tabular-nums">R$ {formatNumberToCurrency(Number(benefit.valor))}</span>
+                </div>
+              ))}
             </div>
           )}
 

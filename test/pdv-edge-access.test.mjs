@@ -61,7 +61,12 @@ function fixture({ area = "industrial", role = "member", modules = ["caixa"], em
     },
     async rpc(name, args) {
       calls.push({ name, args });
-      return { data: name === "criar_venda_pdv" ? { order: { id: order } } : {}, error: null };
+      return {
+        data: name === "criar_venda_pdv" || name === "criar_pedido_atendimento"
+          ? { order: { id: order } }
+          : {},
+        error: null,
+      };
     },
   };
   let handler;

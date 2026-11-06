@@ -1,12 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidateCashRegisterQueriesAfterClose } from "@/lib/queryDefaults";
 import { toast } from "sonner";
 
 export interface Caixa {
   id: string;
+  identificador_caixa: string;
   operador: string;
   operador_id: string | null;
+  aberto_por: string | null;
+  fechado_por: string | null;
   data_abertura: string;
   data_fechamento: string | null;
   valor_abertura: number;
@@ -18,9 +22,28 @@ export interface Caixa {
   diferenca: number | null;
   status: string;
   observacoes: string | null;
+  fechamento_resumo: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
+
+export type ClosedCashRegister = Pick<
+  Caixa,
+  | "id"
+  | "identificador_caixa"
+  | "operador"
+  | "data_abertura"
+  | "data_fechamento"
+  | "valor_abertura"
+  | "valor_vendas"
+  | "valor_sangrias"
+  | "valor_reforcos"
+  | "valor_esperado"
+  | "valor_contado"
+  | "diferenca"
+  | "status"
+  | "observacoes"
+>;
 
 export interface CaixaMovimentacao {
   id: string;
@@ -35,8 +58,9 @@ export interface CaixaMovimentacao {
 }
 
 export interface AbrirCaixaData {
-  operador: string;
   valor_abertura: number;
+  identificador_caixa?: string;
+  idempotency_key: string;
 }
 
 export interface FecharCaixaData {
@@ -46,26 +70,147 @@ export interface FecharCaixaData {
   valor_contado_cartao_credito: number;
   valor_contado_cartao_debito: number;
   observacoes?: string;
+  idempotency_key: string;
 }
 
 export interface MovimentacaoData {
   caixa_id: string;
-  tipo: "VENDA" | "SANGRIA" | "REFORCO";
+  tipo: "SANGRIA" | "REFORCO";
   valor: number;
-  descricao?: string;
-  forma_pagamento?: "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO";
-  cliente_id?: string;
-  ordem_servico_id?: string;
+  descricao: string;
+  idempotency_key: string;
 }
+
+export interface CaixaResumo {
+  caixaId: string;
+  status: string;
+  identificador: string;
+  operador: string;
+  abertoEm: string;
+  dinheiro: number;
+  pix: number;
+  cartaoCredito: number;
+  cartaoDebito: number;
+  outros: number;
+  vendasLiquidas: number;
+  sangrias: number;
+  suprimentos: number;
+}
+
+export type CashDifferenceFilter = "todos" | "com" | "sem" | "sobra" | "falta";
+
+export interface ClosedCashRegisterSummary {
+  quantidade: number;
+  quantidade_com_diferenca: number;
+  total_vendas: number;
+  media_por_caixa: number;
+  total_sangrias: number;
+  total_reforcos: number;
+  total_diferencas: number;
+  dinheiro: number;
+  pix: number;
+  cartao_credito: number;
+  cartao_debito: number;
+  outros: number;
+}
+
+export interface ClosedCashRegisterDirectory {
+  items: ClosedCashRegister[];
+  total: number;
+  pagina: number;
+  tamanho_pagina: number;
+  paginas: number;
+  summary: ClosedCashRegisterSummary;
+}
+
+interface ClosedCashRegisterDirectoryOptions {
+  startDate: Date;
+  endExclusive: Date;
+  page: number;
+  pageSize?: number;
+  search?: string;
+  difference?: CashDifferenceFilter;
+}
+
+const EMPTY_CASH_DIRECTORY: ClosedCashRegisterDirectory = {
+  items: [],
+  total: 0,
+  pagina: 1,
+  tamanho_pagina: 12,
+  paginas: 1,
+  summary: {
+    quantidade: 0,
+    quantidade_com_diferenca: 0,
+    total_vendas: 0,
+    media_por_caixa: 0,
+    total_sangrias: 0,
+    total_reforcos: 0,
+    total_diferencas: 0,
+    dinheiro: 0,
+    pix: 0,
+    cartao_credito: 0,
+    cartao_debito: 0,
+    outros: 0,
+  },
+};
+
+export const useClosedCashRegisterDirectory = ({
+  startDate,
+  endExclusive,
+  page,
+  pageSize = 12,
+  search = "",
+  difference = "todos",
+}: ClosedCashRegisterDirectoryOptions) => {
+  const { activeTenant, session } = useAuth();
+  const normalizedPage = Math.max(1, Math.trunc(page) || 1);
+  const normalizedPageSize = Math.min(100, Math.max(1, Math.trunc(pageSize) || 12));
+  const normalizedSearch = search.trim().slice(0, 120);
+
+  return useQuery({
+    queryKey: [
+      "closed-cash-register-directory",
+      activeTenant?.id,
+      session?.user.id,
+      startDate.toISOString(),
+      endExclusive.toISOString(),
+      normalizedPage,
+      normalizedPageSize,
+      normalizedSearch,
+      difference,
+    ],
+    enabled: Boolean(activeTenant?.id && session?.user.id),
+    placeholderData: (previous) => previous,
+    queryFn: async (): Promise<ClosedCashRegisterDirectory> => {
+      if (!activeTenant?.id || !session?.user.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar caixas");
+      }
+      const { data, error } = await supabase.rpc("consultar_diretorio_caixas_fechados", {
+        _inicio: startDate.toISOString(),
+        _fim_exclusivo: endExclusive.toISOString(),
+        _pagina: normalizedPage,
+        _tamanho_pagina: normalizedPageSize,
+        _busca: normalizedSearch || null,
+        _diferenca: difference,
+      });
+      if (error) throw error;
+      if (!data || typeof data !== "object" || Array.isArray(data)) return EMPTY_CASH_DIRECTORY;
+      return data as unknown as ClosedCashRegisterDirectory;
+    },
+  });
+};
 
 // Get open cash register
 export const useCaixaAberto = (enabled = true) => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["caixa-aberto"],
+    queryKey: ["caixa-aberto", activeTenant?.id, session?.user.id],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) return null;
       const { data, error } = await supabase
         .from("caixas")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("status", "ABERTO")
         .order("data_abertura", { ascending: false })
         .limit(1)
@@ -74,18 +219,21 @@ export const useCaixaAberto = (enabled = true) => {
       if (error) throw error;
       return data as Caixa | null;
     },
-    enabled,
+    enabled: enabled && Boolean(activeTenant?.id && session?.user.id),
   });
 };
 
 // Get last closed cash register
 export const useUltimoCaixaFechado = () => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["ultimo-caixa-fechado"],
+    queryKey: ["ultimo-caixa-fechado", activeTenant?.id, session?.user.id],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) return null;
       const { data, error } = await supabase
         .from("caixas")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("status", "FECHADO")
         .order("data_fechamento", { ascending: false })
         .limit(1)
@@ -94,17 +242,21 @@ export const useUltimoCaixaFechado = () => {
       if (error) throw error;
       return data as Caixa | null;
     },
+    enabled: Boolean(activeTenant?.id && session?.user.id),
   });
 };
 
 // Get all cash registers with optional date filter
 export const useCaixas = (startDate?: Date, endDate?: Date) => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["caixas", startDate?.toISOString(), endDate?.toISOString()],
+    queryKey: ["caixas", activeTenant?.id, session?.user.id, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) return [];
       let query = supabase
         .from("caixas")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .order("data_abertura", { ascending: false });
 
       if (startDate) {
@@ -119,17 +271,21 @@ export const useCaixas = (startDate?: Date, endDate?: Date) => {
       if (error) throw error;
       return data as Caixa[];
     },
+    enabled: Boolean(activeTenant?.id && session?.user.id),
   });
 };
 
 // Get closed cash registers
 export const useCaixasFechados = (startDate?: Date, endDate?: Date) => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["caixas-fechados", startDate?.toISOString(), endDate?.toISOString()],
+    queryKey: ["caixas-fechados", activeTenant?.id, session?.user.id, startDate?.toISOString(), endDate?.toISOString()],
     queryFn: async () => {
+      if (!activeTenant?.id || !session?.user.id) return [];
       let query = supabase
         .from("caixas")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("status", "FECHADO")
         .order("data_fechamento", { ascending: false });
 
@@ -145,26 +301,43 @@ export const useCaixasFechados = (startDate?: Date, endDate?: Date) => {
       if (error) throw error;
       return data as Caixa[];
     },
+    enabled: Boolean(activeTenant?.id && session?.user.id),
   });
 };
 
 // Get transactions for a cash register
 export const useCaixaMovimentacoes = (caixaId: string | undefined) => {
+  const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["caixa-movimentacoes", caixaId],
+    queryKey: ["caixa-movimentacoes", activeTenant?.id, session?.user.id, caixaId],
     queryFn: async () => {
-      if (!caixaId) return [];
+      if (!caixaId || !activeTenant?.id || !session?.user.id) return [];
       
       const { data, error } = await supabase
         .from("caixa_movimentacoes")
         .select("*")
+        .filter("tenant_id", "eq", activeTenant.id)
         .eq("caixa_id", caixaId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data as CaixaMovimentacao[];
     },
-    enabled: !!caixaId,
+    enabled: Boolean(caixaId && activeTenant?.id && session?.user.id),
+  });
+};
+
+export const useResumoCaixa = (caixaId: string | undefined, enabled = true) => {
+  const { activeTenant, session } = useAuth();
+  return useQuery({
+    queryKey: ["caixa-resumo", activeTenant?.id, session?.user.id, caixaId],
+    enabled: Boolean(caixaId && activeTenant?.id && session?.user.id) && enabled,
+    queryFn: async () => {
+      if (!caixaId) return null;
+      const { data, error } = await supabase.rpc("obter_resumo_caixa", { _caixa_id: caixaId });
+      if (error) throw error;
+      return data as unknown as CaixaResumo;
+    },
   });
 };
 
@@ -174,28 +347,11 @@ export const useAbrirCaixa = () => {
 
   return useMutation({
     mutationFn: async (data: AbrirCaixaData) => {
-      // Check if there's already an open register
-      const { data: existing } = await supabase
-        .from("caixas")
-        .select("id")
-        .eq("status", "ABERTO")
-        .maybeSingle();
-
-      if (existing) {
-        throw new Error("Já existe um caixa aberto. Feche-o antes de abrir um novo.");
-      }
-
-      const { data: newCaixa, error } = await supabase
-        .from("caixas")
-        .insert({
-          operador: data.operador,
-          valor_abertura: data.valor_abertura,
-          valor_esperado: data.valor_abertura,
-          status: "ABERTO",
-        })
-        .select()
-        .single();
-
+      const { data: newCaixa, error } = await supabase.rpc("abrir_caixa", {
+        _valor_abertura: data.valor_abertura,
+        _identificador_caixa: data.identificador_caixa ?? "principal",
+        _idempotency_key: data.idempotency_key,
+      });
       if (error) throw error;
       return newCaixa;
     },
@@ -216,75 +372,17 @@ export const useFecharCaixa = () => {
 
   return useMutation({
     mutationFn: async (data: FecharCaixaData) => {
-      // Get the current register data
-      const { data: caixa, error: fetchError } = await supabase
-        .from("caixas")
-        .select("*")
-        .eq("id", data.caixa_id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      // Get all transactions to calculate totals by payment method
-      const { data: movimentacoes, error: movError } = await supabase
-        .from("caixa_movimentacoes")
-        .select("*")
-        .eq("caixa_id", data.caixa_id);
-
-      if (movError) throw movError;
-
-      // Calculate expected values by payment method
-      const esperadoPorFormaPagamento = {
-        DINHEIRO: caixa.valor_abertura,
-        PIX: 0,
-        CARTAO_CREDITO: 0,
-        CARTAO_DEBITO: 0,
-      };
-
-      movimentacoes?.forEach((mov) => {
-        const formaPagamento = mov.forma_pagamento || "DINHEIRO";
-        const chave = formaPagamento as keyof typeof esperadoPorFormaPagamento;
-        if (mov.tipo === "VENDA" && chave in esperadoPorFormaPagamento) {
-          esperadoPorFormaPagamento[chave] += Number(mov.valor);
-        } else if (mov.tipo === "ESTORNO" && chave in esperadoPorFormaPagamento) {
-          esperadoPorFormaPagamento[chave] -= Number(mov.valor);
-        } else if (mov.tipo === "SANGRIA") {
-          esperadoPorFormaPagamento.DINHEIRO -= Number(mov.valor);
-        } else if (mov.tipo === "REFORCO") {
-          esperadoPorFormaPagamento.DINHEIRO += Number(mov.valor);
-        }
+      const { data: updatedCaixa, error } = await supabase.rpc("fechar_caixa", {
+        _caixa_id: data.caixa_id,
+        _valor_contado_dinheiro: data.valor_contado_dinheiro,
+        _valor_conferido_pix: data.valor_contado_pix,
+        _valor_conferido_cartao_credito: data.valor_contado_cartao_credito,
+        _valor_conferido_cartao_debito: data.valor_contado_cartao_debito,
+        _observacoes: data.observacoes ?? null,
+        _idempotency_key: data.idempotency_key,
       });
-
-      const valorContadoTotal = 
-        data.valor_contado_dinheiro + 
-        data.valor_contado_pix + 
-        data.valor_contado_cartao_credito + 
-        data.valor_contado_cartao_debito;
-
-      const valorEsperadoTotal = 
-        esperadoPorFormaPagamento.DINHEIRO + 
-        esperadoPorFormaPagamento.PIX + 
-        esperadoPorFormaPagamento.CARTAO_CREDITO + 
-        esperadoPorFormaPagamento.CARTAO_DEBITO;
-
-      const diferenca = valorContadoTotal - valorEsperadoTotal;
-
-      const { data: updatedCaixa, error } = await supabase
-        .from("caixas")
-        .update({
-          status: "FECHADO",
-          data_fechamento: new Date().toISOString(),
-          valor_contado: valorContadoTotal,
-          valor_esperado: valorEsperadoTotal,
-          diferenca: diferenca,
-          observacoes: data.observacoes,
-        })
-        .eq("id", data.caixa_id)
-        .select()
-        .single();
-
       if (error) throw error;
-      return { caixa: updatedCaixa, esperadoPorFormaPagamento };
+      return updatedCaixa;
     },
     onSuccess: () => {
       void invalidateCashRegisterQueriesAfterClose(queryClient);
@@ -302,70 +400,20 @@ export const useAddMovimentacao = () => {
 
   return useMutation({
     mutationFn: async (data: MovimentacaoData) => {
-      const { data: movimentacao, error } = await supabase
-        .from("caixa_movimentacoes")
-        .insert({
-          caixa_id: data.caixa_id,
-          tipo: data.tipo,
-          valor: data.valor,
-          descricao: data.descricao,
-          forma_pagamento: data.forma_pagamento,
-          cliente_id: data.cliente_id,
-          ordem_servico_id: data.ordem_servico_id,
-        })
-        .select()
-        .single();
-
+      const { data: movimentacao, error } = await supabase.rpc("registrar_movimentacao_caixa", {
+        _caixa_id: data.caixa_id,
+        _tipo: data.tipo,
+        _valor: data.valor,
+        _descricao: data.descricao,
+        _idempotency_key: data.idempotency_key,
+      });
       if (error) throw error;
-
-      // Update caixa totals
-      const { data: caixa, error: caixaError } = await supabase
-        .from("caixas")
-        .select("*")
-        .eq("id", data.caixa_id)
-        .single();
-
-      if (caixaError || !caixa) {
-        const { error: rollbackError } = await supabase
-          .from("caixa_movimentacoes")
-          .delete()
-          .eq("id", movimentacao.id);
-        if (rollbackError) console.error("Falha ao compensar movimentação sem caixa", rollbackError);
-        throw caixaError ?? new Error("Caixa não encontrado");
-      }
-
-      const updates: Partial<Caixa> = {};
-        
-      if (data.tipo === "VENDA") {
-        updates.valor_vendas = Number(caixa.valor_vendas) + data.valor;
-        updates.valor_esperado = Number(caixa.valor_esperado) + data.valor;
-      } else if (data.tipo === "SANGRIA") {
-        updates.valor_sangrias = Number(caixa.valor_sangrias) + data.valor;
-        updates.valor_esperado = Number(caixa.valor_esperado) - data.valor;
-      } else if (data.tipo === "REFORCO") {
-        updates.valor_reforcos = Number(caixa.valor_reforcos) + data.valor;
-        updates.valor_esperado = Number(caixa.valor_esperado) + data.valor;
-      }
-
-      const { error: updateError } = await supabase
-        .from("caixas")
-        .update(updates)
-        .eq("id", data.caixa_id);
-
-      if (updateError) {
-        const { error: rollbackError } = await supabase
-          .from("caixa_movimentacoes")
-          .delete()
-          .eq("id", movimentacao.id);
-        if (rollbackError) console.error("Falha ao compensar movimentação do caixa", rollbackError);
-        throw updateError;
-      }
-
       return movimentacao;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["caixa-aberto"] });
-      queryClient.invalidateQueries({ queryKey: ["caixa-movimentacoes", variables.caixa_id] });
+      queryClient.invalidateQueries({ queryKey: ["caixa-movimentacoes"] });
+      queryClient.invalidateQueries({ queryKey: ["caixa-resumo"] });
       toast.success("Movimentação registrada!");
     },
     onError: (error: Error) => {

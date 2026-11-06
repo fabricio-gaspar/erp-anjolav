@@ -5,6 +5,18 @@ import { handlePreflight, jsonResponse, readJsonBody, requireJsonPost } from "..
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ACCESS_PROFILES = ["pdv_domestico", "pdv_industrial", "administracao"] as const;
+type AccessProfile = (typeof ACCESS_PROFILES)[number];
+const PDV_OPERATIONAL_MODULES = [
+  "caixa",
+  "clientes",
+  "produtos",
+  "ordens",
+  "agenda",
+  "producao",
+  "faturamento",
+  "relatorios",
+] as const;
 
 const PROFILE_TEXT_FIELDS: Readonly<Record<string, number>> = {
   genero: 40,
@@ -231,6 +243,33 @@ function roleForCargo(cargo: string): "admin" | "producao" | "operador" {
   return "operador";
 }
 
+function parseAccessProfile(value: unknown): AccessProfile | null {
+  return typeof value === "string" && ACCESS_PROFILES.includes(value as AccessProfile)
+    ? value as AccessProfile
+    : null;
+}
+
+function validateInviteRedirect(req: Request, value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const requestOrigin = req.headers.get("origin");
+  if (!requestOrigin) return null;
+
+  try {
+    const target = new URL(value);
+    const origin = new URL(requestOrigin);
+    return target.origin === origin.origin &&
+        target.pathname === "/reset-password" &&
+        !target.username &&
+        !target.password &&
+        !target.search &&
+        !target.hash
+      ? target.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 async function countActiveAdmins(supabase: SupabaseClient, tenantId: string): Promise<number> {
   const { data: activeEmployees, error: employeeError } = await supabase
     .from("funcionarios")
@@ -294,6 +333,9 @@ Deno.serve(async (req) => {
       const login = optionalText(body.login, 100)?.toLowerCase() ?? null;
       const email = optionalText(body.email, 254)?.toLowerCase() ?? null;
       const password = typeof body.password === "string" ? body.password : "";
+      const requestedAccessProfile = hasOwn(body, "accessProfile");
+      const accessProfile = parseAccessProfile(body.accessProfile);
+      const inviteRedirectTo = validateInviteRedirect(req, body.inviteRedirectTo);
       const rawCpf = optionalText(body.cpf, 20);
       const cpf = rawCpf?.replace(/\D/g, "") ?? null;
       const telefone = optionalText(body.telefone, 30);
@@ -309,7 +351,16 @@ Deno.serve(async (req) => {
       if (email && !EMAIL_PATTERN.test(email)) {
         return jsonResponse(req, { error: "Email inválido" }, 400);
       }
-      if (email && (password.length < 12 || password.length > 128)) {
+      if (requestedAccessProfile && !accessProfile) {
+        return jsonResponse(req, { error: "Perfil de acesso inválido" }, 400);
+      }
+      if (accessProfile && !email) {
+        return jsonResponse(req, { error: "O email é obrigatório para gerar o link de ativação" }, 400);
+      }
+      if (accessProfile && !inviteRedirectTo) {
+        return jsonResponse(req, { error: "URL de ativação inválida" }, 400);
+      }
+      if (!accessProfile && email && (password.length < 12 || password.length > 128)) {
         return jsonResponse(req, { error: "A senha deve ter entre 12 e 128 caracteres" }, 400);
       }
       if (rawCpf && (!cpf || !isValidCpf(cpf))) {
@@ -334,18 +385,41 @@ Deno.serve(async (req) => {
       }
 
       let createdUserId: string | null = null;
+      let accessLink: string | null = null;
       if (email) {
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { nome, cargo },
-        });
-        if (authError) {
-          console.warn("Falha ao criar usuário de autenticação", { code: authError.code });
-          return jsonResponse(req, { error: "Não foi possível criar o acesso do funcionário" }, 409);
+        if (accessProfile && inviteRedirectTo) {
+          const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
+            type: "invite",
+            email,
+            options: {
+              data: { nome, cargo },
+              redirectTo: inviteRedirectTo,
+            },
+          });
+          if (inviteError || !inviteData.user || !inviteData.properties.action_link) {
+            console.warn("Falha ao gerar convite do funcionário", { code: inviteError?.code });
+            return jsonResponse(req, { error: "Não foi possível gerar o convite do funcionário" }, 409);
+          }
+
+          createdUserId = inviteData.user.id;
+          // The request URL is already validated against the current app origin and
+          // /reset-password path. Supabase can omit or normalize redirect_to in the
+          // generated-link response, so comparing the raw strings here would roll
+          // back a valid invitation after it was successfully created.
+          accessLink = inviteData.properties.action_link;
+        } else {
+          const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: { nome, cargo },
+          });
+          if (authError) {
+            console.warn("Falha ao criar usuário de autenticação", { code: authError.code });
+            return jsonResponse(req, { error: "Não foi possível criar o acesso do funcionário" }, 409);
+          }
+          createdUserId = authData.user.id;
         }
-        createdUserId = authData.user.id;
       }
 
       const employeePayload = {
@@ -375,7 +449,12 @@ Deno.serve(async (req) => {
       }
 
       if (createdUserId) {
-        const tenantRole = roleForCargo(cargo) === "admin" ? "admin" : "member";
+        const assignedRole = accessProfile === "administracao"
+          ? "admin"
+          : accessProfile
+          ? "operador"
+          : roleForCargo(cargo);
+        const tenantRole = assignedRole === "admin" ? "admin" : "member";
         const [{ error: membershipError }, { error: roleError }] = await Promise.all([
           supabase.from("tenant_memberships").upsert({
             tenant_id: authorization.tenantId,
@@ -387,7 +466,7 @@ Deno.serve(async (req) => {
           supabase.from("user_roles").upsert({
             tenant_id: authorization.tenantId,
             user_id: createdUserId,
-            role: roleForCargo(cargo),
+            role: assignedRole,
           }, { onConflict: "tenant_id,user_id,role" }),
         ]);
         if (membershipError || roleError) {
@@ -395,6 +474,42 @@ Deno.serve(async (req) => {
             .eq("tenant_id", authorization.tenantId).eq("id", employee.id);
           await supabase.auth.admin.deleteUser(createdUserId);
           return jsonResponse(req, { error: "Não foi possível atribuir o acesso à empresa" }, 409);
+        }
+
+        if (accessProfile) {
+          const permittedAreas = accessProfile === "administracao"
+            ? ["central", "industrial", "residencial"]
+            : [accessProfile === "pdv_industrial" ? "industrial" : "residencial"];
+          const { error: areaError } = await supabase.from("area_permissoes").insert(
+            permittedAreas.map((area) => ({
+              tenant_id: authorization.tenantId,
+              user_id: createdUserId,
+              area,
+            })),
+          );
+          const { error: moduleError } = accessProfile === "administracao"
+            ? { error: null }
+            : await supabase.from("modulo_permissoes").insert(
+                PDV_OPERATIONAL_MODULES.map((moduleKey) => ({
+                  tenant_id: authorization.tenantId,
+                  funcionario_id: employee.id,
+                  modulo_key: moduleKey,
+                  tem_acesso: true,
+                })),
+              );
+
+          if (areaError || moduleError) {
+            await Promise.all([
+              supabase.from("area_permissoes").delete()
+                .eq("tenant_id", authorization.tenantId).eq("user_id", createdUserId),
+              supabase.from("modulo_permissoes").delete()
+                .eq("tenant_id", authorization.tenantId).eq("funcionario_id", employee.id),
+            ]);
+            await supabase.from("funcionarios").delete()
+              .eq("tenant_id", authorization.tenantId).eq("id", employee.id);
+            await supabase.auth.admin.deleteUser(createdUserId);
+            return jsonResponse(req, { error: "Não foi possível limitar o acesso ao painel escolhido" }, 409);
+          }
         }
       }
 
@@ -417,7 +532,13 @@ Deno.serve(async (req) => {
         }
       }
 
-      return jsonResponse(req, { employee, userId: createdUserId }, 201);
+      return jsonResponse(req, {
+        employee,
+        userId: createdUserId,
+        accessLink,
+        accessProfile,
+        tenantId: authorization.tenantId,
+      }, 201);
     }
 
     if (action === "update") {
@@ -794,7 +915,7 @@ Deno.serve(async (req) => {
       return jsonResponse(req, { employee: updated });
     }
 
-    if (action === "delete") {
+    if (action === "archive" || action === "delete") {
       const employeeId = typeof body.employeeId === "string" ? body.employeeId : "";
       if (!UUID_PATTERN.test(employeeId)) return jsonResponse(req, { error: "Funcionário inválido" }, 400);
       const { data: employee, error: lookupError } = await supabase
@@ -806,7 +927,7 @@ Deno.serve(async (req) => {
       if (lookupError) throw lookupError;
       if (!employee) return jsonResponse(req, { error: "Funcionário não encontrado" }, 404);
       if (employee.user_id === authorization.user.id) {
-        return jsonResponse(req, { error: "Você não pode excluir seu próprio usuário" }, 409);
+        return jsonResponse(req, { error: "Você não pode arquivar seu próprio usuário" }, 409);
       }
 
       if (employee.user_id) {
