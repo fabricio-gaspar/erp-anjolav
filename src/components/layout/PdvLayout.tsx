@@ -103,12 +103,13 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
     operationalAccess.isLoading,
     operationalAccess.isError,
   );
+  const cashIdentifier = caixaAberto?.identificador_caixa?.trim();
   const cashLabel = !canUseCash
     ? "Acesso restrito"
     : isLoadingCash
       ? "Verificando…"
       : caixaAberto
-        ? `Caixa ${caixaAberto.identificador_caixa} Aberto`
+        ? cashIdentifier ? `Caixa ${cashIdentifier} aberto` : "Caixa aberto"
         : "Fechado";
 
   useEffect(() => {
@@ -130,16 +131,16 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
     <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-background">
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 shadow-sm backdrop-blur">
         <div className="flex min-h-[64px] items-center justify-between gap-4 px-3 sm:px-5 lg:px-6">
-          <div className="flex min-w-0 items-center gap-6">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <div className="flex shrink-0 items-center gap-2.5" aria-label="AnjoLav">
               <Leaf className="h-9 w-9 fill-success/15 text-success" strokeWidth={2.25} />
               <span className="hidden text-[30px] font-black tracking-[-0.06em] text-foreground sm:inline">Anjo<span className="text-success">Lav</span></span>
             </div>
             <span className="hidden h-8 w-px bg-border md:block" aria-hidden="true" />
-            <h1 className="truncate text-lg font-black tracking-[-0.045em] text-foreground sm:text-[25px]">
+            <h1 className="shrink-0 whitespace-nowrap text-lg font-black tracking-[-0.045em] text-foreground sm:text-[25px]">
               {title || "PDV / Caixa"}
             </h1>
-            <span className="hidden rounded-full bg-success-light px-4 py-2 text-sm font-bold text-success lg:inline">
+            <span className="hidden rounded-full bg-success-light px-4 py-2 text-sm font-bold text-success 2xl:inline">
               Atendimento
             </span>
           </div>
