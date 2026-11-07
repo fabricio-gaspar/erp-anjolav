@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Palette, Tag, MapPin, MessageSquare, Plus, X } from "lucide-react";
+import { AlertTriangle, Palette, Tag, MapPin, MessageSquare, Plus, X, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 
@@ -61,6 +61,10 @@ interface ItemDetalhes {
   avarias?: string;
   posicao_prateleira?: string;
   observacoes?: string;
+  operacao?: string;
+  tipo_preco?: string;
+  servicos_adicionais?: string[];
+  complemento?: string;
 }
 
 interface ItemDetalhesModalProps {
@@ -90,6 +94,10 @@ export function ItemDetalhesModal({
   const [prateleira, setPrateleira] = useState("");
   const [avarias, setAvarias] = useState(detalhes.avarias || "");
   const [observacoes, setObservacoes] = useState(detalhes.observacoes || "");
+  const [operacao, setOperacao] = useState(detalhes.operacao || "lavagem_passadoria");
+  const [tipoPreco, setTipoPreco] = useState(detalhes.tipo_preco || "quantidade");
+  const [servicosAdicionais, setServicosAdicionais] = useState<string[]>(detalhes.servicos_adicionais || []);
+  const [complemento, setComplemento] = useState(detalhes.complemento || "");
 
   useEffect(() => {
     if (open) {
@@ -125,6 +133,10 @@ export function ItemDetalhesModal({
       
       setAvarias(detalhes.avarias || "");
       setObservacoes(detalhes.observacoes || "");
+      setOperacao(detalhes.operacao || "lavagem_passadoria");
+      setTipoPreco(detalhes.tipo_preco || "quantidade");
+      setServicosAdicionais(detalhes.servicos_adicionais || []);
+      setComplemento(detalhes.complemento || "");
     }
   }, [open, detalhes]);
 
@@ -158,19 +170,27 @@ export function ItemDetalhesModal({
       avarias: avarias || undefined,
       posicao_prateleira: posicao,
       observacoes: observacoes || undefined,
+      operacao,
+      tipo_preco: tipoPreco,
+      servicos_adicionais: servicosAdicionais,
+      complemento: complemento || undefined,
     });
     onOpenChange(false);
   };
 
-  const hasContent = corSelecionada || marcaSelecionada || avarias || observacoes || (corredor && secao && prateleira);
+  const toggleServico = (servico: string) => {
+    setServicosAdicionais((current) => current.includes(servico)
+      ? current.filter((item) => item !== servico)
+      : [...current, servico]);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-primary" />
-            Detalhes do Item
+            Identificação e detalhes da peça
           </DialogTitle>
         </DialogHeader>
 
@@ -179,6 +199,34 @@ export function ItemDetalhesModal({
           <div className="bg-muted/50 rounded-lg p-3">
             <p className="font-semibold text-foreground">{itemNome}</p>
             <p className="text-sm text-muted-foreground">Quantidade: {quantidade}</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Operação</Label>
+              <Select value={operacao} onValueChange={setOperacao}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lavagem_passadoria">Lavagem + Passadoria</SelectItem>
+                  <SelectItem value="lavagem">Lavar</SelectItem>
+                  <SelectItem value="passadoria">Passar</SelectItem>
+                  <SelectItem value="secagem">Secar</SelectItem>
+                  <SelectItem value="servico">Serviço especializado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de preço</Label>
+              <Select value={tipoPreco} onValueChange={setTipoPreco}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quantidade">Por quantidade</SelectItem>
+                  <SelectItem value="peso">Por peso</SelectItem>
+                  <SelectItem value="metro">Por metro</SelectItem>
+                  <SelectItem value="servico">Valor do serviço</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Cor */}
@@ -318,6 +366,31 @@ export function ItemDetalhesModal({
               onChange={(e) => setAvarias(e.target.value)}
               rows={3}
               className={avarias ? "border-warning" : ""}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2"><Sparkles className="h-4 w-4" /> Serviços adicionais</Label>
+            <div className="flex flex-wrap gap-2">
+              {["Tira-manchas", "Higienização", "Passadoria especial", "Embalagem", "Impermeabilização"].map((servico) => (
+                <button
+                  key={servico}
+                  type="button"
+                  onClick={() => toggleServico(servico)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${servicosAdicionais.includes(servico) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:bg-muted"}`}
+                >
+                  {servico}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Complemento</Label>
+            <Input
+              placeholder="Ex.: dobrar separado, embalar individualmente..."
+              value={complemento}
+              onChange={(event) => setComplemento(event.target.value)}
             />
           </div>
 

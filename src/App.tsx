@@ -33,6 +33,7 @@ const OrdensServico = lazy(() => import("./pages/OrdensServico"));
 const Agenda = lazy(() => import("./pages/Agenda"));
 const CaixaPDV = lazy(() => import("./pages/CaixaPDV"));
 const PdvModuleHub = lazy(() => import("./pages/PdvModuleHub"));
+const PdvServiceSelector = lazy(() => import("./pages/PdvServiceSelector"));
 const Lancamentos = lazy(() => import("./pages/Lancamentos"));
 const DashboardFinanceiro = lazy(() => import("./pages/DashboardFinanceiro"));
 const Contas = lazy(() => import("./pages/Contas"));
@@ -127,6 +128,15 @@ const ADMIN_ROUTE_COMPONENTS: Record<AdminRoutePath, LazyExoticComponent<Compone
 const PDV_ROUTES = [
   { area: "residencial", path: "/pdv/domestico" },
   { area: "industrial", path: "/pdv/industrial" },
+] as const;
+
+const PDV_WORKBENCH_ROUTES = [
+  { area: "residencial", path: "/pdv/domestico/rol", mode: "rol" },
+  { area: "residencial", path: "/pdv/domestico/delivery", mode: "delivery" },
+  { area: "residencial", path: "/pdv/domestico/orcamento", mode: "orcamento" },
+  { area: "industrial", path: "/pdv/industrial/rol", mode: "rol" },
+  { area: "industrial", path: "/pdv/industrial/delivery", mode: "delivery" },
+  { area: "industrial", path: "/pdv/industrial/orcamento", mode: "orcamento" },
 ] as const;
 
 const PDV_FRONT_ROUTES = [
@@ -285,7 +295,18 @@ const App = () => (
                   path={path}
                   element={(
                     <ProtectedRoute requiredArea={area} requiredModule={["caixa", "faturamento"]}>
-                      <CaixaPDV />
+                      <PdvServiceSelector operation={area} />
+                    </ProtectedRoute>
+                  )}
+                />
+              ))}
+              {PDV_WORKBENCH_ROUTES.map(({ area, path, mode }) => (
+                <Route
+                  key={path}
+                  path={path}
+                  element={(
+                    <ProtectedRoute requiredArea={area} requiredModule={["caixa", "faturamento"]}>
+                      <CaixaPDV mode={mode} />
                     </ProtectedRoute>
                   )}
                 />

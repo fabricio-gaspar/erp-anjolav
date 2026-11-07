@@ -1,8 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PdvLayout } from "@/components/layout/PdvLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Archive,
   Search,
@@ -42,6 +44,9 @@ import {
   Banknote,
   QrCode,
   CircleCheck,
+  ArrowLeft,
+  Save,
+  Calculator,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
@@ -62,11 +67,12 @@ import { ListaDoDiaModal } from "@/components/caixa/ListaDoDiaModal";
 import { PdvFulfillmentPanel, type PdvFulfillmentSettings } from "@/components/caixa/PdvFulfillmentPanel";
 import { PdvPriceTableIndicator } from "@/components/caixa/PdvPriceTableIndicator";
 import { CadastroRapidoClienteModal } from "@/components/caixa/CadastroRapidoClienteModal";
+import { useSavePdvQuote } from "@/hooks/usePdvQuotes";
 
 import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
 import { OrdemServicoConsulta } from "@/hooks/useConsultaOS";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePrintOS } from "@/hooks/usePrintOS";
 import { useCreatePdvSale, usePdvCapacity, usePdvCustomerLoyaltySummary, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
@@ -122,7 +128,13 @@ interface CartItem {
   avarias?: string;
   posicao_prateleira?: string;
   observacoes?: string;
+  operacao?: string;
+  tipo_preco?: string;
+  servicos_adicionais?: string[];
+  complemento?: string;
 }
+
+export type PdvServiceMode = "rol" | "delivery" | "orcamento";
 
 interface OSRecemCriada {
   id: string;
@@ -183,32 +195,33 @@ const isValidQuantity = (value: number, unidade: string) =>
   Number.isFinite(value) && value > 0 && value <= 999 &&
   (["Kg", "Mt"].includes(unidade) || Number.isInteger(value));
 
-const createInitialFulfillment = (): PdvFulfillmentSettings => ({
+const createInitialFulfillment = (mode: PdvServiceMode = "rol"): PdvFulfillmentSettings => ({
   deliveryDate: getDefaultPdvDeliveryDate(),
   urgent: false,
-  receiptMode: "balcao",
-  deliveryMode: "balcao",
+  receiptMode: mode === "delivery" ? "coleta" : "balcao",
+  deliveryMode: mode === "delivery" ? "entrega" : "balcao",
   driverId: "",
   vehicleId: "",
   capacityOverride: false,
 });
 
 // Remount the sale and its dialogs whenever the security context changes.
-const CaixaPDV = () => {
+const CaixaPDV = ({ mode = "rol" }: { mode?: PdvServiceMode }) => {
   const { activeArea } = useWorkspace();
   const { activeTenant, user } = useAuth();
   const { pathname } = useLocation();
   const isExpectedWorkspace = pathname.startsWith("/" + activeArea + "/")
-    || (activeArea !== "central" && pathname === getCanonicalPdvPath(activeArea));
+    || (activeArea !== "central" && pathname.startsWith(getCanonicalPdvPath(activeArea)));
   if (!activeTenant || !user || !isExpectedWorkspace) {
     return <AppLayout title="PDV / Caixa"><p>Carregando contexto do atendimento...</p></AppLayout>;
   }
-  return <PdvAtendimento key={[activeTenant.id, user.id, activeArea].join(":")} />;
+  return <PdvAtendimento key={[activeTenant.id, user.id, activeArea, mode].join(":")} mode={mode} />;
 };
 
-const PdvAtendimento = () => {
+const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
 
   const { search } = useLocation();
+  const navigate = useNavigate();
   const { activeArea } = useWorkspace();
   const area = activeArea === "industrial" ? "industrial" : "residencial";
   const areaLabel = area === "industrial" ? "Industrial" : "Doméstico";
@@ -231,6 +244,7 @@ const PdvAtendimento = () => {
   const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto(canOperateCaixa);
   const canReceivePayments = canOperateCaixa && !!caixaAberto;
   const createPdvSale = useCreatePdvSale();
+  const savePdvQuote = useSavePdvQuote();
   const redeemLoyalty = useRedeemPdvLoyalty();
   const { printROL, printEtiqueta } = usePrintOS();
   
@@ -248,7 +262,7 @@ const PdvAtendimento = () => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showClientList, setShowClientList] = useState(false);
   const [showQuickClientModal, setShowQuickClientModal] = useState(false);
-  const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(createInitialFulfillment);
+  const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(() => createInitialFulfillment(mode));
   const [fulfillmentDraft, setFulfillmentDraft] = useState<PdvFulfillmentSettings | null>(null);
   const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
   const [paymentShortcut, setPaymentShortcut] = useState<PdvPaymentSelection | null>(null);
@@ -283,6 +297,7 @@ const PdvAtendimento = () => {
   const [showAjudaAtalhos, setShowAjudaAtalhos] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [discardRequest, setDiscardRequest] = useState<DiscardRequest | null>(null);
+  const [rolNotes, setRolNotes] = useState("");
   
 
   const { precos: precosEspeciais, isLoading: pricesLoading, isError: pricesError, refetch: refetchPrices } = usePrecosEspeciais(selectedClientId);
@@ -467,11 +482,12 @@ const PdvAtendimento = () => {
   const clearCart = useCallback(() => {
     setCart([]);
     setQuantityDrafts({});
-    setFulfillment(createInitialFulfillment());
+    setFulfillment(createInitialFulfillment(mode));
     setFulfillmentDraft(null);
     setShowFulfillmentModal(false);
     setPaymentShortcut(null);
-  }, []);
+    setRolNotes("");
+  }, [mode]);
 
   const openFulfillmentModal = useCallback((preset: Partial<PdvFulfillmentSettings> = {}) => {
     // As escolhas operacionais ficam em rascunho até o atendente confirmá-las.
@@ -530,6 +546,10 @@ const PdvAtendimento = () => {
     avarias?: string;
     posicao_prateleira?: string;
     observacoes?: string;
+    operacao?: string;
+    tipo_preco?: string;
+    servicos_adicionais?: string[];
+    complemento?: string;
   }) => {
     if (!selectedCartItem) return;
     setCart(prev => prev.map(item => 
@@ -541,7 +561,7 @@ const PdvAtendimento = () => {
   };
 
   const hasItemDetalhes = (item: CartItem) => {
-    return !!(item.cor_item || item.marca_item || item.avarias || item.posicao_prateleira || item.observacoes);
+    return !!(item.cor_item || item.marca_item || item.avarias || item.posicao_prateleira || item.observacoes || item.operacao || item.servicos_adicionais?.length || item.complemento);
   };
 
   const applySelectedClient = useCallback((clientId: string) => {
@@ -687,8 +707,15 @@ const PdvAtendimento = () => {
           marca_item: item.marca_item,
           avarias: item.avarias,
           posicao_prateleira: item.posicao_prateleira,
-          observacoes: item.observacoes,
+          observacoes: [
+            item.observacoes,
+            item.operacao ? `Operação: ${item.operacao}` : null,
+            item.tipo_preco ? `Tipo de preço: ${item.tipo_preco}` : null,
+            item.servicos_adicionais?.length ? `Serviços adicionais: ${item.servicos_adicionais.join(", ")}` : null,
+            item.complemento ? `Complemento: ${item.complemento}` : null,
+          ].filter(Boolean).join(" · ") || undefined,
         })),
+        notes: rolNotes.trim() || null,
         payment,
         idempotencyKey: saleKey,
       });
@@ -739,6 +766,62 @@ const PdvAtendimento = () => {
       submittingRef.current = false;
       setIsProcessingVenda(false);
     }
+  };
+
+  const handleSaveQuote = async () => {
+    if (!selectedClient || !cartValid || savePdvQuote.isPending) {
+      toast.error("Selecione o cliente e confira os itens antes de salvar o orçamento");
+      return;
+    }
+
+    try {
+      const quote = await savePdvQuote.mutateAsync({
+        clientId: selectedClient.id,
+        total: totalValue,
+        validUntil: format(addDays(new Date(), 7), "yyyy-MM-dd"),
+        notes: rolNotes,
+        items: cart.map((item) => ({
+          produto_id: item.id,
+          codigo: item.codigo ?? null,
+          descricao: item.nome,
+          quantidade: item.quantidade,
+          unidade: item.unidade,
+          preco_unitario: item.preco,
+          subtotal: item.preco * item.quantidade,
+          tabela_preco: clientPriceMode,
+          detalhes: {
+            cor: item.cor_item ?? null,
+            marca: item.marca_item ?? null,
+            defeito: item.avarias ?? null,
+            posicao: item.posicao_prateleira ?? null,
+            observacoes: item.observacoes ?? null,
+            operacao: item.operacao ?? null,
+            tipo_preco: item.tipo_preco ?? null,
+            servicos_adicionais: item.servicos_adicionais ?? [],
+            complemento: item.complemento ?? null,
+          },
+        })),
+      });
+      toast.success(`Orçamento salvo com sucesso · ${formatCurrency(Number(quote.valor_total))}`);
+      clearCart();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar o orçamento");
+    }
+  };
+
+  const handleSaveSessionDraft = () => {
+    if (!selectedClient || cart.length === 0) {
+      toast.error("Selecione o cliente e adicione itens antes de salvar o rascunho");
+      return;
+    }
+    sessionStorage.setItem(`anjolav:pdv-draft:${area}:${mode}`, JSON.stringify({
+      clientId: selectedClient.id,
+      cart,
+      fulfillment,
+      notes: rolNotes,
+      savedAt: new Date().toISOString(),
+    }));
+    toast.success("Rascunho salvo nesta sessão do PDV");
   };
 
   // Função após impressão (ou pular)
@@ -994,10 +1077,31 @@ const PdvAtendimento = () => {
     setShowConsultarOSModal(true);
   }, []);
 
-  return (
-    <AppLayout title="PDV / Caixa" subtitle={`Atendimento ${areaLabel}`}>
+  const workbenchTitle = mode === "delivery"
+    ? "Balcão / PDV — Novo Delivery"
+    : mode === "orcamento"
+      ? "Balcão / PDV — Novo orçamento"
+      : "Balcão / PDV — Novo ROL";
+  const serviceLabel = mode === "delivery" ? "Delivery" : mode === "orcamento" ? "orçamento" : "ROL";
+  const selectorPath = area === "industrial" ? "/pdv/industrial" : "/pdv/domestico";
 
-      <div className="pdv-cashier-page" data-testid="pdv-cashier-reference">
+  return (
+    <PdvLayout variant="front" operation={area} title={workbenchTitle} subtitle={`Atendimento ${areaLabel}`}>
+
+      <div className={cn("pdv-cashier-page pdv-roll-workbench", `pdv-roll-workbench--${mode}`)} data-testid="pdv-cashier-reference">
+        <div className="pdv-roll-heading">
+          <button type="button" onClick={() => navigate(selectorPath)}><ArrowLeft className="h-4 w-4" /> Voltar</button>
+          <span aria-hidden="true" />
+          <div>
+            <h1>{workbenchTitle}</h1>
+            <p>{mode === "delivery" ? "Coleta e entrega no endereço do cliente" : mode === "orcamento" ? "Proposta sem cobrança ou movimentação de caixa" : "Atendimento completo de peças e serviços"}</p>
+          </div>
+          <nav aria-label="Tipo de atendimento">
+            <button type="button" className={mode === "rol" ? "is-active" : undefined} onClick={() => navigate(`${selectorPath}/rol`)}>ROL</button>
+            <button type="button" className={mode === "delivery" ? "is-active" : undefined} onClick={() => navigate(`${selectorPath}/delivery`)}>Delivery</button>
+            <button type="button" className={mode === "orcamento" ? "is-active" : undefined} onClick={() => navigate(`${selectorPath}/orcamento`)}>Orçamento</button>
+          </nav>
+        </div>
         <div className="pdv-cashier-grid">
           <aside className="pdv-left-column" aria-label="Etapas de entrada do pedido">
             <section className="pdv-reference-card pdv-customer-card" aria-labelledby="pdv-client-title">
@@ -1103,6 +1207,24 @@ const PdvAtendimento = () => {
                   <h2 id="pdv-capacity-title">Prazo e capacidade</h2>
                 </div>
               </div>
+              <div className="pdv-delivery-mode" aria-label="Modalidade de entrega">
+                <button
+                  type="button"
+                  className={fulfillment.deliveryMode === "balcao" ? "is-active" : undefined}
+                  disabled={!selectedClient}
+                  onClick={() => setFulfillment((current) => ({ ...current, deliveryMode: "balcao" }))}
+                >
+                  <Archive className="h-4 w-4" /> Retirada
+                </button>
+                <button
+                  type="button"
+                  className={fulfillment.deliveryMode === "entrega" ? "is-active" : undefined}
+                  disabled={!selectedClient}
+                  onClick={() => setFulfillment((current) => ({ ...current, deliveryMode: "entrega" }))}
+                >
+                  <Truck className="h-4 w-4" /> Delivery
+                </button>
+              </div>
               <div className="pdv-capacity-date">
                 <span className="pdv-capacity-date-icon"><CalendarDays className="h-4 w-4" /></span>
                 <span className="min-w-0">
@@ -1113,6 +1235,9 @@ const PdvAtendimento = () => {
                   <Pencil className="h-4 w-4" />
                 </button>
               </div>
+              <Button type="button" variant="outline" size="sm" className="mt-2 w-full gap-2" disabled={!selectedClient} onClick={() => openFulfillmentModal()}>
+                <CalendarDays className="h-4 w-4" /> Consultar agenda e capacidade
+              </Button>
               <div className="pdv-capacity-summary">
                 <div className="pdv-capacity-heading">
                   <span className="flex items-center gap-1.5">Capacidade da data <Info className="h-3.5 w-3.5 text-primary" /></span>
@@ -1312,6 +1437,33 @@ const PdvAtendimento = () => {
                   </tbody>
                 </table>
               </div>
+
+              <div className="pdv-roll-total-strip">
+                <span><Boxes className="h-5 w-5" /> Total de peças: <strong>{formatCarga(totalItems)}</strong></span>
+                <span>Total do {serviceLabel}: <strong>{formatCurrency(totalValue)}</strong></span>
+              </div>
+
+              <div className="pdv-roll-notes">
+                <label htmlFor="pdv-rol-notes">Observações do {serviceLabel}</label>
+                <Textarea
+                  id="pdv-rol-notes"
+                  value={rolNotes}
+                  maxLength={500}
+                  onChange={(event) => setRolNotes(event.target.value)}
+                  placeholder="Ex.: manchas na gola, passadoria leve, embalar em separado..."
+                  rows={2}
+                />
+                <small>{rolNotes.length} / 500</small>
+              </div>
+
+              <div className="pdv-roll-tools" aria-label="Ferramentas do ROL">
+                <Button type="button" variant="outline" onClick={() => openOrderLookup()}><ClipboardList className="h-4 w-4" /> Consultar ROLs</Button>
+                <Button type="button" variant="outline" disabled={!canViewDayList} onClick={() => setShowListaDia(true)}><CalendarDays className="h-4 w-4" /> Lista do dia</Button>
+                <Button type="button" variant="outline" onClick={focusProductSearch}><ShoppingCart className="h-4 w-4" /> Cestas</Button>
+                <Button type="button" variant="outline" onClick={() => openOrderLookup("posicao")}><Archive className="h-4 w-4" /> Prateleiras</Button>
+                <Button type="button" variant="outline" onClick={() => setShowHistoricoVendas(true)}><FileSearch className="h-4 w-4" /> Histórico</Button>
+                <Button type="button" variant="outline" onClick={handleSaveSessionDraft}><Save className="h-4 w-4" /> Salvar rascunho</Button>
+              </div>
             </section>
           </section>
 
@@ -1320,7 +1472,7 @@ const PdvAtendimento = () => {
               <header>
                 <div className="pdv-summary-heading">
                   <span className="pdv-step-number" aria-hidden="true">5</span>
-                  <h2 id="pdv-summary-title">Resumo do pedido</h2>
+                  <h2 id="pdv-summary-title">Resumo do {serviceLabel}</h2>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1363,17 +1515,17 @@ const PdvAtendimento = () => {
                 <div className="pdv-summary-line"><span>Subtotal ({formatCarga(totalItems)} itens)</span><strong>{formatCurrency(totalValue)}</strong></div>
                 <div className="pdv-adjustment-line">
                   <span className="text-[13px] text-muted-foreground">Desconto</span>
-                  <button type="button" className="pdv-adjustment-button" aria-label="Configurar desconto na finalização" onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>{formatCurrency(0)}</button>
+                  <button type="button" className="pdv-adjustment-button" disabled={mode === "orcamento"} aria-label="Configurar desconto na finalização" onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>{formatCurrency(0)}</button>
                   <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
                 </div>
                 <div className="pdv-adjustment-line">
                   <span className="text-[13px] text-muted-foreground">Acréscimo</span>
-                  <button type="button" className="pdv-adjustment-button" aria-label="Configurar urgência na finalização" onClick={() => openFulfillmentModal()}>{formatCurrency(0)}</button>
+                  <button type="button" className="pdv-adjustment-button" disabled={mode === "orcamento"} aria-label="Configurar urgência na finalização" onClick={() => openFulfillmentModal()}>{formatCurrency(0)}</button>
                   <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
                 </div>
               </div>
               <div className="pdv-total-banner">
-                <small>Total do pedido</small>
+                <small>Total do {serviceLabel}</small>
                 <strong>{formatCurrency(totalValue)}</strong>
               </div>
             </section>
@@ -1382,36 +1534,47 @@ const PdvAtendimento = () => {
               <header>
                 <span className="pdv-step-number" aria-hidden="true">6</span>
                 <div>
-                  <h2 id="pdv-payment-title">Pagamento</h2>
-                  <p>Selecione a forma para a finalização.</p>
+                  <h2 id="pdv-payment-title">{mode === "orcamento" ? "Salvar proposta" : "Pagamento"}</h2>
+                  <p>{mode === "orcamento" ? "O orçamento não movimenta o caixa." : "Selecione a forma para a finalização."}</p>
                 </div>
               </header>
-              {!isLoadingCaixa && !canReceivePayments && !isFaturado && <p className="mt-2 text-xs text-warning">Abra o caixa e confirme sua permissão para receber agora.</p>}
-              {!isLoadingCaixa && canOperateCaixa && !caixaAberto && (
-                <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={() => setShowAbrirCaixaModal(true)}>
-                  Abrir caixa para receber
-                </Button>
+              {mode === "orcamento" ? (
+                <div className="pdv-payment-actions pdv-quote-actions">
+                  <div className="pdv-quote-notice"><Calculator className="h-5 w-5" /><span><strong>Validade padrão: 7 dias</strong><small>Preços e tabela usados ficam gravados no orçamento.</small></span></div>
+                  <Button type="button" data-testid="pdv-save-quote" className="pdv-finish-button gap-2" disabled={!cartValid || savePdvQuote.isPending} onClick={() => void handleSaveQuote()}>
+                    {savePdvQuote.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />} Salvar orçamento
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {!isLoadingCaixa && !canReceivePayments && !isFaturado && <p className="mt-2 text-xs text-warning">Abra o caixa e confirme sua permissão para receber agora.</p>}
+                  {!isLoadingCaixa && canOperateCaixa && !caixaAberto && (
+                    <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={() => setShowAbrirCaixaModal(true)}>
+                      Abrir caixa para receber
+                    </Button>
+                  )}
+                  <div className="pdv-payment-options">
+                    <button type="button" className={cn("pdv-payment-option", !isFaturado && canReceivePayments && (!paymentShortcut || paymentShortcut.pagoAgora && paymentShortcut.formaPagamento === "DINHEIRO") && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "DINHEIRO" }); handleOpenPagamento(); }}><Banknote className="h-5 w-5" /> Dinheiro</button>
+                    <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "PIX" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "PIX" }); handleOpenPagamento(); }}><QrCode className="h-5 w-5" /> PIX</button>
+                    <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "CARTAO_DEBITO" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "CARTAO_DEBITO" }); handleOpenPagamento(); }}><CreditCard className="h-5 w-5" /> Cartão</button>
+                    <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora === false && "is-selected")} disabled={isFaturado} onClick={() => { setPaymentShortcut({ pagoAgora: false, formaPagamento: null }); handleOpenPagamento(); }}><CalendarRange className="h-5 w-5" /> Posterior</button>
+                  </div>
+                  <div className="pdv-payment-actions">
+                    <Button type="button" data-testid="pdv-workflow-finalize" className="pdv-finish-button gap-2" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>
+                      <CircleCheck className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : mode === "delivery" ? "Finalizar delivery (F4)" : "Finalizar ROL (F4)"}
+                    </Button>
+                    <Button type="button" variant="outline" className="pdv-print-button gap-2" onClick={() => {
+                      if (osRecemCriada) {
+                        void printROL(osRecemCriada.id);
+                        return;
+                      }
+                      toast.info("Finalize o atendimento antes de imprimir a ROL.");
+                    }}>
+                      <Printer className="h-4 w-4" /> Imprimir ROL (F5)
+                    </Button>
+                  </div>
+                </>
               )}
-              <div className="pdv-payment-options">
-                <button type="button" className={cn("pdv-payment-option", !isFaturado && canReceivePayments && (!paymentShortcut || paymentShortcut.pagoAgora && paymentShortcut.formaPagamento === "DINHEIRO") && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "DINHEIRO" }); handleOpenPagamento(); }}><Banknote className="h-5 w-5" /> Dinheiro</button>
-                <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "PIX" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "PIX" }); handleOpenPagamento(); }}><QrCode className="h-5 w-5" /> PIX</button>
-                <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "CARTAO_DEBITO" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "CARTAO_DEBITO" }); handleOpenPagamento(); }}><CreditCard className="h-5 w-5" /> Cartão</button>
-                <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora === false && "is-selected")} disabled={isFaturado} onClick={() => { setPaymentShortcut({ pagoAgora: false, formaPagamento: null }); handleOpenPagamento(); }}><CalendarRange className="h-5 w-5" /> Posterior</button>
-              </div>
-              <div className="pdv-payment-actions">
-                <Button type="button" data-testid="pdv-workflow-finalize" className="pdv-finish-button gap-2" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>
-                  <CircleCheck className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : "Finalizar atendimento (F4)"}
-                </Button>
-                <Button type="button" variant="outline" className="pdv-print-button gap-2" onClick={() => {
-                  if (osRecemCriada) {
-                    void printROL(osRecemCriada.id);
-                    return;
-                  }
-                  toast.info("Finalize o atendimento antes de imprimir a ROL.");
-                }}>
-                  <Printer className="h-4 w-4" /> Imprimir ROL (F5)
-                </Button>
-              </div>
             </section>
           </aside>
         </div>
@@ -1451,6 +1614,10 @@ const PdvAtendimento = () => {
             avarias: selectedCartItem.avarias,
             posicao_prateleira: selectedCartItem.posicao_prateleira,
             observacoes: selectedCartItem.observacoes,
+            operacao: selectedCartItem.operacao,
+            tipo_preco: selectedCartItem.tipo_preco,
+            servicos_adicionais: selectedCartItem.servicos_adicionais,
+            complemento: selectedCartItem.complemento,
           }}
           onSave={saveDetalhes}
         />
@@ -1681,7 +1848,7 @@ const PdvAtendimento = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AppLayout>
+    </PdvLayout>
   );
 };
 

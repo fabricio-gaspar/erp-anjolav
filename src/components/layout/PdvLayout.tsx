@@ -116,7 +116,7 @@ export function PdvLayout({
   const areaLabel = operationArea === "industrial" ? "Industrial" : "Doméstico";
   const displayName = funcionario?.nome || user?.email?.split("@")[0] || "Usuário";
   const currentPdvPath = getCanonicalPdvOperationPath(operationFromLegacyArea(operationArea));
-  const isPdvCashier = pathname === currentPdvPath;
+  const isPdvCashier = pathname === currentPdvPath || pathname.startsWith(`${currentPdvPath}/`);
   const isPdvFront = variant === "front" || pathname.startsWith("/pdv/painel");
   const isLegacyOperationalLanding = pathname === "/industrial" || pathname === "/residencial";
   const isPdvRoute = pathname.startsWith("/pdv/");
