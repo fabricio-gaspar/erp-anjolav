@@ -25,6 +25,8 @@ export interface OrdemServicoConsulta {
   id: string;
   numero: string;
   status: string;
+  status_logistica: string;
+  entrega_modalidade: string;
   data_retirada: string;
   data_previsao_entrega: string | null;
   data_entrega: string | null;

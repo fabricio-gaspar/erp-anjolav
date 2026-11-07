@@ -60,6 +60,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { dispararNotificacaoAutomatica } from "@/services/notificacaoService";
 import {
   getOrderScanKey,
   isDuplicateOrderScan,
@@ -88,6 +89,14 @@ interface EditingPosition {
 interface ScannerFeedback {
   tone: "pending" | "success" | "warning" | "error";
   message: string;
+}
+
+interface PosicaoRolResult {
+  orderId: string;
+  allItemsPositioned: boolean;
+  readyForCustomer: boolean;
+  deliveryMode: "balcao" | "entrega";
+  deliveryQueueUpdated: boolean;
 }
 
 const paymentMethodLabels: Record<string, string> = {
@@ -477,16 +486,51 @@ export function ConsultarOSModal({
 
     setIsSavingPosition(true);
     try {
-      const { error } = await supabase
-        .from("itens_ordem_servico")
-        .update({ posicao_prateleira: newPosition })
-        .eq("id", editingPosition.itemId);
+      const { data, error } = await supabase.rpc("registrar_posicao_item_rol", {
+        _item_id: editingPosition.itemId,
+        _posicao_prateleira: newPosition,
+      });
 
       if (error) throw error;
 
+      const result = data as unknown as PosicaoRolResult;
+      if (!result?.orderId) {
+        throw new Error("O servidor não confirmou a atualização da posição do ROL.");
+      }
+
       toast.success("Posição atualizada com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["consulta-os"] });
+      queryClient.invalidateQueries({ queryKey: ["route-stop-candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["delivery-ready-rols"] });
       setEditingPosition(null);
+
+      if (result.readyForCustomer) {
+        const event = result.deliveryMode === "entrega"
+          ? "rol_pronto_delivery"
+          : "rol_pronto_retirada";
+
+        if (result.deliveryQueueUpdated) {
+          toast.success("ROL pronto incluído na fila de Entregas e Coletas.");
+        }
+
+        void dispararNotificacaoAutomatica(
+          event,
+          result.orderId,
+          `rol:${result.orderId}:disponivel:${result.deliveryMode}`,
+        ).then((notification) => {
+          if (notification.success && !notification.skipped && !notification.idempotent) {
+            toast.success(
+              result.deliveryMode === "entrega"
+                ? "Cliente avisado: o ROL seguirá por delivery."
+                : "Cliente avisado: o ROL está disponível para retirada.",
+            );
+            return;
+          }
+          if (!notification.success && !notification.idempotent) {
+            toast.message("ROL pronto, mas o aviso automático ao cliente não foi concluído. Verifique o WhatsApp.");
+          }
+        });
+      }
     } catch (error) {
       console.error("Erro ao atualizar posição:", error);
       toast.error("Erro ao atualizar posição. Tente novamente.");

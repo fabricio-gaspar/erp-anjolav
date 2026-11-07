@@ -956,6 +956,9 @@ function NotificacoesSection() {
   const [editTemplate, setEditTemplate] = useState("");
 
   const eventoLabels: Record<string, string> = {
+    rol_entrada: "ROL de entrada",
+    rol_pronto_retirada: "ROL disponível para retirada",
+    rol_pronto_delivery: "ROL pronto para delivery",
     os_retirada: "ROL retirado",
     os_producao: "ROL em produção",
     os_pronto: "ROL pronto",
@@ -1002,7 +1005,7 @@ function NotificacoesSection() {
         <div className="flex items-center gap-2">
           <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            Configure templates de mensagens automáticas para cada evento. Use variáveis como {"{cliente}"}, {"{numero}"}, {"{valor}"} para dados dinâmicos.
+            Configure templates de mensagens automáticas para cada evento. Use variáveis como {"{cliente}"}, {"{numero}"}, {"{itens}"}, {"{valor}"}, {"{previsao}"} e {"{modalidade}"}.
           </p>
         </div>
       </div>

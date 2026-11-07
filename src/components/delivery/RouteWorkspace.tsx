@@ -69,6 +69,15 @@ interface RouteCandidate {
   suggestedTime: string | null;
 }
 
+interface ReadyDeliveryRol {
+  id: string;
+  numero: string;
+  cliente: {
+    razao_social: string;
+    nome_fantasia: string | null;
+  } | null;
+}
+
 const routeStatus = {
   pendente: { label: "Planejada", className: "border-slate-200 bg-slate-100 text-slate-700" },
   em_rota: { label: "Em rota", className: "border-blue-200 bg-blue-50 text-blue-700" },
@@ -111,6 +120,8 @@ function timeText(time: string | null) {
 
 export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspaceProps) {
   const { data: routes = [], isLoading, isFetching, refetch } = useRotasDoDia(date);
+  const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
   const mutations = useRotasEntregaMutations();
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [newRouteOpen, setNewRouteOpen] = useState(false);
@@ -118,6 +129,30 @@ export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspac
   const [eventState, setEventState] = useState<{ stop: ParadaRota; type: RouteEventType } | null>(null);
   const [odometerMode, setOdometerMode] = useState<"start" | "finish" | null>(null);
   const isPastDate = date < format(new Date(), "yyyy-MM-dd");
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const { data: readyDeliveryRols = [] } = useQuery<ReadyDeliveryRol[]>({
+    queryKey: ["delivery-ready-rols", session?.user.id, activeTenant?.id, activeArea],
+    queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar deliveries prontos");
+      }
+
+      let query = supabase
+        .from("ordens_servico")
+        .select("id, numero, cliente:clientes(razao_social, nome_fantasia)")
+        .filter("tenant_id", "eq", activeTenant.id)
+        .in("status_logistica", ["aguardando_entrega", "entrega_parcial", "tentativa_falha"])
+        .order("data_previsao_entrega", { ascending: true });
+
+      if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as unknown as ReadyDeliveryRol[];
+    },
+    enabled: Boolean(session?.user.id && activeTenant?.id),
+    staleTime: 15_000,
+  });
 
   useEffect(() => {
     if (!routes.length) {
@@ -170,6 +205,19 @@ export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspac
           </div>
         </div>
       </div>
+
+      {readyDeliveryRols.length > 0 && (
+        <div role="status" className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="rounded-xl bg-emerald-600 p-2 text-white"><Truck className="h-5 w-5" /></div>
+            <div>
+              <p className="font-black">{readyDeliveryRols.length} ROL{readyDeliveryRols.length === 1 ? "" : "s"} pronto{readyDeliveryRols.length === 1 ? "" : "s"} para delivery</p>
+              <p className="mt-0.5 text-sm text-emerald-800">Aguardando inclusão em uma rota de Entregas e Coletas. {readyDeliveryRols.slice(0, 3).map((rol) => `ROL ${rol.numero}`).join(" · ")}{readyDeliveryRols.length > 3 ? " · …" : ""}</p>
+            </div>
+          </div>
+          <Badge className="w-fit bg-emerald-700 text-white hover:bg-emerald-700">Disponível para rota</Badge>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex min-h-64 items-center justify-center rounded-2xl border bg-card">

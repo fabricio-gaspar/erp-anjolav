@@ -86,6 +86,7 @@ import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUs
 import { buildClientPriceCatalog, CLIENT_PRICE_MODE_LABELS, normalizeClientPriceMode } from "@/lib/clientPricing";
 import { getDefaultPdvDeliveryDate } from "@/lib/pdvFulfillment";
 import { parseCustomerPaymentTerms, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
+import { dispararNotificacaoAutomatica } from "@/services/notificacaoService";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -724,6 +725,22 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         numero: result.order.number,
         valorTotal: result.order.total,
         previsaoEntrega: dados.previsaoEntrega,
+      });
+
+      // O recibo de entrada é enviado a partir do ROL já persistido. O envio
+      // não bloqueia o caixa e a chave impede duplicidade em novo clique.
+      void dispararNotificacaoAutomatica(
+        "rol_entrada",
+        result.order.id,
+        `rol:${result.order.id}:entrada`,
+      ).then((notification) => {
+        if (notification.success && !notification.skipped && !notification.idempotent) {
+          toast.success(`ROL ${result.order.number} enviado ao cliente pelo WhatsApp.`);
+          return;
+        }
+        if (!notification.success && !notification.idempotent) {
+          toast.message(`ROL ${result.order.number} criado; o envio automático não foi concluído. Verifique o WhatsApp do cliente.`);
+        }
       });
 
       setShowPagamentoModal(false);
@@ -1692,7 +1709,6 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           osId={osRecemCriada.id}
           osNumero={osRecemCriada.numero}
           clienteNome={selectedClient?.nome_fantasia || selectedClient?.razao_social || "Cliente"}
-          clienteTelefone={selectedClient?.telefone}
           valorTotal={osRecemCriada.valorTotal}
           totalPecas={totalItems}
           previsaoEntrega={osRecemCriada.previsaoEntrega}

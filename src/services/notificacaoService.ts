@@ -8,9 +8,23 @@ interface NotificacaoDados {
   valor?: string;
   previsao?: string;
   totalPecas?: string;
+  itens?: string;
+  modalidade?: string;
   ordem_servico_id?: string;
   cliente_id?: string;
   idempotencyKey?: string;
+}
+
+export type EventoNotificacaoRol =
+  | "rol_entrada"
+  | "rol_pronto_retirada"
+  | "rol_pronto_delivery";
+
+export interface ResultadoNotificacaoAutomatica {
+  success: boolean;
+  skipped: boolean;
+  idempotent: boolean;
+  reason?: string;
 }
 
 /**
@@ -103,6 +117,8 @@ export async function dispararNotificacao(
     if (dados.valor) variaveis.valor = dados.valor;
     if (dados.previsao) variaveis.previsao = dados.previsao;
     if (dados.totalPecas) variaveis.total_pecas = dados.totalPecas;
+    if (dados.itens) variaveis.itens = dados.itens;
+    if (dados.modalidade) variaveis.modalidade = dados.modalidade;
 
     const mensagem = montarMensagem(config.template, variaveis);
 
@@ -117,5 +133,45 @@ export async function dispararNotificacao(
   } catch (error) {
     console.error(`Erro ao disparar notificação "${evento}":`, error);
     return false;
+  }
+}
+
+/**
+ * Dispara os marcos automáticos do ROL no servidor.
+ *
+ * A Edge Function lê o ROL persistido, monta a mensagem a partir do template
+ * do tenant e reserva a chave de idempotência antes de chamar o WhatsApp.
+ * Assim, uma repetição de clique não duplica a mensagem do cliente.
+ */
+export async function dispararNotificacaoAutomatica(
+  evento: EventoNotificacaoRol,
+  ordemServicoId: string,
+  idempotencyKey: string,
+): Promise<ResultadoNotificacaoAutomatica> {
+  try {
+    const { data, error } = await supabase.functions.invoke("rol-notifications", {
+      body: {
+        evento,
+        ordem_servico_id: ordemServicoId,
+        idempotency_key: idempotencyKey,
+      },
+    });
+
+    if (error) throw error;
+
+    return {
+      success: data?.success === true,
+      skipped: data?.skipped === true,
+      idempotent: data?.idempotent === true,
+      reason: typeof data?.reason === "string" ? data.reason : undefined,
+    };
+  } catch (error) {
+    console.error(`Erro ao disparar notificação automática "${evento}":`, error);
+    return {
+      success: false,
+      skipped: false,
+      idempotent: false,
+      reason: "provider_error",
+    };
   }
 }

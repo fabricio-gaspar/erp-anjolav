@@ -271,7 +271,6 @@ export function FormularioEtapa({
       // Disparar notificação ao cliente via WhatsApp (se configurado)
       const eventoMap: Record<string, string> = {
         separacao: "os_producao",
-        expedicao: "os_pronto",
         entregue: "os_entregue",
       };
       const eventoNotificacao = eventoMap[proximaEtapa];
