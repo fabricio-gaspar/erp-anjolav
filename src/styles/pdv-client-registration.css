@@ -394,6 +394,87 @@
   max-width: none;
 }
 
+/* Todas as etapas do cadastro usam a mesma superfície compacta do PDV. */
+.pdv-client-registration .pdv-client-tab-panel {
+  margin-top: 10px;
+  padding-inline: 0;
+  color: #10233a;
+}
+
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-profile,
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-address-book,
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-payment,
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-settings,
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-contract,
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-pricing {
+  margin-top: 0;
+  gap: 10px;
+}
+
+.pdv-client-registration .pdv-client-tab-panel .rounded-lg.border,
+.pdv-client-registration .pdv-client-tab-panel .rounded-xl.border {
+  border-color: #b7c9d9;
+}
+
+.pdv-client-registration .pdv-client-tab-panel .rounded-lg.border {
+  border-radius: 7px;
+  box-shadow: 0 1px 4px rgba(8, 38, 63, .05);
+}
+
+.pdv-client-registration .pdv-client-tab-panel .rounded-xl.border {
+  border-radius: 7px;
+}
+
+.pdv-client-registration .pdv-client-tab-panel [class*="bg-primary\/5"] {
+  border-color: #b7d9ef;
+  background: #eef8ff;
+}
+
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-address-book > .grid {
+  gap: 10px;
+}
+
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-payment fieldset,
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-settings fieldset {
+  gap: 12px;
+}
+
+.pdv-client-registration .pdv-client-tab-panel .card-header,
+.pdv-client-registration .pdv-client-tab-panel [data-slot="card-header"] {
+  padding: 12px 14px 9px;
+}
+
+.pdv-client-registration .pdv-client-tab-panel [data-slot="card-content"] {
+  padding: 0 14px 14px;
+}
+
+.pdv-client-registration .pdv-client-tab-panel input,
+.pdv-client-registration .pdv-client-tab-panel textarea,
+.pdv-client-registration .pdv-client-tab-panel [role="combobox"] {
+  min-height: 39px;
+  border-radius: 5px;
+}
+
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-payment > .flex:last-child,
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-settings > div:last-child,
+.pdv-client-registration .pdv-client-tab-panel > .pdv-client-address-book > div:last-child {
+  margin-top: 0;
+}
+
+@media (min-width: 1100px) {
+  .pdv-client-registration .pdv-client-tab-panel > .pdv-client-payment,
+  .pdv-client-registration .pdv-client-tab-panel > .pdv-client-settings,
+  .pdv-client-registration .pdv-client-tab-panel > .pdv-client-pricing,
+  .pdv-client-registration .pdv-client-tab-panel > .pdv-client-contract {
+    gap: 10px;
+  }
+
+  .pdv-client-registration .pdv-client-tab-panel > .pdv-client-payment .grid,
+  .pdv-client-registration .pdv-client-tab-panel > .pdv-client-settings .grid {
+    gap: 12px;
+  }
+}
+
 .pdv-client-registration input,
 .pdv-client-registration button,
 .pdv-client-registration textarea,

@@ -548,11 +548,11 @@ const Clientes = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="resumo" className="mt-4 px-1">
+          <TabsContent value="resumo" className="pdv-client-tab-panel mt-4 px-1">
             <ClienteResumo clienteId={selectedClienteId} onOpenTab={setActiveTab} />
           </TabsContent>
 
-          <TabsContent value="dados" className="mt-4 px-1">
+          <TabsContent value="dados" className="pdv-client-tab-panel mt-4 px-1">
             <ClienteDadosBasicos
               clienteId={selectedClienteId}
               onNext={() => setActiveTab("endereco")}
@@ -562,7 +562,7 @@ const Clientes = () => {
             />
           </TabsContent>
 
-          <TabsContent value="endereco" className="mt-4 px-1">
+          <TabsContent value="endereco" className="pdv-client-tab-panel mt-4 px-1">
             <ClienteEndereco
               clienteId={selectedClienteId}
               onNext={() => setActiveTab("pagamento")}
@@ -571,7 +571,7 @@ const Clientes = () => {
             />
           </TabsContent>
 
-          <TabsContent value="pagamento" className="mt-4 px-1">
+          <TabsContent value="pagamento" className="pdv-client-tab-panel mt-4 px-1">
             <ClientePagamento
               clienteId={selectedClienteId}
               onBack={() => setActiveTab("endereco")}
@@ -579,18 +579,18 @@ const Clientes = () => {
             />
           </TabsContent>
 
-          <TabsContent value="configuracao" className="mt-4 px-1">
+          <TabsContent value="configuracao" className="pdv-client-tab-panel mt-4 px-1">
             <ClienteConfiguracao
               clienteId={selectedClienteId}
               onSave={() => setActiveTab("contrato")}
             />
           </TabsContent>
 
-          <TabsContent value="contrato" className="mt-4 px-1">
+          <TabsContent value="contrato" className="pdv-client-tab-panel mt-4 px-1">
             <ClienteContrato clienteId={selectedClienteId} />
           </TabsContent>
 
-          <TabsContent value="precos" className="mt-4 px-1">
+          <TabsContent value="precos" className="pdv-client-tab-panel mt-4 px-1">
             <ClienteTabelaPrecos clienteId={selectedClienteId} />
           </TabsContent>
         </Tabs>

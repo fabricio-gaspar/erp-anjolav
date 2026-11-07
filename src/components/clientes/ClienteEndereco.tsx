@@ -300,7 +300,7 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
   const isSaving = saveAddress.isPending;
 
   return (
-    <div className="space-y-5" data-testid="client-address-book">
+    <div className="pdv-client-address-book space-y-5" data-testid="client-address-book">
       <div className="grid gap-5 xl:grid-cols-[minmax(260px,0.34fr)_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader className="gap-3 pb-4">

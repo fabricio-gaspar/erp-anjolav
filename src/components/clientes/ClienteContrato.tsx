@@ -344,7 +344,7 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
   }
 
   return (
-    <div className="space-y-5" data-testid="industrial-contract-workspace">
+    <div className="pdv-client-contract space-y-5" data-testid="industrial-contract-workspace">
       <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.035]">
         <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">

@@ -196,7 +196,7 @@ export function ClienteResumo({ clienteId, onOpenTab }: ClienteResumoProps) {
   );
 
   return (
-    <div className="space-y-4" data-testid="client-profile">
+    <div className="pdv-client-profile space-y-4" data-testid="client-profile">
       <section className={cn("flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between", actionTone[nextAction.tone])}>
         <div className="flex min-w-0 items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background/80">

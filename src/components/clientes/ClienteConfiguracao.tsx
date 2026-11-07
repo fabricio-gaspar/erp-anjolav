@@ -276,7 +276,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
   }
 
   return (
-    <div className="space-y-6 mt-6">
+    <div className="pdv-client-settings space-y-6 mt-6">
       {/* Tipo de Relatório para Faturamento */}
       <Card>
         <CardHeader className="pb-4">
