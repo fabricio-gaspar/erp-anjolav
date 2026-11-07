@@ -20,14 +20,14 @@ export function PageHeader({ eyebrow, title, description, actions, className }: 
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <span
-            className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary shadow-[0_0_10px_rgba(0,158,227,0.45)]"
+            className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.35)]"
             aria-hidden="true"
           />
           <span className="text-[11px] font-black uppercase tracking-[0.25em] text-muted-foreground">
             {eyebrow}
           </span>
         </div>
-        <h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">
+        <h1 className="mt-1 text-[26px] font-bold tracking-[-0.035em] text-foreground sm:text-[28px]">
           {title}
         </h1>
         {description && (
