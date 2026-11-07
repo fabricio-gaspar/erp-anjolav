@@ -1,0 +1,160 @@
+.pdv-client-registration {
+  width: 100%;
+  max-width: none;
+  min-height: calc(100dvh - 78px);
+  gap: 10px;
+  padding: 10px;
+  color: #10233a;
+  background: linear-gradient(180deg, #edf4f9 0%, #e7eff5 100%);
+}
+
+.pdv-client-registration__heading {
+  display: grid;
+  grid-template-columns: auto 1px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 15px;
+  margin: -10px -10px 0;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  border-bottom: 1px solid rgba(8, 35, 60, .45);
+  padding: 10px 20px;
+  color: #f8fbff;
+  background: #082c4b;
+}
+
+.pdv-client-registration__heading > button,
+.pdv-client-registration__heading div > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #d9ecfb;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.pdv-client-registration__heading > span {
+  width: 1px;
+  height: 32px;
+  background: rgba(255, 255, 255, .3);
+}
+
+.pdv-client-registration__heading > div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 22px;
+}
+
+.pdv-client-registration__heading h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(20px, 2vw, 27px);
+  font-weight: 950;
+  letter-spacing: -.035em;
+}
+
+.pdv-client-registration__heading div > button {
+  color: #c8dced;
+  font-weight: 500;
+}
+
+.pdv-client-registration__heading small {
+  color: #c7dced;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.pdv-client-registration > .surface-panel,
+.pdv-client-registration > [data-orientation="horizontal"] {
+  width: 100%;
+}
+
+.pdv-client-registration .surface-panel,
+.pdv-client-registration .content-panel {
+  border-color: #b7c9d9;
+  border-radius: 7px;
+  box-shadow: 0 1px 4px rgba(8, 38, 63, .06);
+}
+
+.pdv-client-registration .page-tabs-list {
+  display: grid;
+  width: 100%;
+  height: auto;
+  grid-template-columns: repeat(8, minmax(110px, 1fr));
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid #b7c9d9;
+  border-radius: 7px;
+  padding: 0;
+  background: #fff;
+}
+
+.pdv-client-registration .page-tab-trigger {
+  min-height: 42px;
+  border-right: 1px solid #d7e1e9;
+  border-radius: 0;
+  color: #536a80;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pdv-client-registration .page-tab-trigger:last-child { border-right: 0; }
+.pdv-client-registration .page-tab-trigger[data-state="active"] {
+  color: #056fc1;
+  background: #e7f4fe;
+  box-shadow: inset 0 -3px 0 #087ed0;
+}
+
+.pdv-client-registration .page-tab-trigger:disabled {
+  color: #9aabba;
+  background: #f5f8fa;
+}
+
+.pdv-client-registration [role="tabpanel"] {
+  margin-top: 10px;
+  padding-inline: 0;
+}
+
+.pdv-client-registration [role="tabpanel"] > form,
+.pdv-client-registration [role="tabpanel"] > div {
+  max-width: none;
+}
+
+.pdv-client-registration input,
+.pdv-client-registration button,
+.pdv-client-registration textarea,
+.pdv-client-registration [role="combobox"] {
+  border-color: #aebfd0;
+}
+
+.pdv-client-registration input:focus,
+.pdv-client-registration textarea:focus,
+.pdv-client-registration [role="combobox"]:focus {
+  border-color: #087ed0;
+  box-shadow: 0 0 0 2px rgba(8, 126, 208, .12);
+}
+
+.pdv-client-registration form > .surface-panel > [class*="border-b"],
+.pdv-client-registration [role="tabpanel"] .surface-panel > [class*="border-b"] {
+  background: linear-gradient(90deg, #edf2f7, #f8fafc);
+}
+
+.pdv-client-registration form > div:last-child button[type="submit"] {
+  min-width: 160px;
+  background: #087ed0;
+}
+
+@media (max-width: 900px) {
+  .pdv-client-registration__heading { grid-template-columns: auto 1px minmax(0, 1fr); }
+  .pdv-client-registration__heading small { display: none; }
+  .pdv-client-registration__heading > div { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .pdv-client-registration .page-tabs-list { display: flex; min-width: max-content; }
+  .pdv-client-registration .page-tab-trigger { min-width: 118px; }
+}
+
+@media (max-width: 640px) {
+  .pdv-client-registration { padding: 7px; }
+  .pdv-client-registration__heading { margin: -7px -7px 0; padding: 9px 12px; }
+  .pdv-client-registration__heading > span { display: none; }
+  .pdv-client-registration__heading h1 { font-size: 18px; }
+}

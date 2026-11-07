@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PdvLayout } from "@/components/layout/PdvLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Archive, Building2, ChevronLeft, ChevronRight, Eye, Loader2, MoreHorizontal, Pencil, Plus, RotateCcw, Search, User } from "lucide-react";
+import { Archive, ArrowLeft, Building2, ChevronLeft, ChevronRight, Eye, Loader2, MoreHorizontal, Pencil, Plus, RotateCcw, Search, User } from "lucide-react";
 import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
 import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
 import { ClientePagamento } from "@/components/clientes/ClientePagamento";
@@ -55,8 +56,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import "@/styles/pdv-client-registration.css";
 
 const Clientes = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("lista");
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
@@ -144,6 +148,11 @@ const Clientes = () => {
   const operationLabel = activeArea === "residencial" ? "OPERAÇÃO DOMÉSTICA" : "OPERAÇÃO INDUSTRIAL";
   const pageTitle = `Clientes ${areaLabel}`;
   const pageSubtitle = "AnjoLav";
+  const isPdvClientWorkspace = location.pathname.startsWith("/pdv/");
+  const pdvOperation = activeArea === "industrial" ? "industrial" : "residencial";
+  const isNewClient = activeTab === "dados" && !selectedClienteId;
+  const pdvTitle = isNewClient ? "Cadastro de cliente" : activeTab === "lista" ? "Consulta de clientes" : "Cadastro de cliente";
+  const pdvBreadcrumb = isNewClient ? "Clientes  ›  Novo cadastro" : selectedCliente ? `Clientes  ›  ${selectedCliente.razao_social}` : "Clientes";
 
   const updateDirectoryParams = (updates: { query?: string; status?: ClientDirectoryStatus; page?: number }) => {
     const next = new URLSearchParams(searchParams);
@@ -171,10 +180,23 @@ const Clientes = () => {
     setSearchParams(next, { replace: true });
   }, [isLoading, page, searchParams, setSearchParams, totalClientes, totalPages]);
 
-  return (
-    <AppLayout title={pageTitle} subtitle={pageSubtitle}>
-      <div className="page-shell">
-        <PageHeader
+  const content = (
+    <>
+      <div className={cn("page-shell", isPdvClientWorkspace && "pdv-client-registration")} data-testid={isPdvClientWorkspace ? "pdv-client-registration" : undefined}>
+        {isPdvClientWorkspace ? (
+          <header className="pdv-client-registration__heading">
+            <button type="button" onClick={() => navigate(pdvOperation === "industrial" ? "/pdv/painel/industrial" : "/pdv/painel/domestico")}>
+              <ArrowLeft className="h-4 w-4" /> Voltar
+            </button>
+            <span aria-hidden="true" />
+            <div>
+              <h1>{pdvTitle}</h1>
+              <button type="button" onClick={handleBackToList}>{pdvBreadcrumb}</button>
+            </div>
+            <small>{operationLabel}</small>
+          </header>
+        ) : (
+          <PageHeader
           eyebrow={operationLabel}
           title={pageTitle}
           description={`Cadastros exclusivos da operação ${areaLabel.toLowerCase()}`}
@@ -187,9 +209,10 @@ const Clientes = () => {
               Novo Cliente
             </Button>
           ) : undefined}
-        />
+          />
+        )}
 
-        {activeTab !== "lista" && (
+        {activeTab !== "lista" && (!isPdvClientWorkspace || Boolean(selectedCliente)) && (
           <div className="surface-panel flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -449,9 +472,9 @@ const Clientes = () => {
           </TabsContent>
 
           <TabsContent value="dados" className="mt-4 px-1">
-            <ClienteDadosBasicos 
+            <ClienteDadosBasicos
               clienteId={selectedClienteId}
-              onNext={() => setActiveTab("endereco")} 
+              onNext={() => setActiveTab("endereco")}
               onClienteSaved={handleClienteSaved}
               onOpenExistingClient={handleEditCliente}
               onCnpjDataLoaded={setCnpjData}
@@ -459,26 +482,26 @@ const Clientes = () => {
           </TabsContent>
 
           <TabsContent value="endereco" className="mt-4 px-1">
-            <ClienteEndereco 
+            <ClienteEndereco
               clienteId={selectedClienteId}
-              onNext={() => setActiveTab("pagamento")} 
+              onNext={() => setActiveTab("pagamento")}
               onSave={() => setActiveTab("pagamento")}
               cnpjData={cnpjData}
             />
           </TabsContent>
 
           <TabsContent value="pagamento" className="mt-4 px-1">
-            <ClientePagamento 
+            <ClientePagamento
               clienteId={selectedClienteId}
-              onBack={() => setActiveTab("endereco")} 
+              onBack={() => setActiveTab("endereco")}
               onSave={() => setActiveTab("configuracao")}
             />
           </TabsContent>
 
           <TabsContent value="configuracao" className="mt-4 px-1">
-            <ClienteConfiguracao 
+            <ClienteConfiguracao
               clienteId={selectedClienteId}
-              onSave={() => setActiveTab("contrato")} 
+              onSave={() => setActiveTab("contrato")}
             />
           </TabsContent>
 
@@ -508,8 +531,18 @@ const Clientes = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AppLayout>
+    </>
   );
+
+  if (isPdvClientWorkspace) {
+    return (
+      <PdvLayout variant="front" operation={pdvOperation} title={pdvTitle} subtitle={pdvBreadcrumb}>
+        {content}
+      </PdvLayout>
+    );
+  }
+
+  return <AppLayout title={pageTitle} subtitle={pageSubtitle}>{content}</AppLayout>;
 };
 
 export default Clientes;
