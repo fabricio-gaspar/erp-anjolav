@@ -5,8 +5,6 @@ import {
   ArrowRight,
   BarChart3,
   Boxes,
-  FileText,
-  Landmark,
   Package,
   ReceiptText,
   ShoppingCart,
@@ -80,7 +78,6 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
   const canUseStock = canAccessRoute(stockPath);
   const canUseProduction = canAccessRoute(`/${operation}/producao`);
   const canUseAgenda = canAccessRoute(`/${operation}/agenda`);
-  const canUseFinance = canAccessRoute(`/${operation}/lancamentos`);
   const reportPath = operation === "industrial"
     ? "/industrial/relatorios/clientes"
     : "/residencial/relatorios/caixa";
@@ -139,22 +136,6 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
       path: canUseAgenda ? operationalPath("agenda?view=rotas") : null,
     },
     {
-      id: "financeiro",
-      title: "Financeiro",
-      description: "Caixa · Cobranças · Boletos",
-      icon: Landmark,
-      tone: "green",
-      path: canUseFinance ? operationalPath("lancamentos?tab=pendentes") : null,
-    },
-    {
-      id: "fiscal",
-      title: "Fiscal",
-      description: "Notas fiscais · Emissão",
-      icon: FileText,
-      tone: "pink",
-      path: canUseFinance ? operationalPath("lancamentos?tab=faturas") : null,
-    },
-    {
       id: "relatorios",
       title: "Relatórios e indicadores",
       description: "Produção · Vendas · Resultados",
@@ -189,7 +170,6 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
   ], [
     canUseAgenda,
     canUseClients,
-    canUseFinance,
     canUseOrders,
     canUsePdv,
     canUseProducts,
@@ -258,3 +238,21 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
                           <h3>{module.title}</h3>
                           <p>{module.description}</p>
                         </div>
+                        {module.actionLabel && (
+                          <span className="pdv-front-tile-action">
+                            {module.actionLabel}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                          </span>
+                        )}
+                        {!enabled && <span className="pdv-front-tile-lock">Sem acesso</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+      </section>
+    </PdvLayout>
+  );
+}
