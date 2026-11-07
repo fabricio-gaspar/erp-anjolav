@@ -290,8 +290,8 @@
   padding: 0;
 }
 
-.pdv-client-form > .surface-panel,
-.pdv-client-form > details.surface-panel,
+.pdv-client-form .surface-panel,
+.pdv-client-form details.surface-panel,
 .pdv-client-form > footer.surface-panel {
   border-color: #b7c9d9;
   border-radius: 7px;
@@ -299,9 +299,17 @@
   background: #fff;
 }
 
-.pdv-client-form > .surface-panel > div:first-child,
-.pdv-client-form > details > summary {
+.pdv-client-form__identity > div:first-child,
+.pdv-client-form__contact > div:first-child,
+.pdv-client-form__details > summary {
   background: linear-gradient(90deg, #eef3f8, #fafcfe);
+}
+
+.pdv-client-form__workspace,
+.pdv-client-form__primary {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
 }
 
 .pdv-client-form label,
@@ -408,6 +416,245 @@
 .pdv-client-registration form > div:last-child button[type="submit"] {
   min-width: 160px;
   background: #087ed0;
+}
+
+.pdv-client-registration .pdv-client-form > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0;
+}
+
+@media (min-width: 1100px) {
+  .pdv-client-registration .pdv-client-form {
+    gap: 8px;
+  }
+
+  .pdv-client-registration .pdv-client-form__workspace {
+    grid-template-columns: minmax(0, 2.15fr) minmax(350px, .9fr);
+    gap: 10px;
+    align-items: start;
+  }
+
+  .pdv-client-registration .pdv-client-form__primary {
+    gap: 8px;
+    align-content: start;
+  }
+
+  .pdv-client-registration .pdv-client-form__details {
+    min-width: 0;
+  }
+
+  .pdv-client-registration .pdv-client-form__message,
+  .pdv-client-registration .pdv-client-form__footer {
+    grid-column: 1 / -1;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity > div:first-child,
+  .pdv-client-registration .pdv-client-form__contact > div:first-child {
+    padding: 9px 12px !important;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity [class~="h-10"][class~="w-10"],
+  .pdv-client-registration .pdv-client-form__contact [class~="h-10"][class~="w-10"] {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity > div:first-child h2,
+  .pdv-client-registration .pdv-client-form__contact > div:first-child h2 {
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity > div:first-child p,
+  .pdv-client-registration .pdv-client-form__contact > div:first-child p {
+    margin-top: 2px;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity > div:last-child,
+  .pdv-client-registration .pdv-client-form__contact > div:last-child {
+    padding: 10px 12px !important;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity > div:last-child > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 10px;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity > div:last-child > .grid:first-child {
+    display: block;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity > div:last-child > .grid:first-child fieldset:nth-child(2) {
+    display: none;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity fieldset:first-child {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity fieldset:first-child legend {
+    flex: 0 0 auto;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity fieldset:first-child [role="group"] {
+    display: flex;
+    width: auto;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity fieldset:first-child button {
+    width: auto;
+    height: 30px !important;
+    min-height: 30px;
+    justify-content: flex-start;
+    gap: 8px;
+    border: 0 !important;
+    padding: 0 4px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #10233a !important;
+    font-size: 13px;
+    font-weight: 750;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity fieldset:first-child button svg {
+    display: none;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity fieldset:first-child button::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    border: 1.5px solid #63778a;
+    border-radius: 999px;
+    background: #fff;
+  }
+
+  .pdv-client-registration .pdv-client-form__identity fieldset:first-child button[aria-pressed="true"]::before {
+    border-color: #087ed0;
+    background: #087ed0;
+    box-shadow: inset 0 0 0 4px #fff;
+  }
+
+  .pdv-client-registration .pdv-client-identification-grid {
+    gap: 10px;
+    align-items: start;
+  }
+
+  .pdv-client-registration .pdv-client-identification-grid--cpf {
+    grid-template-columns: minmax(0, 1.65fr) minmax(210px, .75fr);
+  }
+
+  .pdv-client-registration .pdv-client-identification-grid--cpf .pdv-client-field--legal-name {
+    order: 1;
+  }
+
+  .pdv-client-registration .pdv-client-identification-grid--cpf .pdv-client-field--document {
+    order: 2;
+  }
+
+  .pdv-client-registration .pdv-client-identification-grid--cnpj {
+    grid-template-columns: minmax(210px, .82fr) minmax(0, 1.18fr) minmax(0, 1fr);
+  }
+
+  .pdv-client-registration .pdv-client-form__contact > div:last-child {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .pdv-client-registration .pdv-client-form--cpf .pdv-client-field--phone { order: 1; }
+  .pdv-client-registration .pdv-client-form--cpf .pdv-client-field--contact { order: 2; }
+  .pdv-client-registration .pdv-client-form--cpf .pdv-client-field--email { order: 3; }
+  .pdv-client-registration .pdv-client-form--cnpj .pdv-client-field--contact { order: 1; }
+  .pdv-client-registration .pdv-client-form--cnpj .pdv-client-field--email { order: 2; }
+  .pdv-client-registration .pdv-client-form--cnpj .pdv-client-field--phone { order: 3; }
+
+  .pdv-client-registration .pdv-client-form label,
+  .pdv-client-registration .pdv-client-form legend {
+    font-size: 11px;
+  }
+
+  .pdv-client-registration .pdv-client-form input,
+  .pdv-client-registration .pdv-client-form [role="combobox"] {
+    height: 36px !important;
+    min-height: 36px;
+    font-size: 12px;
+  }
+
+  .pdv-client-registration .pdv-client-form [class~="space-y-2"] {
+    row-gap: 4px;
+  }
+
+  .pdv-client-registration .pdv-client-form [class~="space-y-2"] > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 4px;
+  }
+
+  .pdv-client-registration .pdv-client-form [id$="-helper"],
+  .pdv-client-registration .pdv-client-form [id$="-error"] {
+    font-size: 9px;
+    line-height: 1.25;
+  }
+
+  .pdv-client-registration .pdv-client-form__details > summary {
+    min-height: 48px;
+    padding: 8px 12px;
+  }
+
+  .pdv-client-registration .pdv-client-form__details > summary [class~="h-9"][class~="w-9"] {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+  }
+
+  .pdv-client-registration .pdv-client-form__details > summary span span:first-child {
+    font-size: 13px;
+  }
+
+  .pdv-client-registration .pdv-client-form__details > div {
+    gap: 10px;
+    padding: 10px 12px !important;
+  }
+
+  .pdv-client-registration .pdv-client-form__details > div > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 10px;
+  }
+
+  .pdv-client-registration .pdv-client-form__details fieldset > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .pdv-client-registration .pdv-client-form__details fieldset button {
+    min-height: 34px;
+    height: 34px;
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+
+  .pdv-client-registration .pdv-client-form__details > div > .grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .pdv-client-registration .pdv-client-form__details textarea {
+    min-height: 92px;
+    font-size: 11px;
+  }
+
+  .pdv-client-registration .pdv-client-form__footer {
+    min-height: 54px;
+    padding: 7px 10px !important;
+  }
+
+  .pdv-client-registration .pdv-client-form__footer button {
+    height: 38px !important;
+    min-height: 38px;
+  }
 }
 
 @media (max-width: 900px) {

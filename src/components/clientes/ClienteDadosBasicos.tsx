@@ -5,6 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useLocation } from "react-router-dom";
 import {
   AlertTriangle,
   Building2,
@@ -100,6 +101,7 @@ const TAX_REGIMES: Array<{ value: RegimeTributario; label: string }> = [
 function FormField({
   id,
   label,
+  className,
   optional,
   error,
   helper,
@@ -107,6 +109,7 @@ function FormField({
 }: {
   id: string;
   label: string;
+  className?: string;
   optional?: boolean;
   error?: string;
   helper?: string;
@@ -118,7 +121,7 @@ function FormField({
       ? `${id}-helper`
       : undefined;
   return (
-    <div className="min-w-0 space-y-2">
+    <div className={cn("min-w-0 space-y-2", className)}>
       <div className="flex items-center justify-between gap-3">
         <Label htmlFor={id} className="text-sm font-semibold text-foreground">
           {label}
@@ -173,7 +176,9 @@ export const ClienteDadosBasicos = ({
   onOpenExistingClient,
   onCnpjDataLoaded,
 }: ClienteDadosBasicosProps) => {
+  const location = useLocation();
   const { activeArea } = useWorkspace();
+  const isPdvClientWorkspace = location.pathname.startsWith("/pdv/");
   const {
     data: clienteExistente,
     isLoading: isLoadingCliente,
@@ -199,6 +204,7 @@ export const ClienteDadosBasicos = ({
   const [formData, setFormData] = useState<FormValues>(EMPTY_FORM);
   const [errors, setErrors] = useState<ClientIdentityErrors>({});
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(isPdvClientWorkspace);
   const [reviewedFingerprint, setReviewedFingerprint] = useState<string | null>(
     null,
   );
@@ -493,7 +499,7 @@ export const ClienteDadosBasicos = ({
 
   return (
     <form
-      className="pdv-client-form space-y-5"
+      className={cn("pdv-client-form space-y-5", `pdv-client-form--${tipoPessoa}`)}
       data-testid="client-identity-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -501,7 +507,9 @@ export const ClienteDadosBasicos = ({
       }}
       noValidate
     >
-      <section className="surface-panel overflow-hidden">
+      <div className="pdv-client-form__workspace">
+        <div className="pdv-client-form__primary">
+      <section className="pdv-client-form__identity surface-panel overflow-hidden">
         <div className="border-b bg-muted/20 px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">
@@ -544,16 +552,6 @@ export const ClienteDadosBasicos = ({
               >
                 <Button
                   type="button"
-                  variant={tipoPessoa === "cnpj" ? "default" : "outline"}
-                  className="h-11"
-                  aria-pressed={tipoPessoa === "cnpj"}
-                  onClick={() => changePersonType("cnpj")}
-                  disabled={isBusy}
-                >
-                  <Building2 className="h-4 w-4" /> Empresa
-                </Button>
-                <Button
-                  type="button"
                   variant={tipoPessoa === "cpf" ? "default" : "outline"}
                   className="h-11"
                   aria-pressed={tipoPessoa === "cpf"}
@@ -561,6 +559,16 @@ export const ClienteDadosBasicos = ({
                   disabled={isBusy}
                 >
                   <UserRound className="h-4 w-4" /> Pessoa física
+                </Button>
+                <Button
+                  type="button"
+                  variant={tipoPessoa === "cnpj" ? "default" : "outline"}
+                  className="h-11"
+                  aria-pressed={tipoPessoa === "cnpj"}
+                  onClick={() => changePersonType("cnpj")}
+                  disabled={isBusy}
+                >
+                  <Building2 className="h-4 w-4" /> Pessoa jurídica
                 </Button>
               </div>
             </fieldset>
@@ -612,9 +620,10 @@ export const ClienteDadosBasicos = ({
             </fieldset>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className={cn("pdv-client-identification-grid grid gap-5", `pdv-client-identification-grid--${tipoPessoa}`)}>
             <FormField
               id="client-document"
+              className="pdv-client-field--document"
               label={tipoPessoa === "cnpj" ? "CNPJ" : "CPF"}
               optional
               error={errors.document}
@@ -663,6 +672,7 @@ export const ClienteDadosBasicos = ({
 
             <FormField
               id="client-legal-name"
+              className="pdv-client-field--legal-name"
               label={tipoPessoa === "cpf" ? "Nome completo" : "Razão social"}
               error={errors.legalName}
               helper="Campo obrigatório."
@@ -685,33 +695,33 @@ export const ClienteDadosBasicos = ({
                 disabled={isBusy}
               />
             </FormField>
-          </div>
-
-          {tipoPessoa === "cnpj" && (
-            <FormField
-              id="client-trade-name"
-              label="Nome fantasia"
-              optional
-              error={errors.tradeName}
-            >
-              <Input
+            {tipoPessoa === "cnpj" && (
+              <FormField
                 id="client-trade-name"
-                value={formData.nome_fantasia}
-                placeholder="Como o cliente é conhecido"
-                maxLength={160}
-                aria-invalid={Boolean(errors.tradeName)}
-                className="h-11"
-                onChange={(event) =>
-                  handleChange("nome_fantasia", event.target.value)
-                }
-                disabled={isBusy}
-              />
-            </FormField>
-          )}
+                className="pdv-client-field--trade-name"
+                label="Nome fantasia"
+                optional
+                error={errors.tradeName}
+              >
+                <Input
+                  id="client-trade-name"
+                  value={formData.nome_fantasia}
+                  placeholder="Como o cliente é conhecido"
+                  maxLength={160}
+                  aria-invalid={Boolean(errors.tradeName)}
+                  className="h-11"
+                  onChange={(event) =>
+                    handleChange("nome_fantasia", event.target.value)
+                  }
+                  disabled={isBusy}
+                />
+              </FormField>
+            )}
+          </div>
         </div>
       </section>
 
-      <section className="surface-panel overflow-hidden">
+      <section className="pdv-client-form__contact surface-panel overflow-hidden">
         <div className="flex items-start gap-3 border-b bg-muted/20 px-4 py-4 sm:px-5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <ContactRound className="h-5 w-5" aria-hidden="true" />
@@ -726,6 +736,7 @@ export const ClienteDadosBasicos = ({
         <div className="grid gap-5 p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-3">
           <FormField
             id="client-email"
+            className="pdv-client-field--email"
             label="E-mail"
             optional
             error={errors.email}
@@ -746,6 +757,7 @@ export const ClienteDadosBasicos = ({
           </FormField>
           <FormField
             id="client-phone"
+            className="pdv-client-field--phone"
             label="Telefone principal"
             optional
             error={errors.phone}
@@ -766,6 +778,7 @@ export const ClienteDadosBasicos = ({
           </FormField>
           <FormField
             id="client-contact"
+            className="pdv-client-field--contact"
             label="Contato ou responsável"
             optional
             error={errors.contact}
@@ -787,7 +800,7 @@ export const ClienteDadosBasicos = ({
       {(isReviewPending || hasReviewError || currentCandidates.length > 0) && (
         <section
           className={cn(
-            "surface-panel border-l-4 p-4 sm:p-5",
+            "pdv-client-form__message surface-panel border-l-4 p-4 sm:p-5",
             documentConflict ? "border-l-destructive" : "border-l-amber-500",
           )}
           data-testid="duplicate-review"
@@ -924,8 +937,13 @@ export const ClienteDadosBasicos = ({
           )}
         </section>
       )}
+        </div>
 
-      <details className="surface-panel group overflow-hidden">
+      <details
+        className="pdv-client-form__details surface-panel group overflow-hidden"
+        open={isDetailsOpen}
+        onToggle={(event) => setIsDetailsOpen(event.currentTarget.open)}
+      >
         <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 sm:px-5 [&::-webkit-details-marker]:hidden">
           <span className="flex min-w-0 items-center gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
@@ -1047,9 +1065,10 @@ export const ClienteDadosBasicos = ({
           </FormField>
         </div>
       </details>
+      </div>
 
       {saveIdentity.isError && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="pdv-client-form__message">
           <CircleAlert className="h-4 w-4" />
           <AlertTitle>O cliente não foi salvo</AlertTitle>
           <AlertDescription className="mt-1">
@@ -1059,7 +1078,7 @@ export const ClienteDadosBasicos = ({
         </Alert>
       )}
 
-      <footer className="surface-panel flex flex-col-reverse gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+      <footer className="pdv-client-form__footer surface-panel flex flex-col-reverse gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
         <p className="text-center text-xs text-muted-foreground sm:text-left">
           {clienteId
             ? "As alterações afetam somente este cadastro."
