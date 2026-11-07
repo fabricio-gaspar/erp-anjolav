@@ -31,10 +31,8 @@ import {
 import { Archive, ArrowLeft, Building2, ChevronLeft, ChevronRight, Eye, History, Loader2, Mail, MoreHorizontal, Pencil, Phone, Plus, RotateCcw, Search, User } from "lucide-react";
 import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
 import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
-import { ClientePagamento } from "@/components/clientes/ClientePagamento";
-import { ClienteConfiguracao } from "@/components/clientes/ClienteConfiguracao";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
-import { ClienteTabelaPrecos } from "@/components/clientes/ClienteTabelaPrecos";
+import { ClienteCondicoes } from "@/components/clientes/ClienteCondicoes";
 import { ClienteResumo } from "@/components/clientes/ClienteResumo";
 import { useClientes, useClienteById, type Cliente } from "@/hooks/useClientes";
 import { useClienteDirectory } from "@/hooks/useClienteDirectory";
@@ -272,10 +270,8 @@ const Clientes = () => {
               <TabsTrigger value="resumo" disabled={!selectedClienteId} className="page-tab-trigger">Resumo</TabsTrigger>
               <TabsTrigger value="dados" className="page-tab-trigger">Dados</TabsTrigger>
               <TabsTrigger value="endereco" disabled={!selectedClienteId} className="page-tab-trigger">Endereço</TabsTrigger>
-              <TabsTrigger value="pagamento" disabled={!selectedClienteId} className="page-tab-trigger">Pagamento</TabsTrigger>
-              <TabsTrigger value="configuracao" disabled={!selectedClienteId} className="page-tab-trigger">Config.</TabsTrigger>
+              <TabsTrigger value="condicoes" disabled={!selectedClienteId} className="page-tab-trigger">Condições</TabsTrigger>
               <TabsTrigger value="contrato" disabled={!selectedClienteId} className="page-tab-trigger">Contrato</TabsTrigger>
-              <TabsTrigger value="precos" disabled={!selectedClienteId} className="page-tab-trigger">Preços</TabsTrigger>
             </TabsList>
           </div>
 
@@ -565,34 +561,20 @@ const Clientes = () => {
           <TabsContent value="endereco" className="pdv-client-tab-panel mt-4 px-1">
             <ClienteEndereco
               clienteId={selectedClienteId}
-              onNext={() => setActiveTab("pagamento")}
-              onSave={() => setActiveTab("pagamento")}
+              onNext={() => setActiveTab("condicoes")}
+              onSave={() => setActiveTab("condicoes")}
               cnpjData={cnpjData}
             />
           </TabsContent>
 
-          <TabsContent value="pagamento" className="pdv-client-tab-panel mt-4 px-1">
-            <ClientePagamento
-              clienteId={selectedClienteId}
-              onBack={() => setActiveTab("endereco")}
-              onSave={() => setActiveTab("configuracao")}
-            />
-          </TabsContent>
-
-          <TabsContent value="configuracao" className="pdv-client-tab-panel mt-4 px-1">
-            <ClienteConfiguracao
-              clienteId={selectedClienteId}
-              onSave={() => setActiveTab("contrato")}
-            />
+          <TabsContent value="condicoes" className="pdv-client-tab-panel mt-4 px-1">
+            <ClienteCondicoes clienteId={selectedClienteId} />
           </TabsContent>
 
           <TabsContent value="contrato" className="pdv-client-tab-panel mt-4 px-1">
             <ClienteContrato clienteId={selectedClienteId} />
           </TabsContent>
 
-          <TabsContent value="precos" className="pdv-client-tab-panel mt-4 px-1">
-            <ClienteTabelaPrecos clienteId={selectedClienteId} />
-          </TabsContent>
         </Tabs>
       </div>
 

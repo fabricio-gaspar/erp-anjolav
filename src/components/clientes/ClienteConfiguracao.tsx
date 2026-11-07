@@ -493,7 +493,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
       <div className="flex items-center justify-end pt-4">
         <Button onClick={handleSave} className="gap-2" disabled={isSaving}>
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-          Salvar e Continuar
+          Salvar operação
         </Button>
       </div>
     </div>

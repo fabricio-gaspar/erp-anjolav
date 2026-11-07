@@ -384,10 +384,10 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
 
       {/* Footer */}
       <div className="flex items-center justify-start gap-4 pt-4">
-        <Button variant="outline" onClick={onBack}>Voltar</Button>
+        <Button variant="outline" onClick={onBack}>Voltar para preços</Button>
         <Button onClick={handleSave} className="gap-2" disabled={isSaving || !canManageCommercialTerms || !condicao}>
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-          Salvar e Continuar
+          Salvar pagamento
         </Button>
       </div>
     </div>
