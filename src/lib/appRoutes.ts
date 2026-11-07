@@ -306,6 +306,15 @@ export const APP_ROUTES = [
     navigationGroup: "residential-support",
   },
   {
+    path: "/residencial/estoque",
+    area: "residencial",
+    requiredModules: ["produtos"],
+    adminOnly: false,
+    label: "Estoque",
+    sidebarLabel: "Estoque e compras",
+    navigationGroup: "residential-support",
+  },
+  {
     path: "/residencial/relatorios/caixa",
     area: "residencial",
     requiredModules: ["relatorios"],

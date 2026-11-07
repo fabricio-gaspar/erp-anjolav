@@ -1,8 +1,10 @@
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  ArrowDownCircle,
   ArrowRight,
   BarChart3,
+  Boxes,
   FileText,
   Landmark,
   Package,
@@ -74,6 +76,8 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
   const canUseClients = canAccessRoute(`/${operation}/clientes`);
   const productsPath = operation === "industrial" ? "/industrial/produtos" : "/residencial/produtos";
   const canUseProducts = canAccessRoute(productsPath);
+  const stockPath = operation === "industrial" ? "/industrial/estoque" : "/residencial/estoque";
+  const canUseStock = canAccessRoute(stockPath);
   const canUseProduction = canAccessRoute(`/${operation}/producao`);
   const canUseAgenda = canAccessRoute(`/${operation}/agenda`);
   const canUseFinance = canAccessRoute(`/${operation}/lancamentos`);
@@ -166,6 +170,22 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
       tone: "slate",
       path: canUsePdv ? operationalPath() : null,
     },
+    {
+      id: "sangria",
+      title: "Sangria",
+      description: "Retirada de valores do caixa",
+      icon: ArrowDownCircle,
+      tone: "slate",
+      path: canUsePdv ? `/${operation}/caixa?acao=sangria` : null,
+    },
+    {
+      id: "estoque",
+      title: "Estoque e compras",
+      description: "Insumos · Compras · Movimentações",
+      icon: Boxes,
+      tone: "amber",
+      path: canUseStock ? stockPath : null,
+    },
   ], [
     canUseAgenda,
     canUseClients,
@@ -173,11 +193,13 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
     canUseOrders,
     canUsePdv,
     canUseProducts,
+    canUseStock,
     canUseProduction,
     canUseReports,
     operation,
     productsPath,
     reportPath,
+    stockPath,
   ]);
 
   const sections = [

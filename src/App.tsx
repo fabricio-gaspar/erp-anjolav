@@ -103,6 +103,7 @@ const ROUTE_COMPONENTS = {
   "/residencial/producao": FluxoProducao,
   "/residencial/financeiro": DashboardFinanceiro,
   "/residencial/produtos": Produtos,
+  "/residencial/estoque": Estoque,
   "/residencial/relatorios/caixa": HistoricoCaixas,
 } as const satisfies Record<AppRoutePath, LazyExoticComponent<ComponentType>>;
 

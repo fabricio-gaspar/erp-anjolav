@@ -2,12 +2,19 @@ import { useCallback, useDeferredValue, useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Download, Loader2, Package, Plus, RotateCcw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Archive, ChevronLeft, ChevronRight, Copy, Download, Loader2, MoreHorizontal, Package, Pencil, Plus, RotateCcw } from "lucide-react";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
 import { useProductDirectory } from "@/hooks/useProductDirectory";
 import { toast } from "sonner";
 import { CATEGORIAS, ProdutoFilters } from "@/components/produtos/ProdutoFilters";
-import { ProdutoCard } from "@/components/produtos/ProdutoCard";
 import { ProdutoForm, ProdutoFormData } from "@/components/produtos/ProdutoForm";
 import { ProdutoStats } from "@/components/produtos/ProdutoStats";
 import { useSearchParams } from "react-router-dom";
@@ -49,6 +56,13 @@ const defaultFormData: ProdutoFormData = {
   cor: "branco",
   composicao: "algodao",
   instrucoes_especiais: "",
+};
+
+const getUnitLabel = (unit: string | null | undefined) => {
+  if (unit === "kg") return "kg";
+  if (unit === "metro") return "metro";
+  if (unit === "unidade") return "un.";
+  return "peça";
 };
 
 const Produtos = () => {
@@ -423,17 +437,72 @@ const Produtos = () => {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 min-[430px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                {produtos.map(produto => (
-                  <ProdutoCard
-                    key={produto.id}
-                    produto={produto}
-                    onEdit={handleEdit}
-                    onArchive={setProdutoToArchive}
-                    onReactivate={handleReactivate}
-                    onDuplicate={handleDuplicate}
-                  />
-                ))}
+              <div className="overflow-x-auto rounded-lg border" data-testid="product-directory-table">
+                <Table className="min-w-[720px]">
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead>Código</TableHead>
+                      <TableHead>Produto ou serviço</TableHead>
+                      <TableHead>Unidade</TableHead>
+                      <TableHead className="text-right">Preço</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-16 text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {produtos.map((produto) => {
+                      const active = produto.status === "ativo";
+                      const categoryLabel = CATEGORIAS.find(category => category.value === produto.categoria)?.label;
+                      return (
+                        <TableRow key={produto.id} className={!active ? "opacity-70" : undefined}>
+                          <TableCell className="font-mono text-xs text-muted-foreground">{produto.codigo || "—"}</TableCell>
+                          <TableCell>
+                            <p className="font-semibold text-foreground">{produto.nome}</p>
+                            {categoryLabel && <p className="text-xs text-muted-foreground">{categoryLabel}</p>}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{getUnitLabel(produto.unidade)}</TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">
+                            R$ {produto.preco.toFixed(2).replace(".", ",")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={active ? "default" : "secondary"}>{active ? "Ativo" : "Arquivado"}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9"
+                                  aria-label={`Ações do produto ${produto.nome}`}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuItem onClick={() => handleEdit(produto)}>
+                                  <Pencil className="mr-2 h-4 w-4" />Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDuplicate(produto)}>
+                                  <Copy className="mr-2 h-4 w-4" />Duplicar
+                                </DropdownMenuItem>
+                                {active ? (
+                                  <DropdownMenuItem onClick={() => setProdutoToArchive(produto)}>
+                                    <Archive className="mr-2 h-4 w-4" />Arquivar
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onClick={() => handleReactivate(produto)}>
+                                    <RotateCcw className="mr-2 h-4 w-4" />Reativar
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             )}
 
