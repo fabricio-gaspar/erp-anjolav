@@ -5,7 +5,6 @@ import {
   Building2,
   CalendarDays,
   ClipboardList,
-  CreditCard,
   FileText,
   Landmark,
   LayoutDashboard,
@@ -22,7 +21,6 @@ import type { ModulePermissionKey, RoutePermissionRequirement } from "@/lib/auth
 
 export type AdminRoutePath =
   | "/admin/visao-geral"
-  | "/admin/pdv-caixas"
   | "/admin/cadastros/clientes"
   | "/admin/cadastros/produtos"
   | "/admin/cadastros/fornecedores"
@@ -55,7 +53,6 @@ const central = (modules: ModulePermissionKey | ModulePermissionKey[]): RoutePer
 
 export const ADMIN_ROUTES: readonly AdminRouteDefinition[] = [
   { path: "/admin/visao-geral", label: "Visão geral", section: "Painel", icon: LayoutDashboard, requiredModules: central("dashboard") },
-  { path: "/admin/pdv-caixas", label: "PDV e caixas", section: "PDV e caixas", icon: CreditCard, requiredModules: central(["caixa", "faturamento"]) },
   { path: "/admin/cadastros/clientes", label: "Clientes", section: "Cadastros", icon: Users, requiredModules: central("clientes") },
   { path: "/admin/cadastros/produtos", label: "Produtos e serviços", section: "Cadastros", icon: ShoppingCart, requiredModules: central("produtos") },
   { path: "/admin/cadastros/fornecedores", label: "Fornecedores", section: "Cadastros", icon: Building2, requiredModules: central("produtos") },

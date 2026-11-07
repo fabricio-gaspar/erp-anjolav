@@ -107,7 +107,6 @@ const ROUTE_COMPONENTS = {
 
 const ADMIN_ROUTE_COMPONENTS: Record<AdminRoutePath, LazyExoticComponent<ComponentType>> = {
   "/admin/visao-geral": Dashboard,
-  "/admin/pdv-caixas": HistoricoCaixas,
   "/admin/cadastros/clientes": Clientes,
   "/admin/cadastros/produtos": Produtos,
   "/admin/cadastros/fornecedores": Fornecedores,
