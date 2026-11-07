@@ -196,6 +196,18 @@
   background: hsl(var(--background));
 }
 
+.pdv-customer-selected-main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.pdv-customer-price-slot {
+  min-width: 0;
+}
+
 .pdv-customer-search + .pdv-customer-selected {
   margin-top: 16px;
 }
@@ -1286,10 +1298,27 @@
   .pdv-roll-workbench .pdv-customer-card .pdv-card-title-row { margin-bottom: 7px; }
   .pdv-roll-workbench .pdv-customer-search input { height: 38px; }
   .pdv-roll-workbench .pdv-customer-search + .pdv-customer-selected { margin-top: 8px; }
-  .pdv-roll-workbench .pdv-customer-selected { padding: 7px 9px; }
+  .pdv-roll-workbench .pdv-customer-selected {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, .92fr);
+    align-items: stretch;
+    gap: 12px;
+    padding: 7px 9px;
+  }
   .pdv-roll-workbench .pdv-customer-avatar { width: 42px; height: 42px; }
   .pdv-roll-workbench .pdv-customer-meta { display: flex; flex-wrap: wrap; gap: 12px; margin: 5px 0 0 55px; }
   .pdv-roll-workbench .pdv-customer-history { display: none; }
+
+  .pdv-roll-workbench .pdv-customer-price-slot {
+    display: flex;
+    min-width: 0;
+    align-items: stretch;
+  }
+
+  .pdv-roll-workbench .pdv-customer-price-slot .pdv-price-card {
+    width: 100%;
+    margin: 0;
+  }
 
   .pdv-roll-workbench .pdv-price-card {
     display: grid;
@@ -1336,6 +1365,7 @@
   .pdv-roll-heading { margin: -8px -8px 0; padding: 10px 12px; }
   .pdv-roll-heading > span { display: none; }
   .pdv-roll-heading h1 { font-size: 17px; }
+  .pdv-customer-selected { gap: 10px; }
   .pdv-roll-total-strip { align-items: flex-start; flex-direction: column; }
   .pdv-roll-tools { grid-template-columns: 1fr 1fr; }
 }

@@ -1157,32 +1157,42 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
 
               {selectedClient ? (
                 <div className="pdv-customer-selected">
-                  <div className="pdv-customer-selected-top">
-                    <span className="pdv-customer-avatar"><UserRound className="h-5 w-5" /></span>
-                    <div className="min-w-0 flex-1">
-                      <p className="pdv-customer-name">
-                        {selectedClient.nome_fantasia || selectedClient.razao_social}
-                        <span className="pdv-customer-badge">Cliente</span>
-                      </p>
-                      {canUseLoyalty && isLoadingCustomerLoyalty ? (
-                        <p className="pdv-customer-loyalty text-muted-foreground">Consultando pontos…</p>
-                      ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
-                        <p className="pdv-customer-loyalty text-success">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
-                      ) : null}
+                  <div className="pdv-customer-selected-main">
+                    <div className="pdv-customer-selected-top">
+                      <span className="pdv-customer-avatar"><UserRound className="h-5 w-5" /></span>
+                      <div className="min-w-0 flex-1">
+                        <p className="pdv-customer-name">
+                          {selectedClient.nome_fantasia || selectedClient.razao_social}
+                          <span className="pdv-customer-badge">Cliente</span>
+                        </p>
+                        {canUseLoyalty && isLoadingCustomerLoyalty ? (
+                          <p className="pdv-customer-loyalty text-muted-foreground">Consultando pontos…</p>
+                        ) : canUseLoyalty && customerLoyalty?.programaAtivo ? (
+                          <p className="pdv-customer-loyalty text-success">{customerLoyalty.saldoPontos} pontos · {formatCurrency(customerLoyalty.valorSaldo)}</p>
+                        ) : null}
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={clearClient} aria-label="Remover cliente" title="Trocar cliente">
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive" onClick={clearClient} aria-label="Remover cliente" title="Trocar cliente">
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <div className="pdv-customer-meta">
+                      {selectedClient.telefone && <span><Phone className="h-3.5 w-3.5" /><span>{selectedClient.telefone}</span></span>}
+                      {selectedClient.cpf_cnpj && <span><IdCard className="h-3.5 w-3.5" /><span>{selectedClient.cpf_cnpj}</span></span>}
+                      {selectedClient.email && <span><Mail className="h-3.5 w-3.5" /><span>{selectedClient.email}</span></span>}
+                    </div>
+                    <button type="button" className="pdv-customer-history" onClick={() => setShowHistoricoVendas(true)}>
+                      <span className="flex items-center gap-2"><FileSearch className="h-4 w-4" /> Ver histórico do cliente</span>
+                      <span aria-hidden="true">›</span>
+                    </button>
                   </div>
-                  <div className="pdv-customer-meta">
-                    {selectedClient.telefone && <span><Phone className="h-3.5 w-3.5" /><span>{selectedClient.telefone}</span></span>}
-                    {selectedClient.cpf_cnpj && <span><IdCard className="h-3.5 w-3.5" /><span>{selectedClient.cpf_cnpj}</span></span>}
-                    {selectedClient.email && <span><Mail className="h-3.5 w-3.5" /><span>{selectedClient.email}</span></span>}
+                  <div className="pdv-customer-price-slot">
+                    <PdvPriceTableIndicator
+                      clienteNome={selectedClient.nome_fantasia || selectedClient.razao_social}
+                      tabelaPrecoTipo={selectedClient.tabela_preco_tipo}
+                      isLoading={pricesLoading}
+                      isError={pricesError}
+                    />
                   </div>
-                  <button type="button" className="pdv-customer-history" onClick={() => setShowHistoricoVendas(true)}>
-                    <span className="flex items-center gap-2"><FileSearch className="h-4 w-4" /> Ver histórico do cliente</span>
-                    <span aria-hidden="true">›</span>
-                  </button>
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col">
@@ -1191,12 +1201,13 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                   </div>
                 </div>
               )}
-              <PdvPriceTableIndicator
-                clienteNome={selectedClient?.nome_fantasia || selectedClient?.razao_social}
-                tabelaPrecoTipo={selectedClient?.tabela_preco_tipo}
-                isLoading={Boolean(selectedClient) && pricesLoading}
-                isError={Boolean(selectedClient) && pricesError}
-              />
+              {!selectedClient && (
+                <PdvPriceTableIndicator
+                  tabelaPrecoTipo={undefined}
+                  isLoading={false}
+                  isError={false}
+                />
+              )}
             </section>
 
             <section className="pdv-reference-card pdv-capacity-card" aria-labelledby="pdv-capacity-title">
