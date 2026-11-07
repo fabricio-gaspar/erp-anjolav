@@ -267,11 +267,11 @@ const Clientes = () => {
           <div className="max-w-full overflow-x-auto pb-1 scrollbar-hide">
             <TabsList className="page-tabs-list">
               <TabsTrigger value="lista" className="page-tab-trigger">Lista</TabsTrigger>
-              <TabsTrigger value="resumo" disabled={!selectedClienteId} className="page-tab-trigger">Resumo</TabsTrigger>
               <TabsTrigger value="dados" className="page-tab-trigger">Dados</TabsTrigger>
               <TabsTrigger value="endereco" disabled={!selectedClienteId} className="page-tab-trigger">Endereço</TabsTrigger>
               <TabsTrigger value="condicoes" disabled={!selectedClienteId} className="page-tab-trigger">Condições</TabsTrigger>
               <TabsTrigger value="contrato" disabled={!selectedClienteId} className="page-tab-trigger">Contrato</TabsTrigger>
+              <TabsTrigger value="resumo" disabled={!selectedClienteId} className="page-tab-trigger">Histórico</TabsTrigger>
             </TabsList>
           </div>
 
