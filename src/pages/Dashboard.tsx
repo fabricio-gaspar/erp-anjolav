@@ -29,7 +29,7 @@ import {
   startOfMonth,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
@@ -44,6 +44,7 @@ import { ProductionBottleneck } from "@/components/dashboard/ProductionBottlenec
 import { RolsLojaCard } from "@/components/dashboard/RolsLojaCard";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { OperationalDashboard } from "@/components/operational/OperationalDashboard";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace, type WorkspaceArea } from "@/contexts/WorkspaceContext";
@@ -168,7 +169,7 @@ function getScheduleStatus(status: string | null | undefined) {
   return "pending" as const;
 }
 
-const Dashboard = () => {
+const AdministrativeDashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { activeTenant, funcionario } = useAuth();
@@ -1128,6 +1129,19 @@ const Dashboard = () => {
       </div>
     </AppLayout>
   );
+};
+
+const Dashboard = () => {
+  const { activeArea } = useWorkspace();
+  const { pathname } = useLocation();
+  const isAdministrativeRoute = pathname === "/central"
+    || pathname.startsWith("/central/")
+    || pathname === "/admin"
+    || pathname.startsWith("/admin/");
+
+  return isAdministrativeRoute || activeArea === "central"
+    ? <AdministrativeDashboard />
+    : <OperationalDashboard />;
 };
 
 export default Dashboard;

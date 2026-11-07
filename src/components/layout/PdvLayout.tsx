@@ -6,7 +6,6 @@ import {
   Clock3,
   Factory,
   Leaf,
-  LayoutDashboard,
   LogOut,
   Moon,
   Settings2,
@@ -73,7 +72,7 @@ function formatOperationalTime(value: Date): string {
 
 export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
   const navigate = useNavigate();
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const { activeArea } = useWorkspace();
   const { isOperationSwitchLocked } = useOperationalContext();
   const {
@@ -89,37 +88,31 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
   const { isDark, toggleMode } = useThemeMode();
   const [now, setNow] = useState(() => new Date());
 
-  const accessiblePdvAreas = PDV_AREAS.filter((area) => canAccessRoute(`/${area}/caixa`));
-  const requestedArea = new URLSearchParams(search).get("operacao");
-  const workspaceOperation = activeArea === "industrial" ? "industrial" : "residencial";
-  const preferredOperation = requestedArea === "industrial" || requestedArea === "residencial"
-    ? requestedArea
-    : workspaceOperation;
-  const operationArea = accessiblePdvAreas.includes(preferredOperation)
-    ? preferredOperation
-    : accessiblePdvAreas[0] ?? preferredOperation;
+  const operationArea = activeArea === "industrial" ? "industrial" : "residencial";
   const canUseCash = canAccessRoute(`/${operationArea}/caixa`);
   const { data: caixaAberto, isLoading: isLoadingCash } = useCaixaAberto(canUseCash);
+  const accessiblePdvAreas = PDV_AREAS.filter((area) => canAccessRoute(`/${area}/caixa`));
   const areaLabel = operationArea === "industrial" ? "Industrial" : "Doméstico";
   const displayName = funcionario?.nome || user?.email?.split("@")[0] || "Usuário";
-  const AreaIcon = operationArea === "industrial" ? Factory : Store;
   const currentPdvPath = getCanonicalPdvOperationPath(operationFromLegacyArea(operationArea));
   const isPdvHome = pathname === currentPdvPath;
-  const isPdvModuleHub = pathname === "/pdv" || pathname === "/pdv/painel" || pathname === "/admin/pdv-caixas";
-  const isAdministrativePdvHub = pathname === "/admin/pdv-caixas";
   const isLegacyOperationalLanding = pathname === "/industrial" || pathname === "/residencial";
+  const isPdvRoute = pathname.startsWith("/pdv/");
+  const operationalHomePath = `/${operationArea}`;
+  const navigationTarget = isPdvRoute ? currentPdvPath : operationalHomePath;
+  const navigationLabel = isPdvRoute ? "Voltar ao atendimento" : "Voltar ao painel operacional";
+  const shellBadge = isPdvHome ? "Atendimento" : "Operação";
   const unitLabel = getUnitLabel(
     operationalAccess.data?.units,
     operationalAccess.isLoading,
     operationalAccess.isError,
   );
-  const cashIdentifier = caixaAberto?.identificador_caixa?.trim();
   const cashLabel = !canUseCash
     ? "Acesso restrito"
     : isLoadingCash
       ? "Verificando…"
       : caixaAberto
-        ? cashIdentifier ? `Caixa ${cashIdentifier} aberto` : "Caixa aberto"
+        ? `Caixa ${caixaAberto.identificador_caixa} Aberto`
         : "Fechado";
 
   useEffect(() => {
@@ -138,27 +131,27 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-background">
-      <header className="sticky top-0 z-40 border-b border-border bg-card/95 shadow-sm backdrop-blur">
+    <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-[#edf3f8]">
+      <header className="sticky top-0 z-40 border-b border-white/15 bg-[#062443] text-white shadow-lg shadow-slate-950/20">
         <div className="flex min-h-[64px] items-center justify-between gap-4 px-3 sm:px-5 lg:px-6">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <div className="flex min-w-0 items-center gap-6">
             <div className="flex shrink-0 items-center gap-2.5" aria-label="AnjoLav">
-              <Leaf className="h-9 w-9 fill-success/15 text-success" strokeWidth={2.25} />
-              <span className="hidden text-[30px] font-black tracking-[-0.06em] text-foreground sm:inline">Anjo<span className="text-success">Lav</span></span>
+              <Leaf className="h-9 w-9 fill-emerald-300/15 text-emerald-300" strokeWidth={2.25} />
+              <span className="hidden text-[30px] font-black tracking-[-0.06em] text-white sm:inline">Anjo<span className="text-emerald-300">Lav</span></span>
             </div>
-            <span className="hidden h-8 w-px bg-border md:block" aria-hidden="true" />
-            <h1 className="shrink-0 whitespace-nowrap text-lg font-black tracking-[-0.045em] text-foreground sm:text-[25px]">
+            <span className="hidden h-8 w-px bg-white/25 md:block" aria-hidden="true" />
+            <h1 className="truncate text-lg font-black tracking-[-0.045em] text-white sm:text-[25px]">
               {title || "PDV / Caixa"}
             </h1>
-            <span className="hidden rounded-full bg-success-light px-4 py-2 text-sm font-bold text-success 2xl:inline">
-              Atendimento
+            <span className="hidden rounded-full border border-emerald-300/25 bg-emerald-300/15 px-4 py-2 text-sm font-bold text-emerald-100 lg:inline">
+              {shellBadge}
             </span>
           </div>
 
           <div aria-label="Contexto operacional" className="scrollbar-hide flex min-w-0 items-center justify-end gap-2 overflow-x-auto text-sm">
-            <span className="hidden shrink-0 items-center gap-2 border-r border-border pr-4 xl:inline-flex" title={subtitle || `${activeTenant?.name ?? "Empresa"} · ${areaLabel}`}>
-              <Building2 className="h-4 w-4 text-primary" />
-              <span><span className="text-muted-foreground">Unidade:</span> <strong>{unitLabel}</strong></span>
+            <span className="hidden shrink-0 items-center gap-2 border-r border-white/20 pr-4 text-slate-100 xl:inline-flex" title={subtitle || `${activeTenant?.name ?? "Empresa"} · ${areaLabel}`}>
+              <Building2 className="h-4 w-4 text-[#78c8f6]" />
+              <span><span className="text-slate-300">Unidade:</span> <strong className="text-white">{unitLabel}</strong></span>
             </span>
 
             <DropdownMenu>
@@ -166,7 +159,7 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="hidden h-9 shrink-0 gap-1.5 px-2 text-sm md:inline-flex"
+                  className="hidden h-9 shrink-0 gap-1.5 px-2 text-sm text-white hover:bg-white/10 hover:text-white md:inline-flex"
                   aria-label={`Operação ${areaLabel}`}
                   disabled={isOperationSwitchLocked || accessiblePdvAreas.length < 2}
                   title={isOperationSwitchLocked
@@ -175,8 +168,8 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
                       ? "Seu perfil possui somente esta operação autorizada."
                       : undefined}
                 >
-                  <Settings2 className="h-4 w-4 text-primary" />
-                  <span><span className="text-muted-foreground">Operação:</span> <strong>{areaLabel}</strong></span>
+                  <Settings2 className="h-4 w-4 text-[#78c8f6]" />
+                  <span><span className="text-slate-300">Operação:</span> <strong>{areaLabel}</strong></span>
                   {accessiblePdvAreas.length > 1 && <ChevronDown className="h-3.5 w-3.5 opacity-60" />}
                 </Button>
               </DropdownMenuTrigger>
@@ -191,11 +184,7 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
                       <DropdownMenuItem
                         key={area}
                         className={cn(area === operationArea && "bg-muted font-bold")}
-                        onClick={() => navigate(
-                          isPdvModuleHub
-                            ? `/pdv?operacao=${area}`
-                            : area === "industrial" ? "/pdv/industrial" : "/pdv/domestico",
-                        )}
+                        onClick={() => navigate(area === "industrial" ? "/pdv/industrial" : "/pdv/domestico")}
                       >
                         <Icon className="mr-2 h-4 w-4" />
                         {label}
@@ -206,22 +195,8 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
               )}
             </DropdownMenu>
 
-            {!isPdvModuleHub && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-9 shrink-0 gap-1.5 px-2"
-                onClick={() => navigate(`/pdv?operacao=${operationArea}`)}
-                aria-label="Abrir painel de módulos do PDV"
-              >
-                <LayoutDashboard className="h-4 w-4 text-primary" />
-                <span className="hidden text-sm font-semibold lg:inline">Módulos</span>
-              </Button>
-            )}
-
             {canUseCash && (
-              <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-success-light px-3 py-1.5 font-bold text-success lg:inline-flex">
+              <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-300/15 px-3 py-1.5 font-bold text-emerald-100 lg:inline-flex">
                 <WalletCards className="h-4 w-4" />
                 {cashLabel}
               </span>
@@ -229,9 +204,9 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-9 shrink-0 gap-1.5 px-2" aria-label={`Usuário: ${displayName}`}>
-                  <UserRound className="h-4 w-4" />
-                  <span className="hidden max-w-48 truncate text-sm font-bold lg:inline"><span className="font-medium text-muted-foreground">Usuário:</span> {displayName}</span>
+                <Button variant="ghost" size="sm" className="h-9 shrink-0 gap-1.5 px-2 text-white hover:bg-white/10 hover:text-white" aria-label={`Usuário: ${displayName}`}>
+                  <UserRound className="h-4 w-4 text-[#78c8f6]" />
+                  <span className="hidden max-w-48 truncate text-sm font-bold lg:inline"><span className="font-medium text-slate-300">Usuário:</span> {displayName}</span>
                   <ChevronDown className="hidden h-3.5 w-3.5 opacity-60 lg:block" />
                 </Button>
               </DropdownMenuTrigger>
@@ -270,44 +245,35 @@ export function PdvLayout({ title, subtitle, children }: PdvLayoutProps) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <time className="hidden min-w-[208px] shrink-0 items-center gap-2 border-l border-border pl-4 font-semibold md:inline-flex" dateTime={now.toISOString()}>
-              <CalendarDays className="h-4 w-4 text-primary" />
+            <time className="hidden min-w-[208px] shrink-0 items-center gap-2 border-l border-white/20 pl-4 font-semibold text-white md:inline-flex" dateTime={now.toISOString()}>
+              <CalendarDays className="h-4 w-4 text-[#78c8f6]" />
               <span>{formatOperationalDate(now)}</span>
-              <Clock3 className="ml-1 h-4 w-4 text-primary" />
+              <Clock3 className="ml-1 h-4 w-4 text-[#78c8f6]" />
               <strong className="text-sm">{formatOperationalTime(now)}</strong>
             </time>
           </div>
         </div>
       </header>
 
-      {isAdministrativePdvHub && (
+      {!isPdvHome && !isLegacyOperationalLanding && (
         <div className="border-b bg-muted/30 px-3 py-2 sm:px-5">
-          <Button type="button" variant="ghost" size="sm" onClick={() => navigate("/admin/visao-geral")}>
-            Voltar ao Painel Administrativo
+          <Button type="button" variant="ghost" size="sm" onClick={() => navigate(navigationTarget)}>
+            {navigationLabel}
           </Button>
         </div>
       )}
 
-      {!isPdvHome && !isLegacyOperationalLanding && !isPdvModuleHub && (
-        <div className="border-b bg-muted/30 px-3 py-2 sm:px-5">
-          <Button type="button" variant="ghost" size="sm" onClick={() => navigate(currentPdvPath)}>
-            Voltar ao atendimento
-          </Button>
-        </div>
-      )}
-
-      {isLegacyOperationalLanding && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2 sm:px-5">
-          <p className="text-xs font-medium text-muted-foreground">Visão operacional da empresa ativa.</p>
-          <Button type="button" variant="ghost" size="sm" onClick={() => navigate(currentPdvPath)}>
-            Abrir atendimento
-          </Button>
-        </div>
-      )}
-
-      <main className="mx-auto w-full max-w-[1920px] flex-1 p-3 xl:px-6 xl:pt-[25px] xl:pb-[21px]">
+      <main className={cn(
+        "mx-auto w-full max-w-[1920px] flex-1",
+        isLegacyOperationalLanding ? "max-w-none p-0" : "p-3 xl:px-6 xl:pt-[25px] xl:pb-[21px]",
+      )}>
         {children}
       </main>
+
+      <footer className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-white/15 bg-[#062443] px-4 py-2 text-[11px] font-medium text-slate-300 sm:px-6">
+        <span>AnjoLav ERP · Ambiente operacional</span>
+        <span>{areaLabel} · Acesso controlado por permissões</span>
+      </footer>
     </div>
   );
 }

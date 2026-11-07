@@ -23,8 +23,10 @@ test("fluxos comerciais resolvem preço padrão ou personalizado conforme o clie
   const migration = readFileSync(new URL("../supabase/migrations/20261016133000_apply_client_price_modes.sql", import.meta.url), "utf8");
 
   assert.match(pdv, /buildClientPriceCatalog\(/);
-  assert.match(pdv, /selectedClient\?\.tabela_preco_tipo \?\? "padrao"/);
-  assert.match(pdv, /normalizeClientPriceMode\(selectedClient\.tabela_preco_tipo\)/);
+  assert.match(
+    pdv,
+    /const clientPriceMode = selectedClient\s*\?\s*normalizeClientPriceMode\(selectedClient\.tabela_preco_tipo\)\s*:\s*"padrao"/,
+  );
   assert.match(lancamentos, /useProdutos/);
   assert.match(lancamentos, /tabela_preco_tipo/);
   assert.match(producao, /useProdutos/);

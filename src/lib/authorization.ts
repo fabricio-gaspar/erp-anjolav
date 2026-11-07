@@ -131,7 +131,7 @@ export function resolveDefaultAccessiblePath(access: RouteAccessContext): string
   }
 
   const pdv = resolveAccessiblePdvPath(access);
-  if (pdv) return "/pdv";
+  if (pdv) return pdv;
 
   return getFirstAccessibleRoute(access)?.path ?? null;
 }
