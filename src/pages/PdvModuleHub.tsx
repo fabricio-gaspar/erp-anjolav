@@ -106,7 +106,7 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
       description: "Clientes · Peças · Serviços",
       icon: Users,
       tone: "violet",
-      path: canUseClients ? operationalPath("clientes?novo=1") : null,
+      path: canUseClients ? operationalPath("clientes") : null,
     },
     {
       id: "producao",
