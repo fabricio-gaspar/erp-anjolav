@@ -1191,14 +1191,13 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                   </div>
                 </div>
               )}
+              <PdvPriceTableIndicator
+                clienteNome={selectedClient?.nome_fantasia || selectedClient?.razao_social}
+                tabelaPrecoTipo={selectedClient?.tabela_preco_tipo}
+                isLoading={Boolean(selectedClient) && pricesLoading}
+                isError={Boolean(selectedClient) && pricesError}
+              />
             </section>
-
-            <PdvPriceTableIndicator
-              clienteNome={selectedClient?.nome_fantasia || selectedClient?.razao_social}
-              tabelaPrecoTipo={selectedClient?.tabela_preco_tipo}
-              isLoading={Boolean(selectedClient) && pricesLoading}
-              isError={Boolean(selectedClient) && pricesError}
-            />
 
             <section className="pdv-reference-card pdv-capacity-card" aria-labelledby="pdv-capacity-title">
               <div className="pdv-card-title-row">

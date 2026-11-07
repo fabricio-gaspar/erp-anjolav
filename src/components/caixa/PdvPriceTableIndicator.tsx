@@ -48,9 +48,18 @@ export function PdvPriceTableIndicator({
       </div>
 
       {!clienteNome ? (
-        <div className="pdv-price-empty">
-          <p>Selecione o cliente para carregar a tabela aplicável.</p>
-        </div>
+        <>
+          <div className="pdv-price-empty">
+            <p>Selecione o cliente para carregar a tabela aplicável.</p>
+          </div>
+          <div className="pdv-price-options" aria-label="Tabelas de preço disponíveis">
+            {PRICE_TABLE_ORDER.map((option) => (
+              <span key={option} className="pdv-price-option is-muted" aria-disabled="true">
+                {CLIENT_PRICE_MODE_LABELS[option]}
+              </span>
+            ))}
+          </div>
+        </>
       ) : isLoading ? (
         <p role="status" className="pdv-inline-status">
           <Loader2 className="h-4 w-4 animate-spin" /> Carregando os preços de {clienteNome}…

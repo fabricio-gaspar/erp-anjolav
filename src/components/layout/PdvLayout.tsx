@@ -331,11 +331,12 @@ export function PdvLayout({
         {children}
       </main>
 
-      <footer className={cn("flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-white/15 bg-[#062443] px-4 py-2 text-[11px] font-medium text-slate-300 sm:px-6", isPdvFront ? "min-h-7 py-1 text-[9px]" : "min-h-11")}>
-        <span>{isPdvFront ? "SRV-SERVIDOR" : "AnjoLav ERP · Ambiente operacional"}</span>
-        <span>{isPdvFront ? "Backup em nuvem" : `${areaLabel} · Acesso controlado por permissões`}</span>
-        {isPdvFront && <span>Operação {areaLabel}</span>}
-      </footer>
+      {!isPdvFront && (
+        <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-white/15 bg-[#062443] px-4 py-2 text-[11px] font-medium text-slate-300 sm:px-6 min-h-11">
+          <span>AnjoLav ERP · Ambiente operacional</span>
+          <span>{areaLabel} · Acesso controlado por permissões</span>
+        </footer>
+      )}
     </div>
   );
 }
