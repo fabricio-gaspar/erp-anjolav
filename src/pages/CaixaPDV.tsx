@@ -1119,7 +1119,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           </nav>
         </div>
         <div className="pdv-cashier-grid">
-          <aside className="pdv-left-column" aria-label="Etapas de entrada do pedido">
+          <section className="pdv-primary-column" aria-label="Etapas de entrada do pedido">
             <section className="pdv-reference-card pdv-customer-card" aria-labelledby="pdv-client-title">
               <div className="pdv-card-title-row">
                 <div className="pdv-card-title">
@@ -1213,66 +1213,6 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                 </div>
               )}
             </section>
-
-            <section className="pdv-reference-card pdv-capacity-card" aria-labelledby="pdv-capacity-title">
-              <div className="pdv-card-title-row">
-                <div className="pdv-card-title">
-                  <span className="pdv-step-number" aria-hidden="true">3</span>
-                  <h2 id="pdv-capacity-title">Prazo e capacidade</h2>
-                </div>
-              </div>
-              <div className="pdv-delivery-mode" aria-label="Modalidade de entrega">
-                <button
-                  type="button"
-                  className={fulfillment.deliveryMode === "balcao" ? "is-active" : undefined}
-                  disabled={!selectedClient}
-                  onClick={() => setFulfillment((current) => ({ ...current, deliveryMode: "balcao" }))}
-                >
-                  <Archive className="h-4 w-4" /> Retirada
-                </button>
-                <button
-                  type="button"
-                  className={fulfillment.deliveryMode === "entrega" ? "is-active" : undefined}
-                  disabled={!selectedClient}
-                  onClick={() => setFulfillment((current) => ({ ...current, deliveryMode: "entrega" }))}
-                >
-                  <Truck className="h-4 w-4" /> Delivery
-                </button>
-              </div>
-              <div className="pdv-capacity-date">
-                <span className="pdv-capacity-date-icon"><CalendarDays className="h-4 w-4" /></span>
-                <span className="min-w-0">
-                  <small>Data prometida</small>
-                  <strong>{format(fulfillment.deliveryDate, "dd/MM/yyyy")} <span className="font-medium text-muted-foreground">({format(fulfillment.deliveryDate, "EEEE", { locale: ptBR })})</span></strong>
-                </span>
-                <button type="button" className="pdv-capacity-edit" disabled={!selectedClient} onClick={() => openFulfillmentModal()} aria-label="Editar prazo e entrega">
-                  <Pencil className="h-4 w-4" />
-                </button>
-              </div>
-              <Button type="button" variant="outline" size="sm" className="mt-2 w-full gap-2" disabled={!selectedClient} onClick={() => openFulfillmentModal()}>
-                <CalendarDays className="h-4 w-4" /> Consultar agenda e capacidade
-              </Button>
-              <div className="pdv-capacity-summary">
-                <div className="pdv-capacity-heading">
-                  <span className="flex items-center gap-1.5">Capacidade da data <Info className="h-3.5 w-3.5 text-primary" /></span>
-                </div>
-                {capacityLoading ? (
-                  <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Consultando agenda…</p>
-                ) : capacityError ? (
-                  <p role="alert" className="mt-2 text-xs text-destructive">Não foi possível validar a capacidade.</p>
-                ) : !capacity?.configured ? (
-                  <p className="mt-2 text-xs text-muted-foreground">Sem limite diário configurado para este setor.</p>
-                ) : (
-                  <>
-                    <div className="pdv-capacity-meter-row">
-                      <div className="pdv-capacity-meter" aria-label={`Capacidade utilizada: ${capacityProgress.toFixed(0)}%`}><span style={{ width: `${capacityProgress}%` }} /></div>
-                      <strong>{formatCarga(capacityReserved + totalItems)} de {formatCarga(capacityLimit)} cargas</strong>
-                    </div>
-                  </>
-                )}
-              </div>
-            </section>
-          </aside>
 
           <section className="pdv-center-column">
             <section className="pdv-items-card overflow-hidden" aria-labelledby="pdv-items-title">
@@ -1480,8 +1420,67 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
               </div>
             </section>
           </section>
+          </section>
 
-          <aside className="pdv-right-column" aria-label="Resumo e finalização do pedido">
+          <aside className="pdv-right-column" aria-label="Prazo, capacidade, resumo e finalização do pedido">
+            <section className="pdv-reference-card pdv-capacity-card" aria-labelledby="pdv-capacity-title">
+              <div className="pdv-card-title-row">
+                <div className="pdv-card-title">
+                  <span className="pdv-step-number" aria-hidden="true">3</span>
+                  <h2 id="pdv-capacity-title">Prazo e capacidade</h2>
+                </div>
+              </div>
+              <div className="pdv-delivery-mode" aria-label="Modalidade de entrega">
+                <button
+                  type="button"
+                  className={fulfillment.deliveryMode === "balcao" ? "is-active" : undefined}
+                  disabled={!selectedClient}
+                  onClick={() => setFulfillment((current) => ({ ...current, deliveryMode: "balcao" }))}
+                >
+                  <Archive className="h-4 w-4" /> Retirada
+                </button>
+                <button
+                  type="button"
+                  className={fulfillment.deliveryMode === "entrega" ? "is-active" : undefined}
+                  disabled={!selectedClient}
+                  onClick={() => setFulfillment((current) => ({ ...current, deliveryMode: "entrega" }))}
+                >
+                  <Truck className="h-4 w-4" /> Delivery
+                </button>
+              </div>
+              <div className="pdv-capacity-date">
+                <span className="pdv-capacity-date-icon"><CalendarDays className="h-4 w-4" /></span>
+                <span className="min-w-0">
+                  <small>Data prometida</small>
+                  <strong>{format(fulfillment.deliveryDate, "dd/MM/yyyy")} <span className="font-medium text-muted-foreground">({format(fulfillment.deliveryDate, "EEEE", { locale: ptBR })})</span></strong>
+                </span>
+                <button type="button" className="pdv-capacity-edit" disabled={!selectedClient} onClick={() => openFulfillmentModal()} aria-label="Editar prazo e entrega">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="mt-2 w-full gap-2" disabled={!selectedClient} onClick={() => openFulfillmentModal()}>
+                <CalendarDays className="h-4 w-4" /> Consultar agenda e capacidade
+              </Button>
+              <div className="pdv-capacity-summary">
+                <div className="pdv-capacity-heading">
+                  <span className="flex items-center gap-1.5">Capacidade da data <Info className="h-3.5 w-3.5 text-primary" /></span>
+                </div>
+                {capacityLoading ? (
+                  <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Consultando agenda…</p>
+                ) : capacityError ? (
+                  <p role="alert" className="mt-2 text-xs text-destructive">Não foi possível validar a capacidade.</p>
+                ) : !capacity?.configured ? (
+                  <p className="mt-2 text-xs text-muted-foreground">Sem limite diário configurado para este setor.</p>
+                ) : (
+                  <>
+                    <div className="pdv-capacity-meter-row">
+                      <div className="pdv-capacity-meter" aria-label={`Capacidade utilizada: ${capacityProgress.toFixed(0)}%`}><span style={{ width: `${capacityProgress}%` }} /></div>
+                      <strong>{formatCarga(capacityReserved + totalItems)} de {formatCarga(capacityLimit)} cargas</strong>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
             <section className="pdv-summary-card" aria-labelledby="pdv-summary-title">
               <header>
                 <div className="pdv-summary-heading">

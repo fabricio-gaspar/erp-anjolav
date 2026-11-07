@@ -1220,6 +1220,11 @@
   box-shadow: 0 1px 4px rgba(8, 38, 63, .06);
 }
 
+.pdv-primary-column {
+  min-width: 0;
+  min-height: 0;
+}
+
 .pdv-roll-workbench .pdv-card-title { gap: 8px; }
 .pdv-roll-workbench .pdv-card-title h2,
 .pdv-roll-workbench .pdv-items-title h2,
@@ -1294,15 +1299,26 @@
   .pdv-roll-workbench .pdv-cashier-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 350px;
-    grid-template-rows: auto auto minmax(600px, 1fr);
     gap: 10px;
+    align-items: start;
   }
 
-  .pdv-roll-workbench .pdv-left-column { display: contents; }
-  .pdv-roll-workbench .pdv-customer-card { grid-column: 1; grid-row: 1; min-height: 0; padding: 11px 14px; }
-  .pdv-roll-workbench .pdv-capacity-card { grid-column: 2; grid-row: 1 / span 2; min-height: 0; padding: 12px; }
-  .pdv-roll-workbench .pdv-center-column { grid-column: 1; grid-row: 3; }
-  .pdv-roll-workbench .pdv-right-column { grid-column: 2; grid-row: 3; grid-template-rows: auto minmax(0, 1fr); }
+  .pdv-roll-workbench .pdv-primary-column {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+  }
+
+  .pdv-roll-workbench .pdv-customer-card { min-height: 0; padding: 11px 14px; }
+  .pdv-roll-workbench .pdv-center-column { min-width: 0; }
+  .pdv-roll-workbench .pdv-capacity-card { min-height: 0; padding: 12px; }
+  .pdv-roll-workbench .pdv-right-column {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+    align-content: start;
+  }
+  .pdv-roll-workbench .pdv-payment-card { margin-top: 0; }
 
   .pdv-roll-workbench .pdv-customer-card .pdv-card-title-row { margin-bottom: 7px; }
   .pdv-roll-workbench .pdv-customer-search input { height: 38px; }
@@ -1323,6 +1339,27 @@
   .pdv-roll-heading nav { grid-column: 1 / -1; overflow-x: auto; }
   .pdv-roll-workbench .pdv-delivery-mode { margin-top: 4px; }
   .pdv-roll-tools { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  .pdv-roll-workbench .pdv-cashier-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    gap: 10px;
+  }
+
+  .pdv-roll-workbench .pdv-primary-column {
+    display: grid;
+    gap: 10px;
+  }
+
+  .pdv-roll-workbench .pdv-right-column {
+    grid-column: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+    gap: 10px;
+  }
+
+  .pdv-roll-workbench .pdv-capacity-card { grid-column: 1 / -1; }
+  .pdv-roll-workbench .pdv-payment-card { margin-top: 0; }
 }
 
 @media (max-width: 760px) {
@@ -1333,4 +1370,6 @@
   .pdv-customer-selected { gap: 10px; }
   .pdv-roll-total-strip { align-items: flex-start; flex-direction: column; }
   .pdv-roll-tools { grid-template-columns: 1fr 1fr; }
+  .pdv-roll-workbench .pdv-right-column { grid-template-columns: minmax(0, 1fr); }
+  .pdv-roll-workbench .pdv-capacity-card { grid-column: auto; }
 }
