@@ -176,7 +176,7 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
       description: "Retirada de valores do caixa",
       icon: ArrowDownCircle,
       tone: "slate",
-      path: canUsePdv ? `/${operation}/caixa?acao=sangria` : null,
+      path: canUsePdv ? operationalPath("rol?acao=sangria") : null,
     },
     {
       id: "estoque",
@@ -258,21 +258,3 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
                           <h3>{module.title}</h3>
                           <p>{module.description}</p>
                         </div>
-                        {module.actionLabel && (
-                          <span className="pdv-front-tile-action">
-                            {module.actionLabel}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                          </span>
-                        )}
-                        {!enabled && <span className="pdv-front-tile-lock">Sem acesso</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
-      </section>
-    </PdvLayout>
-  );
-}
