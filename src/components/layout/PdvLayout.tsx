@@ -162,7 +162,7 @@ export function PdvLayout({
   };
 
   return (
-    <div className={cn("flex min-h-screen w-full flex-col overflow-x-hidden", isPdvFront ? "bg-[#06213a]" : "bg-[#edf3f8]")}>
+    <div className={cn("flex min-h-screen w-full flex-col overflow-x-hidden", isPdvFront ? "bg-[#edf4f9]" : "bg-[#edf3f8]")}>
       <header className="sticky top-0 z-40 border-b border-white/15 bg-[#062443] text-white shadow-lg shadow-slate-950/20">
         <div className={cn("flex items-center justify-between gap-4 px-3 sm:px-5 lg:px-6", isPdvFront ? "min-h-[48px]" : "min-h-[64px]")}>
           <div className={cn("flex min-w-0 items-center", isPdvFront ? "gap-3" : "gap-6")}>

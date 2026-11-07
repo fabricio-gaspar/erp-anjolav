@@ -493,7 +493,7 @@ export const ClienteDadosBasicos = ({
 
   return (
     <form
-      className="space-y-5"
+      className="pdv-client-form space-y-5"
       data-testid="client-identity-form"
       onSubmit={(event) => {
         event.preventDefault();

@@ -28,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Archive, ArrowLeft, Building2, ChevronLeft, ChevronRight, Eye, Loader2, MoreHorizontal, Pencil, Plus, RotateCcw, Search, User } from "lucide-react";
+import { Archive, ArrowLeft, Building2, ChevronLeft, ChevronRight, Eye, History, Loader2, Mail, MoreHorizontal, Pencil, Phone, Plus, RotateCcw, Search, User } from "lucide-react";
 import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
 import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
 import { ClientePagamento } from "@/components/clientes/ClientePagamento";
@@ -116,6 +116,12 @@ const Clientes = () => {
     setActiveTab("resumo");
   };
 
+  const handleSelectCliente = (clienteId: string) => {
+    setSelectedClienteId(clienteId);
+    setCnpjData(null);
+    if (!location.pathname.startsWith("/pdv/")) setActiveTab("resumo");
+  };
+
   const handleClienteSaved = (clienteId: string) => {
     setSelectedClienteId(clienteId);
   };
@@ -137,7 +143,7 @@ const Clientes = () => {
 
   const handleBackToList = () => {
     setActiveTab("lista");
-    setSelectedClienteId(null);
+    setSelectedClienteId(clientes[0]?.id ?? null);
   };
 
   const getUnidadeNegocioBadge = (classificacao: string) => {
@@ -153,6 +159,15 @@ const Clientes = () => {
   const isNewClient = activeTab === "dados" && !selectedClienteId;
   const pdvTitle = isNewClient ? "Cadastro de cliente" : activeTab === "lista" ? "Consulta de clientes" : "Cadastro de cliente";
   const pdvBreadcrumb = isNewClient ? "Clientes  ›  Novo cadastro" : selectedCliente ? `Clientes  ›  ${selectedCliente.razao_social}` : "Clientes";
+  const selectedClientIndex = selectedClienteId ? clientes.findIndex((cliente) => cliente.id === selectedClienteId) : -1;
+  const selectedClientCode = selectedClientIndex >= 0
+    ? String((page - 1) * CLIENT_DIRECTORY_PAGE_SIZE + selectedClientIndex + 1).padStart(4, "0")
+    : "—";
+
+  useEffect(() => {
+    if (!isPdvClientWorkspace || activeTab !== "lista" || selectedClienteId || isLoading || clientes.length === 0) return;
+    setSelectedClienteId(clientes[0].id);
+  }, [activeTab, clientes, isLoading, isPdvClientWorkspace, selectedClienteId]);
 
   const updateDirectoryParams = (updates: { query?: string; status?: ClientDirectoryStatus; page?: number }) => {
     const next = new URLSearchParams(searchParams);
@@ -212,7 +227,7 @@ const Clientes = () => {
           />
         )}
 
-        {activeTab !== "lista" && (!isPdvClientWorkspace || Boolean(selectedCliente)) && (
+        {!isPdvClientWorkspace && activeTab !== "lista" && Boolean(selectedCliente) && (
           <div className="surface-panel flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -243,6 +258,13 @@ const Clientes = () => {
           </div>
         )}
 
+        {isPdvClientWorkspace && activeTab === "dados" && (
+          <div className="pdv-client-form-heading">
+            <h2>{selectedCliente ? "Editar cliente" : "Novo cliente"}</h2>
+            <span>Cadastro completo do cliente para o atendimento.</span>
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="max-w-full overflow-x-auto pb-1 scrollbar-hide">
             <TabsList className="page-tabs-list">
@@ -258,6 +280,7 @@ const Clientes = () => {
           </div>
 
           <TabsContent value="lista" className="mt-4">
+            <div className={cn(isPdvClientWorkspace && "pdv-client-list-layout")}>
             <div className="content-panel space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative min-w-0 flex-1">
@@ -297,6 +320,12 @@ const Clientes = () => {
                     >
                       <RotateCcw className="h-4 w-4" />
                       Limpar
+                    </Button>
+                  )}
+                  {isPdvClientWorkspace && (
+                    <Button type="button" className="h-10 shrink-0 gap-2 bg-[#087ed0] font-bold hover:bg-[#0569ad]" onClick={handleNovoCliente}>
+                      <Plus className="h-4 w-4" />
+                      Novo cliente
                     </Button>
                   )}
                 </div>
@@ -343,23 +372,23 @@ const Clientes = () => {
                   )}
                 </div>
               ) : (
-                <Table>
+                <Table className={cn(isPdvClientWorkspace && "pdv-client-table")}>
                   <TableHeader>
                     <TableRow className="bg-slate-50 border-y border-slate-200/60">
-                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em]">ID</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em]">{isPdvClientWorkspace ? "Código" : "ID"}</TableHead>
                       <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em]">NOME / RAZÃO SOCIAL</TableHead>
-                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] hidden sm:table-cell">CPF/CNPJ</TableHead>
-                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] hidden md:table-cell">TELEFONE</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] hidden sm:table-cell">{isPdvClientWorkspace ? "TIPO" : "CPF/CNPJ"}</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] hidden md:table-cell">{isPdvClientWorkspace ? "CONTATO" : "TELEFONE"}</TableHead>
                       <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] text-center">STATUS</TableHead>
                       <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] text-right">AÇÕES</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {clientes.map((cliente) => (
-                      <TableRow key={cliente.id} className="hover:bg-slate-50/50 border-b border-slate-100 transition-colors">
+                    {clientes.map((cliente, index) => (
+                      <TableRow key={cliente.id} className={cn("hover:bg-slate-50/50 border-b border-slate-100 transition-colors", isPdvClientWorkspace && selectedClienteId === cliente.id && "pdv-client-table-row--selected")}>
                         <TableCell className="py-3 px-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-100/50 uppercase tracking-tight">
-                            {getUnidadeNegocioBadge(cliente.classificacao)}
+                          <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tight", isPdvClientWorkspace ? "pdv-client-code" : "bg-amber-50 text-amber-700 border border-amber-100/50")}>
+                            {isPdvClientWorkspace ? String((page - 1) * CLIENT_DIRECTORY_PAGE_SIZE + index + 1).padStart(4, "0") : getUnidadeNegocioBadge(cliente.classificacao)}
                           </span>
                         </TableCell>
                         <TableCell className="py-3 px-3">
@@ -367,7 +396,7 @@ const Clientes = () => {
                             <button
                               type="button"
                               className="w-fit text-left font-black text-slate-900 text-[13px] uppercase tracking-tight hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
-                              onClick={() => handleEditCliente(cliente.id)}
+                              onClick={() => handleSelectCliente(cliente.id)}
                               aria-label={`Abrir cliente ${cliente.razao_social}`}
                             >
                               {cliente.razao_social}
@@ -379,8 +408,18 @@ const Clientes = () => {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-slate-600 font-medium hidden sm:table-cell py-3 px-3 text-[13px]">{cliente.cpf_cnpj || "-"}</TableCell>
-                        <TableCell className="text-slate-600 font-medium hidden md:table-cell py-3 px-3 text-[13px]">{cliente.telefone || "-"}</TableCell>
+                        <TableCell className="text-slate-600 font-medium hidden sm:table-cell py-3 px-3 text-[13px]">
+                          {isPdvClientWorkspace ? <span className="pdv-client-type-badge">{cliente.tipo_pessoa === "cnpj" ? "PJ" : "PF"}</span> : cliente.cpf_cnpj || "-"}
+                        </TableCell>
+                        <TableCell className="text-slate-600 font-medium hidden md:table-cell py-3 px-3 text-[13px]">
+                          {isPdvClientWorkspace ? (
+                            <div className="pdv-client-contact-cell">
+                              {cliente.email && <span><Mail className="h-3.5 w-3.5" />{cliente.email}</span>}
+                              {cliente.telefone && <span><Phone className="h-3.5 w-3.5" />{cliente.telefone}</span>}
+                              {!cliente.email && !cliente.telefone && <span>—</span>}
+                            </div>
+                          ) : cliente.telefone || "-"}
+                        </TableCell>
                         <TableCell className="py-3 px-3 text-center">
                           <span className={cn(
                             "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] shadow-sm",
@@ -402,7 +441,7 @@ const Clientes = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem onClick={() => handleEditCliente(cliente.id)}>
+                              <DropdownMenuItem onClick={() => handleSelectCliente(cliente.id)}>
                                 <Eye className="w-4 h-4 mr-2" /> Visualizar
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditCliente(cliente.id)}>
@@ -464,6 +503,48 @@ const Clientes = () => {
                   </div>
                 </nav>
               )}
+            </div>
+            {isPdvClientWorkspace && (
+              <aside className="pdv-client-summary-card" aria-labelledby="pdv-client-summary-title">
+                <h2 id="pdv-client-summary-title">Resumo do cliente</h2>
+                {selectedCliente ? (
+                  <>
+                    <div className="pdv-client-summary-identity">
+                      <User className="h-11 w-11" aria-hidden="true" />
+                      <div>
+                        <h3>{selectedCliente.razao_social}</h3>
+                        <p>Código: {selectedClientCode}</p>
+                        <span className="pdv-client-type-badge">{selectedCliente.tipo_pessoa === "cnpj" ? "PJ" : "PF"}</span>
+                      </div>
+                    </div>
+                    <div className="pdv-client-summary-section">
+                      <strong>Documento</strong>
+                      <span>{selectedCliente.cpf_cnpj || "(não informado)"}</span>
+                    </div>
+                    <div className="pdv-client-summary-section">
+                      <strong>Contato</strong>
+                      {selectedCliente.email && <span><Mail className="h-4 w-4" />{selectedCliente.email}</span>}
+                      {selectedCliente.telefone && <span><Phone className="h-4 w-4" />{selectedCliente.telefone}</span>}
+                      {!selectedCliente.email && !selectedCliente.telefone && <span>(não informado)</span>}
+                    </div>
+                    <div className="pdv-client-summary-section">
+                      <strong>Status</strong>
+                      <span className={cn("pdv-client-status", selectedCliente.ativo ? "is-active" : "is-inactive")}>{selectedCliente.ativo ? "✓ Ativo" : "◉ Inativo"}</span>
+                    </div>
+                    <div className="pdv-client-summary-actions">
+                      <Button type="button" className="bg-[#087ed0] font-bold hover:bg-[#0569ad]" onClick={() => setActiveTab("dados")}><Pencil className="h-4 w-4" />Abrir cadastro</Button>
+                      <Button type="button" variant="outline" onClick={() => navigate(`/pdv/${pdvOperation}/rol`)}><Plus className="h-4 w-4" />Novo rol</Button>
+                      <Button type="button" variant="outline" onClick={() => setActiveTab("resumo")}><History className="h-4 w-4" />Histórico</Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="pdv-client-summary-empty">
+                    <User className="h-10 w-10" />
+                    <p>Selecione um cliente para ver o resumo.</p>
+                  </div>
+                )}
+              </aside>
+            )}
             </div>
           </TabsContent>
 
