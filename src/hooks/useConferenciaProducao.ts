@@ -292,7 +292,7 @@ export function useGerarLancamento() {
         .eq("ordem_servico_id", ordemServicoId);
 
       if (existingItems && existingItems.length > 0) {
-        throw new Error("Esta OS já possui itens lançados");
+        throw new Error("Este ROL já possui itens lançados");
       }
 
       // Inserir os itens

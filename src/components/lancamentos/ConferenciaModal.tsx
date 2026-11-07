@@ -177,7 +177,7 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <FileText className="h-5 w-5" />
-            Conferência OS {os.numero}
+            Conferência do ROL {os.numero}
             <Badge className={statusColors[os.statusConferencia] || "bg-gray-100 text-gray-800"}>
               {os.statusConferencia === "pendente" && "Em Produção"}
               {os.statusConferencia === "fluxo_completo" && "Fluxo Completo"}
@@ -188,7 +188,7 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
         </DialogHeader>
 
         <ScrollArea className="flex-1 pr-4">
-          {/* Dados do Cliente e OS */}
+          {/* Dados do cliente e ROL */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
@@ -306,7 +306,7 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
                 <span className="font-medium">Itens não detalhados na Separação</span>
               </div>
               <p className="text-sm text-amber-600 mt-1">
-                Esta OS possui {os.dadosProducao.quantidadePecas} peças registradas, mas os itens 
+                Este ROL possui {os.dadosProducao.quantidadePecas} peças registradas, mas os itens
                 individuais não foram especificados na etapa de Separação. Use o formulário abaixo 
                 para lançar os itens manualmente.
               </p>

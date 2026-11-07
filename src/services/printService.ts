@@ -76,7 +76,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       .single();
 
     if (osError || !ordem) {
-      console.error("Error fetching OS for ROL:", osError);
+      console.error("Error fetching ROL:", osError);
       return null;
     }
 
@@ -170,13 +170,15 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       ...orderDetails,
       dataEmissao: new Date(ordem.created_at),
       previsaoEntrega: ordem.data_previsao_entrega ? new Date(ordem.data_previsao_entrega + 'T00:00:00') : undefined,
+      recebimentoModalidade: ordem.recebimento_modalidade,
+      entregaModalidade: ordem.entrega_modalidade,
       observacoes: ordem.observacoes || undefined,
       bloco,
       posicao,
       fidelidade: fidelidade ?? undefined,
     };
   } catch (error) {
-    console.error("Error fetching OS print data:", error);
+    console.error("Error fetching ROL print data:", error);
     return null;
   }
 }
@@ -279,7 +281,7 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
   const margemLateral = boundedNumber(config.margemLateral, 5, 0, 100);
   const tamanhoFonte = boundedNumber(config.tamanhoFonte, 12, 6, 72);
   const osNumero = escapeHtml(data.osNumero);
-  const legendaLeitura = escapeHtml(data.legendaLeitura || `OS ${data.osNumero}`);
+  const legendaLeitura = escapeHtml(data.legendaLeitura || `ROL ${data.osNumero}`);
 
   return `
     <!DOCTYPE html>
@@ -318,7 +320,7 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
       </div>
       
       <div class="content">
-        <div class="os-number">OS: ${osNumero}</div>
+        <div class="os-number">ROL: ${osNumero}</div>
         <div class="client">${escapeHtml(data.clienteNome)}</div>
         ${data.produtoNome ? `<div class="produto">${escapeHtml(data.produtoNome)}</div><div class="quantidade">QTD: ${escapeHtml(data.quantidade || 1)} peça(s)</div>` : ''}
         
@@ -436,14 +438,14 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
   const labels = osData.itens.map(item => {
     const codigoLeitura = item.id ? buildItemScanCode(item.id) : buildOrderScanCode(osData.numero);
     const barcodeSVG = generateBarcodeSVG(codigoLeitura, config.alturaCodigoBarras);
-    const legendaLeitura = item.id ? `ITEM ${escapeHtml(item.id.slice(0, 8).toUpperCase())} · OS ${osNumero}` : `OS ${osNumero}`;
+    const legendaLeitura = item.id ? `ITEM ${escapeHtml(item.id.slice(0, 8).toUpperCase())} · ROL ${osNumero}` : `ROL ${osNumero}`;
     return `
       <div class="label">
         <div class="header">
           <div class="company">${escapeHtml(config.nomeEmpresa || 'ANJOLAV LAVANDERIA')}</div>
         </div>
         <div class="content">
-          <div class="os-number">OS: ${osNumero}</div>
+          <div class="os-number">ROL: ${osNumero}</div>
           <div class="client">${escapeHtml(osData.clienteNome)}</div>
           <div class="produto">${escapeHtml(item.nome)}</div>
           <div class="quantidade">QTD: ${escapeHtml(item.quantidade)} peça(s)</div>

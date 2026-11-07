@@ -251,11 +251,12 @@ export function useAgendaDia(enabled = true) {
       let osProntasQuery = supabase
         .from("ordens_servico")
         .select(`
-          id, cliente_id, numero, data_previsao_entrega,
+          id, cliente_id, numero, data_previsao_entrega, entrega_modalidade,
           cliente:clientes!ordens_servico_cliente_id_fkey(razao_social)
         `)
         .filter("tenant_id", "eq", activeTenant.id)
         .eq("status", "expedicao")
+        .eq("entrega_modalidade", "entrega")
         .order("created_at");
       if (allowedOrigins) osProntasQuery = osProntasQuery.in("origem", [...allowedOrigins]);
       const [
@@ -293,13 +294,82 @@ export function useAgendaDia(enabled = true) {
     enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
   });
 
+  // Every ROL keeps its promised date and its selected return modality.  The
+  // daily list reads that operational record directly, so a ROL does not have
+  // to depend on a second manual appointment to appear on the correct day.
+  const {
+    data: rolsProgramados = [],
+    isLoading: isLoadingRolsProgramados,
+    error: rolsProgramadosError,
+    refetch: refetchRolsProgramados,
+  } = useQuery({
+    queryKey: ["agenda-rols-programados", session?.user.id, activeTenant?.id, hoje, activeArea],
+    queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para resumir a agenda");
+      }
+      let query = supabase
+        .from("ordens_servico")
+        .select(`
+          id, cliente_id, numero, data_previsao_entrega, entrega_modalidade, status,
+          cliente:clientes!ordens_servico_cliente_id_fkey!inner(razao_social, classificacao, tenant_id)
+        `)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("cliente.tenant_id", "eq", activeTenant.id)
+        .eq("data_previsao_entrega", hoje)
+        .neq("status", "cancelada")
+        .neq("status", "entregue")
+        .neq("status", "retirada")
+        .order("created_at");
+      if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
+      if (activeArea !== "central") query = query.eq("cliente.classificacao", activeArea);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
+  });
+
+  const ordemProntaIds = new Set(
+    entregas
+      .filter((item) => item.origem === "producao")
+      .map((item) => item.id),
+  );
+  const retiradasProgramadas = rolsProgramados
+    .filter((rol) => rol.entrega_modalidade !== "entrega")
+    .map((rol) => ({
+      id: `rol-${rol.id}`,
+      cliente: rol.cliente,
+      cliente_id: rol.cliente_id,
+      horario: null,
+      status: rol.status === "expedicao" ? "agendado" : "programada",
+      origem: "rol_programado" as const,
+      pronto_entrega: rol.status === "expedicao",
+      os_numero: rol.numero,
+      entrega_modalidade: "balcao",
+    }));
+  const entregasProgramadas = rolsProgramados
+    .filter((rol) => rol.entrega_modalidade === "entrega" && !ordemProntaIds.has(rol.id))
+    .map((rol) => ({
+      id: `rol-${rol.id}`,
+      cliente: rol.cliente,
+      cliente_id: rol.cliente_id,
+      horario: null,
+      status: rol.status === "expedicao" ? "agendado" : "programada",
+      origem: "rol_programado" as const,
+      pronto_entrega: rol.status === "expedicao",
+      os_numero: rol.numero,
+      entrega_modalidade: "entrega",
+    }));
+
   return {
-    retiradas,
-    entregas,
-    isLoading: isLoadingRetiradas || isLoadingEntregas,
-    error: retiradasError || entregasError,
+    retiradas: [...retiradas, ...retiradasProgramadas],
+    entregas: [...entregas, ...entregasProgramadas],
+    isLoading: isLoadingRetiradas || isLoadingEntregas || isLoadingRolsProgramados,
+    error: retiradasError || entregasError || rolsProgramadosError,
     refetch: async () => {
-      await Promise.all([refetchRetiradas(), refetchEntregas()]);
+      await Promise.all([refetchRetiradas(), refetchEntregas(), refetchRolsProgramados()]);
     },
   };
 }

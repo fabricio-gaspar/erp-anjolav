@@ -386,7 +386,7 @@ function PagamentoModalForm({
 
           {termsLoading && <p role="status" className="text-sm text-muted-foreground">Carregando condições de pagamento. Aguarde para finalizar.</p>}
           {(termsError || termsMismatch) && <p role="alert" className="text-sm text-destructive">Não foi possível validar as condições deste cliente. Recarregue os dados antes de finalizar.</p>}
-          {isBilled && <p className="text-sm text-muted-foreground">Será gerada uma pendência para fechamento no faturamento, sem recebimento imediato. Desconto e urgência estão indisponíveis neste fluxo para manter o valor da OS igual ao lançamento. Nenhum boleto ou nota é emitido automaticamente aqui.</p>}
+          {isBilled && <p className="text-sm text-muted-foreground">Será gerada uma pendência para fechamento no faturamento, sem recebimento imediato. Desconto e urgência estão indisponíveis neste fluxo para manter o valor do ROL igual ao lançamento. Nenhum boleto ou nota é emitido automaticamente aqui.</p>}
           {!canManageCommercialTerms && <p className="text-xs text-muted-foreground">Alterar configurações e conceder desconto exige permissão para gerenciar condições comerciais.</p>}
           {!canReceivePayments && <p role="alert" className="text-sm text-warning">Recebimentos indisponíveis: é necessário caixa disponível e permissão para receber. {isEntry ? "A condição de entrada exige recebimento; a finalização está bloqueada." : "Você pode finalizar sem recebimento imediato conforme a condição do cliente."}</p>}
           {isEntry && <p className="text-sm text-muted-foreground">Entrada exige o pagamento integral. Fidelidade está desabilitada porque o resgate pode deixar saldo pendente.</p>}
@@ -709,7 +709,7 @@ function PagamentoModalForm({
             ) : (
               <>
                 <Check className="h-5 w-5" />
-                {isBilled ? "Gerar pendência para fechamento" : pagoAgora && formaPagamento === "PIX" ? "Criar OS e gerar PIX" : "Finalizar Venda"}
+                {isBilled ? "Gerar pendência para fechamento" : pagoAgora && formaPagamento === "PIX" ? "Criar ROL e gerar PIX" : "Finalizar Venda"}
               </>
             )}
           </Button>

@@ -225,7 +225,7 @@ export function ProductionQueueWorkspace({
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar OS ou cliente"
+              placeholder="Buscar ROL ou cliente"
               className="h-10 pl-9"
               aria-label="Buscar na fila de produção"
             />
@@ -371,7 +371,7 @@ export function ProductionQueueWorkspace({
                   <span className="font-medium">
                     {operation.tipo === "OCORRENCIA" ? "Ocorrência" : operation.lote?.numero_lote || "Avanço individual"}
                   </span>
-                  <Badge variant="outline">{operation.ordens_servico_ids.length} OS</Badge>
+                  <Badge variant="outline">{operation.ordens_servico_ids.length} ROL</Badge>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {productionStageLabels[operation.etapa_anterior as ProductionStage] || operation.etapa_anterior}
@@ -393,7 +393,7 @@ export function ProductionQueueWorkspace({
           <DialogHeader>
             <DialogTitle>{dialogMode === "advance" ? "Avançar lote de produção" : "Registrar ocorrência"}</DialogTitle>
             <DialogDescription>
-              {selectedOrders.length} OS em {selectedStage
+              {selectedOrders.length} ROL em {selectedStage
                 ? productionStageLabels[selectedStage as ProductionStage]
                 : "etapas diferentes"}.
               {dialogMode === "advance" && nextStage
@@ -505,7 +505,7 @@ export function ExpeditionWorkspace({
         <div className="rounded-2xl border bg-card px-4 py-16 text-center shadow-sm">
           <CheckCircle2 className="mx-auto h-9 w-9 text-success" />
           <p className="mt-3 font-medium">Expedição sem pendências</p>
-          <p className="mt-1 text-sm text-muted-foreground">Nenhuma OS aguarda conferência ou retirada.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Nenhum ROL aguarda conferência ou retirada.</p>
         </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">

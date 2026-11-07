@@ -956,10 +956,10 @@ function NotificacoesSection() {
   const [editTemplate, setEditTemplate] = useState("");
 
   const eventoLabels: Record<string, string> = {
-    os_retirada: "OS Retirada",
-    os_producao: "OS em Produção",
-    os_pronto: "OS Pronta",
-    os_entregue: "OS Entregue",
+    os_retirada: "ROL retirado",
+    os_producao: "ROL em produção",
+    os_pronto: "ROL pronto",
+    os_entregue: "ROL entregue",
     fatura_vencimento: "Lembrete Vencimento",
     fatura_emitida: "Fatura Emitida",
   };
@@ -1238,7 +1238,7 @@ function PortalClienteSection() {
         <Textarea
           value={localConfig.texto_boas_vindas}
           onChange={(e) => setLocalConfig(prev => ({ ...prev, texto_boas_vindas: e.target.value }))}
-          placeholder="Bem-vindo ao Portal do Cliente! Aqui você pode acompanhar suas ordens de serviço e documentos."
+          placeholder="Bem-vindo ao Portal do Cliente! Aqui você pode acompanhar seus ROLs e documentos."
           rows={3}
           className="mt-2"
           skipUppercase

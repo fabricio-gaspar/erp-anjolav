@@ -68,7 +68,7 @@ const etapaDescricoes: Record<string, string> = {
   secagem: "Defina a máquina e temperatura para secagem.",
   passadoria: "Escolha o tipo de acabamento e registre a qualidade.",
   embalagem: "Prepare o pacote final para entrega ao cliente.",
-  expedicao: "Confirme que a OS está pronta para retirada/entrega.",
+  expedicao: "Confirme que o ROL está pronto para retirada/entrega.",
   entregue: "Registre os dados da entrega ao cliente.",
 };
 
@@ -266,7 +266,7 @@ export function FormularioEtapa({
         idempotency_key: commandKeyRef.current,
       });
 
-      toast.success(`OS avançada para ${etapaLabels[proximaEtapa] || proximaEtapa}`);
+      toast.success(`ROL avançado para ${etapaLabels[proximaEtapa] || proximaEtapa}`);
 
       // Disparar notificação ao cliente via WhatsApp (se configurado)
       const eventoMap: Record<string, string> = {
@@ -682,7 +682,7 @@ export function FormularioEtapa({
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Ao confirmar, a OS ficará disponível para retirada pelo cliente ou entrega.
+                Ao confirmar, o ROL ficará disponível para retirada pelo cliente ou entrega.
               </AlertDescription>
             </Alert>
           </>
@@ -745,7 +745,7 @@ export function FormularioEtapa({
             <Alert className="bg-success/10 border-success/30">
               <CheckCircle className="h-4 w-4 text-success" />
               <AlertDescription className="text-success">
-                A OS será finalizada e marcada como entregue.
+                O ROL será finalizado e marcado como entregue.
               </AlertDescription>
             </Alert>
           </>

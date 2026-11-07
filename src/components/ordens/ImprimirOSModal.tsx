@@ -61,10 +61,10 @@ export function ImprimirOSModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Printer className="h-5 w-5" />
-            Imprimir OS
+            Imprimir ROL
           </DialogTitle>
           <DialogDescription>
-            OS {osNumero} - {clienteNome}
+            ROL {osNumero} - {clienteNome}
           </DialogDescription>
         </DialogHeader>
 

@@ -192,7 +192,7 @@ export function ReceberPagamentoModal({
 
         <div className="space-y-4">
           <div className="rounded-lg bg-muted/50 p-3">
-            <div className="flex justify-between gap-4"><span className="text-sm text-muted-foreground">OS</span><strong>{osNumero}</strong></div>
+            <div className="flex justify-between gap-4"><span className="text-sm text-muted-foreground">ROL</span><strong>{osNumero}</strong></div>
             <div className="flex justify-between gap-4"><span className="text-sm text-muted-foreground">Cliente</span><span className="truncate font-medium">{clienteNome}</span></div>
           </div>
 

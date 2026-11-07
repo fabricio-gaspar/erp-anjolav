@@ -394,10 +394,10 @@ export function PendentesTab() {
       <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => { setSelectedLaunch(row); setViewOpen(true); }} aria-label={`Ver itens de ${row.numero_rol || "ROL"}`}>
         <Eye className="h-4 w-4" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-10 w-10" disabled={Boolean(row.ordem_servico_id)} onClick={() => { setSelectedLaunch(row); setEditOpen(true); }} aria-label={`Editar ${row.numero_rol || "ROL"}`} title={row.ordem_servico_id ? "Gerencie este ROL pela OS do PDV" : "Editar ROL"}>
+      <Button variant="ghost" size="icon" className="h-10 w-10" disabled={Boolean(row.ordem_servico_id)} onClick={() => { setSelectedLaunch(row); setEditOpen(true); }} aria-label={`Editar ${row.numero_rol || "ROL"}`} title={row.ordem_servico_id ? "Gerencie este ROL pelo PDV" : "Editar ROL"}>
         <Edit className="h-4 w-4" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-10 w-10 text-destructive hover:text-destructive" disabled={Boolean(row.ordem_servico_id)} onClick={() => { setSelectedLaunch(row); setCancelReason(""); setCancelOpen(true); }} aria-label={`Cancelar ${row.numero_rol || "ROL"}`} title={row.ordem_servico_id ? "Cancele pela OS do PDV" : "Cancelar ROL"}>
+      <Button variant="ghost" size="icon" className="h-10 w-10 text-destructive hover:text-destructive" disabled={Boolean(row.ordem_servico_id)} onClick={() => { setSelectedLaunch(row); setCancelReason(""); setCancelOpen(true); }} aria-label={`Cancelar ${row.numero_rol || "ROL"}`} title={row.ordem_servico_id ? "Cancele pelo PDV" : "Cancelar ROL"}>
         <Trash2 className="h-4 w-4" />
       </Button>
     </div>

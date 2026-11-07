@@ -65,7 +65,6 @@ import { ReceberPagamentoModal, type PixRecebimentoRequest } from "@/components/
 import { PixPagamentoModal } from "@/components/caixa/PixPagamentoModal";
 import { ListaDoDiaModal } from "@/components/caixa/ListaDoDiaModal";
 import { PdvFulfillmentPanel, type PdvFulfillmentSettings } from "@/components/caixa/PdvFulfillmentPanel";
-import { PdvPriceTableIndicator } from "@/components/caixa/PdvPriceTableIndicator";
 import { CadastroRapidoClienteModal } from "@/components/caixa/CadastroRapidoClienteModal";
 import { useSavePdvQuote } from "@/hooks/usePdvQuotes";
 
@@ -84,7 +83,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useOperationalContext } from "@/contexts/OperationalContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
-import { buildClientPriceCatalog, normalizeClientPriceMode } from "@/lib/clientPricing";
+import { buildClientPriceCatalog, CLIENT_PRICE_MODE_LABELS, normalizeClientPriceMode } from "@/lib/clientPricing";
 import { getDefaultPdvDeliveryDate } from "@/lib/pdvFulfillment";
 import { parseCustomerPaymentTerms, isCustomerPaymentAllowed } from "@/lib/customerPaymentTerms";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
@@ -665,7 +664,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       return;
     }
     if (!Number.isFinite(dados.valorTotal) || dados.valorTotal <= 0 || !Number.isFinite(dados.valorDesconto) || dados.valorDesconto < 0 || (isFaturado && (dados.urgente || dados.valorDesconto > 0))) {
-      toast.error("Revise os valores do atendimento; faturado deve manter o valor da OS igual ao lançamento");
+      toast.error("Revise os valores do atendimento; faturado deve manter o valor do ROL igual ao lançamento");
       return;
     }
     
@@ -739,11 +738,11 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           });
           toast.success(`${dados.pontosResgate} pontos resgatados (${Number(redeemed.redeemedValue ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`);
         } catch (loyaltyError) {
-          toast.error(loyaltyError instanceof Error ? loyaltyError.message : "A OS foi criada, mas não foi possível resgatar os pontos");
+          toast.error(loyaltyError instanceof Error ? loyaltyError.message : "O ROL foi criado, mas não foi possível resgatar os pontos");
         }
       }
       if (dados.pagoAgora && caixaAberto && dados.formaPagamento === "PIX") {
-        if (result.pixError) toast.error(`ROL ${result.order.number} criado; PIX pendente. Retome o pagamento nesta OS, sem criar outro atendimento. ${result.pixError}`);
+        if (result.pixError) toast.error(`ROL ${result.order.number} criado; PIX pendente. Retome o pagamento neste ROL, sem criar outro atendimento. ${result.pixError}`);
         setPixContext({
           orderId: result.order.id,
           orderNumber: result.order.number,
@@ -852,10 +851,10 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     setPixContext(null);
     if (source === "sale") {
       setShowImpressaoModal(true);
-      if (!confirmed) toast.info("A OS foi criada e o pagamento permanece pendente");
+      if (!confirmed) toast.info("O ROL foi criado e o pagamento permanece pendente");
     } else {
       setOsParaReceber(null);
-      if (!confirmed) toast.info("O pagamento da OS permanece pendente");
+      if (!confirmed) toast.info("O pagamento do ROL permanece pendente");
     }
   };
 
@@ -1164,6 +1163,9 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                         <p className="pdv-customer-name">
                           {selectedClient.nome_fantasia || selectedClient.razao_social}
                           <span className="pdv-customer-badge">Cliente</span>
+                          <span className="pdv-customer-price-badge" title="Tabela de preço configurada para este cliente">
+                            Tabela: {CLIENT_PRICE_MODE_LABELS[normalizeClientPriceMode(selectedClient.tabela_preco_tipo)]}
+                          </span>
                         </p>
                         {canUseLoyalty && isLoadingCustomerLoyalty ? (
                           <p className="pdv-customer-loyalty text-muted-foreground">Consultando pontos…</p>
@@ -1185,14 +1187,6 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                       <span aria-hidden="true">›</span>
                     </button>
                   </div>
-                  <div className="pdv-customer-price-slot">
-                    <PdvPriceTableIndicator
-                      clienteNome={selectedClient.nome_fantasia || selectedClient.razao_social}
-                      tabelaPrecoTipo={selectedClient.tabela_preco_tipo}
-                      isLoading={pricesLoading}
-                      isError={pricesError}
-                    />
-                  </div>
                 </div>
               ) : (
                 <div className="flex min-h-0 flex-1 flex-col">
@@ -1200,13 +1194,6 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                     Escolha o cliente para liberar a tabela de preço, os serviços e a finalização do atendimento.
                   </div>
                 </div>
-              )}
-              {!selectedClient && (
-                <PdvPriceTableIndicator
-                  tabelaPrecoTipo={undefined}
-                  isLoading={false}
-                  isError={false}
-                />
               )}
             </section>
 
@@ -1739,7 +1726,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         </>
       )}
 
-      {/* Modal Consultar OS */}
+      {/* Modal Consultar ROL */}
       <ConsultarOSModal
         open={showConsultarOSModal}
         onOpenChange={(open) => {

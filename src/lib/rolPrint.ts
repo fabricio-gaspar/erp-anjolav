@@ -32,6 +32,8 @@ export interface PrintOSData extends RolCommercialData {
   valorTotal: number;
   dataEmissao: Date;
   previsaoEntrega?: Date;
+  recebimentoModalidade?: string | null;
+  entregaModalidade?: string | null;
   observacoes?: string;
   bloco?: string;
   posicao?: string;
@@ -102,23 +104,23 @@ export function getRolCommercialSummary(data: RolCommercialData) {
   const snapshotTable = tableLabel(snapshot.tabela_preco_tipo);
   const currentTable = tableLabel(data.tabelaPrecoAtual);
   const table = snapshotTable
-    ? `${snapshotTable} (registrada na OS)`
+    ? `${snapshotTable} (registrada no ROL)`
     : currentTable
-      ? `${currentTable} (cadastro atual; tabela da OS não registrada)`
-      : "Não registrada na OS";
+      ? `${currentTable} (cadastro atual; tabela do ROL não registrada)`
+      : "Não registrada no ROL";
   const paidAmount = typeof data.valorPago === "number" && Number.isFinite(data.valorPago) ? Math.max(0, data.valorPago) : null;
   const paid = paidAmount !== null && data.valorTotal > 0 && Math.round(paidAmount * 100) >= Math.round(data.valorTotal * 100);
   const partial = paidAmount !== null && paidAmount > 0 && !paid;
   const billed = terms.condition === "faturado";
   const cancelled = data.statusOS === "cancelada";
-  const status = cancelled ? "OS cancelada"
+  const status = cancelled ? "ROL cancelado"
     : paid ? "Pagamento registrado"
       : partial ? "Pagamento parcial registrado"
         : billed ? "Faturado — não pago"
           : paidAmount === null && !data.statusPagamento ? "Pagamento não informado"
             : "Pagamento pendente";
-  const notice = cancelled ? "OS cancelada: este ROL não representa cobrança."
-    : billed ? "Pagamento pelo fechamento da fatura. Este ROL não comprova quitação e não é cobrança individual da OS."
+  const notice = cancelled ? "ROL cancelado: este recibo não representa cobrança."
+    : billed ? "Pagamento pelo fechamento da fatura. Este ROL não comprova quitação e não é cobrança individual."
       : "Este ROL não substitui o comprovante de pagamento.";
   const frequency = billed && typeof snapshot.tipo_faturamento === "string" && Object.prototype.hasOwnProperty.call(BILLING_FREQUENCY_LABELS, snapshot.tipo_faturamento)
     ? BILLING_FREQUENCY_LABELS[terms.frequency]
@@ -144,12 +146,12 @@ export function generateROLCommercialHTML(data: RolCommercialData, showPrices = 
   const info = getRolCommercialSummary(data);
   return `<div class="section commercial-terms">
     ${info.area ? `<div><strong>Atendimento:</strong> ${info.area}</div>` : ""}
-    <div><strong>Condição da OS:</strong> ${escapeHtml(info.condition)}</div>
+    <div><strong>Condição do ROL:</strong> ${escapeHtml(info.condition)}</div>
     <div><strong>Tabela de preços:</strong> ${escapeHtml(info.table)}</div>
     ${info.preferredMethod ? `<div><strong>Método preferido:</strong> ${escapeHtml(info.preferredMethod)} (não comprova pagamento)</div>` : ""}
     ${info.billed ? `<div><strong>Periodicidade:</strong> ${escapeHtml(info.frequency ?? "Não registrada")}${info.closingDay ? ` · Fechamento: dia ${info.closingDay}` : ""}${info.dueDay ? ` · Vencimento: dia ${info.dueDay}` : ""}</div>` : ""}
     <div><strong>Situação:</strong> ${escapeHtml(info.status)}</div>
-    ${showPrices && info.paidAmount !== null && !info.cancelled ? `<div>Valor pago registrado na OS: R$ ${info.paidAmount.toFixed(2)}</div>` : ""}
+    ${showPrices && info.paidAmount !== null && !info.cancelled ? `<div>Valor pago registrado no ROL: R$ ${info.paidAmount.toFixed(2)}</div>` : ""}
     ${showPrices && info.outstanding !== null && info.outstanding > 0 && !info.cancelled ? `<div>${info.billed ? "Saldo vinculado ao faturamento" : "Saldo pendente"}: R$ ${info.outstanding.toFixed(2)}</div>` : ""}
     <div class="obs">${escapeHtml(info.notice)}</div>
   </div>`;
@@ -190,6 +192,8 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
   const corSecundaria = safeColor(config.corSecundaria, "#2583eb");
   const logoUrl = safeHttpsUrl(config.logoUrl);
   const osNumero = escapeHtml(data.numero);
+  const entregaLabel = data.entregaModalidade === "entrega" ? "Delivery" : "Retirada";
+  const recebimentoLabel = data.recebimentoModalidade === "coleta" ? "Coleta" : "Balcão";
 
   return `
     <!DOCTYPE html>
@@ -256,6 +260,8 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
         <div class="client-info"><strong>Cliente:</strong> ${escapeHtml(data.clienteNome)}</div>
         ${data.clienteTelefone ? `<div class="client-info"><strong>Tel:</strong> ${escapeHtml(data.clienteTelefone)}</div>` : ''}
         ${config.previsaoEntrega && data.previsaoEntrega ? `<div class="client-info previsao"><strong>Previsão:</strong> ${data.previsaoEntrega.toLocaleDateString('pt-BR')}</div>` : ''}
+        <div class="client-info"><strong>Recebimento:</strong> ${recebimentoLabel}</div>
+        <div class="client-info"><strong>Modalidade de entrega:</strong> ${entregaLabel}</div>
       </div>
 
       ${generateROLCommercialHTML(data, config.tipoPreco)}

@@ -69,17 +69,17 @@ export function HistoricoVendasModal({
 
       if (movError) throw movError;
 
-      // Extrair números de OS das descrições
+      // Extrair números de ROL das descrições legadas.
       const osNumeros = (movimentacoes || [])
         .map((m) => {
-          const match = m.descricao?.match(/OS\s*(\d+)/i);
+          const match = m.descricao?.match(/(?:OS|ROL)\s*(\d+)/i);
           return match ? match[1] : null;
         })
         .filter(Boolean);
 
       if (osNumeros.length === 0) return [];
 
-      // Buscar as OS correspondentes
+      // Buscar os ROLs correspondentes.
       const { data: ordens, error: osError } = await supabase
         .from("ordens_servico")
         .select(`
@@ -198,7 +198,7 @@ export function HistoricoVendasModal({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por OS ou cliente..."
+              placeholder="Buscar por ROL ou cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -231,7 +231,7 @@ export function HistoricoVendasModal({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-primary">
-                          OS #{venda.numero}
+                          ROL #{venda.numero}
                         </span>
                         <Badge
                           variant={venda.status_pagamento === "pago" ? "default" : "secondary"}

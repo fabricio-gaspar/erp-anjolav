@@ -88,7 +88,7 @@ export function useConfirmarRetiradaAgendamento() {
       qc.invalidateQueries({ queryKey: ["ordens_servico"] });
       qc.invalidateQueries({ queryKey: ["agendamentos_retirada_pendentes"] });
       qc.invalidateQueries({ queryKey: ["agendamentos"] });
-      toast.success(`Retirada confirmada — OS ${os.numero} enviada para Separação`);
+      toast.success(`Retirada confirmada — ROL ${os.numero} enviado para separação`);
     },
     onError: (e: Error) => toast.error("Erro ao confirmar retirada: " + e.message),
   });

@@ -40,7 +40,7 @@ export function FinalizadasLista() {
       </TabsList>
 
       <TabsContent value="aguardando" className="mt-3">
-        <ListaSimples lista={aguardandoEntrega} vazio="Nenhuma OS aguardando entrega" />
+        <ListaSimples lista={aguardandoEntrega} vazio="Nenhum ROL aguardando entrega" />
       </TabsContent>
 
       <TabsContent value="finalizadas" className="mt-3 space-y-3">
@@ -53,7 +53,7 @@ export function FinalizadasLista() {
             className="h-8 w-auto"
           />
         </div>
-        <ListaSimples lista={entregues} vazio="Nenhuma OS finalizada nesta data" />
+        <ListaSimples lista={entregues} vazio="Nenhum ROL finalizado nesta data" />
       </TabsContent>
     </Tabs>
   );

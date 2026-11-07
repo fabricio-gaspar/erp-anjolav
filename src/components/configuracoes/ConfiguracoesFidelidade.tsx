@@ -77,7 +77,7 @@ export function ConfiguracoesFidelidade() {
     <Card className="max-w-3xl space-y-6 p-6">
       <div className="flex items-start gap-3">
         <div className="rounded-lg bg-primary/10 p-2 text-primary"><Gift className="h-5 w-5" /></div>
-        <div><h2 className="font-semibold">Programa de fidelidade</h2><p className="text-sm text-muted-foreground">Pontos são gerados somente após o pagamento integral da OS e podem ser usados como desconto no PDV.</p></div>
+        <div><h2 className="font-semibold">Programa de fidelidade</h2><p className="text-sm text-muted-foreground">Pontos são gerados somente após o pagamento integral do ROL e podem ser usados como desconto no PDV.</p></div>
       </div>
       <div className="flex items-center justify-between rounded-lg border p-4">
         <div><Label>Ativar programa</Label><p className="text-xs text-muted-foreground">Permanece desativado até você habilitar esta opção.</p></div>

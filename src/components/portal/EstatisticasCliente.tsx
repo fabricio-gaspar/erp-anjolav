@@ -32,7 +32,7 @@ export function EstatisticasCliente({ estatisticas, isLoading }: EstatisticasCli
 
   const stats = [
     {
-      label: "OS este mês",
+      label: "ROLs este mês",
       value: estatisticas.totalOS,
       icon: FileText,
       color: "text-blue-600",

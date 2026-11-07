@@ -326,7 +326,7 @@ export const useGlobalSearch = (term: string) => {
         appendResult(
           "ordem",
           order.id,
-          `Pedido / OS ${order.numero}`,
+          `Pedido / ROL ${order.numero}`,
           getClientName(order.cliente),
           order.origem,
         );

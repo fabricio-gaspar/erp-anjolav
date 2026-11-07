@@ -53,12 +53,12 @@ export function ConfiguracoesCapacidadePdv() {
           <div className="rounded-lg bg-primary/10 p-2 text-primary"><Gauge className="h-5 w-5" /></div>
           <div>
             <h2 className="font-semibold">Capacidade operacional do PDV</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Defina o limite diário de carga por setor. O caixa só consulta esta regra; ele não altera limites nem sai do atendimento.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Defina o limite diário de peças/carga por setor. O caixa só consulta esta regra; ele não altera limites nem sai do atendimento.</p>
           </div>
         </div>
 
         <div className="rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm text-muted-foreground">
-          A carga inicial é a soma das quantidades dos itens prometidos para a data. Configure a unidade de limite de forma coerente com a operação (por exemplo, peças operacionais ou quilos) e revise a agenda diariamente.
+          Para o PDV residencial, informe a quantidade máxima de peças para a data. A regra soma as quantidades dos itens prometidos; para operações por peso, use a unidade operacional adotada pelo setor e revise a agenda diariamente.
         </div>
 
         <div className="grid gap-4 sm:grid-cols-[minmax(150px,0.8fr)_minmax(180px,1fr)_minmax(160px,0.8fr)_auto] sm:items-end">
@@ -77,7 +77,7 @@ export function ConfiguracoesCapacidadePdv() {
             <Input id="pdv-capacity-date" type="date" min={todayIso()} value={date} onChange={(event) => setDate(event.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="pdv-capacity-limit">Limite de carga</Label>
+            <Label htmlFor="pdv-capacity-limit">Limite diário de peças/carga</Label>
             <Input id="pdv-capacity-limit" inputMode="decimal" value={limit} onChange={(event) => setLimit(event.target.value)} placeholder="Ex.: 100" />
           </div>
           <Button type="button" onClick={() => void submit().catch(() => undefined)} disabled={isSaving || date < todayIso()}>
@@ -110,7 +110,7 @@ export function ConfiguracoesCapacidadePdv() {
               <div key={capacity.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{areaLabel(capacity.area)}</p><Badge variant={capacity.active ? "default" : "secondary"}>{capacity.active ? "Ativa" : "Desativada"}</Badge></div>
-                  <p className="mt-1 text-sm text-muted-foreground">{formatCapacityDate(capacity.date)} · Limite: {new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(capacity.limit)}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{formatCapacityDate(capacity.date)} · Limite diário: {new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 }).format(capacity.limit)}</p>
                 </div>
                 <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
                   <Label htmlFor={`pdv-capacity-active-${capacity.id}`} className="cursor-pointer text-sm">{capacity.active ? "Ativa no PDV" : "Manter desativada"}</Label>

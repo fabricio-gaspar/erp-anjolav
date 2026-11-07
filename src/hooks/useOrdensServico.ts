@@ -131,10 +131,10 @@ export function useOrdensServico({ enabled = true }: { enabled?: boolean } = {})
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
       queryClient.invalidateQueries({ queryKey: ["order-directory"] });
-      toast.success(`OS ${data.numero} criada com sucesso!`);
+      toast.success(`ROL ${data.numero} criado com sucesso!`);
     },
     onError: (error) => {
-      toast.error("Erro ao criar OS: " + error.message);
+      toast.error("Erro ao criar ROL: " + error.message);
     },
   });
 
@@ -142,7 +142,7 @@ export function useOrdensServico({ enabled = true }: { enabled?: boolean } = {})
     mutationFn: async ({ id, ...updates }: OrdemServicoUpdate & { id: string }) => {
       if (!activeTenant?.id) throw new Error("Empresa ativa não encontrada");
       if (updates.origem && !isOrderOriginAllowed(activeArea, updates.origem)) {
-        throw new Error("Não é permitido mover a OS para outro painel");
+        throw new Error("Não é permitido mover o ROL para outro painel");
       }
       const scopedUpdates = activeArea === "central"
         ? updates
@@ -160,10 +160,10 @@ export function useOrdensServico({ enabled = true }: { enabled?: boolean } = {})
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
       queryClient.invalidateQueries({ queryKey: ["order-directory"] });
-      toast.success("OS atualizada com sucesso!");
+      toast.success("ROL atualizado com sucesso!");
     },
     onError: (error) => {
-      toast.error("Erro ao atualizar OS: " + error.message);
+      toast.error("Erro ao atualizar ROL: " + error.message);
     },
   });
 
@@ -178,20 +178,20 @@ export function useOrdensServico({ enabled = true }: { enabled?: boolean } = {})
       if (allowedOrigins) scopeQuery = scopeQuery.in("origem", [...allowedOrigins]);
       const { data: scopedOrder, error: scopeError } = await scopeQuery.maybeSingle();
       if (scopeError) throw scopeError;
-      if (!scopedOrder) throw new Error("OS não encontrada neste painel");
+      if (!scopedOrder) throw new Error("ROL não encontrado neste painel");
       const { error } = await supabase.rpc("cancelar_ordem_servico", {
         _ordem_servico_id: id,
-        _motivo: "Cancelada pelo usuário no módulo de ordens de serviço.",
+        _motivo: "Cancelada pelo usuário no módulo de ROLs.",
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
       queryClient.invalidateQueries({ queryKey: ["order-directory"] });
-      toast.success("OS cancelada e preservada no histórico.");
+      toast.success("ROL cancelado e preservado no histórico.");
     },
     onError: (error) => {
-      toast.error("Erro ao cancelar OS: " + error.message);
+      toast.error("Erro ao cancelar ROL: " + error.message);
     },
   });
 
@@ -244,7 +244,7 @@ export function useItensOrdemServico(ordemServicoId: string | null) {
       if (allowedOrigins) scopeQuery = scopeQuery.in("origem", [...allowedOrigins]);
       const { data: scopedOrder, error: scopeError } = await scopeQuery.maybeSingle();
       if (scopeError) throw scopeError;
-      if (!scopedOrder) throw new Error("OS não encontrada neste painel");
+      if (!scopedOrder) throw new Error("ROL não encontrado neste painel");
       const { data, error } = await supabase
         .from("itens_ordem_servico")
         .insert(item)

@@ -71,7 +71,7 @@ export const RelatorioPecas = ({ startDate, endDate }: RelatorioPecasProps) => {
   }, [relatorio]);
 
   const handleExportCSV = () => {
-    const headers = ["Data", "OS Entrada", "Peças Entrada", "OS Saída", "Peças Saída", "Saldo"];
+    const headers = ["Data", "ROL Entrada", "Peças Entrada", "ROL Saída", "Peças Saída", "Saldo"];
     const rows = relatorio.map((dia) => [
       format(parseISO(dia.data), "dd/MM/yyyy"),
       dia.os_entrada,
@@ -128,7 +128,7 @@ export const RelatorioPecas = ({ startDate, endDate }: RelatorioPecasProps) => {
             <div>
               <p className="text-xs text-muted-foreground uppercase">Peças Entrada</p>
               <p className="text-2xl font-bold text-emerald-600">{totais.pecas_entrada.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">{totais.os_entrada} OS</p>
+              <p className="text-xs text-muted-foreground">{totais.os_entrada} ROL</p>
             </div>
           </div>
         </Card>
@@ -141,7 +141,7 @@ export const RelatorioPecas = ({ startDate, endDate }: RelatorioPecasProps) => {
             <div>
               <p className="text-xs text-muted-foreground uppercase">Peças Saída</p>
               <p className="text-2xl font-bold text-primary">{totais.pecas_saida.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">{totais.os_saida} OS</p>
+              <p className="text-xs text-muted-foreground">{totais.os_saida} ROL</p>
             </div>
           </div>
         </Card>
@@ -249,9 +249,9 @@ export const RelatorioPecas = ({ startDate, endDate }: RelatorioPecasProps) => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
-                  <TableHead className="text-right">OS Entrada</TableHead>
+                  <TableHead className="text-right">ROL Entrada</TableHead>
                   <TableHead className="text-right text-emerald-600">Peças Entrada</TableHead>
-                  <TableHead className="text-right">OS Saída</TableHead>
+                  <TableHead className="text-right">ROL Saída</TableHead>
                   <TableHead className="text-right text-primary">Peças Saída</TableHead>
                   <TableHead className="text-right font-bold">Saldo</TableHead>
                 </TableRow>

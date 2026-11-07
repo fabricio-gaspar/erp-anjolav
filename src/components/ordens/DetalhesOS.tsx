@@ -102,7 +102,7 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">
-          {error ? "Não foi possível carregar o pedido. Tente novamente." : "Ordem de serviço não encontrada."}
+          {error ? "Não foi possível carregar o ROL. Tente novamente." : "ROL não encontrado."}
         </p>
         <Button variant="link" onClick={onBack}>
           Voltar
@@ -311,7 +311,7 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
 
             <Separator />
 
-            {/* Itens da OS */}
+            {/* Itens do ROL */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium flex items-center gap-2">

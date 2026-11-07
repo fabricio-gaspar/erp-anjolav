@@ -21,7 +21,7 @@ export function usePrintOS(ordemServicoId?: string) {
   const printROL = useCallback(async (osId?: string) => {
     const targetId = osId || ordemServicoId;
     if (!targetId) {
-      toast({ title: "Erro", description: "ID da OS não informado", variant: "destructive" });
+      toast({ title: "Erro", description: "ID do ROL não informado", variant: "destructive" });
       return false;
     }
 
@@ -49,7 +49,7 @@ export function usePrintOS(ordemServicoId?: string) {
   const printEtiqueta = useCallback(async (osId?: string) => {
     const targetId = osId || ordemServicoId;
     if (!targetId) {
-      toast({ title: "Erro", description: "ID da OS não informado", variant: "destructive" });
+      toast({ title: "Erro", description: "ID do ROL não informado", variant: "destructive" });
       return false;
     }
 
@@ -77,7 +77,7 @@ export function usePrintOS(ordemServicoId?: string) {
   const printEtiquetas = useCallback(async (quantidade: number, osId?: string) => {
     const targetId = osId || ordemServicoId;
     if (!targetId) {
-      toast({ title: "Erro", description: "ID da OS não informado", variant: "destructive" });
+      toast({ title: "Erro", description: "ID do ROL não informado", variant: "destructive" });
       return false;
     }
 

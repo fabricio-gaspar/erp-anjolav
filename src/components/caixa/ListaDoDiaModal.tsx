@@ -22,6 +22,8 @@ interface AgendaRecord {
   status?: string | null;
   pronto_entrega?: boolean | null;
   os_numero?: string | null;
+  origem?: "agendamento" | "producao" | "rol_programado";
+  entrega_modalidade?: "balcao" | "entrega" | null;
   cliente?: { razao_social?: string | null } | null;
 }
 
@@ -33,6 +35,8 @@ interface DayItem {
   status: string | null;
   readyForDelivery: boolean;
   orderNumber: string | null;
+  scheduledRol: boolean;
+  deliveryMode: "Retirada" | "Delivery" | null;
 }
 
 interface ListaDoDiaModalProps {
@@ -44,6 +48,7 @@ interface ListaDoDiaModalProps {
 
 function statusLabel(item: DayItem) {
   if (item.readyForDelivery) return "Pronta";
+  if (item.scheduledRol) return "Programada";
   if (item.status === "realizado") return "Concluída";
   if (item.status === "confirmado") return "Confirmada";
   if (item.status === "em_andamento") return "Em andamento";
@@ -52,6 +57,7 @@ function statusLabel(item: DayItem) {
 
 function statusClassName(item: DayItem) {
   if (item.readyForDelivery || item.status === "realizado") return "bg-success/10 text-success";
+  if (item.scheduledRol) return "bg-primary/10 text-primary";
   if (item.status === "confirmado" || item.status === "em_andamento") return "bg-primary/10 text-primary";
   return "bg-muted text-muted-foreground";
 }
@@ -92,9 +98,11 @@ function DailyListSection({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate font-medium">{item.clientName}</p>
                     {item.readyForDelivery && <Badge className="bg-success/10 text-success hover:bg-success/10">ROL pronta</Badge>}
+                    {item.scheduledRol && !item.readyForDelivery && <Badge variant="outline">ROL programada</Badge>}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     {item.orderNumber && <span className="font-medium text-primary">{item.orderNumber}</span>}
+                    {item.deliveryMode && <span>{item.deliveryMode}</span>}
                     {item.time && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{item.time}</span>}
                   </div>
                 </div>
@@ -129,6 +137,8 @@ export function ListaDoDiaModal({ open, onOpenChange, onSelectClient, onOpenAgen
     status: item.status ?? null,
     readyForDelivery: false,
     orderNumber: null,
+    scheduledRol: item.origem === "rol_programado",
+    deliveryMode: item.entrega_modalidade === "entrega" ? "Delivery" as const : item.origem === "rol_programado" ? "Retirada" as const : null,
   })), [retiradas]);
   const deliveries = useMemo(() => (entregas as unknown as AgendaRecord[]).map((item) => ({
     id: item.id,
@@ -138,6 +148,8 @@ export function ListaDoDiaModal({ open, onOpenChange, onSelectClient, onOpenAgen
     status: item.status ?? null,
     readyForDelivery: Boolean(item.pronto_entrega),
     orderNumber: item.os_numero ?? null,
+    scheduledRol: item.origem === "rol_programado",
+    deliveryMode: item.entrega_modalidade === "entrega" ? "Delivery" as const : item.origem === "rol_programado" ? "Retirada" as const : null,
   })), [entregas]);
 
   const handleSelectClient = (clientId: string) => {
@@ -155,7 +167,7 @@ export function ListaDoDiaModal({ open, onOpenChange, onSelectClient, onOpenAgen
       <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Lista do dia</DialogTitle>
-          <DialogDescription>Retiradas, entregas e ROLs prontas para hoje — {format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR })}.</DialogDescription>
+          <DialogDescription>Retiradas, deliveries e ROLs programadas ou prontas para hoje — {format(new Date(), "EEEE, dd 'de' MMMM", { locale: ptBR })}.</DialogDescription>
         </DialogHeader>
 
         {isLoading ? (

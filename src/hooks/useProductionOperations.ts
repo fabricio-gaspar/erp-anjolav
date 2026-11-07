@@ -105,7 +105,7 @@ export function useProductionOperations() {
       await invalidateProduction(queryClient);
       toast.success(
         result.batchNumber
-          ? `${result.orderCount} OS processadas no lote ${result.batchNumber}.`
+          ? `${result.orderCount} ROLs processados no lote ${result.batchNumber}.`
           : "Etapa de produção registrada.",
       );
     },

@@ -284,11 +284,11 @@ export function ListaOS({ onNovaOS }: ListaOSProps) {
         <div className="relative min-w-0">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Número do pedido ou OS"
+            placeholder="Número do pedido ou ROL"
             value={filters.orderSearch}
             onChange={(event) => updateListParams({ orderSearch: event.target.value })}
             className="h-11 pl-9 text-base sm:text-sm"
-            aria-label="Pesquisar pelo número do pedido ou OS"
+            aria-label="Pesquisar pelo número do pedido ou ROL"
           />
         </div>
         <div className="relative min-w-0">

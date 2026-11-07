@@ -39,8 +39,8 @@ const entityDefinitions = [
   { key: "contratos_aluguel", name: "Contratos de Aluguel", table: "contratos_aluguel", description: "Contratos de locação", category: "cadastros" as const },
   { key: "itens_contrato_aluguel", name: "Itens Contrato Aluguel", table: "itens_contrato_aluguel", description: "Itens dos contratos de aluguel", category: "cadastros" as const },
   { key: "modulo_permissoes", name: "Permissões de Módulos", table: "modulo_permissoes", description: "Permissões granulares por usuário", category: "cadastros" as const },
-  { key: "ordens_servico", name: "Ordens de Serviço", table: "ordens_servico", description: "Ordens de serviço registradas", category: "operacional" as const },
-  { key: "itens_ordem_servico", name: "Itens OS", table: "itens_ordem_servico", description: "Itens das ordens de serviço", category: "operacional" as const },
+  { key: "ordens_servico", name: "ROLs", table: "ordens_servico", description: "ROLs registrados", category: "operacional" as const },
+  { key: "itens_ordem_servico", name: "Itens do ROL", table: "itens_ordem_servico", description: "Itens dos ROLs", category: "operacional" as const },
   { key: "lancamentos", name: "Lançamentos (ROLs)", table: "lancamentos", description: "Lançamentos de consumo", category: "operacional" as const },
   { key: "itens_lancamento", name: "Itens Lançamento", table: "itens_lancamento", description: "Itens dos lançamentos", category: "operacional" as const },
   { key: "lancamentos_cliente", name: "Lançamentos Cliente", table: "lancamentos_cliente", description: "Lançamentos via portal do cliente", category: "operacional" as const },
@@ -64,7 +64,7 @@ const entityDefinitions = [
   { key: "folha_beneficios", name: "Benefícios/Descontos", table: "folha_beneficios", description: "Benefícios e descontos extras", category: "financeiro" as const },
   { key: "historico_envios", name: "Histórico de Envios", table: "historico_envios", description: "Envios de faturas/NFs", category: "financeiro" as const },
   { key: "lotes_producao", name: "Lotes de Produção", table: "lotes_producao", description: "Lotes de processamento", category: "producao" as const },
-  { key: "lotes_ordens", name: "Lotes × OS", table: "lotes_ordens", description: "Vínculo de OS aos lotes", category: "producao" as const },
+  { key: "lotes_ordens", name: "Lotes × ROL", table: "lotes_ordens", description: "Vínculo de ROLs aos lotes", category: "producao" as const },
   { key: "historico_producao", name: "Histórico Produção", table: "historico_producao", description: "Histórico de produção", category: "producao" as const },
 ] satisfies Array<Omit<EntityStats, "count">>;
 

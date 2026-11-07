@@ -109,13 +109,13 @@ export function EtiquetaPreview({ config, data }: EtiquetaPreviewProps) {
         </p>
       </div>
 
-      {/* OS Info */}
+      {/* ROL info */}
       <div className="flex-1 flex flex-col justify-center items-center">
         <p 
           className="font-bold text-gray-700 mb-1"
           style={{ fontSize: `${tamanhoFonte + 2}px` }}
         >
-          OS: {osNumero}
+          ROL: {osNumero}
         </p>
         
         <p 
@@ -271,7 +271,7 @@ export const generateEtiquetaHTML = (config: EtiquetaPreviewConfig) => {
       </div>
       
       <div class="content">
-        <div class="os-number">OS: ${osNumero}</div>
+          <div class="os-number">ROL: ${osNumero}</div>
         <div class="client">CLIENTE DE EXEMPLO</div>
         
         <div class="barcode">

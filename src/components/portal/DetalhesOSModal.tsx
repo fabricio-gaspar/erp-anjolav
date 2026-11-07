@@ -113,7 +113,7 @@ export function DetalhesOSModal({ open, onOpenChange, ordem }: DetalhesOSModalPr
             {/* Itens */}
             {ordem.itens && ordem.itens.length > 0 && (
               <div>
-                <h4 className="font-medium mb-3">Itens da OS</h4>
+                <h4 className="font-medium mb-3">Itens do ROL</h4>
                 <div className="space-y-2">
                   {ordem.itens.map((item) => (
                     <div key={item.id} className="flex justify-between items-center text-sm p-2 rounded bg-muted/50">

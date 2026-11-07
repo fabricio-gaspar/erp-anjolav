@@ -141,7 +141,7 @@ function PaymentHistory({ orderId }: { orderId: string }) {
     if (!paymentToReverse || reason.trim().length < 5) return;
     try {
       await reversePayment.mutateAsync({ paymentId: paymentToReverse.id, reason: reason.trim() });
-      toast.success("Pagamento estornado e saldo da OS recalculado.");
+      toast.success("Pagamento estornado e saldo do ROL recalculado.");
       setPaymentToReverse(null);
       setReason("");
       await refetch();
@@ -193,7 +193,7 @@ function PaymentHistory({ orderId }: { orderId: string }) {
         ) : isError ? (
           <p className="text-sm text-destructive">Não foi possível carregar o histórico de pagamentos.</p>
         ) : payments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum pagamento registrado nesta OS.</p>
+          <p className="text-sm text-muted-foreground">Nenhum pagamento registrado neste ROL.</p>
         ) : (
           <div className="space-y-2">
             {payments.map((payment) => (
@@ -250,7 +250,7 @@ function PaymentHistory({ orderId }: { orderId: string }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Estornar pagamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              O pagamento original será mantido no histórico, uma movimentação inversa será registrada e o saldo da OS será recalculado. Esta ação não pode ser desfeita automaticamente.
+              O pagamento original será mantido no histórico, uma movimentação inversa será registrada e o saldo do ROL será recalculado. Esta ação não pode ser desfeita automaticamente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">
@@ -259,7 +259,7 @@ function PaymentHistory({ orderId }: { orderId: string }) {
               id="payment-reversal-reason"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="Ex.: baixa registrada na OS incorreta"
+              placeholder="Ex.: baixa registrada no ROL incorreto"
               maxLength={1000}
               rows={3}
             />
@@ -280,7 +280,7 @@ function PaymentHistory({ orderId }: { orderId: string }) {
           <DialogHeader>
             <DialogTitle>Editar pagamento</DialogTitle>
             <DialogDescription>
-              A baixa original será mantida como estornada e uma nova baixa de correção será registrada. Isso preserva o histórico e recalcula o saldo da OS.
+              A baixa original será mantida como estornada e uma nova baixa de correção será registrada. Isso preserva o histórico e recalcula o saldo do ROL.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -375,7 +375,7 @@ export function ConsultarOSModal({
   const submitScannerValue = () => {
     const value = normalizeOrderScanInput(scannerValue);
     if (!value) {
-      setScannerFeedback({ tone: "error", message: "Aponte o leitor para uma etiqueta ou informe o número da OS." });
+      setScannerFeedback({ tone: "error", message: "Aponte o leitor para uma etiqueta ou informe o número do ROL." });
       return;
     }
 
@@ -415,10 +415,10 @@ export function ConsultarOSModal({
       const item = ordem.itens.find(candidate => candidate.id === leitura.itemId);
       setScannerFeedback({
         tone: "success",
-        message: `Item ${item?.produto?.nome || leitura.itemId.slice(0, 8)} localizado na OS ${ordem.numero}.`,
+        message: `Item ${item?.produto?.nome || leitura.itemId.slice(0, 8)} localizado no ROL ${ordem.numero}.`,
       });
     } else {
-      setScannerFeedback({ tone: "success", message: `OS ${ordem.numero} localizada e aberta para conferência.` });
+      setScannerFeedback({ tone: "success", message: `ROL ${ordem.numero} localizado e aberto para conferência.` });
     }
   }, [isError, isFetching, ordens, scanAttempt]);
 
@@ -501,7 +501,7 @@ export function ConsultarOSModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {positionMode && !recent ? <MapPin className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
-            {recent ? "Histórico de atendimentos" : positionMode ? "Posição de peças / ROL" : "Consultar ROL / Ordem de Serviço"} · {activeArea === "industrial" ? "Industrial" : "Doméstico"}
+            {recent ? "Histórico de atendimentos" : positionMode ? "Posição de peças / ROL" : "Consultar ROL"} · {activeArea === "industrial" ? "Industrial" : "Doméstico"}
           </DialogTitle>
         </DialogHeader>
         <DialogDescription>
@@ -517,7 +517,7 @@ export function ConsultarOSModal({
             <div className="rounded-lg bg-primary/10 p-2 text-primary"><ScanLine className="h-5 w-5" /></div>
             <div>
               <label htmlFor="order-scanner-input" className="text-sm font-semibold">Leitor de código de barras</label>
-              <p className="text-xs text-muted-foreground">Identifica a OS ou a linha do item. A quantidade da linha não representa uma peça individual.</p>
+              <p className="text-xs text-muted-foreground">Identifica o ROL ou a linha do item. A quantidade da linha não representa uma peça individual.</p>
             </div>
           </div>
           <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
@@ -532,7 +532,7 @@ export function ConsultarOSModal({
                   submitScannerValue();
                 }
               }}
-              placeholder="Escaneie a etiqueta ou digite o número da OS"
+              placeholder="Escaneie a etiqueta ou digite o número do ROL"
               className="h-11 min-w-0 bg-background font-mono"
               autoComplete="off"
               autoFocus
@@ -563,7 +563,7 @@ export function ConsultarOSModal({
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder={positionMode ? "Buscar ROL ou cliente para atualizar posição..." : "Buscar por número da OS ou nome do cliente..."}
+              placeholder={positionMode ? "Buscar ROL ou cliente para atualizar posição..." : "Buscar por número do ROL ou nome do cliente..."}
               value={manualSearchTerm}
               onChange={(e) => handleManualSearch(e.target.value)}
               className="pl-10"
@@ -600,7 +600,7 @@ export function ConsultarOSModal({
           ) : !ordens || ordens.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>Nenhuma ordem de serviço encontrada</p>
+              <p>Nenhum ROL encontrado</p>
             </div>
           ) : (
             <div className="space-y-3 py-2">
@@ -628,7 +628,7 @@ export function ConsultarOSModal({
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="whitespace-nowrap font-mono font-bold">
-                              OS {ordem.numero}
+                              ROL {ordem.numero}
                             </span>
                             {ordem.urgente && (
                               <Badge variant="destructive" className="gap-1">
@@ -717,7 +717,7 @@ export function ConsultarOSModal({
                         <div className="p-4">
                           <h4 className="font-medium mb-3 flex items-center gap-2">
                             <Package className="w-4 h-4" />
-                            {positionMode ? "Itens e posição de armazenamento" : "Itens da OS"} ({ordem.itens.length})
+                            {positionMode ? "Itens e posição de armazenamento" : "Itens do ROL"} ({ordem.itens.length})
                           </h4>
                           <div className="space-y-2">
                             {ordem.itens.map((item) => {

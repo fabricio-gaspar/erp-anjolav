@@ -110,7 +110,7 @@ export function PixPagamentoModal({
     if (!pix?.paymentId) return;
     try {
       await cancelPix.mutateAsync(pix.paymentId);
-      toast.success("Cobrança PIX cancelada; a OS permanece pendente");
+      toast.success("Cobrança PIX cancelada; o ROL permanece pendente");
       onFinished(false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível cancelar o PIX");
@@ -128,7 +128,7 @@ export function PixPagamentoModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5 text-primary" />
-            PIX da OS {orderNumber}
+            PIX do ROL {orderNumber}
           </DialogTitle>
         </DialogHeader>
 
@@ -151,7 +151,7 @@ export function PixPagamentoModal({
                 {pix.qrCode ? (
                   <img
                     src={`data:image/png;base64,${pix.qrCode}`}
-                    alt={`QR Code PIX da OS ${orderNumber}`}
+                    alt={`QR Code PIX do ROL ${orderNumber}`}
                     className="h-56 w-56"
                   />
                 ) : (
@@ -168,7 +168,7 @@ export function PixPagamentoModal({
                 <Badge variant="secondary">{pix.providerStatus ?? "PENDING"}</Badge>
               </div>
               <p className="text-center text-xs text-muted-foreground">
-                A OS só será marcada como paga e lançada no caixa após a confirmação real do provedor.
+                O ROL só será marcado como pago e lançado no caixa após a confirmação real do provedor.
               </p>
             </>
           )}
@@ -185,7 +185,7 @@ export function PixPagamentoModal({
               <TriangleAlert className="h-10 w-10" />
               <p className="font-bold">Esta cobrança PIX não está mais ativa</p>
               <p className="text-center text-sm">
-                Status: {pix.providerStatus ?? pix.paymentStatus}. Feche esta tela e gere uma nova cobrança para a OS.
+                Status: {pix.providerStatus ?? pix.paymentStatus}. Feche esta tela e gere uma nova cobrança para o ROL.
               </p>
             </div>
           )}

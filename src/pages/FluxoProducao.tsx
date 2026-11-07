@@ -149,7 +149,7 @@ const FluxoProducao = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar cliente ou OS..."
+                  placeholder="Buscar cliente ou ROL..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 h-9"
@@ -210,7 +210,7 @@ const FluxoProducao = () => {
                 <span className="ml-2 text-muted-foreground">Carregando...</span>
               </div>
             ) : error ? (
-              <div className="text-center py-12 text-destructive">Erro ao carregar ordens de serviço</div>
+              <div className="text-center py-12 text-destructive">Erro ao carregar ROLs</div>
             ) : (
               <div className="overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
                 <div className="flex gap-3 min-w-[1200px] xl:grid xl:grid-cols-6 xl:min-w-0">
@@ -236,7 +236,7 @@ const FluxoProducao = () => {
 
                         <div className="bg-muted/30 rounded-lg p-2 min-h-[400px] max-h-[calc(100vh-260px)] overflow-y-auto">
                           {totalCount === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-8">Nenhuma OS</p>
+                            <p className="text-xs text-muted-foreground text-center py-8">Nenhum ROL</p>
                           ) : (
                             <div className="space-y-2">
                               {agendamentosNaColuna.map((ag) => (

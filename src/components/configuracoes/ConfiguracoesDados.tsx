@@ -759,7 +759,7 @@ export function ConfiguracoesDados() {
                 </p>
                 <ul className="text-red-600 dark:text-red-400 text-xs mt-2 space-y-1">
                   <li>• Todos os clientes serão removidos</li>
-                  <li>• Todas as ordens de serviço serão perdidas</li>
+                  <li>• Todos os ROLs serão perdidos</li>
                   <li>• Todo o histórico financeiro será apagado</li>
                   <li>• Todos os produtos e preços serão excluídos</li>
                 </ul>

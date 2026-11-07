@@ -216,7 +216,7 @@ export function usePortalAlertas(
     alertas.push({
       tipo: "os_pronta",
       titulo: "Ordem pronta para entrega",
-      descricao: `OS #${ordem.numero} está pronta para ser entregue`,
+      descricao: `ROL #${ordem.numero} está pronto para ser entregue`,
       referencia: ordem.numero,
     });
   }
@@ -228,7 +228,7 @@ export function usePortalAlertas(
     alertas.push({
       tipo: "os_atrasada",
       titulo: "Entrega em atraso",
-      descricao: `OS #${ordem.numero} estava prevista para ${format(parseISO(ordem.data_previsao_entrega!), "dd/MM")}`,
+      descricao: `ROL #${ordem.numero} estava previsto para ${format(parseISO(ordem.data_previsao_entrega!), "dd/MM")}`,
       data: ordem.data_previsao_entrega!,
       referencia: ordem.numero,
     });

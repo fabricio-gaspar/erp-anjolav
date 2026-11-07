@@ -306,7 +306,7 @@ export function AdministracaoSaas() {
               <Input id="saas-plan-users" inputMode="numeric" type="number" min="1" value={planForm.maxUsers} onChange={(event) => updatePlanForm("maxUsers", event.target.value)} placeholder="Sem limite" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="saas-plan-orders">Máximo de OS/mês</Label>
+              <Label htmlFor="saas-plan-orders">Máximo de ROLs/mês</Label>
               <Input id="saas-plan-orders" inputMode="numeric" type="number" min="1" value={planForm.maxOrdersPerMonth} onChange={(event) => updatePlanForm("maxOrdersPerMonth", event.target.value)} placeholder="Sem limite" />
             </div>
             <div className="space-y-2 md:col-span-2">
@@ -336,7 +336,7 @@ export function AdministracaoSaas() {
                 <div key={plan.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2"><p className="font-medium">{plan.name}</p><StatusBadge variant={plan.active ? "success" : "default"}>{plan.active ? "Disponível" : "Arquivado"}</StatusBadge></div>
-                    <p className="text-sm text-muted-foreground">{plan.code} · {plan.maxUsers ?? "Sem"} usuários · {plan.maxOrdersPerMonth ?? "Sem"} OS/mês</p>
+                    <p className="text-sm text-muted-foreground">{plan.code} · {plan.maxUsers ?? "Sem"} usuários · {plan.maxOrdersPerMonth ?? "Sem"} ROLs/mês</p>
                     {plan.description && <p className="text-sm text-muted-foreground">{plan.description}</p>}
                   </div>
                   <Button type="button" variant="outline" size="sm" onClick={() => setPlanForm(planToForm(plan))}>Editar</Button>

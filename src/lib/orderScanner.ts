@@ -27,7 +27,7 @@ export function normalizeOrderScanInput(value: string): string {
 
 export function buildOrderScanCode(orderNumber: string): string {
   const normalized = normalizeOrderScanInput(orderNumber);
-  if (!normalized) throw new Error("Número da OS inválido para etiqueta.");
+  if (!normalized) throw new Error("Número do ROL inválido para etiqueta.");
   return `${ORDER_SCAN_PREFIX}${normalized}`;
 }
 

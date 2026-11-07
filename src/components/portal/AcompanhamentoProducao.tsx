@@ -106,19 +106,19 @@ export function AcompanhamentoProducao({ ordens, isLoading }: AcompanhamentoProd
     <div className="space-y-4">
       <h3 className="font-semibold text-lg flex items-center gap-2">
         <Package className="h-5 w-5 text-primary" />
-        Acompanhe suas Ordens de Serviço
+        Acompanhe seus ROLs
       </h3>
 
       {ordensAtivas.length === 0 && ordensRecentes.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
             <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>Nenhuma ordem de serviço encontrada</p>
+            <p>Nenhum ROL encontrado</p>
           </CardContent>
         </Card>
       ) : (
         <>
-          {/* OS Ativas */}
+          {/* ROLs ativos */}
           {ordensAtivas.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground font-medium">
@@ -138,7 +138,7 @@ export function AcompanhamentoProducao({ ordens, isLoading }: AcompanhamentoProd
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-bold">OS #{os.numero}</span>
+                            <span className="font-bold">ROL #{os.numero}</span>
                             <Badge variant={statusBadge.variant} className={statusBadge.className}>
                               {statusBadge.label}
                             </Badge>
@@ -163,7 +163,7 @@ export function AcompanhamentoProducao({ ordens, isLoading }: AcompanhamentoProd
             </div>
           )}
 
-          {/* OS Recentes (entregues) */}
+          {/* ROLs recentes (entregues) */}
           {ordensRecentes.length > 0 && (
             <div className="space-y-2 mt-4">
               <p className="text-sm text-muted-foreground font-medium">
@@ -182,7 +182,7 @@ export function AcompanhamentoProducao({ ordens, isLoading }: AcompanhamentoProd
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span className="font-medium">OS #{os.numero}</span>
+                          <span className="font-medium">ROL #{os.numero}</span>
                           <span className="text-sm text-muted-foreground">
                             {totalPecas} peças
                           </span>

@@ -16,7 +16,7 @@ const ATALHOS = [
   { tecla: "F1", descricao: "Ajuda / Lista de atalhos", grupo: "Sistema" },
   { tecla: "F3", descricao: "Foco na busca de produtos", grupo: "Produtos" },
   { tecla: "F4", descricao: "Abrir pagamento", grupo: "Venda" },
-  { tecla: "F5", descricao: "Consultar OS", grupo: "Consulta" },
+  { tecla: "F5", descricao: "Consultar ROL", grupo: "Consulta" },
   { tecla: "F6", descricao: "Histórico de vendas do dia", grupo: "Consulta" },
   { tecla: "F7", descricao: "Sangria / Suprimento", grupo: "Caixa" },
   { tecla: "F8", descricao: "Limpar carrinho", grupo: "Venda" },

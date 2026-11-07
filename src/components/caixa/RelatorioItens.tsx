@@ -218,14 +218,14 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
     const csvRows: string[] = [];
     
     if (viewMode === "resumo") {
-      csvRows.push("Produto,Quantidade,Valor Total,Preço Médio,Qtd OS");
+      csvRows.push("Produto,Quantidade,Valor Total,Preço Médio,Qtd ROL");
       resumoPorProduto.forEach((item) => {
         csvRows.push(
           `"${item.produto_nome}",${item.quantidade},${item.valor_total.toFixed(2)},${item.preco_medio.toFixed(2)},${item.qtd_os}`
         );
       });
     } else {
-      csvRows.push("Data,OS,Cliente,Produto,Qtd,Valor,Cor,Marca,Avarias,Prateleira");
+      csvRows.push("Data,ROL,Cliente,Produto,Qtd,Valor,Cor,Marca,Avarias,Prateleira");
       itensFiltrados.forEach((item) => {
         csvRows.push(
           `${item.data},${item.os_numero},"${item.cliente_nome}","${item.produto_nome}",${item.quantidade},${item.subtotal.toFixed(2)},"${item.cor_item || ""}","${item.marca_item || ""}","${item.avarias || ""}","${item.posicao_prateleira || ""}"`
@@ -406,12 +406,12 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
                 <TableHead className="text-right">Quantidade</TableHead>
                 <TableHead className="text-right">Valor Total</TableHead>
                 <TableHead className="text-right">Preço Médio</TableHead>
-                <TableHead className="text-right">Qtd OS</TableHead>
+                <TableHead className="text-right">Qtd ROL</TableHead>
               </TableRow>
             ) : (
               <TableRow>
                 <TableHead>Data</TableHead>
-                <TableHead>OS</TableHead>
+                <TableHead>ROL</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Produto</TableHead>
                 <TableHead className="text-right">Qtd</TableHead>

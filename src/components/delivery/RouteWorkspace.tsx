@@ -304,7 +304,7 @@ function StopCard({ stop, routeStatus: currentRouteStatus, first, last, onMove, 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-black text-primary-foreground">{stop.ordem}</span><Badge variant="outline" className={cn("font-bold", status.className)}>{status.label}</Badge><Badge variant="outline">{stop.tipo === "retirada" ? "Retirada" : "Entrega"}</Badge>{stop.tentativas > 0 && <span className="text-xs font-bold text-red-600">{stop.tentativas} tentativa(s)</span>}</div>
-          <h4 className="mt-3 font-black">{customerName(stop)}{stop.ordem_servico && <span className="ml-2 font-medium text-muted-foreground">OS {stop.ordem_servico.numero}</span>}</h4>
+          <h4 className="mt-3 font-black">{customerName(stop)}{stop.ordem_servico && <span className="ml-2 font-medium text-muted-foreground">ROL {stop.ordem_servico.numero}</span>}</h4>
           <p className="mt-1 flex items-start gap-2 text-sm text-muted-foreground"><MapPin className="mt-0.5 h-4 w-4 shrink-0" />{addressText(stop.endereco_snapshot)}</p>
           {(stop.janela_inicio || stop.janela_fim) && <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="h-3.5 w-3.5" />Janela {timeText(stop.janela_inicio) || "—"}–{timeText(stop.janela_fim) || "—"}</p>}
           {stop.reagendada_para && <p className="mt-2 text-xs font-bold text-amber-700">Reagendada para {format(new Date(stop.reagendada_para), "dd/MM/yyyy HH:mm")}</p>}
@@ -359,7 +359,7 @@ function AddStopDialog({ open, onOpenChange, route, date }: { open: boolean; onO
       if (appointments.error) throw appointments.error;
       if (orders.error) throw orders.error;
       const appointmentOptions = (appointments.data || []).map((item) => ({ key: `appointment:${item.id}`, type: item.tipo as "retirada" | "entrega", label: `${item.tipo === "retirada" ? "Retirada" : "Entrega"} · ${item.cliente?.razao_social || "Cliente"}${item.horario ? ` · ${item.horario.slice(0, 5)}` : ""}`, customerId: item.cliente_id, appointmentId: item.id, orderId: null, suggestedTime: item.horario }));
-      const orderOptions = (orders.data || []).map((item) => ({ key: `order:${item.id}`, type: "entrega" as const, label: `Entrega · OS ${item.numero} · ${item.cliente?.razao_social || "Cliente"}`, customerId: item.cliente_id, appointmentId: null, orderId: item.id, suggestedTime: null }));
+      const orderOptions = (orders.data || []).map((item) => ({ key: `order:${item.id}`, type: "entrega" as const, label: `Entrega · ROL ${item.numero} · ${item.cliente?.razao_social || "Cliente"}`, customerId: item.cliente_id, appointmentId: null, orderId: item.id, suggestedTime: null }));
       return [...appointmentOptions, ...orderOptions] satisfies RouteCandidate[];
     },
     enabled: open && Boolean(session?.user.id && activeTenant?.id),

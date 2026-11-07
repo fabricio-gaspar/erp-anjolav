@@ -139,12 +139,12 @@ export function ImpressaoPosVendaModal({
             <CheckCircle className="w-10 h-10 text-success" />
           </div>
           <DialogTitle className="text-2xl text-center">
-            OS {osNumero} Criada!
+            ROL {osNumero} criado!
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Resumo da OS */}
+          {/* Resumo do ROL */}
           <div className="bg-muted/50 rounded-lg p-4 text-center">
             <p className="font-semibold text-lg">{clienteNome}</p>
             <div className="flex justify-center gap-4 mt-2 text-sm text-muted-foreground">

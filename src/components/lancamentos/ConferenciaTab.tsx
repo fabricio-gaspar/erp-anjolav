@@ -70,7 +70,7 @@ export function ConferenciaTab({ onUsarParaLancamento }: ConferenciaTabProps) {
         </Select>
         <div className="relative w-80">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar por cliente ou OS..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <Input placeholder="Buscar por cliente ou ROL..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
       </div>
 
@@ -82,14 +82,14 @@ export function ConferenciaTab({ onUsarParaLancamento }: ConferenciaTabProps) {
       </div>
 
       <Card className="overflow-hidden">
-        <div className="p-4 border-b flex items-center gap-2"><ClipboardList className="w-5 h-5 text-primary" /><h3 className="font-semibold">OS para Conferência</h3><Badge variant="secondary" className="ml-auto">{filteredConferencias.length} registros</Badge></div>
+        <div className="p-4 border-b flex items-center gap-2"><ClipboardList className="w-5 h-5 text-primary" /><h3 className="font-semibold">ROLs para conferência</h3><Badge variant="secondary" className="ml-auto">{filteredConferencias.length} registros</Badge></div>
         {isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="font-semibold">OS</TableHead>
+                <TableHead className="font-semibold">ROL</TableHead>
                 <TableHead className="font-semibold">CLIENTE</TableHead>
                 <TableHead className="font-semibold">RETIRADA</TableHead>
                 <TableHead className="font-semibold text-center">PEÇAS</TableHead>
@@ -101,7 +101,7 @@ export function ConferenciaTab({ onUsarParaLancamento }: ConferenciaTabProps) {
             </TableHeader>
             <TableBody>
               {filteredConferencias.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-12 text-muted-foreground">Nenhuma OS encontrada para conferência</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-12 text-muted-foreground">Nenhum ROL encontrado para conferência</TableCell></TableRow>
               ) : (
                 filteredConferencias.map(os => (
                   <TableRow key={os.id} className="hover:bg-muted/30">
