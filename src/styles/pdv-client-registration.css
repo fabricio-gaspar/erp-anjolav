@@ -648,6 +648,10 @@
     gap: 10px;
   }
 
+  .pdv-client-registration .pdv-client-form--cpf .pdv-client-form__contact > div:last-child {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .pdv-client-registration .pdv-client-form--cpf .pdv-client-field--phone { order: 1; }
   .pdv-client-registration .pdv-client-form--cpf .pdv-client-field--contact { order: 2; }
   .pdv-client-registration .pdv-client-form--cpf .pdv-client-field--email { order: 3; }

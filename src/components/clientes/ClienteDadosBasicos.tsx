@@ -776,24 +776,26 @@ export const ClienteDadosBasicos = ({
               disabled={isBusy}
             />
           </FormField>
-          <FormField
-            id="client-contact"
-            className="pdv-client-field--contact"
-            label="Contato ou responsável"
-            optional
-            error={errors.contact}
-          >
-            <Input
+          {tipoPessoa === "cnpj" && (
+            <FormField
               id="client-contact"
-              value={formData.contato}
-              placeholder="Nome de quem atende"
-              maxLength={160}
-              aria-invalid={Boolean(errors.contact)}
-              className="h-11"
-              onChange={(event) => handleChange("contato", event.target.value)}
-              disabled={isBusy}
-            />
-          </FormField>
+              className="pdv-client-field--contact"
+              label="Contato ou responsável"
+              optional
+              error={errors.contact}
+            >
+              <Input
+                id="client-contact"
+                value={formData.contato}
+                placeholder="Nome de quem atende"
+                maxLength={160}
+                aria-invalid={Boolean(errors.contact)}
+                className="h-11"
+                onChange={(event) => handleChange("contato", event.target.value)}
+                disabled={isBusy}
+              />
+            </FormField>
+          )}
         </div>
       </section>
 
@@ -951,7 +953,9 @@ export const ClienteDadosBasicos = ({
             </span>
             <span>
               <span className="block font-semibold text-foreground">
-                Detalhes fiscais e observações
+                {tipoPessoa === "cpf"
+                  ? "Detalhes adicionais"
+                  : "Detalhes fiscais e observações"}
               </span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 Preenchimento opcional
@@ -961,7 +965,9 @@ export const ClienteDadosBasicos = ({
           <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
         </summary>
         <div className="space-y-5 border-t p-4 sm:p-5">
-          <fieldset className="space-y-2">
+          {tipoPessoa === "cnpj" && (
+            <>
+              <fieldset className="space-y-2">
             <legend className="text-sm font-semibold text-foreground">
               Regime tributário
             </legend>
@@ -982,8 +988,8 @@ export const ClienteDadosBasicos = ({
                 </Button>
               ))}
             </div>
-          </fieldset>
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              </fieldset>
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             <FormField
               id="client-state-registration"
               label="Inscrição estadual"
@@ -1022,6 +1028,10 @@ export const ClienteDadosBasicos = ({
                 disabled={isBusy}
               />
             </FormField>
+              </div>
+            </>
+          )}
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             <FormField
               id="client-secondary-phone"
               label="Telefone alternativo"
