@@ -57,6 +57,14 @@ export function getCanonicalPdvPath(area: PdvArea): "/pdv/domestico" | "/pdv/ind
   return area === "residencial" ? "/pdv/domestico" : "/pdv/industrial";
 }
 
+/**
+ * Entrada da frente operacional. O painel preserva o pedido/caixa como uma
+ * ação do módulo, em vez de abrir diretamente uma venda ainda sem contexto.
+ */
+export function getPdvFrontPath(area: PdvArea): "/pdv/painel/domestico" | "/pdv/painel/industrial" {
+  return area === "residencial" ? "/pdv/painel/domestico" : "/pdv/painel/industrial";
+}
+
 export function isRouteAccessible(
   route: AppRouteDefinition | null | undefined,
   { accessibleAreas, modulePermissions, isAdmin, isPlatformAdmin = false }: RouteAccessContext,
@@ -124,14 +132,23 @@ export function resolveAccessiblePdvPath(access: RouteAccessContext): string | n
   return null;
 }
 
+export function resolveAccessiblePdvFrontPath(access: RouteAccessContext): string | null {
+  for (const area of ["residencial", "industrial"] as const) {
+    const route = getAppRoute(`/${area}/caixa`);
+    if (isRouteAccessible(route, access)) return getPdvFrontPath(area);
+  }
+
+  return null;
+}
+
 export function resolveDefaultAccessiblePath(access: RouteAccessContext): string | null {
   if (access.isAdmin || access.isPlatformAdmin) {
     const controlCenter = getWorkspaceRoute("central");
     if (isRouteAccessible(controlCenter, access)) return "/admin/visao-geral";
   }
 
-  const pdv = resolveAccessiblePdvPath(access);
-  if (pdv) return pdv;
+  const pdvFront = resolveAccessiblePdvFrontPath(access);
+  if (pdvFront) return pdvFront;
 
   return getFirstAccessibleRoute(access)?.path ?? null;
 }
@@ -141,8 +158,8 @@ export function resolveLegacyRouteRedirect(
   access: RouteAccessContext,
 ): string | null {
   if (redirect.from === "/pdv" || redirect.from === "/caixa") {
-    const pdv = resolveAccessiblePdvPath(access);
-    return pdv ? `${pdv}${redirect.search ?? ""}` : null;
+    const pdvFront = resolveAccessiblePdvFrontPath(access);
+    return pdvFront ? `${pdvFront}${redirect.search ?? ""}` : null;
   }
   const destination = resolvePreferredAccessibleRoute(getAppRoute(redirect.to), access);
   if (!destination) return null;

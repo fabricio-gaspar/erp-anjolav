@@ -14,10 +14,10 @@ const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefin
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
-  
+
   const getAreaFromPath = (path: string, search = ""): WorkspaceArea => {
-    if (path.startsWith("/industrial") || path.startsWith("/pdv/industrial")) return "industrial";
-    if (path.startsWith("/residencial") || path.startsWith("/pdv/residencial") || path.startsWith("/pdv/domestico")) return "residencial";
+    if (path.startsWith("/industrial") || path.startsWith("/pdv/industrial") || path.startsWith("/pdv/painel/industrial")) return "industrial";
+    if (path.startsWith("/residencial") || path.startsWith("/pdv/residencial") || path.startsWith("/pdv/domestico") || path.startsWith("/pdv/painel/domestico")) return "residencial";
     if (path === "/pdv" || path === "/pdv/painel") {
       const requestedOperation = new URLSearchParams(search).get("operacao");
       if (requestedOperation === "industrial") return "industrial";
@@ -31,7 +31,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return "central";
   };
 
-  const [activeArea, setActiveArea] = useState<WorkspaceArea>(() => 
+  const [activeArea, setActiveArea] = useState<WorkspaceArea>(() =>
     getAreaFromPath(location.pathname, location.search)
   );
 

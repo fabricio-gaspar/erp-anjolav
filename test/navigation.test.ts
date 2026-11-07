@@ -11,6 +11,7 @@ import {
 import {
   getRoutePermissionRequirement,
   isRouteAccessible,
+  resolveDefaultAccessiblePath,
   resolveDefaultAccessibleRoute,
   resolveFirstAccessibleRouteInArea,
   resolveLegacyRouteRedirect,
@@ -65,7 +66,7 @@ test("todo redirecionamento legado termina em uma rota autorizada", () => {
   }
 });
 
-test("alias legado de caixa escolhe apenas um PDV autorizado e usa a rota canônica", () => {
+test("alias legado de caixa escolhe apenas um PDV autorizado e abre a frente operacional", () => {
   const redirect = LEGACY_ROUTE_REDIRECTS.find(item => item.from === "/caixa");
   assert.ok(redirect);
   if (!redirect) return;
@@ -76,7 +77,7 @@ test("alias legado de caixa escolhe apenas um PDV autorizado e usa a rota canôn
         accessibleAreas: { central: true, [area]: true },
         modulePermissions: { dashboard: true, [moduleKey]: true },
         isAdmin: false,
-      }), area === "residencial" ? "/pdv/domestico" : "/pdv/industrial");
+      }), area === "residencial" ? "/pdv/painel/domestico" : "/pdv/painel/industrial");
     }
   }
   assert.equal(resolveLegacyRouteRedirect(redirect, {
@@ -88,8 +89,18 @@ test("alias legado de caixa escolhe apenas um PDV autorizado e usa a rota canôn
     accessibleAreas: { industrial: true, residencial: true },
     modulePermissions: { faturamento: true },
     isAdmin: false,
-  }), "/pdv/domestico");
+  }), "/pdv/painel/domestico");
   assert.equal(LEGACY_ROUTE_REDIRECTS.some(item => item.from === "/pdv"), false);
+});
+
+test("operador com caixa inicia no painel operacional antes do atendimento", () => {
+  const access: RouteAccessContext = {
+    accessibleAreas: { central: true, industrial: false, residencial: true },
+    modulePermissions: { dashboard: true, caixa: true },
+    isAdmin: false,
+  };
+
+  assert.equal(resolveDefaultAccessiblePath(access), "/pdv/painel/domestico");
 });
 
 test("cada rota do menu lateral pertence ao catálogo centralizado", () => {

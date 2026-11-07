@@ -32,6 +32,7 @@ const FluxoProducao = lazy(() => import("./pages/FluxoProducao"));
 const OrdensServico = lazy(() => import("./pages/OrdensServico"));
 const Agenda = lazy(() => import("./pages/Agenda"));
 const CaixaPDV = lazy(() => import("./pages/CaixaPDV"));
+const PdvModuleHub = lazy(() => import("./pages/PdvModuleHub"));
 const Lancamentos = lazy(() => import("./pages/Lancamentos"));
 const DashboardFinanceiro = lazy(() => import("./pages/DashboardFinanceiro"));
 const Contas = lazy(() => import("./pages/Contas"));
@@ -127,6 +128,11 @@ const ADMIN_ROUTE_COMPONENTS: Record<AdminRoutePath, LazyExoticComponent<Compone
 const PDV_ROUTES = [
   { area: "residencial", path: "/pdv/domestico" },
   { area: "industrial", path: "/pdv/industrial" },
+] as const;
+
+const PDV_FRONT_ROUTES = [
+  { area: "residencial", path: "/pdv/painel/domestico" },
+  { area: "industrial", path: "/pdv/painel/industrial" },
 ] as const;
 
 const PDV_OPERATIONAL_ROUTES = [
@@ -285,6 +291,33 @@ const App = () => (
                   )}
                 />
               ))}
+              {PDV_FRONT_ROUTES.map(({ area, path }) => (
+                <Route
+                  key={path}
+                  path={path}
+                  element={(
+                    <ProtectedRoute requiredArea={area} requiredModule={["caixa", "faturamento"]}>
+                      <PdvModuleHub operation={area} />
+                    </ProtectedRoute>
+                  )}
+                />
+              ))}
+              <Route
+                path="/pdv/painel"
+                element={(
+                  <ProtectedRoute>
+                    <WorkspaceRootRedirect />
+                  </ProtectedRoute>
+                )}
+              />
+              <Route
+                path="/pdv"
+                element={(
+                  <ProtectedRoute>
+                    <WorkspaceRootRedirect />
+                  </ProtectedRoute>
+                )}
+              />
               {PDV_OPERATIONAL_ROUTES.map(({ area, path, requiredModule, Page }) => (
                 <Route
                   key={path}

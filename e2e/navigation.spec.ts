@@ -37,14 +37,30 @@ test("painel administrativo mantém operação e período reproduzíveis pela UR
   await expect(page.getByRole("main")).toBeVisible();
 });
 
-test("operador com caixa entra diretamente no PDV da empresa", async ({ page }) => {
+test("operador com caixa entra na frente operacional antes de abrir a venda", async ({ page }) => {
   await prepareAuthenticatedWorkspace(page, {
     isAdmin: false,
     accessibleAreas: { central: true, industrial: false, residencial: true },
     modulePermissions: { dashboard: true, caixa: true },
   });
   await page.goto("/");
-  await page.waitForURL("**/pdv/domestico");
+  await page.waitForURL("**/pdv/painel/domestico");
+  await expect(page).toHaveURL(/\/pdv\/painel\/domestico$/);
+  await expect(page.getByTestId("pdv-front-office")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Abrir Balcão / PDV" })).toBeVisible();
+});
+
+test("frente operacional leva ao caixa sem expor administração", async ({ page }) => {
+  await prepareAuthenticatedWorkspace(page, {
+    isAdmin: false,
+    accessibleAreas: { central: false, industrial: false, residencial: true },
+    modulePermissions: { caixa: true, faturamento: true, clientes: true, agenda: true, ordens: true, producao: true, relatorios: true },
+  });
+  await page.goto("/pdv/painel/domestico");
+
+  await expect(page.getByRole("heading", { name: "Painel principal", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Abrir Administração" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Abrir Balcão / PDV" }).click();
   await expect(page).toHaveURL(/\/pdv\/domestico$/);
 });
 
@@ -52,7 +68,7 @@ test("subrotas operacionais mantêm a casca do PDV", async ({ page }) => {
   await prepareAuthenticatedWorkspace(page);
   await page.goto("/pdv/domestico/clientes");
 
-  await expect(page.getByText("Voltar ao atendimento", { exact: true })).toBeVisible();
+  await expect(page.getByText("Voltar ao painel principal", { exact: true })).toBeVisible();
   await expect(page.locator('[aria-label="AnjoLav"]')).toBeVisible();
   await expect(page.getByLabel("Contexto operacional")).toBeVisible();
 });
