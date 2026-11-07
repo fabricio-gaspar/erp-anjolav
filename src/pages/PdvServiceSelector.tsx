@@ -59,9 +59,12 @@ export default function PdvServiceSelector({ operation }: PdvServiceSelectorProp
         </button>
 
         <header className="pdv-service-selector__heading">
-          <span>Balcão / PDV</span>
-          <h1>Como deseja iniciar o atendimento?</h1>
-          <p>Escolha o tipo de operação. O atendente permanecerá no PDV durante todo o fluxo.</p>
+          <div>
+            <span className="pdv-service-selector__eyebrow">Balcão / PDV</span>
+            <h1>Como deseja iniciar o atendimento?</h1>
+            <p>Escolha o tipo de operação. O atendente permanecerá no PDV durante todo o fluxo.</p>
+          </div>
+          <span className="pdv-service-selector__context">Operação {operationLabel}</span>
         </header>
 
         <section className="pdv-service-selector__grid" aria-label="Tipos de atendimento">

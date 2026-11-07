@@ -1,151 +1,197 @@
 .pdv-service-selector {
-  min-height: calc(100vh - 96px);
-  padding: clamp(22px, 4vw, 56px);
-  color: #10233a;
+  --pdv-front-muted: #bbcad8;
+  min-height: calc(100vh - 76px);
+  padding: 22px clamp(16px, 2.1vw, 34px) 24px;
+  color: #f8fbff;
   background:
-    radial-gradient(circle at 16% 10%, rgba(38, 151, 232, 0.18), transparent 30%),
-    linear-gradient(145deg, #eef6fb 0%, #f8fbfd 52%, #e7f1f8 100%);
+    radial-gradient(circle at 12% 0%, rgb(24 102 157 / 14%), transparent 28%),
+    linear-gradient(135deg, #06223b 0%, #062b48 52%, #041e35 100%);
 }
 
 .pdv-service-selector__back {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 22px;
   border: 0;
   padding: 4px 0;
-  color: #31516f;
+  color: #d9ecfb;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 750;
 }
+
+.pdv-service-selector__back:hover { color: #fff; }
 
 .pdv-service-selector__heading {
-  max-width: 760px;
-  margin: clamp(34px, 6vh, 72px) auto 36px;
-  text-align: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 18px;
+  text-align: left;
 }
 
-.pdv-service-selector__heading > span {
+.pdv-service-selector__eyebrow {
   display: inline-flex;
-  border-radius: 999px;
-  background: #d9effd;
-  padding: 7px 14px;
-  color: #0875bd;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: .09em;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid rgb(168 211 240 / 32%);
+  border-radius: 4px;
+  padding: 0 10px;
+  color: #d9efff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
   text-transform: uppercase;
 }
 
 .pdv-service-selector__heading h1 {
-  margin: 16px 0 8px;
-  color: #08243f;
-  font-size: clamp(30px, 4vw, 48px);
-  font-weight: 950;
+  margin: 12px 0 5px;
+  color: #fff;
+  font-size: clamp(24px, 2vw, 34px);
+  font-weight: 800;
   letter-spacing: -.045em;
+  line-height: 1.05;
 }
 
 .pdv-service-selector__heading p {
-  color: #577089;
-  font-size: clamp(14px, 1.7vw, 18px);
+  margin: 0;
+  color: var(--pdv-front-muted);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.pdv-service-selector__context {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid rgb(168 211 240 / 32%);
+  border-radius: 4px;
+  padding: 0 10px;
+  color: #d9efff;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .pdv-service-selector__grid {
   display: grid;
   max-width: 1160px;
   margin: 0 auto;
-  gap: 20px;
+  gap: 8px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .pdv-service-card {
   position: relative;
   display: flex;
-  min-height: 280px;
+  min-height: 210px;
   flex-direction: column;
   align-items: flex-start;
   overflow: hidden;
-  border: 1px solid rgba(119, 153, 183, .34);
-  border-radius: 20px;
-  padding: 28px;
+  border: 1px solid rgb(255 255 255 / 17%);
+  border-radius: 2px;
+  padding: 16px 17px 15px;
+  color: #fff;
   text-align: left;
-  background: rgba(255, 255, 255, .96);
-  box-shadow: 0 18px 50px rgba(24, 61, 91, .10);
-  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  background: var(--service-color);
+  box-shadow: inset 0 1px rgb(255 255 255 / 10%), 0 5px 16px rgb(0 14 28 / 18%);
+  transition: filter 150ms ease, transform 150ms ease, box-shadow 150ms ease;
 }
 
 .pdv-service-card::after {
   position: absolute;
-  inset: auto -50px -70px auto;
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  background: var(--service-soft);
+  inset: auto -42px -50px auto;
+  width: 136px;
+  height: 136px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 7%);
   content: "";
 }
 
 .pdv-service-card:hover {
-  transform: translateY(-4px);
-  border-color: var(--service-color);
-  box-shadow: 0 24px 60px rgba(24, 61, 91, .17);
+  z-index: 1;
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px rgb(255 255 255 / 14%), 0 11px 22px rgb(0 14 28 / 30%);
 }
 
-.pdv-service-card--blue { --service-color: #087ed0; --service-soft: rgba(8, 126, 208, .14); }
-.pdv-service-card--teal { --service-color: #059b9b; --service-soft: rgba(5, 155, 155, .14); }
-.pdv-service-card--violet { --service-color: #7c4bb2; --service-soft: rgba(124, 75, 178, .14); }
+.pdv-service-card:focus-visible {
+  outline: 3px solid #e5f4ff;
+  outline-offset: 2px;
+}
+
+.pdv-service-card--blue { --service-color: #0b87dd; }
+.pdv-service-card--teal { --service-color: #079ca8; }
+.pdv-service-card--violet { --service-color: #7140af; }
 
 .pdv-service-card__icon {
+  position: relative;
+  z-index: 1;
   display: grid;
-  width: 64px;
-  height: 64px;
+  width: 38px;
+  height: 38px;
   place-items: center;
-  border-radius: 16px;
-  color: white;
-  background: var(--service-color);
-  box-shadow: 0 12px 25px color-mix(in srgb, var(--service-color) 32%, transparent);
+  border-radius: 4px;
+  color: #fff;
+  background: rgb(255 255 255 / 13%);
 }
 
-.pdv-service-card__icon svg { width: 30px; height: 30px; }
+.pdv-service-card__icon svg { width: 26px; height: 26px; }
 
 .pdv-service-card__copy {
+  position: relative;
+  z-index: 1;
   display: flex;
+  min-width: 0;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   margin-top: 22px;
 }
 
 .pdv-service-card__copy small {
-  color: var(--service-color);
-  font-size: 11px;
-  font-weight: 900;
+  color: rgb(255 255 255 / 84%);
+  font-size: 10px;
+  font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
 
 .pdv-service-card__copy strong {
-  color: #0a2038;
-  font-size: 28px;
-  font-weight: 950;
-  letter-spacing: -.03em;
+  color: #fff;
+  font-size: clamp(22px, 2vw, 29px);
+  font-weight: 800;
+  letter-spacing: -.045em;
+  line-height: .98;
 }
 
 .pdv-service-card__copy span {
-  color: #63768a;
-  font-size: 14px;
-  line-height: 1.55;
+  max-width: 32ch;
+  color: rgb(255 255 255 / 87%);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .pdv-service-card__action {
+  position: relative;
   z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-top: auto;
-  color: var(--service-color);
-  font-size: 13px;
-  font-weight: 900;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 @media (max-width: 900px) {
   .pdv-service-selector__grid { grid-template-columns: 1fr; }
-  .pdv-service-card { min-height: 220px; }
+  .pdv-service-card { min-height: 156px; }
+}
+
+@media (max-width: 560px) {
+  .pdv-service-selector { padding: 18px 13px 20px; }
+  .pdv-service-selector__context { display: none; }
+  .pdv-service-selector__heading h1 { font-size: 28px; }
+  .pdv-service-card { min-height: 150px; }
 }
