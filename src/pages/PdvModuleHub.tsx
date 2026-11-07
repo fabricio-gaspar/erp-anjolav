@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   BarChart3,
-  ClipboardList,
   FileText,
   Landmark,
   Package,
@@ -73,6 +72,8 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
   const canUsePdv = canAccessRoute(`/${operation}/caixa`);
   const canUseOrders = canAccessRoute(`/${operation}/ordens`);
   const canUseClients = canAccessRoute(`/${operation}/clientes`);
+  const productsPath = operation === "industrial" ? "/industrial/produtos" : "/residencial/produtos";
+  const canUseProducts = canAccessRoute(productsPath);
   const canUseProduction = canAccessRoute(`/${operation}/producao`);
   const canUseAgenda = canAccessRoute(`/${operation}/agenda`);
   const canUseFinance = canAccessRoute(`/${operation}/lancamentos`);
@@ -93,12 +94,12 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
       actionLabel: "Novo atendimento",
     },
     {
-      id: "recepcao",
-      title: "Recepção",
-      description: "Entrada · Leitura · Conferência",
-      icon: ClipboardList,
+      id: "produtos",
+      title: "Produtos e serviços",
+      description: "Cadastro de produtos e serviços",
+      icon: Package,
       tone: "teal",
-      path: canUseOrders ? operationalPath("ordens?novo=1") : null,
+      path: canUseProducts ? productsPath : null,
     },
     {
       id: "cadastros",
@@ -127,8 +128,8 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
     },
     {
       id: "logistica",
-      title: "Entregas e coletas",
-      description: "Rotas · Agendamentos",
+      title: "Agenda, coletas e rotas",
+      description: "Agendamentos · Coletas · Rotas",
       icon: Truck,
       tone: "cyan",
       path: canUseAgenda ? operationalPath("agenda?view=rotas") : null,
@@ -171,9 +172,11 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
     canUseFinance,
     canUseOrders,
     canUsePdv,
+    canUseProducts,
     canUseProduction,
     canUseReports,
     operation,
+    productsPath,
     reportPath,
   ]);
 
