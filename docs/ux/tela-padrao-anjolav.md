@@ -17,7 +17,7 @@ Acesse, após integrar a branch, `/admin/biblioteca-visual` com um usuário admi
 - `StandardMetric`: KPI de título, valor e indicador de estado;
 - `StandardField`: rótulo acessível, campo, obrigatoriedade e texto auxiliar.
 
-A tela `src/pages/BibliotecaVisual.tsx` demonstra o uso dos componentes, filtros, tabela responsiva, formulário, badges e modal.
+A tela `src/pages/BibliotecaVisual.tsx` demonstra o uso dos componentes, filtros, tabela responsiva, formulário, badges e modal. `StandardOperationalScreen` reaproveita o `PdvLayout`, e `StandardSplit` fornece a estrutura lista + painel contextual próxima da proporção 70/30.
 
 ### Princípios
 
@@ -52,3 +52,11 @@ npm run lint
 npm test
 npm run build
 ```
+
+## Compatibilidade com a biblioteca visual local de 36 telas
+
+A cópia local do projeto no Mac contém `docs/ux/anjolav-36-telas/`, incluindo imagens 01–36 e o documento `MAPA_DE_APLICACAO.md`. A referência **04 — Consulta de clientes** orientou o padrão de lista + resumo lateral; **02 — Painel principal** usa blocos/tiles sobre fundo azul-marinho; **09 — Balcão/PDV** usa área de atendimento ampla e painel lateral de entrega/capacidade. Essas imagens estão no working tree local e **não foram enviadas nem alteradas por esta branch**.
+
+De acordo com o mapa local, a Central/Administrativo existente deve ser **preservada**. Portanto, a biblioteca é uma página nova, acessível somente a administradores autorizados, e o `StandardOperationalScreen` respeita o shell operacional existente. A padronização visual de telas de produção/PDV deverá ser implementada posteriormente usando as imagens locais, sem substituí-las por modelos genéricos.
+
+Importante: a branch GitHub `main` usada aqui contém erros de sintaxe preexistentes em `src/integrations/supabase/types.ts` e `src/pages/CaixaPDV.tsx`, que impedem o typecheck global. Eles não são causados por esta biblioteca e devem ser corrigidos em trabalho próprio, com conferência das alterações locais mais recentes.
