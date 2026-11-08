@@ -54,6 +54,7 @@ const RelatorioKilometragem = lazy(() => import("./pages/RelatorioKilometragem")
 const RelatorioMensal = lazy(() => import("./pages/RelatorioMensal"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
 const AdministracaoSaas = lazy(() => import("./pages/AdministracaoSaas"));
+const BibliotecaVisual = lazy(() => import("./pages/BibliotecaVisual"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -122,6 +123,7 @@ const ADMIN_ROUTE_COMPONENTS: Record<AdminRoutePath, LazyExoticComponent<Compone
   "/admin/estoque": Estoque,
   "/admin/relatorios": RelatorioMensal,
   "/admin/configuracoes": Configuracoes,
+  "/admin/biblioteca-visual": BibliotecaVisual,
   "/admin/auditoria": Auditoria,
   "/admin/plataforma": AdministracaoSaas,
 };
