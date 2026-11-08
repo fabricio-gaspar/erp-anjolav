@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 
 import { StandardField, StandardMetric, StandardPanel, StandardScreen, StandardSplit } from "@/components/design-system/StandardScreen";
+import { ClientsWorkScreen } from "@/components/design-system/ClientsWorkScreen";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,7 +60,7 @@ function TokenSample({ name, cssVariable, swatch }: { name: string; cssVariable:
 }
 
 export default function BibliotecaVisual() {
-  const [tab, setTab] = useState("lista");
+  const [tab, setTab] = useState("operacional");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [selected, setSelected] = useState<DemoRow | null>(null);
@@ -105,11 +106,16 @@ export default function BibliotecaVisual() {
       <Tabs value={tab} onValueChange={setTab} className="w-full min-w-0">
         <div className="scrollbar-hide overflow-x-auto pb-1">
           <TabsList className="min-w-max">
+            <TabsTrigger value="operacional">Modelo de tela interna</TabsTrigger>
             <TabsTrigger value="lista">Lista e atendimento</TabsTrigger>
             <TabsTrigger value="formulario">Formulário padrão</TabsTrigger>
             <TabsTrigger value="componentes">Componentes e cores</TabsTrigger>
           </TabsList>
         </div>
+
+        <TabsContent value="operacional" className="space-y-4">
+          <ClientsWorkScreen />
+        </TabsContent>
 
         <TabsContent value="lista" className="space-y-5">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
