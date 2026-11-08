@@ -4,7 +4,7 @@ import {
   Layers3, PackageCheck, Search, SlidersHorizontal, Users, X,
 } from "lucide-react";
 
-import { StandardField, StandardMetric, StandardPanel, StandardScreen } from "@/components/design-system/StandardScreen";
+import { StandardField, StandardMetric, StandardPanel, StandardScreen, StandardSplit } from "@/components/design-system/StandardScreen";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +63,7 @@ export default function BibliotecaVisual() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [selected, setSelected] = useState<DemoRow | null>(null);
+  const [focused, setFocused] = useState<DemoRow>(DEMO_ROWS[0]);
   const [form, setForm] = useState({ cliente: "", tipo: "residencial", entrega: "", observacao: "" });
   const [simulated, setSimulated] = useState(false);
 
@@ -118,7 +119,9 @@ export default function BibliotecaVisual() {
             <StandardMetric label="Clientes de exemplo" value="04" hint="Nenhum cliente real" icon={Users} />
           </div>
 
-          <StandardPanel
+          <StandardSplit
+            primary={
+              <StandardPanel
             title="Lista de atendimento"
             description="Filtro, tabela, status e ação na mesma área visual."
             actions={<Button type="button" variant="outline" size="sm" onClick={() => setTab("formulario")}><FilePlus2 className="h-4 w-4" /> Novo exemplo</Button>}
@@ -175,7 +178,7 @@ export default function BibliotecaVisual() {
                     <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{row.total}</TableCell>
                     <TableCell><StatusBadge status={row.status} /></TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setSelected(row)}>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => { setFocused(row); setSelected(row); }}>
                         <span className="hidden sm:inline">Visualizar</span><ArrowRight className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -194,7 +197,49 @@ export default function BibliotecaVisual() {
               </TableBody>
             </Table>
             <p className="mt-3 text-xs text-muted-foreground">Mostrando {filtered.length} de {DEMO_ROWS.length} exemplos fictícios.</p>
-          </StandardPanel>
+              </StandardPanel>
+            }
+            aside={
+              <StandardPanel title="Resumo selecionado" description="Painel contextual próximo à tabela.">
+                <div className="space-y-4">
+                  <div className="rounded-lg bg-primary/5 p-3">
+                    <p className="text-xs font-bold text-muted-foreground">ROL ativo · exemplo</p>
+                    <p className="mt-1 text-lg font-bold text-foreground">{focused.id}</p>
+                    <p className="mt-1 text-sm font-semibold">{focused.cliente}</p>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-muted-foreground">Situação</span>
+                      <StatusBadge status={focused.status} />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground">Peças</span>
+                      <strong className="tabular-nums">{focused.pecas}</strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground">Entrega</span>
+                      <strong>{focused.entrega}</strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+                      <span className="font-semibold">Total</span>
+                      <strong className="text-lg tabular-nums">{focused.total}</strong>
+                    </div>
+                  </div>
+                  <div className="space-y-2 border-t border-border pt-4">
+                    <Button type="button" className="w-full" onClick={() => setSelected(focused)}>
+                      Visualizar exemplo <ArrowRight className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="outline" className="w-full" onClick={() => setTab("formulario")}>
+                      Novo exemplo
+                    </Button>
+                    <Button type="button" variant="outline" className="w-full" onClick={() => setTab("componentes")}>
+                      Biblioteca de componentes
+                    </Button>
+                  </div>
+                </div>
+              </StandardPanel>
+            }
+          />
         </TabsContent>
 
         <TabsContent value="formulario" className="space-y-5">
