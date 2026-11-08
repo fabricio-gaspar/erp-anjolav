@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PdvLayout } from "@/components/layout/PdvLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -120,6 +121,51 @@ export function StandardField({
       </Label>
       {children}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+/**
+ * The operational counterpart shares the same panels/fields but NEVER adds
+ * an administrative sidebar to the shop floor. PdvLayout owns its top bar.
+ */
+export function StandardOperationalScreen({
+  eyebrow,
+  title,
+  description,
+  actions,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <PdvLayout title={title} subtitle={description}>
+      <div className="page-shell mx-auto max-w-[1800px]">
+        <PageHeader eyebrow={eyebrow} title={title} description={description} actions={actions} />
+        {children}
+      </div>
+    </PdvLayout>
+  );
+}
+
+/** The 70/30 master/detail rhythm used by operational screens (e.g. clients). */
+export function StandardSplit({
+  primary,
+  aside,
+  className,
+}: {
+  primary: ReactNode;
+  aside: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("grid min-w-0 grid-cols-1 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_300px]", className)}>
+      <div className="min-w-0">{primary}</div>
+      <aside className="min-w-0" aria-label="Painel contextual">{aside}</aside>
     </div>
   );
 }
