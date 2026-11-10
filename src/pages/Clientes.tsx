@@ -56,6 +56,8 @@ import {
 import { cn } from "@/lib/utils";
 import "@/styles/pdv-client-registration.css";
 
+const EMPTY_CLIENTES: Cliente[] = [];
+
 const Clientes = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,7 +90,7 @@ const Clientes = () => {
     status: statusFilter,
   });
   const { data: selectedCliente } = useClienteById(selectedClienteId);
-  const clientes = directory?.clientes ?? [];
+  const clientes = directory?.clientes ?? EMPTY_CLIENTES;
   const totalClientes = directory?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalClientes / CLIENT_DIRECTORY_PAGE_SIZE));
   const firstVisible = totalClientes === 0 ? 0 : (page - 1) * CLIENT_DIRECTORY_PAGE_SIZE + 1;
@@ -141,33 +143,29 @@ const Clientes = () => {
 
   const handleBackToList = () => {
     setActiveTab("lista");
-    setSelectedClienteId(clientes[0]?.id ?? null);
+    setSelectedClienteId(null);
   };
 
   const getUnidadeNegocioBadge = (classificacao: string) => {
     return classificacao === "industrial" ? "ID1" : "ID2";
   };
 
-  const areaLabel = activeArea === "residencial" ? "Doméstico" : "Industrial";
-  const operationLabel = activeArea === "residencial" ? "OPERAÇÃO DOMÉSTICA" : "OPERAÇÃO INDUSTRIAL";
-  const pageTitle = `Clientes ${areaLabel}`;
+  const areaLabel = activeArea === "residencial" ? "Doméstico" : activeArea === "industrial" ? "Industrial" : "Todas as operações";
+  const operationLabel = activeArea === "central" ? "CADASTROS DA EMPRESA" : `OPERAÇÃO ${areaLabel.toLocaleUpperCase("pt-BR")}`;
+  const pageTitle = activeArea === "central" ? "Clientes" : `Clientes ${areaLabel}`;
   const pageSubtitle = "AnjoLav";
   const isPdvClientWorkspace = location.pathname.startsWith("/pdv/");
   const pdvOperation = activeArea === "industrial" ? "industrial" : "residencial";
   const isNewClient = activeTab === "dados" && !selectedClienteId;
   const pdvTitle = isNewClient ? "Cadastro de cliente" : activeTab === "lista" ? "Consulta de clientes" : "Cadastro de cliente";
   const pdvBreadcrumb = isNewClient ? "Clientes  ›  Novo cadastro" : selectedCliente ? `Clientes  ›  ${selectedCliente.razao_social}` : "Clientes";
-  const selectedClientIndex = selectedClienteId ? clientes.findIndex((cliente) => cliente.id === selectedClienteId) : -1;
-  const selectedClientCode = selectedClientIndex >= 0
-    ? String((page - 1) * CLIENT_DIRECTORY_PAGE_SIZE + selectedClientIndex + 1).padStart(4, "0")
-    : "—";
-
   useEffect(() => {
-    if (!isPdvClientWorkspace || activeTab !== "lista" || selectedClienteId || isLoading || clientes.length === 0) return;
+    if (!isPdvClientWorkspace || activeTab !== "lista" || selectedClienteId || isLoading || isFetching || searchTerm !== deferredSearchTerm || clientes.length === 0) return;
     setSelectedClienteId(clientes[0].id);
-  }, [activeTab, clientes, isLoading, isPdvClientWorkspace, selectedClienteId]);
+  }, [activeTab, clientes, deferredSearchTerm, isFetching, isLoading, isPdvClientWorkspace, searchTerm, selectedClienteId]);
 
   const updateDirectoryParams = (updates: { query?: string; status?: ClientDirectoryStatus; page?: number }) => {
+    setSelectedClienteId(null);
     const next = new URLSearchParams(searchParams);
     if (updates.query !== undefined) {
       if (updates.query.trim()) next.set("q", updates.query);
@@ -212,7 +210,7 @@ const Clientes = () => {
           <PageHeader
           eyebrow={operationLabel}
           title={pageTitle}
-          description={`Cadastros exclusivos da operação ${areaLabel.toLowerCase()}`}
+          description={activeArea === "central" ? "Clientes da empresa nas operações doméstica e industrial" : `Clientes da operação ${areaLabel.toLowerCase()}`}
           actions={activeTab === "lista" ? (
             <Button
               onClick={handleNovoCliente}
@@ -370,7 +368,7 @@ const Clientes = () => {
                 <Table className={cn(isPdvClientWorkspace && "pdv-client-table")}>
                   <TableHeader>
                     <TableRow className="bg-slate-50 border-y border-slate-200/60">
-                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em]">{isPdvClientWorkspace ? "Código" : "ID"}</TableHead>
+                      <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em]">Operação</TableHead>
                       <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em]">NOME / RAZÃO SOCIAL</TableHead>
                       <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] hidden sm:table-cell">{isPdvClientWorkspace ? "TIPO" : "CPF/CNPJ"}</TableHead>
                       <TableHead className="font-black text-[11px] text-slate-500 py-2.5 px-3 uppercase tracking-[0.1em] hidden md:table-cell">{isPdvClientWorkspace ? "CONTATO" : "TELEFONE"}</TableHead>
@@ -379,11 +377,11 @@ const Clientes = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {clientes.map((cliente, index) => (
+                    {clientes.map((cliente) => (
                       <TableRow key={cliente.id} className={cn("hover:bg-slate-50/50 border-b border-slate-100 transition-colors", isPdvClientWorkspace && selectedClienteId === cliente.id && "pdv-client-table-row--selected")}>
                         <TableCell className="py-3 px-3">
                           <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tight", isPdvClientWorkspace ? "pdv-client-code" : "bg-amber-50 text-amber-700 border border-amber-100/50")}>
-                            {isPdvClientWorkspace ? String((page - 1) * CLIENT_DIRECTORY_PAGE_SIZE + index + 1).padStart(4, "0") : getUnidadeNegocioBadge(cliente.classificacao)}
+                            {getUnidadeNegocioBadge(cliente.classificacao)}
                           </span>
                         </TableCell>
                         <TableCell className="py-3 px-3">
@@ -508,7 +506,7 @@ const Clientes = () => {
                       <User className="h-11 w-11" aria-hidden="true" />
                       <div>
                         <h3>{selectedCliente.razao_social}</h3>
-                        <p>Código: {selectedClientCode}</p>
+                        <p>Operação: {selectedCliente.classificacao === "industrial" ? "Industrial" : "Doméstico"}</p>
                         <span className="pdv-client-type-badge">{selectedCliente.tipo_pessoa === "cnpj" ? "PJ" : "PF"}</span>
                       </div>
                     </div>
@@ -528,7 +526,7 @@ const Clientes = () => {
                     </div>
                     <div className="pdv-client-summary-actions">
                       <Button type="button" className="bg-[#087ed0] font-bold hover:bg-[#0569ad]" onClick={() => setActiveTab("dados")}><Pencil className="h-4 w-4" />Abrir cadastro</Button>
-                      <Button type="button" variant="outline" onClick={() => navigate(`/pdv/${pdvOperation}/rol`)}><Plus className="h-4 w-4" />Novo rol</Button>
+                      <Button type="button" variant="outline" disabled={!selectedCliente.ativo} onClick={() => navigate(`/pdv/${pdvOperation}/rol?cliente=${encodeURIComponent(selectedCliente.id)}`)}><Plus className="h-4 w-4" />Novo rol</Button>
                       <Button type="button" variant="outline" onClick={() => setActiveTab("resumo")}><History className="h-4 w-4" />Histórico</Button>
                     </div>
                   </>

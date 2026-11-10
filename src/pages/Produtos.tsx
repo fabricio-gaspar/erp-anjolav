@@ -19,7 +19,7 @@ import { ProdutoForm, ProdutoFormData } from "@/components/produtos/ProdutoForm"
 import { ProdutoStats } from "@/components/produtos/ProdutoStats";
 import { useSearchParams } from "react-router-dom";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { getAllowedProductUnits } from "@/lib/workspaceScope";
+import { getAllowedProductUnits, type BusinessArea } from "@/lib/workspaceScope";
 import {
   buildProductDirectoryCsv,
   normalizeProductDirectoryLetter,
@@ -58,6 +58,11 @@ const defaultFormData: ProdutoFormData = {
   instrucoes_especiais: "",
 };
 
+const getNewProductDefaults = (area: BusinessArea): ProdutoFormData => ({
+  ...defaultFormData,
+  unidade_negocio: area === "industrial" ? "ID1" : area === "residencial" ? "ID2" : "ambos",
+});
+
 const getUnitLabel = (unit: string | null | undefined) => {
   if (unit === "kg") return "kg";
   if (unit === "metro") return "metro";
@@ -78,7 +83,7 @@ const Produtos = () => {
   const selectedCategoria = CATEGORIAS.some(category => category.value === requestedCategory)
     ? requestedCategory as string
     : "all";
-  const requestedBusinessUnit = searchParams.get("unidade");
+  const requestedBusinessUnit = searchParams.get("unidade_negocio");
   const validBusinessUnits = ["ID1", "ID2", "ambos"];
   const selectedUnidadeNegocio = requestedBusinessUnit && validBusinessUnits.includes(requestedBusinessUnit) &&
     (availableBusinessUnits === null || availableBusinessUnits.includes(requestedBusinessUnit))
@@ -111,22 +116,22 @@ const Produtos = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [editingProduto, setEditingProduto] = useState<Produto | null>(null);
-  const [formData, setFormData] = useState<ProdutoFormData>(defaultFormData);
+  const [formData, setFormData] = useState<ProdutoFormData>(() => getNewProductDefaults(activeArea));
   const [produtoToArchive, setProdutoToArchive] = useState<Produto | null>(null);
 
   useEffect(() => {
     const openNewProduct = searchParams.get("novo") === "1";
     if (!openNewProduct) return;
     setEditingProduto(null);
-    setFormData(defaultFormData);
+    setFormData(getNewProductDefaults(activeArea));
     setShowForm(true);
     const next = new URLSearchParams(searchParams);
     next.delete("novo");
     setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [activeArea, searchParams, setSearchParams]);
 
   const resetForm = () => {
-    setFormData(defaultFormData);
+    setFormData(getNewProductDefaults(activeArea));
     setEditingProduto(null);
     setShowForm(false);
   };
@@ -138,6 +143,14 @@ const Produtos = () => {
   const handleSubmit = () => {
     if (!formData.nome.trim()) {
       toast.error("Nome do produto é obrigatório");
+      return;
+    }
+    if (!Number.isFinite(formData.preco) || formData.preco < 0) {
+      toast.error("Informe um preço válido, maior ou igual a zero");
+      return;
+    }
+    if (availableBusinessUnits && !availableBusinessUnits.includes(formData.unidade_negocio)) {
+      toast.error("Escolha uma operação permitida neste painel");
       return;
     }
 
@@ -287,8 +300,8 @@ const Produtos = () => {
       else next.set("categoria", updates.category);
     }
     if (updates.businessUnit !== undefined) {
-      if (updates.businessUnit === "all") next.delete("unidade");
-      else next.set("unidade", updates.businessUnit);
+      if (updates.businessUnit === "all") next.delete("unidade_negocio");
+      else next.set("unidade_negocio", updates.businessUnit);
     }
     if (updates.status !== undefined) {
       if (updates.status === "all") next.delete("situacao");
@@ -371,6 +384,7 @@ const Produtos = () => {
                   onCancel={resetForm}
                   isEditing={!!editingProduto}
                   isSaving={isSaving}
+                  availableBusinessUnits={availableBusinessUnits}
                 />
               </section>
             )}

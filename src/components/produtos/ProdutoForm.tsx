@@ -41,6 +41,7 @@ interface ProdutoFormProps {
   onCancel: () => void;
   isEditing: boolean;
   isSaving: boolean;
+  availableBusinessUnits: readonly string[] | null;
 }
 
 export function ProdutoForm({
@@ -50,6 +51,7 @@ export function ProdutoForm({
   onCancel,
   isEditing,
   isSaving,
+  availableBusinessUnits,
 }: ProdutoFormProps) {
   return (
     <div className="mt-4 space-y-6">
@@ -58,8 +60,9 @@ export function ProdutoForm({
         <h4 className="text-sm font-medium text-muted-foreground border-b pb-1">Identificação</h4>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
-            <Label className="text-xs text-muted-foreground">Código/SKU</Label>
+            <Label htmlFor="product-code" className="text-xs text-muted-foreground">Código/SKU</Label>
             <Input
+              id="product-code"
               className="mt-1 font-mono"
               placeholder="EX: LAV001"
               value={formData.codigo}
@@ -68,8 +71,9 @@ export function ProdutoForm({
           </div>
 
           <div className="md:col-span-2">
-            <Label className="text-xs text-muted-foreground">Nome do Serviço/Produto *</Label>
+            <Label htmlFor="product-name" className="text-xs text-muted-foreground">Nome do Serviço/Produto *</Label>
             <Input
+              id="product-name"
               className="mt-1"
               placeholder="EX: LENÇOL SOLTEIRO"
               value={formData.nome}
@@ -78,9 +82,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Categoria</Label>
+            <Label htmlFor="product-category" className="text-xs text-muted-foreground">Categoria</Label>
             <Select value={formData.categoria} onValueChange={(v) => onChange({ categoria: v })}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="product-category" className="mt-1">
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -94,9 +98,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Label htmlFor="product-status" className="text-xs text-muted-foreground">Status</Label>
             <Select value={formData.status} onValueChange={(v) => onChange({ status: v })}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="product-status" className="mt-1">
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -113,28 +117,28 @@ export function ProdutoForm({
         <h4 className="text-sm font-medium text-muted-foreground border-b pb-1">Precificação</h4>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <Label className="text-xs text-muted-foreground">Unidade de Negócio</Label>
+            <Label htmlFor="product-business-unit" className="text-xs text-muted-foreground">Unidade de Negócio</Label>
             <Select value={formData.unidade_negocio} onValueChange={(v) => onChange({ unidade_negocio: v })}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="product-business-unit" className="mt-1">
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ambos">Ambos (ID1+ID2)</SelectItem>
-                <SelectItem value="ID1">Industrial (ID1)</SelectItem>
-                <SelectItem value="ID2">Doméstico (ID2)</SelectItem>
+                {(availableBusinessUnits === null || availableBusinessUnits.includes("ambos")) && <SelectItem value="ambos">Ambos (ID1+ID2)</SelectItem>}
+                {(availableBusinessUnits === null || availableBusinessUnits.includes("ID1")) && <SelectItem value="ID1">Industrial (ID1)</SelectItem>}
+                {(availableBusinessUnits === null || availableBusinessUnits.includes("ID2")) && <SelectItem value="ID2">Doméstico (ID2)</SelectItem>}
               </SelectContent>
             </Select>
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Porte</Label>
+            <Label htmlFor="product-size" className="text-xs text-muted-foreground">Porte</Label>
             <Select
               value={formData.porte || "nao_informado"}
               onValueChange={(v) => onChange({
                 porte: v === "pequeno" || v === "medio" || v === "grande" ? v : "",
               })}
             >
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="product-size" className="mt-1">
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -147,9 +151,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Unidade de Cobrança</Label>
+            <Label htmlFor="product-charge-unit" className="text-xs text-muted-foreground">Unidade de Cobrança</Label>
             <Select value={formData.unidade} onValueChange={(v) => onChange({ unidade: v })}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="product-charge-unit" className="mt-1">
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -162,8 +166,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Preço Padrão</Label>
+            <Label htmlFor="product-price" className="text-xs text-muted-foreground">Preço Padrão</Label>
             <CurrencyInput
+              id="product-price"
               className="mt-1"
               value={formData.preco}
               onValueChange={(num) => onChange({ preco: num })}
@@ -171,8 +176,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Peso Médio (Kg)</Label>
+            <Label htmlFor="product-weight" className="text-xs text-muted-foreground">Peso Médio (Kg)</Label>
             <Input
+              id="product-weight"
               className="mt-1"
               type="number"
               step="0.01"
@@ -190,9 +196,9 @@ export function ProdutoForm({
         <h4 className="text-sm font-medium text-muted-foreground border-b pb-1">Processo de Lavagem</h4>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <div>
-            <Label className="text-xs text-muted-foreground">Processo</Label>
+            <Label htmlFor="product-process" className="text-xs text-muted-foreground">Processo</Label>
             <Select value={formData.processo_lavagem} onValueChange={(v) => onChange({ processo_lavagem: v })}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="product-process" className="mt-1">
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -206,8 +212,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Temp. Máxima (°C)</Label>
+            <Label htmlFor="product-temperature" className="text-xs text-muted-foreground">Temp. Máxima (°C)</Label>
             <Input
+              id="product-temperature"
               className="mt-1"
               type="number"
               min="0"
@@ -218,8 +225,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Tempo Processo (min)</Label>
+            <Label htmlFor="product-duration" className="text-xs text-muted-foreground">Tempo Processo (min)</Label>
             <Input
+              id="product-duration"
               className="mt-1"
               type="number"
               min="0"
@@ -229,9 +237,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Cor</Label>
+            <Label htmlFor="product-color" className="text-xs text-muted-foreground">Cor</Label>
             <Select value={formData.cor} onValueChange={(v) => onChange({ cor: v })}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="product-color" className="mt-1">
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -245,9 +253,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Composição</Label>
+            <Label htmlFor="product-composition" className="text-xs text-muted-foreground">Composição</Label>
             <Select value={formData.composicao} onValueChange={(v) => onChange({ composicao: v })}>
-              <SelectTrigger className="mt-1">
+              <SelectTrigger id="product-composition" className="mt-1">
                 <SelectValue placeholder="Selecione" />
               </SelectTrigger>
               <SelectContent>
@@ -262,10 +270,11 @@ export function ProdutoForm({
 
           <div className="flex items-end gap-2 pb-1">
             <Switch
+              id="product-dryer"
               checked={formData.requer_secadora}
               onCheckedChange={(v) => onChange({ requer_secadora: v })}
             />
-            <Label className="text-xs text-muted-foreground">Requer Secadora</Label>
+            <Label htmlFor="product-dryer" className="text-xs text-muted-foreground">Requer Secadora</Label>
           </div>
         </div>
       </div>
@@ -275,8 +284,9 @@ export function ProdutoForm({
         <h4 className="text-sm font-medium text-muted-foreground border-b pb-1">Observações</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label className="text-xs text-muted-foreground">Descrição Detalhada</Label>
+            <Label htmlFor="product-description" className="text-xs text-muted-foreground">Descrição Detalhada</Label>
             <Textarea
+              id="product-description"
               className="mt-1"
               placeholder="Descreva detalhes técnicos do produto..."
               rows={3}
@@ -286,8 +296,9 @@ export function ProdutoForm({
           </div>
 
           <div>
-            <Label className="text-xs text-muted-foreground">Instruções Especiais de Manuseio</Label>
+            <Label htmlFor="product-instructions" className="text-xs text-muted-foreground">Instruções Especiais de Manuseio</Label>
             <Textarea
+              id="product-instructions"
               className="mt-1"
               placeholder="Cuidados especiais durante a lavagem..."
               rows={3}

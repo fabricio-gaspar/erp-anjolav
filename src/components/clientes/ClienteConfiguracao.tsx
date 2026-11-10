@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Copy, Clock, Loader2, FileText, Table2, Grid, Calendar } from "lucide-react";
+import { Check, Copy, Clock, Loader2, FileText, Table2, Grid } from "lucide-react";
 import { useConfiguracaoCliente } from "@/hooks/useClientes";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { gerarAgendamentosDoCliente, Frequencia } from "@/lib/agendamentoUtils";
 import { generatePortalAccessCode } from "@/lib/portalCode";
 import { useAgendamentosRecorrentes } from "@/hooks/useAgendamentosRecorrentes";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 
 interface ClienteConfiguracaoProps {
   clienteId: string | null;
@@ -137,6 +138,7 @@ const tiposRelatorio = [
 ];
 
 export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoProps) => {
+  const { allowed: canManageAgenda } = usePermissaoModulo("agenda");
   const { configuracao, isLoading, upsertConfiguracao } = useConfiguracaoCliente(clienteId);
   const { regenerarAgendamentos, isLoading: isGeneratingAgendamentos } = useAgendamentosRecorrentes();
 
@@ -241,6 +243,11 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
         horario_entrega: horarioEntrega || null,
         tipo_relatorio: tipoRelatorio,
       });
+
+      if (!canManageAgenda) {
+        onSave();
+        return;
+      }
 
       const agendamentos = gerarAgendamentosDoCliente(clienteId, {
         frequencia,
@@ -369,8 +376,9 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
         </CardContent>
       </Card>
 
+      {!canManageAgenda && <p className="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground">A agenda recorrente é somente leitura para este perfil. As preferências de relatório e acesso podem ser salvas sem alterar agendamentos.</p>}
       {/* Frequência */}
-      <div className="space-y-2">
+      <fieldset disabled={!canManageAgenda} className="space-y-2">
         <label className="text-sm font-medium text-foreground">Frequência</label>
         <div className="flex gap-0">
           <Button
@@ -406,10 +414,10 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
             Mensal
           </Button>
         </div>
-      </div>
+      </fieldset>
 
       {/* Configuração de Retirada e Entrega */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <fieldset disabled={!canManageAgenda} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Retirada */}
         <Card>
           <CardHeader className="pb-4">
@@ -487,7 +495,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
             </div>
           </CardContent>
         </Card>
-      </div>
+      </fieldset>
 
       {/* Footer Buttons */}
       <div className="flex items-center justify-end pt-4">

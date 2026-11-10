@@ -4,11 +4,13 @@ import { toast } from "sonner";
 import type { AgendamentoGerado } from "@/lib/agendamentoUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { createIdempotencyKey } from "@/lib/idempotency";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import type { Json } from "@/integrations/supabase/types";
 
 export function useAgendamentosRecorrentes() {
   const queryClient = useQueryClient();
   const { activeTenant, session } = useAuth();
+  const { allowed: canManageAgenda } = usePermissaoModulo("agenda");
 
   const regenerateSchedule = useMutation({
     mutationFn: async ({
@@ -22,6 +24,9 @@ export function useAgendamentosRecorrentes() {
     }) => {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para atualizar a agenda");
+      }
+      if (!canManageAgenda) {
+        throw new Error("Sem permissão para alterar a agenda recorrente");
       }
       const payload = agendamentos.map(({ tipo, data, horario, frequencia }) => ({
         tipo,

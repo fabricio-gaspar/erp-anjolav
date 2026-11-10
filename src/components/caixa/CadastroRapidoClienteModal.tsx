@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useReviewClientDuplicates, useSaveClientIdentity } from "@/hooks/useClientes";
 import {
+  CLIENT_DUPLICATE_REASON_LABELS,
   hasClientDuplicateSignal,
   validateClientIdentity,
   type ClientClassification,
@@ -66,7 +67,8 @@ export function CadastroRapidoClienteModal({
 
   const errors = useMemo(() => validateClientIdentity(draft), [draft]);
   const saving = isSavingClient || isReviewingDuplicates;
-  const hasBlockingDuplicates = candidates.length > 0 && !allowDuplicate;
+  const hasDocumentConflict = candidates.some((candidate) => candidate.documentConflict);
+  const hasBlockingDuplicates = hasDocumentConflict || (candidates.length > 0 && !allowDuplicate);
 
   const update = <K extends keyof ClientIdentityDraft>(key: K, value: ClientIdentityDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -138,16 +140,22 @@ export function CadastroRapidoClienteModal({
                 <div key={candidate.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background px-3 py-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{candidate.name}</p>
-                    <p className="text-xs text-muted-foreground">{candidate.matches.join(", ")}</p>
+                    <p className="text-xs text-muted-foreground">{candidate.matches.map((reason) => CLIENT_DUPLICATE_REASON_LABELS[reason]).join(", ")}</p>
+                    {!candidate.active && <p className="text-xs text-muted-foreground">Cadastro arquivado</p>}
+                    {candidate.classification !== classification && <p className="text-xs text-muted-foreground">Cliente de outra operação</p>}
                   </div>
-                  <Button type="button" size="sm" variant="outline" onClick={() => { onOpenChange(false); onUseExisting(candidate.id); }}>Usar este</Button>
+                  <Button type="button" size="sm" variant="outline" disabled={!candidate.active || candidate.classification !== classification} onClick={() => { onOpenChange(false); onUseExisting(candidate.id); }}>Usar este</Button>
                 </div>
               ))}
             </div>
-            <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
-              <input type="checkbox" checked={allowDuplicate} onChange={(event) => setAllowDuplicate(event.target.checked)} className="mt-0.5" />
-              Confirmo que revisei os cadastros e preciso criar um novo cliente.
-            </label>
+            {hasDocumentConflict ? (
+              <p className="text-xs font-medium text-destructive">Este CPF/CNPJ já está cadastrado. Corrija o documento ou use um cadastro ativo da mesma operação.</p>
+            ) : (
+              <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+                <input type="checkbox" checked={allowDuplicate} onChange={(event) => setAllowDuplicate(event.target.checked)} className="mt-0.5" />
+                Confirmo que revisei os cadastros e preciso criar um novo cliente.
+              </label>
+            )}
           </div>
         )}
 

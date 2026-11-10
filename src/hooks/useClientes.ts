@@ -151,6 +151,10 @@ export function useSaveClientIdentity() {
       toast.success("Cliente salvo com sucesso!");
     },
     onError: (error) => {
+      if ((error as { code?: string }).code === "23505") {
+        toast.error("CPF/CNPJ já cadastrado nesta empresa. Consulte também a outra operação antes de criar um novo cliente.");
+        return;
+      }
       toast.error("Erro ao salvar cliente: " + error.message);
     },
   });
