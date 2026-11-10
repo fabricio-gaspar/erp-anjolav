@@ -4961,6 +4961,16 @@ export type Database = {
         }
         Returns: Json
       }
+      consultar_faturas_faturamento_periodo: {
+        Args: {
+          _area: string
+          _inicio: string
+          _fim: string
+          _pagina?: number
+          _tamanho?: number
+        }
+        Returns: Json
+      }
       consultar_rols_faturamento_periodo: {
         Args: {
           _area: string

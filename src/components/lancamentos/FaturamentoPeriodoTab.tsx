@@ -31,6 +31,7 @@ interface BillingClient {
 interface BillingRol {
   ordem_id: string;
   numero: string;
+  operacao: "industrial" | "residencial";
   data_retirada: string;
   status: string;
   condicao_pagamento: string | null;
@@ -116,6 +117,7 @@ function printReport(draft: ReportDraft, start: string, end: string) {
   </head><body><h1>Relatório de faturamento</h1><p><strong>Cliente:</strong> ${escapeHtml(draft.client.razao_social)}</p>
   <p><strong>Documento:</strong> ${escapeHtml(draft.client.cpf_cnpj || "Não informado")}</p>
   <p><strong>ROLs abertos entre:</strong> ${dateLabel(start)} e ${dateLabel(end)}</p>
+  <p><strong>Operação:</strong> ${draft.rolls[0]?.operacao === "industrial" ? "Industrial" : "Doméstico"}</p>
   <p><strong>Formato cadastrado:</strong> ${escapeHtml(draft.client.tipo_relatorio)}</p>
   <table><thead><tr><th>ROL</th><th>Data</th><th>Peça ou serviço</th><th>Qtd.</th><th>Un.</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
   <p class="total">Total: ${money.format(draft.total)}</p></body></html>`;
@@ -269,6 +271,10 @@ export function FaturamentoPeriodoTab({
         toast.error("Feche no máximo 100 ROLs por fatura.");
         return current;
       }
+      if (Object.values(current).some(selectedRow => selectedRow.operacao !== row.operacao)) {
+        toast.error("Selecione ROLs de uma operação por fatura: Doméstico ou Industrial.");
+        return current;
+      }
       return { ...current, [row.lancamento_id!]: row };
     });
   };
@@ -277,7 +283,7 @@ export function FaturamentoPeriodoTab({
 
   return <div className="space-y-5">
     <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
-      Período baseado na <strong className="text-foreground">data de abertura do ROL</strong>. Empresas com qualquer movimento aparecem abaixo; somente ROLs com condição “Faturado”, sem pagamento e sem fatura podem ser selecionados.
+      Período baseado na <strong className="text-foreground">data de abertura do ROL</strong>. A operação é a registrada no ROL; somente ROLs com condição “Faturado”, sem pagamento e sem fatura podem ser selecionados. Cada fatura reúne uma operação.
     </div>
     <div className="grid gap-5 lg:grid-cols-[minmax(280px,2fr)_minmax(340px,3fr)]">
       <section className="space-y-3" aria-label="Clientes com movimento">
@@ -290,7 +296,7 @@ export function FaturamentoPeriodoTab({
           : visibleClients.map(row => <button key={row.cliente_id} type="button" onClick={() => selectClient(row)}
               className={`w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted/50 ${client?.cliente_id === row.cliente_id ? "border-primary bg-primary/5" : "bg-card"}`}>
               <span className="block font-semibold text-foreground">{row.razao_social}</span>
-              <span className="block text-xs text-muted-foreground">{row.classificacao} · {row.cpf_cnpj || "sem documento"} · {row.movimentos} ROL(s)</span>
+              <span className="block text-xs text-muted-foreground">Cadastro: {row.classificacao} · {row.cpf_cnpj || "sem documento"} · {row.movimentos} ROL(s) no filtro</span>
               <span className="mt-2 block text-sm"><strong>{row.faturaveis}</strong> faturável(is) · {money.format(Number(row.valor_faturavel))}</span>
               {row.nao_faturaveis > 0 && <span className="block text-xs text-muted-foreground">{row.nao_faturaveis} fora deste fechamento</span>}
             </button>)}
@@ -311,7 +317,7 @@ export function FaturamentoPeriodoTab({
             : <div className="space-y-2">{rolls.data?.items.map(row => <label key={row.ordem_id}
                 className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${row.motivo_bloqueio ? "bg-muted/30" : "bg-card"}`}>
                 <Checkbox checked={Boolean(row.lancamento_id && selected[row.lancamento_id])} onCheckedChange={() => toggleRol(row)} disabled={Boolean(row.motivo_bloqueio || !row.lancamento_id)} aria-label={`Selecionar ROL ${row.numero}`} />
-                <span className="min-w-0 flex-1"><span className="block font-medium">ROL {row.numero} · {dateLabel(row.data_retirada)}</span>
+                <span className="min-w-0 flex-1"><span className="block font-medium">ROL {row.numero} · {dateLabel(row.data_retirada)} · {row.operacao === "industrial" ? "Industrial" : "Doméstico"}</span>
                   <span className="block text-xs text-muted-foreground">{row.motivo_bloqueio || "Pronto para conferência"} · {row.status}</span></span>
                 <strong className="whitespace-nowrap text-sm">{money.format(Number(row.valor_total))}</strong>
               </label>)}</div>}

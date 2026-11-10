@@ -24,8 +24,8 @@ export default function Lancamentos() {
   const { pathname } = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { allowed: canManageBilling } = usePermissaoModulo("faturamento");
-  const routeMatches = pathname.startsWith(`/${activeArea}/`)
-    || (activeArea === "central" && pathname === "/admin/financeiro/lancamentos")
+  const routeMatches = pathname === "/admin/financeiro/lancamentos"
+    || pathname.startsWith(`/${activeArea}/`)
     || (activeArea === "industrial" && pathname.startsWith("/pdv/industrial/"))
     || (activeArea === "residencial" && pathname.startsWith("/pdv/domestico/"));
   const start = searchParams.get("inicio") || DEFAULT_START;
@@ -52,7 +52,7 @@ export default function Lancamentos() {
   return <AppLayout title={TITLE} subtitle="Conferência e fechamento dos ROLs criados no PDV">
     <div className="page-shell space-y-5">
       <PageHeader eyebrow="Financeiro" title={TITLE}
-        description="Consulte os ROLs pela data de abertura, confira o relatório e acompanhe as faturas." />
+        description={`Consulte os ROLs ${activeArea === "industrial" ? "industriais" : activeArea === "residencial" ? "domésticos" : "das duas operações"} pela data de abertura, confira o relatório e acompanhe as faturas.`} />
       <div className="content-panel space-y-5">
         <div className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <div className="space-y-1"><Label htmlFor="billing-start">Data inicial</Label><Input id="billing-start" type="date" value={start} onChange={event => setField("inicio", event.target.value)} /></div>

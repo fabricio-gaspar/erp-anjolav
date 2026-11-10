@@ -59,6 +59,15 @@ const PAGE_SIZE = 25;
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dateLabel = (value: string) => format(parseISO(value), "dd/MM/yyyy");
 
+function readInvoices(value: unknown): { total: number; items: Invoice[] } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Resposta de consulta inválida.");
+  const payload = value as { total?: unknown; items?: unknown };
+  if (!Array.isArray(payload.items) || !Number.isFinite(Number(payload.total))) {
+    throw new Error("Resposta de consulta incompleta.");
+  }
+  return { total: Number(payload.total), items: payload.items as Invoice[] };
+}
+
 function itemsFromSnapshot(value: unknown): SnapshotItem[] {
   if (!Array.isArray(value)) return [];
   return value.filter(item => item && typeof item === "object" && typeof item.produto === "string") as SnapshotItem[];
@@ -139,9 +148,11 @@ export function FaturasPeriodoTab({
   const [creatingBoleto, setCreatingBoleto] = useState(false);
   const [documents, setDocuments] = useState({ relatorio: true, nota: false, boleto: false });
   const { dados: customerData, error: customerError, isLoading: customerLoading } = useDadosFaturamentoCompletos(selected?.cliente_id ?? null);
-  const validPeriod = /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end) && end >= start;
+  const validPeriod = /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end)
+    && end >= start && (Date.parse(end) - Date.parse(start)) / 86400000 <= 366;
 
   useEffect(() => setPage(1), [start, end, activeArea, activeTenant?.id]);
+  useEffect(() => setSelected(null), [start, end, activeArea, activeTenant?.id]);
   useEffect(() => {
     if (!selected || dueDate || !customerData.configPagamento) return;
     const base = parseISO(selected.periodo_fim) > new Date() ? parseISO(selected.periodo_fim) : new Date();
@@ -163,20 +174,11 @@ export function FaturasPeriodoTab({
   const invoices = useQuery({
     queryKey: ["period-invoices", activeTenant?.id, user?.id, activeArea, start, end, page],
     queryFn: async () => {
-      let query = supabase.from("faturas")
-        .select(`id, cliente_id, periodo_inicio, periodo_fim, valor_total, status, tipo_relatorio,
-          itens_snapshot, numero_nf, link_pdf_nf, protocolo_nfse, asaas_charge_id,
-          boleto_url, boleto_linha_digitavel, forma_pagamento, data_vencimento, data_envio, created_at,
-          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)`,
-          { count: "exact" })
-        .eq("tenant_id", activeTenant!.id)
-        .lte("periodo_inicio", end).gte("periodo_fim", start)
-        .order("created_at", { ascending: false })
-        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
-      if (activeArea !== "central") query = query.eq("cliente.classificacao", activeArea);
-      const { data, error, count } = await query;
+      const { data, error } = await supabase.rpc("consultar_faturas_faturamento_periodo", {
+        _area: activeArea, _inicio: start, _fim: end, _pagina: page, _tamanho: PAGE_SIZE,
+      });
       if (error) throw error;
-      return { items: (data || []) as unknown as Invoice[], total: count ?? 0 };
+      return readInvoices(data);
     },
     enabled: Boolean(activeTenant && user && validPeriod),
   });
@@ -239,14 +241,14 @@ export function FaturasPeriodoTab({
 
   return <div className="space-y-4">
     <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
-      Faturas cujo período de ROLs cruza o intervalo selecionado. O relatório pode ser reaberto; nota, boleto e envio mostram apenas confirmações reais.
+      Faturas com ROLs da operação selecionada cujo período cruza o intervalo. O relatório pode ser reaberto; nota, boleto e envio mostram apenas confirmações reais.
     </div>
     <div className="flex items-center justify-between"><h2 className="font-semibold">Faturas</h2><span className="text-sm text-muted-foreground">{invoices.data?.total ?? 0} encontrada(s)</span></div>
     {invoices.isLoading ? <p role="status" className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Consultando faturas...</p>
       : invoices.error ? <div role="alert" className="space-y-2"><p>Não foi possível carregar as faturas: {invoices.error.message}</p><Button variant="outline" onClick={() => void invoices.refetch()}>Tentar novamente</Button></div>
       : invoices.data?.items.length === 0 ? <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground"><Receipt className="mx-auto mb-2 h-8 w-8" /><p>Nenhuma fatura neste período.</p></div>
       : <div className="grid gap-3">{invoices.data?.items.map(invoice => <div key={invoice.id} className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1"><p className="font-semibold">{invoice.cliente.razao_social}</p><p className="text-xs text-muted-foreground">{dateLabel(invoice.periodo_inicio)} a {dateLabel(invoice.periodo_fim)} · {invoice.cliente.classificacao}</p>
+          <div className="space-y-1"><p className="font-semibold">{invoice.cliente.razao_social}</p><p className="text-xs text-muted-foreground">{dateLabel(invoice.periodo_inicio)} a {dateLabel(invoice.periodo_fim)} · cadastro: {invoice.cliente.classificacao}</p>
             <p className="text-sm">Relatório {itemsFromSnapshot(invoice.itens_snapshot).length ? "pronto" : "indisponível"} · NFS-e {invoice.numero_nf && safeHttpsUrl(invoice.link_pdf_nf) ? "emitida" : "pendente"} · Boleto {safeHttpsUrl(invoice.boleto_url) ? "gerado" : "pendente"}</p></div>
           <div className="flex items-center gap-3"><strong>{money.format(Number(invoice.valor_total))}</strong><Button variant="outline" onClick={() => openInvoice(invoice)}>Abrir fatura</Button></div>
         </div>)}</div>}
