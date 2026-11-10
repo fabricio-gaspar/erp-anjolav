@@ -1,107 +1,80 @@
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { format, endOfMonth, startOfMonth, subMonths } from "date-fns";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { FileText, Package, Receipt, History } from "lucide-react";
-import { useRolDirectory } from "@/hooks/useRolDirectory";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
-import { PendentesTab } from "@/components/lancamentos/PendentesTab";
-import { FaturasTab } from "@/components/lancamentos/FaturasTab";
-import { HistoricoROLsTab } from "@/components/lancamentos/HistoricoROLsTab";
+import { FileCheck2, Receipt } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { FaturamentoPeriodoTab } from "@/components/lancamentos/FaturamentoPeriodoTab";
+import { FaturasPeriodoTab } from "@/components/lancamentos/FaturasPeriodoTab";
 
-const Lancamentos = () => {
+const today = new Date();
+const DEFAULT_START = format(startOfMonth(today), "yyyy-MM-dd");
+const DEFAULT_END = format(endOfMonth(today), "yyyy-MM-dd");
+const TITLE = "Faturamento por período";
+
+export default function Lancamentos() {
   const { activeArea } = useWorkspace();
-  const { activeTenant, user } = useAuth();
+  const { activeTenant, user, loading } = useAuth();
   const { pathname } = useLocation();
-  if (!activeTenant || !user || !pathname.startsWith("/" + activeArea + "/")) {
-    return <AppLayout title="Fechamento e histórico"><p>Carregando contexto...</p></AppLayout>;
-  }
-  return <FechamentoAtendimento key={[activeTenant?.id, user?.id, activeArea].join(":")} />;
-};
-
-const FechamentoAtendimento = () => {
-  const { activeArea } = useWorkspace();
-  const areaLabel = activeArea === "industrial" ? "Industrial" : "Doméstico";
-  const pdvPath = "/" + activeArea + "/caixa";
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { canAccessRoute } = useNavigationAccess();
   const { allowed: canManageBilling } = usePermissaoModulo("faturamento");
+  const routeMatches = pathname.startsWith(`/${activeArea}/`)
+    || (activeArea === "central" && pathname === "/admin/financeiro/lancamentos")
+    || (activeArea === "industrial" && pathname.startsWith("/pdv/industrial/"))
+    || (activeArea === "residencial" && pathname.startsWith("/pdv/domestico/"));
+  const start = searchParams.get("inicio") || DEFAULT_START;
+  const end = searchParams.get("fim") || DEFAULT_END;
   const requestedTab = searchParams.get("tab");
-  const activeTab = requestedTab && ["novo", "pendentes", "faturas", "historico"].includes(requestedTab) ? requestedTab : "pendentes";
-  const setActiveTab = (tab: string) => setSearchParams(current => { const next = new URLSearchParams(current); next.set("tab", tab); return next; }, { replace: true });
-  const { data: pendingDirectory } = useRolDirectory({
-    page: 1,
-    pageSize: 1,
-    status: "pendente",
-    enabled: canManageBilling,
-  });
-  const pendingCount = pendingDirectory?.summary.quantidade_pendente ?? 0;
+  const activeTab = requestedTab === "faturas" || requestedTab === "historico" ? "faturas" : "periodo";
+  const setField = (key: string, value: string) => setSearchParams(current => {
+    const next = new URLSearchParams(current);
+    next.set(key, value);
+    return next;
+  }, { replace: true });
+  const setMonth = (month: Date) => setSearchParams(current => {
+    const next = new URLSearchParams(current);
+    next.set("inicio", format(startOfMonth(month), "yyyy-MM-dd"));
+    next.set("fim", format(endOfMonth(month), "yyyy-MM-dd"));
+    return next;
+  }, { replace: true });
 
-  if (!canManageBilling) return <AppLayout title="Fechamento e histórico"><p>Sem permissão para faturamento.</p></AppLayout>;
+  if (loading) return <AppLayout title={TITLE}><p role="status">Carregando sessão...</p></AppLayout>;
+  if (!activeTenant || !user) return <AppLayout title={TITLE}><p role="alert">Não foi possível identificar sua sessão ou empresa ativa. Atualize a página ou entre novamente.</p></AppLayout>;
+  if (!routeMatches) return <AppLayout title={TITLE}><p role="alert">Esta tela não corresponde ao painel ativo.</p></AppLayout>;
+  if (!canManageBilling) return <AppLayout title={TITLE}><p role="alert">Sem permissão para faturamento.</p></AppLayout>;
 
-  return (
-    <AppLayout title="Fechamento e histórico" subtitle={"Fechamento de faturamento e histórico · " + areaLabel}>
-      <div className="page-shell">
-        <PageHeader
-          eyebrow={`Faturamento ${areaLabel}`}
-          title="Fechamento e histórico"
-          description="ROLs pendentes, faturas e histórico de atendimento"
-          actions={canAccessRoute(pdvPath) ? (
-            <Button onClick={() => navigate(pdvPath)} className="w-full font-bold sm:w-auto">
-              Novo ROL no PDV Atendimento
-            </Button>
-          ) : undefined}
-        />
-        <div className="content-panel">
-        <div className="space-y-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="tabs-scrollable">
-            <TabsList className="page-tabs-list">
-              <TabsTrigger value="novo" className="page-tab-trigger gap-2">
-                <FileText className="w-4 h-4" />Novo Lançamento
-              </TabsTrigger>
-              <TabsTrigger value="pendentes" className="page-tab-trigger gap-2">
-                <Package className="w-4 h-4" />Pendentes
-                {pendingCount > 0 && (
-                  <span className="ml-1 bg-warning text-warning-foreground text-xs px-2 py-0.5 rounded-full">{pendingCount}</span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="faturas" className="page-tab-trigger gap-2">
-                <Receipt className="w-4 h-4" />Faturas Geradas
-              </TabsTrigger>
-              <TabsTrigger value="historico" className="page-tab-trigger gap-2">
-                <History className="w-4 h-4" />Histórico de ROLs
-              </TabsTrigger>
-            </TabsList>
-            </div>
-
-            <TabsContent value="novo" className="mt-4">
-              <p className="mb-4 text-muted-foreground">Novos ROLs são registrados no PDV Atendimento, com a tabela e a condição de pagamento do cliente.</p>
-              {canAccessRoute(pdvPath) && <Button onClick={() => navigate(pdvPath)}>Abrir PDV Atendimento</Button>}
-            </TabsContent>
-
-            <TabsContent value="pendentes" className="mt-4">
-              <PendentesTab />
-            </TabsContent>
-
-            <TabsContent value="faturas" className="mt-4">
-              <FaturasTab />
-            </TabsContent>
-
-            <TabsContent value="historico" className="mt-4">
-              <HistoricoROLsTab />
-            </TabsContent>
-
-          </Tabs>
+  return <AppLayout title={TITLE} subtitle="Conferência e fechamento dos ROLs criados no PDV">
+    <div className="page-shell space-y-5">
+      <PageHeader eyebrow="Financeiro" title={TITLE}
+        description="Consulte os ROLs pela data de abertura, confira o relatório e acompanhe as faturas." />
+      <div className="content-panel space-y-5">
+        <div className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <div className="space-y-1"><Label htmlFor="billing-start">Data inicial</Label><Input id="billing-start" type="date" value={start} onChange={event => setField("inicio", event.target.value)} /></div>
+          <div className="space-y-1"><Label htmlFor="billing-end">Data final</Label><Input id="billing-end" type="date" value={end} onChange={event => setField("fim", event.target.value)} /></div>
+          <div className="flex flex-wrap items-center gap-2 pb-1">
+            <Button type="button" variant="outline" size="sm" onClick={() => setMonth(new Date())}>Mês atual</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setMonth(subMonths(new Date(), 1))}>Mês anterior</Button>
+          </div>
         </div>
-        </div>
+        <Tabs value={activeTab} onValueChange={value => setField("tab", value)} className="w-full">
+          <TabsList className="page-tabs-list">
+            <TabsTrigger value="periodo" className="page-tab-trigger gap-2"><FileCheck2 className="h-4 w-4" />Conferir e fechar</TabsTrigger>
+            <TabsTrigger value="faturas" className="page-tab-trigger gap-2"><Receipt className="h-4 w-4" />Faturas e documentos</TabsTrigger>
+          </TabsList>
+          <TabsContent value="periodo" className="mt-5">
+            <FaturamentoPeriodoTab start={start} end={end} onClosed={() => setField("tab", "faturas")} />
+          </TabsContent>
+          <TabsContent value="faturas" className="mt-5">
+            <FaturasPeriodoTab start={start} end={end} />
+          </TabsContent>
+        </Tabs>
       </div>
-    </AppLayout>
-  );
-};
-
-export default Lancamentos;
+    </div>
+  </AppLayout>;
+}

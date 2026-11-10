@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 44246)
-Total output lines: 5600
-
 export type Json =
   | string
   | number
@@ -423,6 +420,7 @@ export type Database = {
           criado_por: string | null
           created_at: string
           descricao: string | null
+          ocorrido_em: string
           evento_pagamento: string | null
           forma_pagamento: string | null
           id: string
@@ -430,6 +428,9 @@ export type Database = {
           ordem_servico_id: string | null
           pdv_pagamento_id: string | null
           request_fingerprint: string | null
+          responsavel_nome: string | null
+          categoria: string | null
+          referencia: string | null
           tipo: string
           valor: number
         }
@@ -441,6 +442,7 @@ export type Database = {
           criado_por?: string | null
           created_at?: string
           descricao?: string | null
+          ocorrido_em?: string
           evento_pagamento?: string | null
           forma_pagamento?: string | null
           id?: string
@@ -448,6 +450,9 @@ export type Database = {
           ordem_servico_id?: string | null
           pdv_pagamento_id?: string | null
           request_fingerprint?: string | null
+          responsavel_nome?: string | null
+          categoria?: string | null
+          referencia?: string | null
           tipo: string
           valor: number
         }
@@ -459,6 +464,7 @@ export type Database = {
           criado_por?: string | null
           created_at?: string
           descricao?: string | null
+          ocorrido_em?: string
           evento_pagamento?: string | null
           forma_pagamento?: string | null
           id?: string
@@ -466,6 +472,9 @@ export type Database = {
           ordem_servico_id?: string | null
           pdv_pagamento_id?: string | null
           request_fingerprint?: string | null
+          responsavel_nome?: string | null
+          categoria?: string | null
+          referencia?: string | null
           tipo?: string
           valor?: number
         }
@@ -889,6 +898,7 @@ export type Database = {
           id: string
           logo_url: string | null
           nome_empresa: string | null
+          pdv_template_theme: string
           pix_chave: string | null
           pix_tipo_chave: string | null
           template_boleto: string | null
@@ -916,6 +926,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nome_empresa?: string | null
+          pdv_template_theme?: string
           pix_chave?: string | null
           pix_tipo_chave?: string | null
           template_boleto?: string | null
@@ -943,6 +954,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nome_empresa?: string | null
+          pdv_template_theme?: string
           pix_chave?: string | null
           pix_tipo_chave?: string | null
           template_boleto?: string | null
@@ -1863,7 +1875,1790 @@ export type Database = {
       folha_beneficios: {
         Row: {
           ativo: boolean
-          beneficio_id: string | nul…14246 tokens truncated…
+          beneficio_id: string | null
+          categoria: string | null
+          created_at: string
+          folha_id: string
+          funcionario_id: string
+          id: string
+          nome: string
+          observacao: string | null
+          tenant_id: string
+          tipo: string
+          updated_at: string
+          valor: number
+          versao: number
+        }
+        Insert: {
+          ativo?: boolean
+          beneficio_id?: string | null
+          categoria?: string | null
+          created_at?: string
+          folha_id: string
+          funcionario_id: string
+          id?: string
+          nome: string
+          observacao?: string | null
+          tenant_id?: string
+          tipo?: string
+          updated_at?: string
+          valor?: number
+          versao?: number
+        }
+        Update: {
+          ativo?: boolean
+          beneficio_id?: string | null
+          categoria?: string | null
+          created_at?: string
+          folha_id?: string
+          funcionario_id?: string
+          id?: string
+          nome?: string
+          observacao?: string | null
+          tenant_id?: string
+          tipo?: string
+          updated_at?: string
+          valor?: number
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folha_beneficios_folha_id_fkey"
+            columns: ["folha_id"]
+            isOneToOne: false
+            referencedRelation: "folha_pagamento"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folha_pagamento: {
+        Row: {
+          adiantamento_salarial: number | null
+          base_fgts: number | null
+          base_irrf: number | null
+          cancelado_em: string | null
+          cancelado_por: string | null
+          cancelamento_motivo: string | null
+          comissoes: number
+          competencia: string
+          conta_pagar_id: string | null
+          contribuicao_assistencial: number | null
+          created_at: string
+          custo_total_empresa: number
+          data_pagamento: string | null
+          desconto_cesta_basica: number | null
+          desconto_emprestimo: number | null
+          desconto_inss: number
+          desconto_irrf: number
+          desconto_vt: number
+          dias_trabalhados: number | null
+          estorno_provisao: number | null
+          faixa_irrf: number | null
+          funcionario_id: string
+          gratificacao: number
+          horas_extras: number
+          horas_extras_100: number | null
+          horas_extras_50: number | null
+          horas_extras_70: number | null
+          id: string
+          liquido: number
+          observacoes: string | null
+          outros_beneficios: number
+          outros_descontos: number
+          plano_odontologico: number
+          plano_saude: number
+          reflexo_dsr: number | null
+          salario_base: number
+          salario_contrib_inss: number | null
+          status: string
+          tenant_id: string
+          total_descontos: number
+          total_proventos: number
+          troco_mes: number | null
+          troco_mes_anterior: number | null
+          updated_at: string
+          vale_alimentacao: number
+          vale_refeicao: number
+          vale_transporte: number
+          valor_fgts: number | null
+          versao: number
+        }
+        Insert: {
+          adiantamento_salarial?: number | null
+          base_fgts?: number | null
+          base_irrf?: number | null
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          cancelamento_motivo?: string | null
+          comissoes?: number
+          competencia: string
+          conta_pagar_id?: string | null
+          contribuicao_assistencial?: number | null
+          created_at?: string
+          custo_total_empresa?: number
+          data_pagamento?: string | null
+          desconto_cesta_basica?: number | null
+          desconto_emprestimo?: number | null
+          desconto_inss?: number
+          desconto_irrf?: number
+          desconto_vt?: number
+          dias_trabalhados?: number | null
+          estorno_provisao?: number | null
+          faixa_irrf?: number | null
+          funcionario_id: string
+          gratificacao?: number
+          horas_extras?: number
+          horas_extras_100?: number | null
+          horas_extras_50?: number | null
+          horas_extras_70?: number | null
+          id?: string
+          liquido?: number
+          observacoes?: string | null
+          outros_beneficios?: number
+          outros_descontos?: number
+          plano_odontologico?: number
+          plano_saude?: number
+          reflexo_dsr?: number | null
+          salario_base?: number
+          salario_contrib_inss?: number | null
+          status?: string
+          tenant_id?: string
+          total_descontos?: number
+          total_proventos?: number
+          troco_mes?: number | null
+          troco_mes_anterior?: number | null
+          updated_at?: string
+          vale_alimentacao?: number
+          vale_refeicao?: number
+          vale_transporte?: number
+          valor_fgts?: number | null
+          versao?: number
+        }
+        Update: {
+          adiantamento_salarial?: number | null
+          base_fgts?: number | null
+          base_irrf?: number | null
+          cancelado_em?: string | null
+          cancelado_por?: string | null
+          cancelamento_motivo?: string | null
+          comissoes?: number
+          competencia?: string
+          conta_pagar_id?: string | null
+          contribuicao_assistencial?: number | null
+          created_at?: string
+          custo_total_empresa?: number
+          data_pagamento?: string | null
+          desconto_cesta_basica?: number | null
+          desconto_emprestimo?: number | null
+          desconto_inss?: number
+          desconto_irrf?: number
+          desconto_vt?: number
+          dias_trabalhados?: number | null
+          estorno_provisao?: number | null
+          faixa_irrf?: number | null
+          funcionario_id?: string
+          gratificacao?: number
+          horas_extras?: number
+          horas_extras_100?: number | null
+          horas_extras_50?: number | null
+          horas_extras_70?: number | null
+          id?: string
+          liquido?: number
+          observacoes?: string | null
+          outros_beneficios?: number
+          outros_descontos?: number
+          plano_odontologico?: number
+          plano_saude?: number
+          reflexo_dsr?: number | null
+          salario_base?: number
+          salario_contrib_inss?: number | null
+          status?: string
+          tenant_id?: string
+          total_descontos?: number
+          total_proventos?: number
+          troco_mes?: number | null
+          troco_mes_anterior?: number | null
+          updated_at?: string
+          vale_alimentacao?: number
+          vale_refeicao?: number
+          vale_transporte?: number
+          valor_fgts?: number | null
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folha_pagamento_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folha_pagamento_operacoes: {
+        Row: {
+          competencia: string
+          created_at: string
+          criado_por: string
+          dados: Json
+          folha_id: string | null
+          id: string
+          idempotency_key: string
+          request_hash: string
+          resultado: Json
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          competencia: string
+          created_at?: string
+          criado_por: string
+          dados?: Json
+          folha_id?: string | null
+          id?: string
+          idempotency_key: string
+          request_hash: string
+          resultado?: Json
+          tenant_id: string
+          tipo: string
+        }
+        Update: never
+        Relationships: []
+      }
+      folha_pagamento_historico: {
+        Row: {
+          created_at: string
+          data_fechamento: string
+          detalhes_beneficios: Json | null
+          fechado_por: string | null
+          funcionario_id: string
+          id: string
+          mes_referencia: string
+          salario_base: number
+          status_pagamento: string | null
+          tenant_id: string
+          total_beneficios: number
+          total_descontos: number
+          valor_liquido: number
+        }
+        Insert: {
+          created_at?: string
+          data_fechamento?: string
+          detalhes_beneficios?: Json | null
+          fechado_por?: string | null
+          funcionario_id: string
+          id?: string
+          mes_referencia: string
+          salario_base?: number
+          status_pagamento?: string | null
+          tenant_id?: string
+          total_beneficios?: number
+          total_descontos?: number
+          valor_liquido?: number
+        }
+        Update: {
+          created_at?: string
+          data_fechamento?: string
+          detalhes_beneficios?: Json | null
+          fechado_por?: string | null
+          funcionario_id?: string
+          id?: string
+          mes_referencia?: string
+          salario_base?: number
+          status_pagamento?: string | null
+          tenant_id?: string
+          total_beneficios?: number
+          total_descontos?: number
+          valor_liquido?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folha_pagamento_historico_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fornecedores: {
+        Row: {
+          ativo: boolean
+          categoria: string | null
+          cnpj_cpf: string | null
+          contato_nome: string | null
+          created_at: string
+          dia_vencimento: number | null
+          email: string | null
+          endereco: Json | null
+          frequencia_pagamento: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          razao_social: string | null
+          telefone: string | null
+          updated_at: string
+          valor_recorrente: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string | null
+          cnpj_cpf?: string | null
+          contato_nome?: string | null
+          created_at?: string
+          dia_vencimento?: number | null
+          email?: string | null
+          endereco?: Json | null
+          frequencia_pagamento?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          razao_social?: string | null
+          telefone?: string | null
+          updated_at?: string
+          valor_recorrente?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string | null
+          cnpj_cpf?: string | null
+          contato_nome?: string | null
+          created_at?: string
+          dia_vencimento?: number | null
+          email?: string | null
+          endereco?: Json | null
+          frequencia_pagamento?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          razao_social?: string | null
+          telefone?: string | null
+          updated_at?: string
+          valor_recorrente?: number | null
+        }
+        Relationships: []
+      }
+      funcionarios: {
+        Row: {
+          ativo: boolean
+          avatar_url: string | null
+          banco_agencia: string | null
+          banco_conta: string | null
+          banco_nome: string | null
+          banco_tipo_conta: string | null
+          carga_horaria: number | null
+          cargo: string
+          cbo: string | null
+          centro_custo: string | null
+          cnh_categoria: string | null
+          cnh_numero: string | null
+          cnh_validade: string | null
+          codigo_externo: string | null
+          comissao_percentual: number | null
+          contato_emergencia_nome: string | null
+          contato_emergencia_parentesco: string | null
+          contato_emergencia_telefone: string | null
+          cpf: string | null
+          created_at: string
+          ctps_numero: string | null
+          ctps_serie: string | null
+          ctps_uf: string | null
+          data_admissao: string | null
+          data_demissao: string | null
+          data_nascimento: string | null
+          departamento: string | null
+          desconto_inss_percentual: number | null
+          desconto_vt_percentual: number | null
+          dias_trabalhados: string[] | null
+          email: string | null
+          empregador_cnpj: string | null
+          empregador_nome: string | null
+          endereco: Json | null
+          escolaridade: string | null
+          estado_civil: string | null
+          filial: string | null
+          genero: string | null
+          gratificacao: number | null
+          id: string
+          insalubridade_percentual: number | null
+          login: string
+          matricula_inss: string | null
+          nacionalidade: string | null
+          naturalidade: string | null
+          nome: string
+          nome_mae: string | null
+          nome_pai: string | null
+          observacoes: string | null
+          outros_beneficios: number | null
+          outros_descontos: number | null
+          periculosidade: boolean | null
+          pis: string | null
+          pix_chave: string | null
+          pix_tipo_chave: string | null
+          plano_odontologico: number | null
+          plano_saude: number | null
+          regime_jornada: string | null
+          rg: string | null
+          rg_orgao_emissor: string | null
+          salario_base: number | null
+          telefone: string | null
+          tipo_contrato: string | null
+          titulo_eleitor: string | null
+          updated_at: string
+          user_id: string | null
+          vale_alimentacao: number | null
+          vale_refeicao: number | null
+          vale_transporte: number | null
+          valor_hora: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          avatar_url?: string | null
+          banco_agencia?: string | null
+          banco_conta?: string | null
+          banco_nome?: string | null
+          banco_tipo_conta?: string | null
+          carga_horaria?: number | null
+          cargo: string
+          cbo?: string | null
+          centro_custo?: string | null
+          cnh_categoria?: string | null
+          cnh_numero?: string | null
+          cnh_validade?: string | null
+          codigo_externo?: string | null
+          comissao_percentual?: number | null
+          contato_emergencia_nome?: string | null
+          contato_emergencia_parentesco?: string | null
+          contato_emergencia_telefone?: string | null
+          cpf?: string | null
+          created_at?: string
+          ctps_numero?: string | null
+          ctps_serie?: string | null
+          ctps_uf?: string | null
+          data_admissao?: string | null
+          data_demissao?: string | null
+          data_nascimento?: string | null
+          departamento?: string | null
+          desconto_inss_percentual?: number | null
+          desconto_vt_percentual?: number | null
+          dias_trabalhados?: string[] | null
+          email?: string | null
+          empregador_cnpj?: string | null
+          empregador_nome?: string | null
+          endereco?: Json | null
+          escolaridade?: string | null
+          estado_civil?: string | null
+          filial?: string | null
+          genero?: string | null
+          gratificacao?: number | null
+          id?: string
+          insalubridade_percentual?: number | null
+          login: string
+          matricula_inss?: string | null
+          nacionalidade?: string | null
+          naturalidade?: string | null
+          nome: string
+          nome_mae?: string | null
+          nome_pai?: string | null
+          observacoes?: string | null
+          outros_beneficios?: number | null
+          outros_descontos?: number | null
+          periculosidade?: boolean | null
+          pis?: string | null
+          pix_chave?: string | null
+          pix_tipo_chave?: string | null
+          plano_odontologico?: number | null
+          plano_saude?: number | null
+          regime_jornada?: string | null
+          rg?: string | null
+          rg_orgao_emissor?: string | null
+          salario_base?: number | null
+          telefone?: string | null
+          tipo_contrato?: string | null
+          titulo_eleitor?: string | null
+          updated_at?: string
+          user_id?: string | null
+          vale_alimentacao?: number | null
+          vale_refeicao?: number | null
+          vale_transporte?: number | null
+          valor_hora?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          avatar_url?: string | null
+          banco_agencia?: string | null
+          banco_conta?: string | null
+          banco_nome?: string | null
+          banco_tipo_conta?: string | null
+          carga_horaria?: number | null
+          cargo?: string
+          cbo?: string | null
+          centro_custo?: string | null
+          cnh_categoria?: string | null
+          cnh_numero?: string | null
+          cnh_validade?: string | null
+          codigo_externo?: string | null
+          comissao_percentual?: number | null
+          contato_emergencia_nome?: string | null
+          contato_emergencia_parentesco?: string | null
+          contato_emergencia_telefone?: string | null
+          cpf?: string | null
+          created_at?: string
+          ctps_numero?: string | null
+          ctps_serie?: string | null
+          ctps_uf?: string | null
+          data_admissao?: string | null
+          data_demissao?: string | null
+          data_nascimento?: string | null
+          departamento?: string | null
+          desconto_inss_percentual?: number | null
+          desconto_vt_percentual?: number | null
+          dias_trabalhados?: string[] | null
+          email?: string | null
+          empregador_cnpj?: string | null
+          empregador_nome?: string | null
+          endereco?: Json | null
+          escolaridade?: string | null
+          estado_civil?: string | null
+          filial?: string | null
+          genero?: string | null
+          gratificacao?: number | null
+          id?: string
+          insalubridade_percentual?: number | null
+          login?: string
+          matricula_inss?: string | null
+          nacionalidade?: string | null
+          naturalidade?: string | null
+          nome?: string
+          nome_mae?: string | null
+          nome_pai?: string | null
+          observacoes?: string | null
+          outros_beneficios?: number | null
+          outros_descontos?: number | null
+          periculosidade?: boolean | null
+          pis?: string | null
+          pix_chave?: string | null
+          pix_tipo_chave?: string | null
+          plano_odontologico?: number | null
+          plano_saude?: number | null
+          regime_jornada?: string | null
+          rg?: string | null
+          rg_orgao_emissor?: string | null
+          salario_base?: number | null
+          telefone?: string | null
+          tipo_contrato?: string | null
+          titulo_eleitor?: string | null
+          updated_at?: string
+          user_id?: string | null
+          vale_alimentacao?: number | null
+          vale_refeicao?: number | null
+          vale_transporte?: number | null
+          valor_hora?: number | null
+        }
+        Relationships: []
+      }
+      historico_envios: {
+        Row: {
+          canal: string
+          created_at: string
+          destinatario: string
+          documentos_enviados: string[] | null
+          erro_mensagem: string | null
+          fatura_id: string
+          id: string
+          mensagem: string | null
+          status: string
+          usuario: string | null
+        }
+        Insert: {
+          canal: string
+          created_at?: string
+          destinatario: string
+          documentos_enviados?: string[] | null
+          erro_mensagem?: string | null
+          fatura_id: string
+          id?: string
+          mensagem?: string | null
+          status?: string
+          usuario?: string | null
+        }
+        Update: {
+          canal?: string
+          created_at?: string
+          destinatario?: string
+          documentos_enviados?: string[] | null
+          erro_mensagem?: string | null
+          fatura_id?: string
+          id?: string
+          mensagem?: string | null
+          status?: string
+          usuario?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_envios_fatura_id_fkey"
+            columns: ["fatura_id"]
+            isOneToOne: false
+            referencedRelation: "faturas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historico_producao: {
+        Row: {
+          created_at: string
+          dados_formulario: Json | null
+          etapa_anterior: string | null
+          etapa_nova: string
+          funcionario_id: string | null
+          id: string
+          observacoes: string | null
+          ordem_servico_id: string
+          tenant_id: string
+          tempo_na_etapa_anterior: string | null
+        }
+        Insert: {
+          created_at?: string
+          dados_formulario?: Json | null
+          etapa_anterior?: string | null
+          etapa_nova: string
+          funcionario_id?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id: string
+          tenant_id?: string
+          tempo_na_etapa_anterior?: string | null
+        }
+        Update: {
+          created_at?: string
+          dados_formulario?: Json | null
+          etapa_anterior?: string | null
+          etapa_nova?: string
+          funcionario_id?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id?: string
+          tenant_id?: string
+          tempo_na_etapa_anterior?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_producao_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_producao_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      itens_contrato_aluguel: {
+        Row: {
+          contrato_id: string
+          created_at: string
+          descricao_item: string | null
+          id: string
+          produto_id: string | null
+          quantidade: number
+          tenant_id: string
+          unidade: string
+          updated_at: string
+          valor_unitario: number
+        }
+        Insert: {
+          contrato_id: string
+          created_at?: string
+          descricao_item?: string | null
+          id?: string
+          produto_id?: string | null
+          quantidade?: number
+          tenant_id?: string
+          unidade: string
+          updated_at?: string
+          valor_unitario?: number
+        }
+        Update: {
+          contrato_id?: string
+          created_at?: string
+          descricao_item?: string | null
+          id?: string
+          produto_id?: string | null
+          quantidade?: number
+          tenant_id?: string
+          unidade?: string
+          updated_at?: string
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_contrato_aluguel_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos_aluguel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_contrato_aluguel_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      itens_lancamento: {
+        Row: {
+          created_at: string
+          id: string
+          lancamento_id: string
+          preco_unitario: number
+          produto_id: string | null
+          produto_nome: string
+          quantidade: number
+          subtotal: number
+          tenant_id: string
+          unidade: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lancamento_id: string
+          preco_unitario: number
+          produto_id?: string | null
+          produto_nome: string
+          quantidade: number
+          subtotal: number
+          tenant_id?: string
+          unidade?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lancamento_id?: string
+          preco_unitario?: number
+          produto_id?: string | null
+          produto_nome?: string
+          quantidade?: number
+          subtotal?: number
+          tenant_id?: string
+          unidade?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_lancamento_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      itens_lancamento_cliente: {
+        Row: {
+          created_at: string | null
+          id: string
+          lancamento_id: string
+          observacoes: string | null
+          produto_id: string
+          quantidade: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lancamento_id: string
+          observacoes?: string | null
+          produto_id: string
+          quantidade: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lancamento_id?: string
+          observacoes?: string | null
+          produto_id?: string
+          quantidade?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_itens_lancamento_cliente_produto"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_lancamento_cliente_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos_cliente"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entregas_pedido: {
+        Row: {
+          autorizada_com_saldo: boolean
+          created_at: string
+          criado_por: string
+          documento_recebedor: string | null
+          funcionario_id: string | null
+          id: string
+          idempotency_key: string
+          motivo_autorizacao_saldo: string | null
+          nome_recebedor: string
+          observacoes: string | null
+          ordem_servico_id: string
+          request_fingerprint: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          autorizada_com_saldo?: boolean
+          created_at?: string
+          criado_por: string
+          documento_recebedor?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key: string
+          motivo_autorizacao_saldo?: string | null
+          nome_recebedor: string
+          observacoes?: string | null
+          ordem_servico_id: string
+          request_fingerprint: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          autorizada_com_saldo?: boolean
+          created_at?: string
+          criado_por?: string
+          documento_recebedor?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key?: string
+          motivo_autorizacao_saldo?: string | null
+          nome_recebedor?: string
+          observacoes?: string | null
+          ordem_servico_id?: string
+          request_fingerprint?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entregas_pedido_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entregas_pedido_itens: {
+        Row: {
+          created_at: string
+          entrega_id: string
+          id: string
+          item_ordem_servico_id: string
+          quantidade: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          entrega_id: string
+          id?: string
+          item_ordem_servico_id: string
+          quantidade: number
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          entrega_id?: string
+          id?: string
+          item_ordem_servico_id?: string
+          quantidade?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entregas_pedido_itens_entrega_id_fkey"
+            columns: ["entrega_id"]
+            isOneToOne: false
+            referencedRelation: "entregas_pedido"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entregas_pedido_itens_item_ordem_servico_id_fkey"
+            columns: ["item_ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "itens_ordem_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      itens_ordem_servico: {
+        Row: {
+          avarias: string | null
+          cor_item: string | null
+          created_at: string
+          id: string
+          marca_item: string | null
+          observacoes: string | null
+          ordem_servico_id: string
+          posicao_prateleira: string | null
+          preco_unitario: number
+          produto_id: string
+          quantidade: number
+          quantidade_aprovada: number
+          quantidade_entregue: number
+          quantidade_retida: number
+          quantidade_retrabalho: number
+          subtotal: number
+        }
+        Insert: {
+          avarias?: string | null
+          cor_item?: string | null
+          created_at?: string
+          id?: string
+          marca_item?: string | null
+          observacoes?: string | null
+          ordem_servico_id: string
+          posicao_prateleira?: string | null
+          preco_unitario: number
+          produto_id: string
+          quantidade?: number
+          quantidade_aprovada?: number
+          quantidade_entregue?: number
+          quantidade_retida?: number
+          quantidade_retrabalho?: number
+          subtotal: number
+        }
+        Update: {
+          avarias?: string | null
+          cor_item?: string | null
+          created_at?: string
+          id?: string
+          marca_item?: string | null
+          observacoes?: string | null
+          ordem_servico_id?: string
+          posicao_prateleira?: string | null
+          preco_unitario?: number
+          produto_id?: string
+          quantidade?: number
+          quantidade_aprovada?: number
+          quantidade_entregue?: number
+          quantidade_retida?: number
+          quantidade_retrabalho?: number
+          subtotal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_ordem_servico_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_ordem_servico_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lancamento_revisoes: {
+        Row: {
+          antes: Json | null
+          created_at: string
+          criado_por: string
+          depois: Json
+          id: string
+          idempotency_key: string
+          lancamento_id: string
+          request_hash: string
+          resultado: Json
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          antes?: Json | null
+          created_at?: string
+          criado_por: string
+          depois?: Json
+          id?: string
+          idempotency_key: string
+          lancamento_id: string
+          request_hash: string
+          resultado?: Json
+          tenant_id?: string
+          tipo: string
+        }
+        Update: {
+          antes?: Json | null
+          created_at?: string
+          criado_por?: string
+          depois?: Json
+          id?: string
+          idempotency_key?: string
+          lancamento_id?: string
+          request_hash?: string
+          resultado?: Json
+          tenant_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamento_revisoes_lancamento_tenant_fkey"
+            columns: ["lancamento_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id", "tenant_id"]
+          },
+        ]
+      }
+      lancamentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          data_entrega: string | null
+          data_lancamento: string
+          etapa: string
+          fatura_id: string | null
+          id: string
+          manual_idempotency_key: string | null
+          manual_request_hash: string | null
+          numero_rol: string | null
+          observacao: string | null
+          ordem_servico_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          valor_total: number
+          versao_financeira: number
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          data_entrega?: string | null
+          data_lancamento?: string
+          etapa?: string
+          fatura_id?: string | null
+          id?: string
+          manual_idempotency_key?: string | null
+          manual_request_hash?: string | null
+          numero_rol?: string | null
+          observacao?: string | null
+          ordem_servico_id?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          valor_total?: number
+          versao_financeira?: number
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          data_entrega?: string | null
+          data_lancamento?: string
+          etapa?: string
+          fatura_id?: string | null
+          id?: string
+          manual_idempotency_key?: string | null
+          manual_request_hash?: string | null
+          numero_rol?: string | null
+          observacao?: string | null
+          ordem_servico_id?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          valor_total?: number
+          versao_financeira?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_fatura_id_fkey"
+            columns: ["fatura_id"]
+            isOneToOne: false
+            referencedRelation: "faturas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lancamentos_cliente: {
+        Row: {
+          cliente_id: string
+          created_at: string | null
+          data_lancamento: string | null
+          id: string
+          observacoes: string | null
+          ordem_servico_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string | null
+          data_lancamento?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string | null
+          data_lancamento?: string | null
+          id?: string
+          observacoes?: string | null
+          ordem_servico_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_lancamentos_cliente_cliente"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_lancamentos_cliente_os"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lancamentos_fatura: {
+        Row: {
+          created_at: string
+          fatura_id: string
+          id: string
+          lancamento_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          fatura_id: string
+          id?: string
+          lancamento_id: string
+          tenant_id?: string
+        }
+        Update: {
+          created_at?: string
+          fatura_id?: string
+          id?: string
+          lancamento_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_fatura_fatura_id_fkey"
+            columns: ["fatura_id"]
+            isOneToOne: false
+            referencedRelation: "faturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_fatura_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lotes_ordens: {
+        Row: {
+          adicionado_por: string | null
+          ativo: boolean
+          created_at: string
+          id: string
+          lote_id: string
+          ordem_servico_id: string
+          removido_em: string | null
+          tenant_id: string
+        }
+        Insert: {
+          adicionado_por?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          lote_id: string
+          ordem_servico_id: string
+          removido_em?: string | null
+          tenant_id?: string
+        }
+        Update: {
+          adicionado_por?: string | null
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          lote_id?: string
+          ordem_servico_id?: string
+          removido_em?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lotes_ordens_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes_producao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lotes_ordens_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lotes_producao: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          etapa_atual: string | null
+          finalizado_em: string | null
+          funcionario_responsavel_id: string | null
+          id: string
+          iniciado_em: string | null
+          numero_lote: string
+          observacoes: string | null
+          recurso: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          versao: number
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          etapa_atual?: string | null
+          finalizado_em?: string | null
+          funcionario_responsavel_id?: string | null
+          id?: string
+          iniciado_em?: string | null
+          numero_lote: string
+          observacoes?: string | null
+          recurso?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          versao?: number
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          etapa_atual?: string | null
+          finalizado_em?: string | null
+          funcionario_responsavel_id?: string | null
+          id?: string
+          iniciado_em?: string | null
+          numero_lote?: string
+          observacoes?: string | null
+          recurso?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lotes_producao_funcionario_responsavel_id_fkey"
+            columns: ["funcionario_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mensagens_log: {
+        Row: {
+          canal: string
+          cliente_id: string | null
+          created_at: string
+          erro: string | null
+          evento: string
+          id: string
+          idempotency_key: string | null
+          mensagem: string
+          ordem_servico_id: string | null
+          status: string
+          telefone: string
+        }
+        Insert: {
+          canal?: string
+          cliente_id?: string | null
+          created_at?: string
+          erro?: string | null
+          evento: string
+          id?: string
+          idempotency_key?: string | null
+          mensagem: string
+          ordem_servico_id?: string | null
+          status?: string
+          telefone: string
+        }
+        Update: {
+          canal?: string
+          cliente_id?: string | null
+          created_at?: string
+          erro?: string | null
+          evento?: string
+          id?: string
+          idempotency_key?: string | null
+          mensagem?: string
+          ordem_servico_id?: string | null
+          status?: string
+          telefone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensagens_log_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensagens_log_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      modulo_permissoes: {
+        Row: {
+          created_at: string
+          funcionario_id: string
+          id: string
+          modulo_key: string
+          tem_acesso: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          funcionario_id: string
+          id?: string
+          modulo_key: string
+          tem_acesso?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          funcionario_id?: string
+          id?: string
+          modulo_key?: string
+          tem_acesso?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modulo_permissoes_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      motoristas: {
+        Row: {
+          ativo: boolean
+          cnh: string | null
+          cnh_validade: string | null
+          created_at: string
+          email: string | null
+          funcionario_id: string | null
+          id: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cnh?: string | null
+          cnh_validade?: string | null
+          created_at?: string
+          email?: string | null
+          funcionario_id?: string | null
+          id?: string
+          nome: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cnh?: string | null
+          cnh_validade?: string | null
+          created_at?: string
+          email?: string | null
+          funcionario_id?: string | null
+          id?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "motoristas_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movimentacoes_estoque: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          custo_unitario: number | null
+          estoque_produto_id: string
+          fornecedor_id: string | null
+          funcionario_id: string | null
+          id: string
+          idempotency_key: string | null
+          motivo: string | null
+          quantidade: number
+          request_fingerprint: string | null
+          saldo_anterior: number | null
+          saldo_posterior: number | null
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          custo_unitario?: number | null
+          estoque_produto_id: string
+          fornecedor_id?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          motivo?: string | null
+          quantidade: number
+          request_fingerprint?: string | null
+          saldo_anterior?: number | null
+          saldo_posterior?: number | null
+          tenant_id?: string
+          tipo?: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          custo_unitario?: number | null
+          estoque_produto_id?: string
+          fornecedor_id?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          motivo?: string | null
+          quantidade?: number
+          request_fingerprint?: string | null
+          saldo_anterior?: number | null
+          saldo_posterior?: number | null
+          tenant_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movimentacoes_estoque_estoque_produto_id_fkey"
+            columns: ["estoque_produto_id"]
+            isOneToOne: false
+            referencedRelation: "estoque_produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_estoque_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movimentacoes_estoque_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notificacoes_config: {
+        Row: {
+          ativo: boolean | null
+          canal: string
+          created_at: string | null
+          evento: string
+          id: string
+          template: string
+          updated_at: string | null
+          variaveis: Json | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          canal: string
+          created_at?: string | null
+          evento: string
+          id?: string
+          template: string
+          updated_at?: string | null
+          variaveis?: Json | null
+        }
+        Update: {
+          ativo?: boolean | null
+          canal?: string
+          created_at?: string | null
+          evento?: string
+          id?: string
+          template?: string
+          updated_at?: string | null
+          variaveis?: Json | null
+        }
+        Relationships: []
+      }
+      notificacoes_enviadas: {
+        Row: {
+          cliente_id: string | null
+          enviado_em: string
+          evento: string
+          id: string
+          ordem_servico_id: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          enviado_em?: string
+          evento: string
+          id?: string
+          ordem_servico_id: string
+        }
+        Update: {
+          cliente_id?: string | null
+          enviado_em?: string
+          evento?: string
+          id?: string
+          ordem_servico_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_enviadas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_enviadas_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orcamentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          itens_snapshot: Json
+          observacoes: string | null
+          status: string
+          updated_at: string
+          validade: string | null
+          valor_total: number
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          itens_snapshot?: Json
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          validade?: string | null
+          valor_total?: number
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          itens_snapshot?: Json
+          observacoes?: string | null
+          status?: string
+          updated_at?: string
+          validade?: string | null
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producao_operacoes: {
+        Row: {
+          created_at: string
+          criado_por: string
+          dados: Json
+          etapa_anterior: string
+          etapa_nova: string | null
+          funcionario_id: string | null
+          id: string
+          idempotency_key: string
+          lote_id: string | null
+          nova_previsao: string | null
+          ocorrencia: string | null
+          ordens_servico_ids: string[]
+          recurso: string | null
+          request_fingerprint: string
+          resultado: Json
+          tenant_id: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por: string
+          dados?: Json
+          etapa_anterior: string
+          etapa_nova?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key: string
+          lote_id?: string | null
+          nova_previsao?: string | null
+          ocorrencia?: string | null
+          ordens_servico_ids: string[]
+          recurso?: string | null
+          request_fingerprint: string
+          resultado?: Json
+          tenant_id?: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string
+          dados?: Json
+          etapa_anterior?: string
+          etapa_nova?: string | null
+          funcionario_id?: string | null
+          id?: string
+          idempotency_key?: string
+          lote_id?: string | null
+          nova_previsao?: string | null
+          ocorrencia?: string | null
+          ordens_servico_ids?: string[]
+          recurso?: string | null
+          request_fingerprint?: string
+          resultado?: Json
+          tenant_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producao_operacoes_funcionario_id_fkey"
+            columns: ["funcionario_id"]
+            isOneToOne: false
+            referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producao_operacoes_lote_id_fkey"
+            columns: ["lote_id"]
+            isOneToOne: false
+            referencedRelation: "lotes_producao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qualidade_movimentos: {
+        Row: {
+          created_at: string
+          criado_por: string
+          funcionario_id: string | null
+          id: string
+          item_ordem_servico_id: string
+          motivo: string | null
+          nova_previsao: string | null
+          operacao_id: string
+          ordem_servico_id: string
+          origem: string
+          quantidade: number
+          resultado: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          criado_por: string
+          funcionario_id?: string | null
+          id?: string
+          item_ordem_servico_id: string
+          motivo?: string | null
+          nova_previsao?: string | null
+          operacao_id: string
+          ordem_servico_id: string
+          origem: string
+          quantidade: number
+          resultado: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string
+          funcionario_id?: string | null
+          id?: string
+          item_ordem_servico_id?: string
+          motivo?: string | null
+          nova_previsao?: string | null
+          operacao_id?: string
+          ordem_servico_id?: string
+          origem?: string
+          quantidade?: number
+          resultado?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qualidade_movimentos_item_ordem_servico_id_fkey"
+            columns: ["item_ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "itens_ordem_servico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qualidade_movimentos_ordem_servico_id_fkey"
+            columns: ["ordem_servico_id"]
+            isOneToOne: false
+            referencedRelation: "ordens_servico"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3156,6 +4951,47 @@ export type Database = {
         }
         Returns: Json
       }
+      consultar_clientes_faturamento_periodo: {
+        Args: {
+          _area: string
+          _inicio: string
+          _fim: string
+          _pagina?: number
+          _tamanho?: number
+        }
+        Returns: Json
+      }
+      consultar_rols_faturamento_periodo: {
+        Args: {
+          _area: string
+          _cliente_id: string
+          _inicio: string
+          _fim: string
+          _pagina?: number
+          _tamanho?: number
+        }
+        Returns: Json
+      }
+      fechar_faturamento_rols: {
+        Args: {
+          _area: string
+          _cliente_id: string
+          _periodo_inicio: string
+          _periodo_fim: string
+          _lancamento_ids: string[]
+          _idempotency_key: string
+          _observacao?: string | null
+        }
+        Returns: Json
+      }
+      vincular_boleto_fatura: {
+        Args: {
+          _fatura_id: string
+          _charge_id: string
+          _linha_digitavel: string
+        }
+        Returns: Json
+      }
       consultar_fila_lancamentos_pendentes: {
         Args: {
           _area: string
@@ -3308,6 +5144,19 @@ export type Database = {
           _observacoes: string | null
           _valor_conferido_cartao_credito: number
           _valor_conferido_cartao_debito: number
+          _valor_conferido_pix: number
+          _valor_contado_dinheiro: number
+        }
+        Returns: Json
+      }
+      fechar_caixa_auditado: {
+        Args: {
+          _caixa_id: string
+          _idempotency_key: string
+          _observacoes: string | null
+          _valor_conferido_cartao_credito: number
+          _valor_conferido_cartao_debito: number
+          _valor_conferido_outros: number
           _valor_conferido_pix: number
           _valor_contado_dinheiro: number
         }
@@ -3492,6 +5341,20 @@ export type Database = {
           _caixa_id: string
           _descricao: string
           _idempotency_key: string
+          _tipo: string
+          _valor: number
+        }
+        Returns: Json
+      }
+      registrar_movimentacao_caixa_auditada: {
+        Args: {
+          _caixa_id: string
+          _categoria: string | null
+          _descricao: string
+          _idempotency_key: string
+          _ocorrido_em: string
+          _referencia: string | null
+          _responsavel_nome: string | null
           _tipo: string
           _valor: number
         }

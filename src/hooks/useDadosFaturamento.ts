@@ -63,6 +63,9 @@ export function useDadosFaturamentoCompletos(clienteId: string | null) {
         supabase.from("configuracoes_cliente").select("tipo_relatorio, codigo_acesso, link_acesso, frequencia").eq("cliente_id", clienteId).filter("tenant_id", "eq", activeTenant.id).maybeSingle(),
       ]);
 
+      const failure = [clienteRes.error, enderecoRes.error, configPagRes.error, configCliRes.error].find(Boolean);
+      if (failure) throw failure;
+
       return {
         cliente: clienteRes.data || null,
         endereco: enderecoRes.data || null,
