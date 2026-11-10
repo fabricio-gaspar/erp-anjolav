@@ -37,11 +37,14 @@ test("consulta de CEP aproveita coordenadas do provedor e informa localização 
 
 test("mapa de endereços não usa os tiles públicos que estão bloqueando a aplicação", () => {
   const map = source("../src/components/ui/AddressMap.tsx");
+  const baseLayer = source("../src/components/ui/MapBaseLayer.tsx");
+  const tiles = source("../src/lib/mapTiles.ts");
 
-  assert.match(map, /basemaps\.cartocdn\.com/);
-  assert.match(map, /VITE_MAP_TILE_URL/);
-  assert.match(map, /VITE_MAP_TILE_KEY/);
-  assert.doesNotMatch(map, /tile\.openstreetmap\.org/);
+  assert.match(map, /MapBaseLayer/);
+  assert.match(baseLayer, /maplibreGL/);
+  assert.match(tiles, /tiles\.openfreemap\.org\/styles\/bright/);
+  assert.match(tiles, /VITE_MAP_TILE_URL/);
+  assert.doesNotMatch(tiles, /tile\.openstreetmap\.org|basemaps\.cartocdn\.com/);
 });
 
 test("botão de adicionar preço abre o cadastro compartilhado de produtos quando não há produto selecionado", () => {

@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
+          if (id.includes("maplibre-gl")) return "maplibre";
           if (id.includes("leaflet")) return "maps";
           if (id.includes("recharts")) return "charts";
           if (id.includes("@supabase")) return "supabase";

@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
+import { useMemo } from "react";
+import { MapContainer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { MapPin, Building2 } from "lucide-react";
+import { MapBaseLayer } from "@/components/ui/MapBaseLayer";
 
 interface MiniMapaEntregaProps {
   clienteLatitude?: number | null;
@@ -143,11 +144,8 @@ export function MiniMapaEntrega({
           zoom={zoom}
           style={{ height: "100%", width: "100%" }}
           zoomControl={false}
-          attributionControl={false}
         >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          <MapBaseLayer />
           
           {/* Marcador da empresa */}
           <Marker position={[empresaLat, empresaLng]} icon={empresaIcon}>

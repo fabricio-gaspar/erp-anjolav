@@ -1,20 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap, Polyline, Popup, Tooltip } from "react-leaflet";
+import { MapContainer, Marker, useMapEvents, useMap, Polyline, Popup, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-
-const DEFAULT_MAP_TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-const DEFAULT_MAP_TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
-const configuredTileUrl = import.meta.env.VITE_MAP_TILE_URL?.trim();
-const configuredTileKey = import.meta.env.VITE_MAP_TILE_KEY?.trim();
-const mapTileUrl = configuredTileUrl || DEFAULT_MAP_TILE_URL;
-const mapTileAttribution =
-  import.meta.env.VITE_MAP_TILE_ATTRIBUTION?.trim() || DEFAULT_MAP_TILE_ATTRIBUTION;
-const mapTileUrlWithKey = configuredTileKey
-  ? `${mapTileUrl}${mapTileUrl.includes("?") ? "&" : "?"}key=${encodeURIComponent(configuredTileKey)}`
-  : mapTileUrl;
+import { MapBaseLayer } from "@/components/ui/MapBaseLayer";
 
 // Fix for default marker icons in React-Leaflet
 const defaultIcon = L.icon({
@@ -223,14 +211,9 @@ export const AddressMap = ({
         style={{ height: "100%", width: "100%" }}
         className="z-0"
       >
-        <TileLayer
+        <MapBaseLayer
           key={tileRetry}
-          attribution={mapTileAttribution}
-          url={mapTileUrlWithKey}
-          eventHandlers={{
-            load: () => setTileError(false),
-            tileerror: () => setTileError(true),
-          }}
+          onErrorChange={setTileError}
         />
         
         {/* Marcador da empresa (azul) - Acessível */}
