@@ -68,7 +68,6 @@ test("subrotas operacionais mantêm a casca do PDV", async ({ page }) => {
   await prepareAuthenticatedWorkspace(page);
   await page.goto("/pdv/domestico/clientes");
 
-  await expect(page.getByText("Voltar ao painel principal", { exact: true })).toBeVisible();
   await expect(page.locator('[aria-label="AnjoLav"]')).toBeVisible();
   await expect(page.getByLabel("Contexto operacional")).toBeVisible();
 });
@@ -80,7 +79,8 @@ test("painel administrativo concentra a navegação e o contexto global", async 
   await expect(page.getByLabel("Operação")).toBeVisible();
   await expect(page.getByLabel("Unidade")).toBeVisible();
   await expect(page.getByLabel("Período")).toBeVisible();
-  await expect(page.getByRole("link", { name: "PDV e caixas" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Caixas", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "PDV e caixas" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Trocar painel/ })).toHaveCount(0);
 });
 
@@ -151,7 +151,10 @@ test("PDV usa URL e ambiente operacional separados do painel administrativo", as
   await page.goto("/residencial/caixa");
 
   await expect(page).toHaveURL(/\/pdv\/domestico$/);
-  await expect(page.getByRole("heading", { name: "PDV / Caixa", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Como deseja iniciar o atendimento?" })).toBeVisible();
+  await page.getByTestId("pdv-service-rol").click();
+  await expect(page).toHaveURL(/\/pdv\/domestico\/rol$/);
+  await expect(page.getByRole("heading", { name: "Balcão / PDV — Novo ROL", exact: true })).toBeVisible();
   await expect(page.getByText("Carregando contexto do atendimento...")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Meu dia" })).toHaveCount(0);
   await expect(page.getByLabel("Contexto operacional")).toBeVisible();

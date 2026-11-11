@@ -59,11 +59,11 @@ test("cliente abre os dados pelo nome e exibe a tabela padrão", async ({ page }
   await page.route("http://127.0.0.1:54321/rest/v1/precos_especiais**", (route) => fulfill(route, []));
 
   await page.goto("/residencial/clientes");
-  await expect(page.getByRole("main").getByRole("heading", { name: "Clientes Residencial" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("heading", { name: "Clientes Doméstico" })).toBeVisible();
   await page.getByRole("button", { name: "Abrir cliente Cliente Residencial E2E" }).click();
   await expect(page.getByRole("heading", { name: "Cliente Residencial E2E" })).toBeVisible();
 
-  await page.getByRole("tab", { name: "Preços" }).click();
+  await page.getByRole("tab", { name: "Condições" }).click();
   await expect(page.getByText("Tabela de preços do cliente")).toBeVisible();
   await expect(page.getByText("Lavagem padrão E2E")).toBeVisible();
   await expect(page.getByText("Preço padrão", { exact: true }).last()).toBeVisible();
@@ -94,5 +94,7 @@ test("produto permite selecionar porte e salvar o item na listagem", async ({ pa
 
   await expect(page.getByText("Produto criado com sucesso!")).toBeVisible();
   await expect(page.getByText("Toalha nova E2E")).toBeVisible();
-  await expect(page.getByText("Porte: Grande")).toBeVisible();
+  await page.getByRole("button", { name: "Ações do produto Toalha nova E2E" }).click();
+  await page.getByRole("menuitem", { name: "Editar" }).click();
+  await expect(page.getByRole("region", { name: "Editar produto" }).getByRole("combobox", { name: "Porte" })).toHaveText("Grande");
 });
