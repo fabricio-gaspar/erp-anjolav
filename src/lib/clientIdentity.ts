@@ -28,7 +28,7 @@ export interface ClientDuplicateCandidate {
   maskedDocument: string | null;
   maskedPhone: string | null;
   maskedEmail: string | null;
-  matches: Array<"documento" | "telefone" | "email" | "nome">;
+  matches: Array<"document" | "phone" | "email" | "name" | "documento" | "telefone" | "nome">;
   documentConflict: boolean;
 }
 
@@ -144,6 +144,9 @@ export function validateClientIdentity(
 }
 
 export const CLIENT_DUPLICATE_REASON_LABELS = {
+  document: "mesmo CPF/CNPJ",
+  phone: "mesmo telefone",
+  name: "mesmo nome/razão social",
   documento: "mesmo CPF/CNPJ",
   telefone: "mesmo telefone",
   email: "mesmo e-mail",

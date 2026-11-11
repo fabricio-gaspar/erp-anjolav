@@ -197,8 +197,9 @@ export const ClienteDadosBasicos = ({
 
   const [tipoPessoa, setTipoPessoa] = useState<ClientPersonType>("cnpj");
   const [classificacao, setClassificacao] = useState<ClientClassification>(
-    activeArea === "residencial" ? "residencial" : "industrial",
+    activeArea === "industrial" ? "industrial" : "residencial",
   );
+  const [classificationConfirmed, setClassificationConfirmed] = useState(activeArea !== "central");
   const [regimeTributario, setRegimeTributario] =
     useState<RegimeTributario>("nao_contribuinte");
   const [formData, setFormData] = useState<FormValues>(EMPTY_FORM);
@@ -226,6 +227,7 @@ export const ClienteDadosBasicos = ({
     if (!clienteExistente) return;
     setTipoPessoa(clienteExistente.tipo_pessoa);
     setClassificacao(clienteExistente.classificacao);
+    setClassificationConfirmed(true);
     setRegimeTributario(
       (clienteExistente.regime_tributario as RegimeTributario | null) ??
         "nao_contribuinte",
@@ -252,8 +254,9 @@ export const ClienteDadosBasicos = ({
     if (clienteId) return;
     setTipoPessoa("cnpj");
     setClassificacao(
-      activeArea === "residencial" ? "residencial" : "industrial",
+      activeArea === "industrial" ? "industrial" : "residencial",
     );
+    setClassificationConfirmed(activeArea !== "central");
     setRegimeTributario("nao_contribuinte");
     setFormData(EMPTY_FORM);
     setErrors({});
@@ -343,6 +346,7 @@ export const ClienteDadosBasicos = ({
 
   const changeClassification = (nextClassification: ClientClassification) => {
     setClassificacao(nextClassification);
+    setClassificationConfirmed(true);
     clearDuplicateReview();
   };
 
@@ -367,6 +371,7 @@ export const ClienteDadosBasicos = ({
 
   const reviewOnBlur = () => {
     if (
+      (activeArea === "central" && !classificationConfirmed) ||
       !hasClientDuplicateSignal(draft) ||
       isReviewPending ||
       saveIdentity.isPending
@@ -417,6 +422,10 @@ export const ClienteDadosBasicos = ({
   }, [clearDuplicateReview, formData.cpf_cnpj, onCnpjDataLoaded]);
 
   const handleSave = async (goNext: boolean) => {
+    if (activeArea === "central" && !classificationConfirmed) {
+      toast.error("Escolha a operação responsável pelo cliente antes de salvar");
+      return;
+    }
     const snapshot = draft;
     const validationErrors = validateClientIdentity(snapshot);
     setErrors(validationErrors);
@@ -585,12 +594,12 @@ export const ClienteDadosBasicos = ({
                 <Button
                   type="button"
                   variant={
-                    effectiveClassification === "residencial"
+                    classificationConfirmed && effectiveClassification === "residencial"
                       ? "default"
                       : "outline"
                   }
                   className="h-11"
-                  aria-pressed={effectiveClassification === "residencial"}
+                  aria-pressed={classificationConfirmed && effectiveClassification === "residencial"}
                   onClick={() => changeClassification("residencial")}
                   disabled={activeArea !== "central" || isBusy}
                 >
@@ -599,18 +608,21 @@ export const ClienteDadosBasicos = ({
                 <Button
                   type="button"
                   variant={
-                    effectiveClassification === "industrial"
+                    classificationConfirmed && effectiveClassification === "industrial"
                       ? "default"
                       : "outline"
                   }
                   className="h-11"
-                  aria-pressed={effectiveClassification === "industrial"}
+                  aria-pressed={classificationConfirmed && effectiveClassification === "industrial"}
                   onClick={() => changeClassification("industrial")}
                   disabled={activeArea !== "central" || isBusy}
                 >
                   <Building2 className="h-4 w-4" /> Industrial
                 </Button>
               </div>
+              {activeArea === "central" && !classificationConfirmed && (
+                <p className="text-xs font-medium text-amber-700">Selecione a operação antes de salvar. Ela define onde o cliente aparecerá no PDV.</p>
+              )}
               {activeArea !== "central" && (
                 <p className="text-xs text-muted-foreground">
                   A operação segue o painel atual e não pode ser alterada neste
@@ -906,6 +918,7 @@ export const ClienteDadosBasicos = ({
                         size="sm"
                         className="h-10 shrink-0"
                         onClick={() => onOpenExistingClient(candidate.id)}
+                        disabled={isPdvClientWorkspace && (!candidate.active || candidate.classification !== activeArea)}
                       >
                         Abrir cadastro
                         <ChevronRight className="h-4 w-4" />

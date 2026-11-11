@@ -51,7 +51,9 @@ import { Separator } from "@/components/ui/separator";
 import { useFornecedores, type Fornecedor, type FornecedorInput } from "@/hooks/useFornecedores";
 import { useSupplierDirectory } from "@/hooks/useSupplierDirectory";
 import { useContasPagar } from "@/hooks/useContasPagar";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { buscarCnpj } from "@/services/apiServices";
+import { validarCNPJ, validarCPF } from "@/lib/validacoesFiscais";
 import { toast } from "sonner";
 import { formatCurrencyInput, formatNumberToCurrency, parseCurrencyToNumber } from "@/lib/currencyUtils";
 import {
@@ -115,6 +117,7 @@ function nullableText(value: string | null | undefined) {
 function SupplierActions({
   supplier,
   accountPending,
+  canCreateAccount,
   onCreateAccount,
   onEdit,
   onArchive,
@@ -122,6 +125,7 @@ function SupplierActions({
 }: {
   supplier: Fornecedor;
   accountPending: boolean;
+  canCreateAccount: boolean;
   onCreateAccount: (supplier: Fornecedor) => void;
   onEdit: (supplier: Fornecedor) => void;
   onArchive: (supplier: Fornecedor) => void;
@@ -144,7 +148,7 @@ function SupplierActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">
-        {supplier.ativo && hasRecurrence && (
+        {canCreateAccount && supplier.ativo && hasRecurrence && (
           <DropdownMenuItem onClick={() => onCreateAccount(supplier)} disabled={accountPending}>
             <Receipt className="mr-2 h-4 w-4" />Gerar próxima despesa
           </DropdownMenuItem>
@@ -201,6 +205,7 @@ export default function Fornecedores() {
     recurrence: selectedRecurrence,
   });
   const { criarFornecedor, atualizarFornecedor, setFornecedorStatus } = useFornecedores({ enabled: false });
+  const { allowed: canManageAccounts } = usePermissaoModulo("contas_pagar");
   const { createConta } = useContasPagar(false);
   const suppliers = directory?.fornecedores ?? [];
   const totalSuppliers = directory?.total ?? 0;
@@ -215,10 +220,13 @@ export default function Fornecedores() {
   const [form, setForm] = useState<SupplierFormState>(DEFAULT_FORM);
   const [lookingUpCnpj, setLookingUpCnpj] = useState(false);
   const [supplierToArchive, setSupplierToArchive] = useState<Fornecedor | null>(null);
+  const [supplierForAccount, setSupplierForAccount] = useState<Fornecedor | null>(null);
+  const [formErrors, setFormErrors] = useState<Partial<Record<"nome" | "cnpj_cpf" | "telefone" | "email" | "valor_recorrente" | "dia_vencimento", string>>>({});
 
   const openNew = useCallback(() => {
     setEditingSupplier(null);
     setForm(DEFAULT_FORM);
+    setFormErrors({});
     setModalOpen(true);
   }, []);
 
@@ -231,6 +239,7 @@ export default function Fornecedores() {
   }, [openNew, searchParams, setSearchParams]);
 
   const openEdit = (supplier: Fornecedor) => {
+    setFormErrors({});
     setEditingSupplier(supplier);
     setForm({
       nome: supplier.nome,
@@ -256,23 +265,30 @@ export default function Fornecedores() {
     setModalOpen(false);
     setEditingSupplier(null);
     setForm(DEFAULT_FORM);
+    setFormErrors({});
   };
 
   const saveSupplier = () => {
     const name = form.nome?.trim();
-    if (!name) {
-      toast.error("Nome é obrigatório");
-      return;
-    }
-
     const recurringValue = typeof form.valor_recorrente === "number"
       ? form.valor_recorrente
       : parseCurrencyToNumber(String(form.valor_recorrente ?? ""));
     const dueDay = form.dia_vencimento == null || form.dia_vencimento === 0
       ? null
       : Number(form.dia_vencimento);
-    if (recurringValue > 0 && (!Number.isInteger(dueDay) || dueDay == null || dueDay < 1 || dueDay > 31)) {
-      toast.error("Informe um dia de vencimento entre 1 e 31");
+    const document = form.cnpj_cpf?.replace(/\D/g, "") ?? "";
+    const email = form.email?.trim() ?? "";
+    const phone = form.telefone?.replace(/\D/g, "") ?? "";
+    const errors: typeof formErrors = {};
+    if (!name || name.length < 2 || name.length > 160) errors.nome = "Informe um nome entre 2 e 160 caracteres";
+    if (document && !(document.length === 11 ? validarCPF(document) : document.length === 14 && validarCNPJ(document))) errors.cnpj_cpf = "Informe um CPF ou CNPJ válido";
+    if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) errors.email = "Informe um e-mail válido";
+    if (phone && (phone.length < 10 || phone.length > 15)) errors.telefone = "Informe um telefone com 10 a 15 dígitos";
+    if (!Number.isFinite(recurringValue) || recurringValue < 0) errors.valor_recorrente = "Informe um valor válido";
+    if (recurringValue > 0 && (!Number.isInteger(dueDay) || dueDay == null || dueDay < 1 || dueDay > 31)) errors.dia_vencimento = "Informe um dia entre 1 e 31";
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Revise os campos destacados antes de salvar");
       return;
     }
 
@@ -338,6 +354,10 @@ export default function Fornecedores() {
   };
 
   const createNextAccount = (supplier: Fornecedor) => {
+    if (!canManageAccounts) {
+      toast.error("Sem permissão para criar despesas");
+      return;
+    }
     if (supplier.frequencia_pagamento !== "mensal") {
       toast.error("A geração assistida está disponível somente para recorrência mensal");
       return;
@@ -357,7 +377,7 @@ export default function Fornecedores() {
       categoria: categoryLabel(supplier.categoria),
       observacoes: `Gerado do cadastro recorrente do fornecedor ${supplier.nome}`,
       idempotencyKey: `supplier:${supplier.id}:${dueDate.slice(0, 7)}`,
-    });
+    }, { onSuccess: () => setSupplierForAccount(null) });
   };
 
   const archiveSupplier = () => {
@@ -467,6 +487,7 @@ export default function Fornecedores() {
     setForm(previous => ({ ...previous, endereco: { ...address, [field]: value } }));
   };
   const mutationPending = criarFornecedor.isPending || atualizarFornecedor.isPending || setFornecedorStatus.isPending;
+  const accountDueDate = supplierForAccount ? getNextSupplierDueDate(Number(supplierForAccount.dia_vencimento)) : null;
 
   return (
     <AppLayout title="Fornecedores" subtitle="Parceiros de compras, estoque e despesas">
@@ -613,7 +634,7 @@ export default function Fornecedores() {
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">{supplier.cnpj_cpf || supplier.razao_social || "Documento não informado"}</p>
                       </div>
-                      <SupplierActions supplier={supplier} accountPending={createConta.isPending} onCreateAccount={createNextAccount} onEdit={openEdit} onArchive={setSupplierToArchive} onReactivate={reactivateSupplier} />
+                      <SupplierActions supplier={supplier} accountPending={createConta.isPending} canCreateAccount={canManageAccounts} onCreateAccount={setSupplierForAccount} onEdit={openEdit} onArchive={setSupplierToArchive} onReactivate={reactivateSupplier} />
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Badge variant="secondary">{categoryLabel(supplier.categoria)}</Badge>
@@ -675,7 +696,7 @@ export default function Fornecedores() {
                         </TableCell>
                         <TableCell><Badge variant={supplier.ativo ? "default" : "outline"}>{supplier.ativo ? "Ativo" : "Arquivado"}</Badge></TableCell>
                         <TableCell className="text-right">
-                          <SupplierActions supplier={supplier} accountPending={createConta.isPending} onCreateAccount={createNextAccount} onEdit={openEdit} onArchive={setSupplierToArchive} onReactivate={reactivateSupplier} />
+                          <SupplierActions supplier={supplier} accountPending={createConta.isPending} canCreateAccount={canManageAccounts} onCreateAccount={setSupplierForAccount} onEdit={openEdit} onArchive={setSupplierToArchive} onReactivate={reactivateSupplier} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -714,9 +735,10 @@ export default function Fornecedores() {
                 <div className="md:col-span-2">
                   <Label htmlFor="supplier-document">CNPJ ou CPF</Label>
                   <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                    <Input id="supplier-document" value={form.cnpj_cpf || ""} onChange={event => setForm(previous => ({ ...previous, cnpj_cpf: event.target.value }))} placeholder="00.000.000/0000-00" className="flex-1 text-base md:text-sm" />
+                    <Input id="supplier-document" value={form.cnpj_cpf || ""} onChange={event => { setForm(previous => ({ ...previous, cnpj_cpf: event.target.value })); setFormErrors(previous => ({ ...previous, cnpj_cpf: undefined })); }} placeholder="00.000.000/0000-00" className="flex-1 text-base md:text-sm" aria-invalid={Boolean(formErrors.cnpj_cpf)} aria-describedby={formErrors.cnpj_cpf ? "supplier-document-error" : undefined} />
                     <Button type="button" variant="outline" onClick={() => void lookupCnpj()} disabled={lookingUpCnpj}>{lookingUpCnpj ? "Consultando…" : "Consultar CNPJ"}</Button>
                   </div>
+                  {formErrors.cnpj_cpf && <p id="supplier-document-error" className="mt-1 text-xs text-destructive">{formErrors.cnpj_cpf}</p>}
                   <p className="mt-1 text-xs text-muted-foreground">A consulta externa é opcional; revise os dados antes de salvar.</p>
                 </div>
                 <div>
@@ -730,7 +752,8 @@ export default function Fornecedores() {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
                   <Label htmlFor="supplier-name">Nome do fornecedor *</Label>
-                  <Input id="supplier-name" value={form.nome || ""} onChange={event => setForm(previous => ({ ...previous, nome: event.target.value }))} className="mt-1 text-base md:text-sm" />
+                  <Input id="supplier-name" value={form.nome || ""} onChange={event => { setForm(previous => ({ ...previous, nome: event.target.value })); setFormErrors(previous => ({ ...previous, nome: undefined })); }} className="mt-1 text-base md:text-sm" aria-invalid={Boolean(formErrors.nome)} aria-describedby={formErrors.nome ? "supplier-name-error" : undefined} />
+                  {formErrors.nome && <p id="supplier-name-error" className="mt-1 text-xs text-destructive">{formErrors.nome}</p>}
                 </div>
                 <div>
                   <Label htmlFor="supplier-legal-name">Razão social</Label>
@@ -750,11 +773,13 @@ export default function Fornecedores() {
                 </div>
                 <div>
                   <Label htmlFor="supplier-phone">Telefone</Label>
-                  <Input id="supplier-phone" inputMode="tel" value={form.telefone || ""} onChange={event => setForm(previous => ({ ...previous, telefone: event.target.value }))} className="mt-1 text-base md:text-sm" />
+                  <Input id="supplier-phone" inputMode="tel" value={form.telefone || ""} onChange={event => { setForm(previous => ({ ...previous, telefone: event.target.value })); setFormErrors(previous => ({ ...previous, telefone: undefined })); }} className="mt-1 text-base md:text-sm" aria-invalid={Boolean(formErrors.telefone)} aria-describedby={formErrors.telefone ? "supplier-phone-error" : undefined} />
+                  {formErrors.telefone && <p id="supplier-phone-error" className="mt-1 text-xs text-destructive">{formErrors.telefone}</p>}
                 </div>
                 <div>
                   <Label htmlFor="supplier-email">E-mail</Label>
-                  <Input id="supplier-email" type="email" value={form.email || ""} onChange={event => setForm(previous => ({ ...previous, email: event.target.value }))} className="mt-1 text-base md:text-sm" skipUppercase />
+                  <Input id="supplier-email" type="email" value={form.email || ""} onChange={event => { setForm(previous => ({ ...previous, email: event.target.value })); setFormErrors(previous => ({ ...previous, email: undefined })); }} className="mt-1 text-base md:text-sm" skipUppercase aria-invalid={Boolean(formErrors.email)} aria-describedby={formErrors.email ? "supplier-email-error" : undefined} />
+                  {formErrors.email && <p id="supplier-email-error" className="mt-1 text-xs text-destructive">{formErrors.email}</p>}
                 </div>
               </div>
             </section>
@@ -769,11 +794,13 @@ export default function Fornecedores() {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div>
                   <Label htmlFor="supplier-recurring-value">Valor de referência</Label>
-                  <Input id="supplier-recurring-value" inputMode="decimal" value={form.valor_recorrente ?? ""} onChange={event => setForm(previous => ({ ...previous, valor_recorrente: formatCurrencyInput(event.target.value) }))} placeholder="0,00" className="mt-1 text-base md:text-sm" />
+                  <Input id="supplier-recurring-value" inputMode="decimal" value={form.valor_recorrente ?? ""} onChange={event => { setForm(previous => ({ ...previous, valor_recorrente: formatCurrencyInput(event.target.value) })); setFormErrors(previous => ({ ...previous, valor_recorrente: undefined })); }} placeholder="0,00" className="mt-1 text-base md:text-sm" aria-invalid={Boolean(formErrors.valor_recorrente)} />
+                  {formErrors.valor_recorrente && <p className="mt-1 text-xs text-destructive">{formErrors.valor_recorrente}</p>}
                 </div>
                 <div>
                   <Label htmlFor="supplier-due-day">Dia do vencimento</Label>
-                  <Input id="supplier-due-day" type="number" min={1} max={31} value={form.dia_vencimento ?? ""} onChange={event => setForm(previous => ({ ...previous, dia_vencimento: event.target.value ? Number(event.target.value) : null }))} className="mt-1 text-base md:text-sm" />
+                  <Input id="supplier-due-day" type="number" min={1} max={31} value={form.dia_vencimento ?? ""} onChange={event => { setForm(previous => ({ ...previous, dia_vencimento: event.target.value ? Number(event.target.value) : null })); setFormErrors(previous => ({ ...previous, dia_vencimento: undefined })); }} className="mt-1 text-base md:text-sm" aria-invalid={Boolean(formErrors.dia_vencimento)} />
+                  {formErrors.dia_vencimento && <p className="mt-1 text-xs text-destructive">{formErrors.dia_vencimento}</p>}
                 </div>
                 <div>
                   <Label htmlFor="supplier-frequency">Frequência de referência</Label>
@@ -831,6 +858,22 @@ export default function Fornecedores() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(supplierForAccount)} onOpenChange={open => { if (!open) setSupplierForAccount(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar próxima despesa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Revise a conta antes de criá-la: {supplierForAccount?.nome}, valor de {Number(supplierForAccount?.valor_recorrente ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              {accountDueDate ? `, vencimento em ${format(parseISO(accountDueDate), "dd/MM/yyyy")}.` : ". Configure um dia de vencimento válido."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={!canManageAccounts || !accountDueDate || createConta.isPending} onClick={(event) => { event.preventDefault(); if (supplierForAccount) createNextAccount(supplierForAccount); }}>Criar despesa</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={Boolean(supplierToArchive)} onOpenChange={open => { if (!open) setSupplierToArchive(null); }}>
         <AlertDialogContent>

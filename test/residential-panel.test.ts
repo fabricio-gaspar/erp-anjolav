@@ -6,17 +6,19 @@ function source(path: string): string {
   return readFileSync(new URL(path, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 }
 
-test("Clientes usa o contexto Residencial no título, formulário e configuração automática", () => {
+test("Clientes distingue o painel central da operação do cliente", () => {
   const page = source("../src/pages/Clientes.tsx");
   const form = source("../src/components/clientes/ClienteDadosBasicos.tsx");
 
   assert.match(page, /activeArea === "residencial"/);
   assert.match(page, /Clientes \$\{areaLabel\}/);
-  assert.match(page, /Cadastros exclusivos da opera[cç][aã]o \$\{areaLabel\.toLowerCase\(\)\}/);
+  assert.match(page, /activeArea === "central" \? "Clientes"/);
+  assert.match(page, /Clientes da empresa nas operações doméstica e industrial/);
   assert.doesNotMatch(page, /const pageTitle = "Clientes Industrial"/);
   assert.doesNotMatch(page, />Somente Industrial<\/span>/);
   assert.match(form, /const \{ activeArea \} = useWorkspace\(\);/);
-  assert.match(form, /activeArea === "residencial" \? "residencial" : "industrial"/);
+  assert.match(form, /setClassificationConfirmed\(activeArea !== "central"\)/);
+  assert.match(form, /Escolha a operação responsável pelo cliente antes de salvar/);
   assert.match(form, /effectiveClassification/);
 });
 

@@ -419,16 +419,6 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     requestAnimationFrame(() => clientSearchRef.current?.focus());
   }, []);
 
-  const focusProductSearch = useCallback(() => {
-    if (!selectedClient) {
-      focusClientSearch();
-      toast.info("Selecione o cliente antes de adicionar itens");
-      return;
-    }
-    setShowProductList(true);
-    requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, [focusClientSearch, selectedClient]);
-
   const addToCart = useCallback((produto: Produto) => {
     if (!catalogReady || !produtosAtivos.some(p => p.id === produto.id)) {
       toast.error("Selecione um cliente e aguarde a tabela e a condição de pagamento");
@@ -576,13 +566,12 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   };
 
   const applySelectedClient = useCallback((clientId: string) => {
-    if (!clientesFiltradosPorTipo.some(c => c.id === clientId)) return;
     clearCart();
     setSelectedClientId(clientId);
     setShowClientList(false);
     setClientSearch("");
     requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, [clientesFiltradosPorTipo, clearCart]);
+  }, [clearCart]);
 
   const selectClient = useCallback((clientId: string) => {
     if (clientId === selectedClientId) {
@@ -1834,11 +1823,8 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         onOpenChange={setShowQuickClientModal}
         classification={area}
         onCreated={(clientId) => {
-          setSelectedClientId(clientId);
-          setShowClientList(false);
-          setClientSearch("");
+          selectClient(clientId);
           void refetchClients();
-          requestAnimationFrame(() => searchInputRef.current?.focus());
         }}
         onUseExisting={selectClient}
       />}
