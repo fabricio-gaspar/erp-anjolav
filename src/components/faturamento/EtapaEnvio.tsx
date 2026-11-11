@@ -188,7 +188,7 @@ export function EtapaEnvio({
     }
 
     const mensagem = substituirVariaveis(templateWhatsApp, templateVars);
-    const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+    const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
       body: {
         action: "send",
         fatura_id: faturaId,

@@ -67,6 +67,9 @@ supabase functions deploy create-asaas-charge
 supabase functions deploy pdv-payment
 supabase functions deploy asaas-webhook
 supabase functions deploy whatsapp-evolution
+supabase functions deploy whatsapp-gateway
+supabase functions deploy rol-notifications
+supabase functions deploy wa-akg-webhook --no-verify-jwt
 supabase functions deploy webhook-dispatcher
 supabase functions deploy nfse-adapter
 ```

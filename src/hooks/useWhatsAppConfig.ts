@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { createIdempotencyKey } from "@/lib/idempotency";
+import { useAuth } from "@/contexts/AuthContext";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface WhatsAppInstancia {
   id: string;
@@ -21,13 +23,16 @@ type WhatsAppConfigUpdate = Pick<
 
 export function useWhatsAppConfig() {
   const queryClient = useQueryClient();
+  const { activeTenant } = useAuth();
 
   const { data: instancia, isLoading } = useQuery({
-    queryKey: ["whatsapp_instancia"],
+    queryKey: ["whatsapp_instancia", activeTenant?.id],
+    enabled: Boolean(activeTenant?.id),
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as unknown as SupabaseClient)
         .from("whatsapp_instancias")
         .select("id, nome_instancia, api_url, webhook_n8n_url, status, qr_code, created_at, updated_at")
+        .eq("tenant_id", activeTenant!.id)
         .limit(1)
         .maybeSingle();
       if (error) throw error;
@@ -37,21 +42,22 @@ export function useWhatsAppConfig() {
 
   const salvarConfig = useMutation({
     mutationFn: async (config: WhatsAppConfigUpdate) => {
+      if (!activeTenant?.id) throw new Error("Selecione uma empresa");
       if (instancia?.id) {
-        const { error } = await supabase
+        const { error } = await (supabase as unknown as SupabaseClient)
           .from("whatsapp_instancias")
           .update(config)
-          .eq("id", instancia.id);
+          .eq("id", instancia.id).eq("tenant_id", activeTenant.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { error } = await (supabase as unknown as SupabaseClient)
           .from("whatsapp_instancias")
-          .insert(config);
+          .insert({ ...config, tenant_id: activeTenant.id });
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["whatsapp_instancia"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp_instancia", activeTenant?.id] });
       toast({ title: "Configuração salva com sucesso!" });
     },
     onError: (error: Error) => {
@@ -61,14 +67,14 @@ export function useWhatsAppConfig() {
 
   const conectar = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+      const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: { action: "connect" },
       });
-      if (error) throw error;
+      if (error || data?.error) throw error || new Error(data.error);
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["whatsapp_instancia"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp_instancia", activeTenant?.id] });
       if (data?.qr_code) {
         toast({ title: "QR Code gerado! Escaneie com seu celular." });
       }
@@ -80,14 +86,14 @@ export function useWhatsAppConfig() {
 
   const verificarStatus = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+      const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: { action: "status" },
       });
-      if (error) throw error;
+      if (error || data?.error) throw error || new Error(data.error);
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["whatsapp_instancia"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp_instancia", activeTenant?.id] });
       toast({
         title: data?.connected ? "WhatsApp conectado! 🟢" : "WhatsApp desconectado 🔴",
       });
@@ -99,14 +105,14 @@ export function useWhatsAppConfig() {
 
   const desconectar = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+      const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: { action: "disconnect" },
       });
-      if (error) throw error;
+      if (error || data?.error) throw error || new Error(data.error);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["whatsapp_instancia"] });
+      queryClient.invalidateQueries({ queryKey: ["whatsapp_instancia", activeTenant?.id] });
       toast({ title: "WhatsApp desconectado" });
     },
   });
@@ -121,14 +127,14 @@ export function useWhatsAppConfig() {
       idempotencyKey?: string;
     }) => {
       const { idempotencyKey, ...payload } = params;
-      const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+      const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: {
           action: "send",
           ...payload,
           idempotency_key: idempotencyKey || createIdempotencyKey("whatsapp-manual"),
         },
       });
-      if (error) throw error;
+      if (error || data?.success !== true) throw error || new Error(data?.error || "Envio não confirmado");
       return data;
     },
     onSuccess: () => {
@@ -141,10 +147,10 @@ export function useWhatsAppConfig() {
 
   const retryDelivery = useMutation({
     mutationFn: async (deliveryId: string) => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+      const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: { action: "retry", delivery_id: deliveryId },
       });
-      if (error) throw error;
+      if (error || data?.error) throw error || new Error(data.error);
       return data;
     },
     onSuccess: (data) => {
@@ -161,7 +167,7 @@ export function useWhatsAppConfig() {
 
   const resolveDelivery = useMutation({
     mutationFn: async (params: { deliveryId: string; resolution: "CONFIRMADO_ENVIADO" | "CONFIRMADO_NAO_ENVIADO"; reason: string }) => {
-      const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+      const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: {
           action: "resolve",
           delivery_id: params.deliveryId,
@@ -169,7 +175,7 @@ export function useWhatsAppConfig() {
           reason: params.reason,
         },
       });
-      if (error) throw error;
+      if (error || data?.error) throw error || new Error(data.error);
       return data;
     },
     onSuccess: () => {

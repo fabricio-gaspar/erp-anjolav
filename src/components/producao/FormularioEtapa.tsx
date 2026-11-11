@@ -293,7 +293,7 @@ export function FormularioEtapa({
               idempotencyKey: `whatsapp:ordem:${ordemServicoId}:${eventoNotificacao}`,
             });
             if (enviado) {
-              toast.success("WhatsApp confirmado pela Evolution API!");
+              toast.success("WhatsApp confirmado pelo WA-AKG!");
             } else {
               toast.error("Etapa salva, mas o WhatsApp não foi confirmado");
             }
