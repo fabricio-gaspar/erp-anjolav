@@ -16,6 +16,8 @@ const deliveryStatus = {
   pendente: { label: "Pendente", variant: "outline" as const },
   processando: { label: "Processando", variant: "secondary" as const },
   enviado: { label: "Enviado", variant: "default" as const },
+  entregue: { label: "Entregue", variant: "default" as const },
+  lido: { label: "Lido", variant: "default" as const },
   falhou: { label: "Falhou", variant: "destructive" as const },
   incerto: { label: "Requer conciliação", variant: "secondary" as const },
   dead_letter: { label: "Intervenção necessária", variant: "destructive" as const },
@@ -34,6 +36,7 @@ export function ConfiguracoesWhatsApp() {
     conectar,
     verificarStatus,
     desconectar,
+    enviarMensagem,
     retryDelivery,
     resolveDelivery,
     isConectado,
@@ -44,6 +47,7 @@ export function ConfiguracoesWhatsApp() {
   const [apiUrl, setApiUrl] = useState("");
   const [nomeInstancia, setNomeInstancia] = useState("loja1");
   const [webhookN8n, setWebhookN8n] = useState("");
+  const [testPhone, setTestPhone] = useState("");
   const [reconciliationId, setReconciliationId] = useState<string | null>(null);
   const [reconciliationReason, setReconciliationReason] = useState("");
 
@@ -174,38 +178,38 @@ export function ConfiguracoesWhatsApp() {
       {/* Configuration Card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Configuração da Evolution API</CardTitle>
+          <CardTitle className="text-base">Configuração do WA-AKG</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>URL da Evolution API</Label>
+              <Label>URL HTTPS do WA-AKG</Label>
               <Input
-                placeholder="https://evo.minhaempresa.com"
+                placeholder="https://whatsapp.minhaempresa.com"
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Use HTTPS e inclua o host no secret EVOLUTION_ALLOWED_HOSTS.
+                Use a origem HTTPS da VPS e inclua o host no secret WA_AKG_ALLOWED_HOSTS.
               </p>
             </div>
 
             <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
-              <Label>Credencial da Evolution API</Label>
+              <Label>Credencial do WA-AKG</Label>
               <p className="text-xs text-muted-foreground">
                 A chave não é armazenada nem exibida no navegador. Configure-a no Supabase como
-                secret <code className="font-mono">EVOLUTION_API_KEY</code>.
+                secret <code className="font-mono">WA_AKG_API_KEY</code>. O envio real exige WA_AKG_ENABLED=true.
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label>Nome da Instância</Label>
+              <Label>Nome de exibição</Label>
               <Input
                 placeholder="loja1"
                 value={nomeInstancia}
                 onChange={(e) => setNomeInstancia(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">Identificador único da instância</p>
+              <p className="text-xs text-muted-foreground">A sessão técnica é isolada por empresa e criada pelo servidor.</p>
             </div>
 
             <div className="space-y-2">
@@ -223,6 +227,35 @@ export function ConfiguracoesWhatsApp() {
             {salvarConfig.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Salvar Configuração
           </Button>
+          <div className="rounded-lg border p-3">
+            <Label htmlFor="wa-test-phone">Destinatário de teste autorizado</Label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Input
+                id="wa-test-phone"
+                type="tel"
+                inputMode="tel"
+                placeholder="(11) 99999-9999"
+                value={testPhone}
+                onChange={(event) => setTestPhone(event.target.value)}
+                className="max-w-xs"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!isConectado || testPhone.replace(/\D/g, "").length < 10 || enviarMensagem.isPending}
+                onClick={() => enviarMensagem.mutate({
+                  telefone: testPhone,
+                  mensagem: "Teste autorizado de conexão do AnjoLav ERP com WA-AKG.",
+                  evento: "teste",
+                })}
+              >
+                {enviarMensagem.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Enviar teste
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">O envio ocorre somente ao clicar. Exige WA_AKG_ENABLED=true no servidor.</p>
+          </div>
+          <p className="text-xs text-muted-foreground">O ROL é enviado como relação textual. PDF só será anexado quando houver documento persistido e acesso seguro para o cliente.</p>
         </CardContent>
       </Card>
 
@@ -255,7 +288,7 @@ export function ConfiguracoesWhatsApp() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={deliveryStatus[msg.status].variant} className="text-xs">{deliveryStatus[msg.status].label}</Badge>
+                        <Badge variant={deliveryStatus[msg.status]?.variant || "outline"} className="text-xs">{deliveryStatus[msg.status]?.label || msg.status}</Badge>
                         <span className="text-xs font-medium">{msg.evento}</span>
                         <span className="text-xs text-muted-foreground">tentativa {msg.attempt_count}</span>
                       </div>
@@ -264,11 +297,11 @@ export function ConfiguracoesWhatsApp() {
                         {format(new Date(msg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                         {msg.provider_message_id ? " · confirmação externa registrada" : ""}
                       </p>
-                      {msg.status === "incerto" && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Consulte a Evolution antes de decidir. Um reenvio agora pode duplicar a mensagem.</p>}
+                      {msg.status === "incerto" && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Consulte o WA-AKG antes de decidir. Um reenvio agora pode duplicar a mensagem.</p>}
                       {msg.last_error_code && msg.status !== "incerto" && <p className="mt-1 text-xs text-muted-foreground">Código: {msg.last_error_code}</p>}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {msg.status === "falhou" && msg.attempt_count < 3 && (
+                      {msg.status === "falhou" && !msg.provider_attempted_at && msg.attempt_count < 3 && (
                         <Button variant="outline" size="sm" onClick={() => retryDelivery.mutate(msg.id)} disabled={retryDelivery.isPending}>
                           {retryDelivery.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1 h-3.5 w-3.5" />}Tentar novamente
                         </Button>
@@ -292,7 +325,7 @@ export function ConfiguracoesWhatsApp() {
           <DialogHeader><DialogTitle>Conciliar resultado incerto</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-              Verifique o painel ou aparelho da Evolution antes de responder. Esta decisão libera ou encerra o reenvio e fica registrada com seu usuário.
+              Verifique o painel ou aparelho do WA-AKG antes de responder. Esta decisão libera ou encerra o reenvio e fica registrada com seu usuário.
             </div>
             <div><Label htmlFor="whatsapp-reconciliation-reason">Evidência da verificação *</Label><Textarea id="whatsapp-reconciliation-reason" value={reconciliationReason} onChange={(event) => setReconciliationReason(event.target.value)} placeholder="Ex.: mensagem localizada no histórico da instância às 14:32" rows={3} /></div>
           </div>

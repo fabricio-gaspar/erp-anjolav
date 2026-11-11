@@ -18,6 +18,15 @@ verify_jwt = true
 [functions.whatsapp-evolution]
 verify_jwt = true
 
+[functions.whatsapp-gateway]
+verify_jwt = true
+
+[functions.rol-notifications]
+verify_jwt = true
+
+[functions.wa-akg-webhook]
+verify_jwt = false
+
 [functions.webhook-dispatcher]
 verify_jwt = true
 

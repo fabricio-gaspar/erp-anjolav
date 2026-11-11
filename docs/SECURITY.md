@@ -20,7 +20,7 @@ Os filtros do frontend nunca são fronteira de segurança. Toda Edge Function qu
 
 - Não commitar `.env`, certificados, tokens, senhas ou dumps.
 - Frontend: apenas URL, project ref e chave publicável do Supabase.
-- Edge Functions: `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `EVOLUTION_API_KEY`, `N8N_WEBHOOK_TOKEN`, allowlists e flags no cofre de secrets.
+- Edge Functions: `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, `WA_AKG_API_KEY`, `WA_AKG_WEBHOOK_SECRET`, `N8N_WEBHOOK_TOKEN`, allowlists e flags no cofre de secrets.
 - Certificado A1 e senha: usar cofre/KMS no backend, criptografia em repouso, acesso mínimo, rotação e auditoria. O upload direto pelo navegador está desativado.
 - Tokens antigos que possam ter sido armazenados no banco devem ser revogados e rotacionados.
 

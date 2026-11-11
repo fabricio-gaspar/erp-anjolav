@@ -1363,10 +1363,15 @@
 }
 
 @media (max-width: 760px) {
-  .pdv-roll-workbench { padding: 8px; }
-  .pdv-roll-heading { margin: -8px -8px 0; padding: 10px 12px; }
+  .pdv-roll-workbench { grid-template-columns: minmax(0, 1fr); padding: 8px; }
+  .pdv-roll-workbench .pdv-primary-column { grid-template-columns: minmax(0, 1fr); }
+  .pdv-roll-workbench .pdv-reference-card,
+  .pdv-roll-workbench .pdv-items-card { min-width: 0; }
+  .pdv-roll-heading { grid-template-columns: auto minmax(0, 1fr); margin: -8px -8px 0; padding: 10px 12px; }
   .pdv-roll-heading > span { display: none; }
   .pdv-roll-heading h1 { font-size: 17px; }
+  .pdv-roll-workbench .pdv-items-header { flex-wrap: wrap; gap: 4px; padding-block: 10px; }
+  .pdv-roll-workbench .pdv-items-header > div:last-child { width: 100%; min-width: 0; }
   .pdv-customer-selected { gap: 10px; }
   .pdv-roll-total-strip { align-items: flex-start; flex-direction: column; }
   .pdv-roll-tools { grid-template-columns: 1fr 1fr; }

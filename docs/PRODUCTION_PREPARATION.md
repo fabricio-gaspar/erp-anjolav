@@ -13,12 +13,12 @@ Copy-Item ops/release-evidence.example.json ops/release-evidence.json
 ```
 
 1. Em `.env.production`, preencha apenas a chave publicável do projeto Supabase. O `project_ref` e a URL já correspondem ao `supabase/config.toml` deste repositório.
-2. Em `supabase/.env.production`, informe os valores reais de Asaas, Evolution e n8n. Mantenha `NFSE_ENABLED=false` até contratar e homologar o adaptador fiscal. Não copie `SUPABASE_URL`, `SUPABASE_ANON_KEY` ou `SUPABASE_SERVICE_ROLE_KEY`: as Edge Functions hospedadas recebem essas variáveis da plataforma.
+2. Em `supabase/.env.production`, informe os valores reais de Asaas, WA-AKG e n8n. Mantenha `WA_AKG_ENABLED=false` até homologar a sessão e o webhook; mantenha `NFSE_ENABLED=false` até contratar e homologar o adaptador fiscal. Não copie `SUPABASE_URL`, `SUPABASE_ANON_KEY` ou `SUPABASE_SERVICE_ROLE_KEY`: as Edge Functions hospedadas recebem essas variáveis da plataforma. Consulte [WA-AKG](WA_AKG.md).
 3. Cadastre em `ALLOWED_ORIGINS` somente a origem HTTPS final do ERP, sem caminho ou barra no fim. URL de preview não deve ser tratada como domínio de produção.
 4. Configure o n8n para exigir o header `X-AnjoLav-Webhook-Token` e use nele o mesmo `N8N_WEBHOOK_TOKEN` de 32+ caracteres aleatórios. O dispatcher não envia ao n8n sem esse token.
 5. Em `ops/release-evidence.json`, mantenha todos os gates como pendentes até executar e registrar o teste correspondente. O arquivo é ignorado pelo Git para que contenha evidências internas sem ir ao repositório.
 
-Nunca use prefixo `VITE_` para tokens de Asaas, Evolution, n8n, service role, certificados ou qualquer outro secret.
+Nunca use prefixo `VITE_` para tokens de Asaas, WA-AKG, n8n, service role, certificados ou qualquer outro secret.
 
 ## Verificação antes de publicar
 
@@ -28,7 +28,7 @@ npm run check
 npm run preflight:production -- --frontend-env .env.production --functions-env supabase/.env.production --release-evidence ops/release-evidence.json
 ```
 
-O preflight valida formato, destino do projeto, CORS, secrets obrigatórios, proteção contra segredo no frontend, commit limpo e gates de evidência. Ele não faz chamadas a Supabase, Asaas, Evolution, n8n, NFS-e ou e-mail; portanto não cobra, não envia mensagens e não muda dados.
+O preflight valida formato, destino do projeto, CORS, secrets obrigatórios, proteção contra segredo no frontend, commit limpo e gates de evidência. Ele não faz chamadas a Supabase, Asaas, WA-AKG, n8n, NFS-e ou e-mail; portanto não cobra, não envia mensagens e não muda dados.
 
 Enquanto um gate estiver pendente, o resultado `BLOQUEADO` é esperado e correto. Não altere um gate para aprovado sem registrar uma evidência concreta do teste realizado.
 
@@ -66,6 +66,9 @@ supabase functions deploy data-administration
 supabase functions deploy create-asaas-charge
 supabase functions deploy pdv-payment
 supabase functions deploy asaas-webhook
+supabase functions deploy whatsapp-gateway
+supabase functions deploy rol-notifications
+supabase functions deploy wa-akg-webhook --no-verify-jwt
 supabase functions deploy whatsapp-evolution
 supabase functions deploy webhook-dispatcher
 supabase functions deploy nfse-adapter
@@ -87,7 +90,7 @@ Registre os resultados nos gates de `ops/release-evidence.json`:
 - dinheiro (troco), débito e crédito (NSU/autorização e parcelas), pagamento parcial, múltiplas formas na mesma OS e estorno;
 - worker assíncrono e monitoramento dos eventos Asaas em estado `failed`, além do retry do provedor;
 - NFS-e real, certificado e cancelamento;
-- Evolution, n8n autenticado, e-mail transacional, autenticação e recuperação de senha;
+- WA-AKG, n8n autenticado, e-mail transacional, autenticação e recuperação de senha;
 - alertas, logs, rate limit, MFA, incidentes, LGPD, contrato, suporte e SLA.
 
 Os últimos itens continuam bloqueadores de comercialização até que exista implementação, acesso aos provedores e evidência de homologação. Veja [Prontidão comercial](COMMERCIAL_READINESS.md) e [Checklist de go-live](GO_LIVE_CHECKLIST.md).

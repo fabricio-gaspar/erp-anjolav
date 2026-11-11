@@ -681,6 +681,7 @@ export type Database = {
       clientes: {
         Row: {
           ativo: boolean
+          whatsapp_opt_out: boolean
           classificacao: string
           contato: string | null
           cpf_cnpj: string | null
@@ -702,6 +703,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          whatsapp_opt_out?: boolean
           classificacao?: string
           contato?: string | null
           cpf_cnpj?: string | null
@@ -723,6 +725,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          whatsapp_opt_out?: boolean
           classificacao?: string
           contato?: string | null
           cpf_cnpj?: string | null

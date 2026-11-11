@@ -2,7 +2,7 @@
 
 ERP web para as operações industrial e residencial da AnjoLav, com painéis separados, portal do cliente, produção, ordens de serviço, estoque, caixa, financeiro e integrações externas.
 
-> Estado atual: código preparado para implantação controlada. A branch passa em TypeScript, 35 testes, lint sem erros, checagem das Edge Functions e build de produção. O hardening SaaS multiempresa, portal, operações transacionais e NFS-e fail-closed está implementado no repositório, mas o ambiente real ainda precisa ser reativado, migrado e homologado. Consulte [Prontidão comercial](docs/COMMERCIAL_READINESS.md).
+> Estado em 11/11/2026: o projeto Supabase está ativo, e as migrations e funções da integração WA-AKG foram publicadas. A branch passa em TypeScript, 180 testes, lint sem erros, checagem das Edge Functions e build. O envio real de WhatsApp permanece desativado até configurar credenciais, conectar a sessão, assinar o webhook e realizar um teste autorizado. A prontidão comercial do ERP exige homologação dos demais fluxos; consulte [Prontidão comercial](docs/COMMERCIAL_READINESS.md) e [WA-AKG](docs/WA_AKG.md).
 
 ## Stack
 
@@ -10,7 +10,7 @@ ERP web para as operações industrial e residencial da AnjoLav, com painéis se
 - Tailwind CSS e shadcn/ui
 - TanStack Query
 - Supabase Auth, Postgres, Storage e Edge Functions
-- Asaas, Evolution API e webhooks n8n
+- Asaas, WA-AKG e webhooks n8n
 
 ## Desenvolvimento local
 
@@ -55,5 +55,6 @@ Rotas protegidas exigem sessão, área e permissão de módulo. A migration come
 - [Implantação](docs/DEPLOYMENT.md)
 - [Preparação do ambiente real](docs/PRODUCTION_PREPARATION.md)
 - [Checklist de go-live](docs/GO_LIVE_CHECKLIST.md)
+- [Integração WhatsApp WA-AKG](docs/WA_AKG.md)
 
 Repositório: [fabricio-gaspar/erp-anjolav](https://github.com/fabricio-gaspar/erp-anjolav)

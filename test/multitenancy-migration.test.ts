@@ -56,6 +56,7 @@ test("migration comercial cobre todas as tabelas de negócio existentes", () => 
     "produto_operacoes",
     "operacao_migracao_ambiguidades",
     "pdv_capacidades_diarias",
+    "mensagens_log_eventos",
   ]);
   const missing = [...created].filter((table) => !listed.has(table) && !infrastructure.has(table) && !laterTenantAware.has(table)).sort();
   assert.deepEqual(missing, []);
@@ -72,6 +73,13 @@ test("migration comercial cobre todas as tabelas de negócio existentes", () => 
 });
 
 test("tabelas tenant-aware posteriores ao hardening protegem acesso na própria migration", () => {
+  const waAkg = readFileSync(
+    new URL("../supabase/migrations/20261111140000_wa_akg_notifications.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(waAkg, /alter table public\.mensagens_log_eventos enable row level security/i);
+  assert.match(waAkg, /revoke all on public\.mensagens_log_eventos from anon, authenticated/i);
+  assert.match(waAkg, /drop policy if exists tenant_insert on public\.mensagens_log/i);
   const mfa = readFileSync(
     new URL("../supabase/migrations/20261030214418_tenant_mfa_policy.sql", import.meta.url),
     "utf8",

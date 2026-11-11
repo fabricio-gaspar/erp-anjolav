@@ -43,7 +43,7 @@ O sistema só pode receber a aprovação comercial quando todos os itens obrigat
 - [ ] Webhook Asaas persiste ID único antes da conciliação e possui worker, retry, ordenação e monitoramento de eventos `failed`.
 - [ ] NFS-e permanece `NFSE_ENABLED=false`; antes de anunciá-la, homologar emissão, consulta, rejeição, cancelamento e DANFSE.
 - [ ] Certificado A1 validado e alerta de expiração configurado.
-- [ ] Evolution/WhatsApp homologado com retry e fila de falhas.
+- [ ] WA-AKG/WhatsApp homologado com sessão por empresa, webhook assinado, opt-out, idempotência e conciliação de envios incertos.
 - [ ] Provedor de e-mail transacional homologado para faturamento, anexos, entrega, bounce e retry; ações manuais `mailto:` não são contabilizadas como envio.
 - [ ] n8n homologado com validação de `X-AnjoLav-Webhook-Token`, idempotência e replay.
 - [ ] SMTP e recuperação de senha funcionam no domínio final.
@@ -58,7 +58,7 @@ O sistema só pode receber a aprovação comercial quando todos os itens obrigat
 | NFS-e | `NFSE_ENABLED=false` ou resposta `NFSE_NOT_READY` | Município, provedor/adaptador específico, certificado/cofre, emissão, consulta, rejeição, cancelamento e DANFSE homologados. |
 | Asaas / PIX / boleto | Não anunciado como pagamento em produção | Cobrança, webhook assinado, conciliação, duplicidade, estorno e fila de retry homologados. |
 | E-mail transacional | `mailto:` é somente operação manual | Domínio, entrega, bounce, retry e auditoria do provedor homologados. |
-| Evolution / WhatsApp e n8n | Não anunciado como automação ativa | Host allowlisted, token/assinatura, callback, idempotência e retry homologados. |
+| WA-AKG / WhatsApp e n8n | Não anunciado como automação ativa | Host allowlisted, token/assinatura, callback, idempotência e conciliação homologados. |
 | Ponte de impressão local | Navegador apenas; nenhuma ponte local é instalada | Impressora, driver, navegador e ROL testados no equipamento real, com procedimento de suporte. |
 
 ## Operação de produção

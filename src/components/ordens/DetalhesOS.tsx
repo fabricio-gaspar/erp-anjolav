@@ -30,11 +30,21 @@ import { createIdempotencyKey } from "@/lib/idempotency";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
+import { useMensagensLog } from "@/hooks/useMensagensLog";
 
 interface DetalhesOSProps {
   ordemServicoId: string;
   onBack: () => void;
 }
+
+interface RelatedQuery {
+  select(columns: string): RelatedQuery;
+  eq(column: string, value: string): RelatedQuery;
+  maybeSingle(): Promise<{ data: Record<string, string> | null; error: Error | null }>;
+}
+
+// These two relations have more than one FK path in the generated database type.
+const relatedDb = supabase as unknown as { from(table: string): RelatedQuery };
 
 const statusConfig: Record<string, { label: string; variant: "info" | "success" | "warning" | "danger" | "default"; next?: string }> = {
   retirada: { label: "Retirado", variant: "info", next: "separacao" },
@@ -70,24 +80,51 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
       }
       let query = supabase
         .from("ordens_servico")
-        .select(`
-          *,
-          cliente:clientes(razao_social, telefone, email),
-          motorista:motoristas(nome),
-          veiculo:veiculos(placa, modelo)
-        `)
+        .select("*")
         .eq("id", ordemServicoId)
         .filter("tenant_id", "eq", activeTenant.id);
       if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
       const { data, error } = await query.maybeSingle();
       if (error) throw error;
-      return data;
+      if (!data) return null;
+
+      // A ordem possui FKs simples e compostas para estas três tabelas. Buscar
+      // cada relação separadamente evita a ambiguidade do embed do PostgREST.
+      const clientResult = await supabase.from("clientes")
+          .select("razao_social, telefone, email")
+          .eq("id", data.cliente_id)
+          .eq("tenant_id", activeTenant.id)
+          .maybeSingle();
+      const driverResult = data.motorista_id
+          ? await relatedDb.from("motoristas")
+            .select("nome")
+            .eq("id", data.motorista_id)
+            .eq("tenant_id", activeTenant.id)
+            .maybeSingle()
+          : { data: null, error: null };
+      const vehicleResult = data.veiculo_id
+          ? await relatedDb.from("veiculos")
+            .select("placa, modelo")
+            .eq("id", data.veiculo_id)
+            .eq("tenant_id", activeTenant.id)
+            .maybeSingle()
+          : { data: null, error: null };
+      if (clientResult.error) throw clientResult.error;
+      if (driverResult.error) throw driverResult.error;
+      if (vehicleResult.error) throw vehicleResult.error;
+      return {
+        ...data,
+        cliente: clientResult.data,
+        motorista: driverResult.data,
+        veiculo: vehicleResult.data,
+      };
     },
   });
 
   const { historico, isLoading: isLoadingHistorico } = useHistoricoProducao(ordemServicoId);
   const { itens, isLoading: isLoadingItens } = useItensOrdemServico(ordemServicoId);
   const { printROL, printEtiqueta, isLoading: isPrinting } = usePrintOS(ordemServicoId);
+  const { data: mensagens, isLoading: isLoadingMensagens, isError: mensagensError } = useMensagensLog({ ordem_servico_id: ordemServicoId });
 
   if (isLoading) {
     return (
@@ -124,6 +161,9 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
 
   const valorTotal = Number(ordem.valor_total ?? itens.reduce((acc, item) => acc + Number(item.subtotal), 0));
   const quantidadeTotal = itens.reduce((acc, item) => acc + Number(item.quantidade), 0);
+  const canNotifyReady = ordem.status === "expedicao"
+    && !isLoadingItens && itens.length > 0
+    && itens.every((item) => Boolean(item.posicao_prateleira?.trim()));
 
   return (
     <div className="space-y-5">
@@ -135,7 +175,7 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
           </Button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate font-mono text-xl font-bold text-primary">{ordem.numero}</h2>
+              <h2 className="truncate font-mono text-xl font-bold text-primary">ROL {ordem.numero}</h2>
               <StatusBadge variant={statusInfo.variant}>{statusInfo.label}</StatusBadge>
               {ordem.prioridade && ordem.prioridade !== "normal" && (
                 <Badge variant={ordem.prioridade === "urgente" ? "destructive" : "secondary"}>
@@ -151,26 +191,30 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
 
         <div className="flex flex-wrap items-center gap-2 pl-12 lg:justify-end lg:pl-0">
           {/* WhatsApp Resend */}
-          {ordem.cliente?.telefone && (
+          {ordem.cliente?.telefone && canNotifyReady && (
             <Button
               variant="outline"
               size="sm"
               disabled={isSendingWhatsApp}
               onClick={async () => {
+                if (mensagens?.some((item) => ["incerto", "processando"].includes(item.status))) {
+                  toast({ title: "Concilie o envio pendente antes de reenviar", variant: "destructive" });
+                  return;
+                }
                 setIsSendingWhatsApp(true);
                 try {
-                  const evento = ordem.status === "expedicao" ? "os_pronta" : "os_status";
-                  const enviado = await dispararNotificacao(evento, {
+                  const enviado = await dispararNotificacao("os_pronto", {
                     cliente: ordem.cliente?.razao_social || "",
                     telefone: ordem.cliente?.telefone || "",
                     numero: ordem.numero,
+                    valor: formatCurrency(valorTotal),
                     ordem_servico_id: ordemServicoId,
                     cliente_id: ordem.cliente_id,
                     idempotencyKey: createIdempotencyKey("whatsapp-manual"),
                   });
                   toast({
                     title: enviado
-                      ? "WhatsApp confirmado pela Evolution API"
+                      ? "WhatsApp confirmado pelo WA-AKG"
                       : "Envio de WhatsApp não confirmado",
                     variant: enviado ? "default" : "destructive",
                   });
@@ -374,6 +418,31 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
       </div>
 
       <OrderRecordsPanel orderId={ordemServicoId} orderStatus={ordem.status} />
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Notificações do ROL</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {isLoadingMensagens ? <p className="text-sm text-muted-foreground">Carregando histórico...</p>
+            : mensagensError ? <p className="text-sm text-destructive">Não foi possível carregar as notificações.</p>
+            : !mensagens?.length ? <p className="text-sm text-muted-foreground">Nenhuma notificação registrada para este ROL.</p>
+            : mensagens.map((mensagem) => (
+              <div key={mensagem.id} className="rounded-lg border p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">{mensagem.evento.replace(/_/g, " ")}</span>
+                  <Badge variant={["falhou", "incerto"].includes(mensagem.status) ? "destructive" : "outline"}>
+                    {mensagem.status === "incerto" ? "Requer conciliação" : mensagem.status}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {format(new Date(mensagem.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })} · {mensagem.canal}
+                  {mensagem.provider_message_id ? " · ID externo registrado" : ""}
+                </p>
+                <p className="mt-2 whitespace-pre-wrap">{mensagem.mensagem}</p>
+                {mensagem.last_error_code && <p className="mt-1 text-xs text-destructive">Motivo: {mensagem.last_error_code}</p>}
+              </div>
+            ))}
+        </CardContent>
+      </Card>
 
       {hasFulfillmentContract && (
         <QualityDeliveryPanel

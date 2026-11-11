@@ -185,7 +185,7 @@ export function validateProductionConfig({ frontend, functions, evidence, projec
 
   for (const key of Object.keys(frontend)) {
     if (
-      /^VITE_.*(?:SERVICE_ROLE|SECRET|ASAAS|EVOLUTION|N8N|WEBHOOK_TOKEN|PRIVATE)/i.test(key) ||
+      /^VITE_.*(?:SERVICE_ROLE|SECRET|ASAAS|WA_AKG|N8N|WEBHOOK_TOKEN|PRIVATE)/i.test(key) ||
       key === "VITE_SUPABASE_DB_URL"
     ) {
       errors.push(`${key} não pode ser exposto ao frontend.`);
@@ -198,8 +198,10 @@ export function validateProductionConfig({ frontend, functions, evidence, projec
     "ASAAS_API_KEY",
     "ASAAS_WEBHOOK_TOKEN",
     "ASAAS_WEBHOOK_PUBLIC_URL",
-    "EVOLUTION_API_KEY",
-    "EVOLUTION_ALLOWED_HOSTS",
+    "WA_AKG_API_KEY",
+    "WA_AKG_ALLOWED_HOSTS",
+    "WA_AKG_WEBHOOK_SECRET",
+    "WA_AKG_ENABLED",
     "N8N_ALLOWED_HOSTS",
     "N8N_WEBHOOK_TOKEN",
     "NFSE_ENABLED",
@@ -227,8 +229,16 @@ export function validateProductionConfig({ frontend, functions, evidence, projec
       errors.push("ASAAS_WEBHOOK_PUBLIC_URL deve ser a URL HTTPS exata de /functions/v1/asaas-webhook, sem query ou fragmento.");
     }
   }
-  if (isConfigured(functions.EVOLUTION_ALLOWED_HOSTS)) {
-    validateHostAllowlist(errors, functions, "EVOLUTION_ALLOWED_HOSTS");
+  if (isConfigured(functions.WA_AKG_ALLOWED_HOSTS)) {
+    validateHostAllowlist(errors, functions, "WA_AKG_ALLOWED_HOSTS");
+  }
+  if (isConfigured(functions.WA_AKG_WEBHOOK_SECRET) && functions.WA_AKG_WEBHOOK_SECRET.length < 32) {
+    errors.push("WA_AKG_WEBHOOK_SECRET deve ter pelo menos 32 caracteres aleatórios.");
+  }
+  if (!["true", "false"].includes(functions.WA_AKG_ENABLED)) {
+    errors.push("WA_AKG_ENABLED deve ser true ou false.");
+  } else if (functions.WA_AKG_ENABLED === "false") {
+    warnings.push("Envio WA-AKG desativado até a homologação com destinatário autorizado.");
   }
   if (isConfigured(functions.N8N_ALLOWED_HOSTS)) {
     validateHostAllowlist(errors, functions, "N8N_ALLOWED_HOSTS");
@@ -362,7 +372,7 @@ function parseArgs(argv) {
 
 function printUsage() {
   console.log("Uso: node scripts/production-preflight.mjs [--frontend-env .env.production] [--functions-env supabase/.env.production] [--release-evidence ops/release-evidence.json]");
-  console.log("A checagem não chama Supabase, Asaas, Evolution, n8n ou qualquer provedor externo e nunca exibe valores de secrets.");
+  console.log("A checagem não chama Supabase, Asaas, WA-AKG, n8n ou qualquer provedor externo e nunca exibe valores de secrets.");
 }
 
 function main() {

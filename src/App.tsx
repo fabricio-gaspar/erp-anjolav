@@ -327,7 +327,7 @@ const App = () => (
                 path="/pdv/painel"
                 element={(
                   <ProtectedRoute>
-                    <WorkspaceRootRedirect />
+                    <LegacyRouteRedirect redirect={{ from: "/pdv", to: "/residencial/caixa" }} />
                   </ProtectedRoute>
                 )}
               />
@@ -335,7 +335,7 @@ const App = () => (
                 path="/pdv"
                 element={(
                   <ProtectedRoute>
-                    <WorkspaceRootRedirect />
+                    <LegacyRouteRedirect redirect={{ from: "/pdv", to: "/residencial/caixa" }} />
                   </ProtectedRoute>
                 )}
               />

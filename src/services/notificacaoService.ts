@@ -62,9 +62,9 @@ export function montarMensagem(
 }
 
 /**
- * Envia mensagem via Evolution API (Edge Function)
+ * Envia mensagem pelo gateway WA-AKG (Edge Function)
  */
-async function enviarViaEvolution(
+async function enviarViaWaAkg(
   telefone: string,
   mensagem: string,
   ordem_servico_id?: string,
@@ -73,7 +73,7 @@ async function enviarViaEvolution(
   idempotencyKey?: string,
 ): Promise<boolean> {
   try {
-    const { data, error } = await supabase.functions.invoke("whatsapp-evolution", {
+    const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
       body: {
         action: "send",
         telefone,
@@ -87,14 +87,14 @@ async function enviarViaEvolution(
     if (error) throw error;
     return data?.success === true;
   } catch (error) {
-    console.error("Erro ao enviar via Evolution:", error);
+    console.error("Erro ao enviar via WA-AKG:", error);
     return false;
   }
 }
 
 /**
  * Função principal: verifica config, monta mensagem e dispara WhatsApp
- * Retorna true somente quando a Evolution API confirma que aceitou o envio.
+ * Retorna true somente quando o WA-AKG confirma que aceitou o envio.
  */
 export async function dispararNotificacao(
   evento: string,
@@ -122,7 +122,7 @@ export async function dispararNotificacao(
 
     const mensagem = montarMensagem(config.template, variaveis);
 
-    return await enviarViaEvolution(
+    return await enviarViaWaAkg(
       dados.telefone,
       mensagem,
       dados.ordem_servico_id,

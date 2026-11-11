@@ -60,6 +60,12 @@ async function preparePdv(page: Page, area: Area, options: {
   });
   await page.route("http://127.0.0.1:54321/functions/v1/pdv-payment", route => {
     const body = route.request().postDataJSON();
+    if (body.action === "get_capacity") {
+      return fulfill(route, { success: true, capacity: {
+        configured: false, limit: null, reserved: 0, available: null,
+        date: body.deliveryDate, area,
+      } });
+    }
     if (body.action.includes("loyalty")) loyaltyRequests.push(body.action);
     if (body.action === "create_sale") sales.push(body);
     return fulfill(route, { success: true, order: { id: "12345678-1234-4234-8234-123456789012", number: "OS-123", total: 12.5 }, pix: null });
@@ -68,15 +74,15 @@ async function preparePdv(page: Page, area: Area, options: {
 }
 
 async function selectClient(page: Page, area: Area) {
-  await page.goto(`/${area}/caixa`);
-  await page.getByPlaceholder("Buscar cliente (nome, CPF/CNPJ, telefone)...").fill("Cliente");
+  await page.goto(`/pdv/${area === "residencial" ? "domestico" : "industrial"}/rol`);
+  await page.getByPlaceholder("Buscar por nome, telefone ou CPF...").fill("Cliente");
   await expect(page.getByRole("button", { name: "Cliente outro setor" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Cliente inativo" })).toHaveCount(0);
   await page.getByRole("button", { name: new RegExp(`Cliente PDV ${area}`) }).click();
 }
 
 async function addKg(page: Page) {
-  await page.getByPlaceholder("Digite código ou nome do produto/serviço").fill("Lavagem");
+  await page.getByPlaceholder("Buscar produto ou serviço (ex.: camisa, calça, lençol...)").fill("Lavagem");
   await page.getByRole("button", { name: /Lavagem KG.*111/ }).click();
 }
 
@@ -84,12 +90,12 @@ for (const area of ["industrial", "residencial"] as const) {
   test(`${area}: faturado sem caixa usa o PDV único e não duplica cobrança`, async ({ page }) => {
     const observed = await preparePdv(page, area);
     await selectClient(page, area);
-    await expect(page.getByRole("button", { name: "Fechamento", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Histórico de ROLs faturados", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pagamento", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Histórico", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Editar pagamento", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Abrir caixa", exact: true })).toHaveCount(0);
     await addKg(page);
-    const quantity = page.getByRole("textbox", { name: "Quantidade de Lavagem KG", exact: true });
+    const quantity = page.getByRole("textbox", { name: "Quantidade do item atual", exact: true });
     await quantity.fill("0");
     await page.keyboard.press("F4");
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -113,7 +119,7 @@ for (const area of ["industrial", "residencial"] as const) {
     const observed = await preparePdv(page, area, { condition: "entrada" });
     await selectClient(page, area);
     await addKg(page);
-    await page.getByRole("button", { name: /Finalizar atendimento/ }).click();
+    await page.getByRole("button", { name: /Finalizar ROL \(F4\)/ }).click();
     const dialog = page.getByRole("dialog");
     if (area === "industrial") {
       await expect(dialog.getByRole("button", { name: "Pontos", exact: true })).toHaveCount(0);
@@ -129,8 +135,8 @@ for (const area of ["industrial", "residencial"] as const) {
     const observed = await preparePdv(page, area, { configError: true });
     await selectClient(page, area);
     await expect(page.getByText(/Não foi possível carregar clientes, tabela ou condição/)).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("button", { name: /Adicionar item/ })).toBeDisabled();
-    await expect(page.getByRole("button", { name: /Finalizar atendimento/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Adicionar", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Finalizar ROL \(F4\)/ })).toBeDisabled();
     await page.keyboard.press("F4");
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Tentar novamente", exact: true })).toBeVisible();
@@ -138,23 +144,19 @@ for (const area of ["industrial", "residencial"] as const) {
   });
 }
 
-test("PDV permite editar condições somente com permissão comercial", async ({ page }) => {
+test("PDV usa a condição cadastrada sem oferecer edição no atendimento", async ({ page }) => {
   await preparePdv(page, "residencial", { canEdit: true });
   await selectClient(page, "residencial");
-  await page.getByRole("button", { name: "Editar pagamento", exact: true }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("heading", { name: "Configuração de pagamento do cliente" })).toBeVisible();
-  await expect(dialog.getByText("Condição de pagamento", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Método preferido", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Configurações Fiscais para Faturamento", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pagamento", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Editar pagamento", exact: true })).toHaveCount(0);
 });
 
 test("peças exigem quantidade inteira", async ({ page }) => {
   await preparePdv(page, "industrial");
   await selectClient(page, "industrial");
-  await page.getByPlaceholder("Digite código ou nome do produto/serviço").fill("Camisa");
+  await page.getByPlaceholder("Buscar produto ou serviço (ex.: camisa, calça, lençol...)").fill("Camisa");
   await page.getByRole("button", { name: /Camisa peça.*222/ }).click();
-  const quantity = page.getByRole("textbox", { name: "Quantidade de Camisa peça", exact: true });
+  const quantity = page.getByRole("textbox", { name: "Quantidade do item atual", exact: true });
   await quantity.fill("1,5");
   await expect(page.getByRole("button", { name: /Finalizar ROL faturado/ })).toBeDisabled();
   await quantity.fill("2");
@@ -166,8 +168,8 @@ test("PDV mobile mantém ações visíveis sem overflow horizontal da página", 
   await preparePdv(page, "industrial");
   await selectClient(page, "industrial");
   await addKg(page);
-  await expect(page.getByRole("button", { name: "Fechamento", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Histórico de ROLs faturados", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pagamento", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Histórico", exact: true })).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     pageWidth: document.documentElement.scrollWidth,
     viewportWidth: document.documentElement.clientWidth,
@@ -180,15 +182,14 @@ test("PDV mobile mantém ações visíveis sem overflow horizontal da página", 
 
 test("PDV concentra os atalhos de operação e abre o fluxo de posição", async ({ page }) => {
   await prepareAuthenticatedWorkspace(page, { isAdmin: true });
-  await page.goto("/residencial/caixa");
+  await page.goto("/pdv/domestico/rol");
 
-  await expect(page.getByRole("button", { name: "Posição do ROL", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Agendar cliente", exact: true })).toBeVisible();
-  await expect(page.getByTitle("Abrir as ordens de serviço")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Faturas do setor", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Fechamento e pendências", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Consultar ROLs", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lista do dia", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Prateleiras", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Histórico", exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Posição do ROL", exact: true }).click();
+  await page.getByRole("button", { name: "Prateleiras", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: /Posição de peças \/ ROL/ })).toBeVisible();
   await expect(dialog.getByText(/use o ícone de edição no item/)).toBeVisible();
@@ -213,8 +214,8 @@ for (const alias of ["/pdv", "/caixa"]) {
         modulePermissions: { faturamento: true, dashboard: true },
       });
       await page.goto(alias);
-      await expect(page).toHaveURL(new RegExp(`/${area}/caixa$`));
-      await expect(page.getByPlaceholder("Buscar cliente (nome, CPF/CNPJ, telefone)...")).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`/pdv/painel/${area === "residencial" ? "domestico" : "industrial"}$`));
+      await expect(page.getByTestId("pdv-front-office")).toBeVisible();
     });
   }
   test(`${alias}: não redireciona ao dashboard quando nenhum PDV é autorizado`, async ({ page }) => {
