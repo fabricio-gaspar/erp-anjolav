@@ -15,7 +15,7 @@
     "criticalFlows": { "passed": false, "evidence": "UAT dos fluxos de OS, produção, caixa, faturamento e portal." },
     "asaasWebhookQueue": { "passed": false, "evidence": "Fila persistente, idempotência, webhook e retry comprovados." },
     "fiscalProvider": { "passed": false, "evidence": "NFS-e homologada com município, certificado e cancelamento." },
-    "whatsappAndN8n": { "passed": false, "evidence": "Evolution, n8n, header de autenticação, callback e retry comprovados." },
+    "whatsappAndN8n": { "passed": false, "evidence": "WA-AKG, n8n, webhook assinado, opt-out e conciliação comprovados." },
     "transactionalEmail": { "passed": false, "evidence": "Provedor de e-mail transacional, entrega, bounce e retry comprovados." },
     "observability": { "passed": false, "evidence": "Alertas, logs, retenção, indicadores e resposta a incidentes aprovados." },
     "securityReview": { "passed": false, "evidence": "RLS, grants, MFA, WAF/rate limit, secrets e varreduras revisados." },

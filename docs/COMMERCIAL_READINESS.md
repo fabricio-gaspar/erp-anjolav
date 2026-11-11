@@ -32,7 +32,7 @@ O destino próprio é o projeto Supabase `anjolav` (`uomhckyqghkcnctbdwvp`). Ele
 4. Gerar novamente os tipos TypeScript a partir do banco aplicado e executar o pipeline completo.
 5. Publicar as Edge Functions e cadastrar secrets reais sem prefixo `VITE_`.
 6. Homologar Asaas, webhook, PIX, estorno, duplicidade e recuperação de eventos falhos.
-7. Homologar Evolution e n8n, incluindo indisponibilidade, retry e replay.
+7. Homologar WA-AKG e n8n, incluindo indisponibilidade, conciliação de envios incertos, webhook assinado e replay.
 8. Manter NFS-e desativada até receber município, provedor e credenciais; depois implementar o adaptador específico e homologar emissão, consulta, rejeição, cancelamento e DANFSE.
 9. Contratar e integrar e-mail transacional se o envio automático de faturamento fizer parte da oferta; `mailto:` não é comprovante de envio.
 10. Executar E2E/UAT, responsividade, acessibilidade, impressoras/scanners e carga no ambiente equivalente à produção.

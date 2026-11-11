@@ -63,7 +63,7 @@ Regras:
 - `ASAAS_WEBHOOK_PUBLIC_URL` deve ser a URL HTTPS exata cadastrada no Asaas.
 - `ENABLE_DESTRUCTIVE_DATA_ADMIN=false` em produção.
 - Tokens de webhook devem ser aleatórios, exclusivos e rotacionáveis.
-- Hosts Evolution e n8n devem estar nas allowlists e usar HTTPS válido.
+- Hosts WA-AKG e n8n devem estar nas allowlists e usar HTTPS válido. Configure `WA_AKG_ALLOWED_HOSTS` e mantenha `WA_AKG_ENABLED=false` até homologar sessão, webhook e destinatário.
 - O n8n deve validar `X-AnjoLav-Webhook-Token`; o dispatcher exige `N8N_WEBHOOK_TOKEN` com 32+ caracteres e não enviará sem ele.
 - `NFSE_ENABLED=false` deve permanecer até existir adaptador específico homologado para o município e provedor contratados.
 - Não acrescente `SUPABASE_URL`, `SUPABASE_ANON_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` ao arquivo: são secrets padrão das Edge Functions hospedadas.
@@ -89,15 +89,15 @@ supabase functions deploy data-administration
 supabase functions deploy create-asaas-charge
 supabase functions deploy pdv-payment
 supabase functions deploy asaas-webhook
-supabase functions deploy whatsapp-evolution
 supabase functions deploy whatsapp-gateway
 supabase functions deploy rol-notifications
 supabase functions deploy wa-akg-webhook --no-verify-jwt
+supabase functions deploy whatsapp-evolution
 supabase functions deploy webhook-dispatcher
 supabase functions deploy nfse-adapter
 ```
 
-`supabase/config.toml` mantém JWT obrigatório nas funções privadas e o desliga apenas nos endpoints que precisam ser públicos (`sign-in`, portal e webhook Asaas); esses endpoints possuem validação própria.
+`supabase/config.toml` mantém JWT obrigatório nas funções privadas e o desliga apenas nos endpoints que precisam ser públicos (`sign-in`, portal e webhooks Asaas/WA-AKG); esses endpoints possuem validação própria. `whatsapp-evolution` é apenas um endpoint legado desativado (HTTP 410). Consulte [WA-AKG](WA_AKG.md) antes de ativar o envio.
 
 Antes de promover o Asaas, consulte a saúde da integração na área administrativa. “Configurado — entrega não homologada” confirma API key, URL, eventos, estado ativo e fila não interrompida no cadastro do provedor; ainda é obrigatório provocar um evento de teste em staging para confirmar que o token recebido corresponde ao secret e que o processamento chega ao estado final.
 
@@ -128,7 +128,7 @@ Não altere a ordem abaixo e pare no primeiro gate reprovado. Cada resultado dev
 
 `nfse-adapter` deve continuar com `NFSE_ENABLED=false` até existir um adaptador específico para o município e o provedor contratados. Não encaminhe payload fiscal para uma URL genérica. Mesmo quando for selecionada uma plataforma como NFE.io, a ativação exige contrato/credenciais no cofre, cadastro municipal, certificado quando aplicável, códigos de serviço, fluxo assíncrono de emissão/cancelamento, validação de webhook e homologação documentada. Esta documentação não instala SDK, não cadastra contas e não realiza chamada fiscal.
 
-Asaas, e-mail transacional, Evolution/WhatsApp, n8n e qualquer ponte de impressão local seguem a mesma regra: permanecem indisponíveis comercialmente até o responsável registrar a homologação independente no arquivo de evidências.
+Asaas, e-mail transacional, WA-AKG/WhatsApp, n8n e qualquer ponte de impressão local seguem a mesma regra: permanecem indisponíveis comercialmente até o responsável registrar a homologação independente no arquivo de evidências.
 
 ## 7. Rollback
 

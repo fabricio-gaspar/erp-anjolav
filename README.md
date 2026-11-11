@@ -10,7 +10,7 @@ ERP web para as operações industrial e residencial da AnjoLav, com painéis se
 - Tailwind CSS e shadcn/ui
 - TanStack Query
 - Supabase Auth, Postgres, Storage e Edge Functions
-- Asaas, Evolution API e webhooks n8n
+- Asaas, WA-AKG e webhooks n8n
 
 ## Desenvolvimento local
 
@@ -55,5 +55,6 @@ Rotas protegidas exigem sessão, área e permissão de módulo. A migration come
 - [Implantação](docs/DEPLOYMENT.md)
 - [Preparação do ambiente real](docs/PRODUCTION_PREPARATION.md)
 - [Checklist de go-live](docs/GO_LIVE_CHECKLIST.md)
+- [Integração WhatsApp WA-AKG](docs/WA_AKG.md)
 
 Repositório: [fabricio-gaspar/erp-anjolav](https://github.com/fabricio-gaspar/erp-anjolav)

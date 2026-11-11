@@ -372,7 +372,7 @@ function parseArgs(argv) {
 
 function printUsage() {
   console.log("Uso: node scripts/production-preflight.mjs [--frontend-env .env.production] [--functions-env supabase/.env.production] [--release-evidence ops/release-evidence.json]");
-  console.log("A checagem não chama Supabase, Asaas, Evolution, n8n ou qualquer provedor externo e nunca exibe valores de secrets.");
+  console.log("A checagem não chama Supabase, Asaas, WA-AKG, n8n ou qualquer provedor externo e nunca exibe valores de secrets.");
 }
 
 function main() {
