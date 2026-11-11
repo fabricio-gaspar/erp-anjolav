@@ -9,6 +9,7 @@ import {
   Landmark,
   LayoutDashboard,
   Package,
+  Palette,
   Settings,
   ShieldCheck,
   ShoppingCart,
@@ -34,6 +35,7 @@ export type AdminRoutePath =
   | "/admin/estoque"
   | "/admin/relatorios"
   | "/admin/configuracoes"
+  | "/admin/biblioteca-visual"
   | "/admin/auditoria"
   | "/admin/plataforma";
 
@@ -66,6 +68,7 @@ export const ADMIN_ROUTES: readonly AdminRouteDefinition[] = [
   { path: "/admin/estoque", label: "Estoque e compras", section: "Gestão", icon: Package, requiredModules: central("produtos") },
   { path: "/admin/relatorios", label: "Relatórios", section: "Gestão", icon: BarChart3, requiredModules: central("relatorios") },
   { path: "/admin/configuracoes", label: "Configurações", section: "Administração", icon: Settings, requiredModules: central("configuracoes"), adminOnly: true },
+  { path: "/admin/biblioteca-visual", label: "Biblioteca visual", section: "Administração", icon: Palette, requiredModules: central("configuracoes"), adminOnly: true },
   { path: "/admin/auditoria", label: "Auditoria", section: "Administração", icon: ShieldCheck, requiredModules: central("configuracoes"), adminOnly: true },
   { path: "/admin/plataforma", label: "Administração SaaS", section: "Administração", icon: ShieldCheck, requiredModules: central("configuracoes"), adminOnly: true, platformAdminOnly: true },
 ];
