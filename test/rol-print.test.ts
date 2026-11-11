@@ -36,8 +36,8 @@ test("ROL industrial usa condição e tabela do snapshot, com preços persistido
   }, data.itens, "padrao");
   const html = generateROLHTMLWithData(config, { ...data, ...details });
   assert.match(html, /Atendimento:<\/strong> Industrial/);
-  assert.match(html, /Condição da OS:<\/strong> Faturado/);
-  assert.match(html, /Personalizada \(registrada na OS\)/);
+  assert.match(html, /Condição do ROL:<\/strong> Faturado/);
+  assert.match(html, /Personalizada \(registrada no ROL\)/);
   assert.doesNotMatch(html, /Padrão/);
   assert.match(html, /12,5 kg/);
   assert.match(html, /class="item-unit">8\.00/);
@@ -50,7 +50,7 @@ test("faturado pendente não sugere recebimento individual nem representa quita�
   assert.match(html, /Faturado — não pago/);
   assert.match(html, /Pagamento pelo fechamento da fatura/);
   assert.match(html, /Saldo vinculado ao faturamento: R\$ 100\.00/);
-  assert.match(html, /não é cobrança individual da OS/);
+  assert.match(html, /Este ROL não comprova quitação e não é cobrança individual/);
   assert.doesNotMatch(html, /Receber OS|Pagar agora|Pagamento registrado|RECIBO DE LAVANDERIA/i);
 });
 
@@ -79,17 +79,17 @@ test("JSON ausente ou inválido é seguro e não inventa tabela histórica", () 
   for (const snapshot of [undefined, null, "mensal", [], 1, { tabela_preco_tipo: "especial", forma_pagamento: "constructor" }, { tipo_faturamento: { toString: null }, dia_fechamento: "16" }]) {
     const data = order({ condicoesComerciais: snapshot, tabelaPrecoAtual: "personalizada" });
     const info = getRolCommercialSummary(data);
-    assert.equal(info.table, "Personalizada (cadastro atual; tabela da OS não registrada)");
+    assert.equal(info.table, "Personalizada (cadastro atual; tabela do ROL não registrada)");
     assert.equal(info.preferredMethod, null);
     assert.equal(info.frequency, null);
   }
-  assert.equal(getRolCommercialSummary(order({ condicoesComerciais: null })).table, "Não registrada na OS");
+  assert.equal(getRolCommercialSummary(order({ condicoesComerciais: null })).table, "Não registrada no ROL");
 });
 
 test("tabela padrão do snapshot não muda quando cadastro atual passa a personalizada", () => {
   const snapshot = Object.freeze({ tabela_preco_tipo: "padrao", tipo_faturamento: "quinzenal", dia_fechamento: 7 });
   const data = order({ condicoesComerciais: snapshot, tabelaPrecoAtual: "personalizada" });
-  assert.equal(getRolCommercialSummary(data).table, "Padrão (registrada na OS)");
+  assert.equal(getRolCommercialSummary(data).table, "Padrão (registrada no ROL)");
   assert.equal(getRolCommercialSummary(data).frequency, "Quinzenal");
   assert.equal(getRolCommercialSummary(data).closingDay, 7);
   assert.deepEqual(snapshot, { tabela_preco_tipo: "padrao", tipo_faturamento: "quinzenal", dia_fechamento: 7 });
@@ -124,7 +124,7 @@ test("faturado pago ou parcialmente pago continua direcionado à fatura", () => 
 
 test("cancelamento não apresenta saldo como cobrança", () => {
   const html = generateROLCommercialHTML(order({ statusOS: "cancelada" }));
-  assert.match(html, /OS cancelada/);
+  assert.match(html, /ROL cancelado/);
   assert.doesNotMatch(html, /Saldo vinculado|Saldo pendente|Faturado — não pago/);
 });
 

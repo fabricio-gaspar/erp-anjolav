@@ -60,7 +60,7 @@ export const ADMIN_ROUTES: readonly AdminRouteDefinition[] = [
   { path: "/admin/operacoes/ordens", label: "ROLS e pedidos", section: "Operações", icon: ClipboardList, requiredModules: central("ordens") },
   { path: "/admin/operacoes/producao", label: "Produção", section: "Operações", icon: Wrench, requiredModules: central("producao") },
   { path: "/admin/financeiro", label: "Visão financeira", section: "Financeiro", icon: Landmark, requiredModules: central("faturamento") },
-  { path: "/admin/financeiro/lancamentos", label: "Lançamentos e faturas", section: "Financeiro", icon: FileText, requiredModules: central("faturamento") },
+  { path: "/admin/financeiro/lancamentos", label: "Faturamento por período", section: "Financeiro", icon: FileText, requiredModules: central("faturamento") },
   { path: "/admin/financeiro/contas", label: "Contas a pagar e receber", section: "Financeiro", icon: FileText, requiredModules: central(["contas_receber", "contas_pagar"]) },
   { path: "/admin/financeiro/caixas", label: "Caixas", section: "Financeiro", icon: Archive, requiredModules: central(["caixa", "faturamento"]) },
   { path: "/admin/estoque", label: "Estoque e compras", section: "Gestão", icon: Package, requiredModules: central("produtos") },

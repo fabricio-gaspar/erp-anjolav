@@ -100,6 +100,13 @@ export function formatCurrency(value: number): string {
   return `R$ ${value.toFixed(2).replace(".", ",")}`;
 }
 
+/** Prevent spreadsheet programs from treating customer or product text as a formula. */
+export function csvSafeCell(value: unknown): string {
+  const text = String(value ?? "");
+  const safe = /^[\s]*[=+@-]/.test(text) ? `'${text}` : text;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
 // Formata data para exibição
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr);

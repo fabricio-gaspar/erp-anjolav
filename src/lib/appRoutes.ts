@@ -185,8 +185,8 @@ export const APP_ROUTES = [
     area: "industrial",
     requiredModules: ["faturamento"],
     adminOnly: false,
-    label: "Fechamento e histórico",
-    sidebarLabel: "Fechamentos",
+    label: "Faturamento por período",
+    sidebarLabel: "Faturamento",
     navigationGroup: "industrial-finance",
   },
   {
@@ -283,8 +283,8 @@ export const APP_ROUTES = [
     area: "residencial",
     requiredModules: ["faturamento"],
     adminOnly: false,
-    label: "Fechamento e histórico",
-    sidebarLabel: "Fechamentos",
+    label: "Faturamento por período",
+    sidebarLabel: "Faturamento",
     navigationGroup: "residential-finance",
   },
   {
