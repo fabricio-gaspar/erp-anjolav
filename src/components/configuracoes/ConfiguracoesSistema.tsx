@@ -3,8 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -39,7 +37,6 @@ import {
   FolderOpen,
   Lock,
   Zap,
-  Layers,
   Webhook,
   Clock,
   AlertCircle,
@@ -49,7 +46,6 @@ import {
   Mail,
   MessageSquare,
   Check,
-  X,
   PlayCircle,
   PauseCircle,
   Trash2,
@@ -59,10 +55,11 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useHistoricoEnvios, useHistoricoEnviosMultiple } from "@/hooks/useHistoricoEnvios";
+import { useHistoricoEnviosMultiple } from "@/hooks/useHistoricoEnvios";
 import { useAutomacoesConfig } from "@/hooks/useAutomacoesConfig";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { mapStyleUrl, mapTileUrl } from "@/lib/mapTiles";
 
 type ServiceStatusType = "online" | "offline" | "slow" | "configured" | "not_configured" | "untested";
 
@@ -152,26 +149,24 @@ const testServices = {
   osm: async (): Promise<{ success: boolean; latency: number }> => {
     const start = performance.now();
     try {
-      const resp = await fetch("https://tile.openstreetmap.org/0/0/0.png", {
-        method: "HEAD",
-        signal: AbortSignal.timeout(5000)
-      });
-      const latency = Math.round(performance.now() - start);
-      return { success: resp.ok, latency };
-    } catch {
-      return { success: false, latency: Math.round(performance.now() - start) };
-    }
-  },
-
-  osmTiles: async (): Promise<{ success: boolean; latency: number }> => {
-    const start = performance.now();
-    try {
-      const resp = await fetch("https://a.tile.openstreetmap.org/1/0/0.png", {
-        method: "HEAD",
-        signal: AbortSignal.timeout(5000)
-      });
-      const latency = Math.round(performance.now() - start);
-      return { success: resp.ok, latency };
+      if (mapTileUrl) {
+        const url = mapTileUrl
+          .replace("{s}", "a")
+          .replace("{z}", "1")
+          .replace("{x}", "0")
+          .replace("{y}", "0")
+          .replace("{r}", "");
+        const success = await new Promise<boolean>((resolve) => {
+          const image = new Image();
+          const timer = window.setTimeout(() => resolve(false), 5000);
+          image.onload = () => { window.clearTimeout(timer); resolve(true); };
+          image.onerror = () => { window.clearTimeout(timer); resolve(false); };
+          image.src = url;
+        });
+        return { success, latency: Math.round(performance.now() - start) };
+      }
+      const resp = await fetch(mapStyleUrl, { signal: AbortSignal.timeout(5000) });
+      return { success: resp.ok, latency: Math.round(performance.now() - start) };
     } catch {
       return { success: false, latency: Math.round(performance.now() - start) };
     }
@@ -290,20 +285,11 @@ export function ConfiguracoesSistema() {
     },
     {
       id: "osm",
-      name: "OpenStreetMap (Mapas)",
-      description: "Renderização de mapas interativos",
+      name: "Mapa base",
+      description: "Disponibilidade do provedor cartográfico configurado",
       status: "untested",
       icon: <Map className="w-5 h-5 text-teal-600" />,
       iconBg: "bg-teal-100",
-      category: "external",
-    },
-    {
-      id: "osmTiles",
-      name: "OpenStreetMap Tiles",
-      description: "Camada de tiles para mapas",
-      status: "untested",
-      icon: <Layers className="w-5 h-5 text-emerald-600" />,
-      iconBg: "bg-emerald-100",
       category: "external",
     },
     {
@@ -496,9 +482,6 @@ export function ConfiguracoesSistema() {
           break;
         case "osm":
           result = await testServices.osm();
-          break;
-        case "osmTiles":
-          result = await testServices.osmTiles();
           break;
         case "supabaseStorage":
           result = await testServices.supabaseStorage();

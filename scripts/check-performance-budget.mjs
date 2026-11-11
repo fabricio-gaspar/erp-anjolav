@@ -10,6 +10,7 @@ const DEFAULT_CHUNK_BUDGET_KB = 96;
 const CHUNK_ALLOWLIST = new Map([
   ["charts", { budgetKb: 140, reason: "biblioteca de gráficos carregada sob demanda" }],
   ["maps", { budgetKb: 120, reason: "biblioteca de mapas carregada sob demanda" }],
+  ["maplibre", { budgetKb: 320, reason: "renderizador vetorial carregado apenas ao abrir mapas" }],
 ]);
 
 function usage() {
