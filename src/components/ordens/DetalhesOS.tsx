@@ -161,6 +161,9 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
 
   const valorTotal = Number(ordem.valor_total ?? itens.reduce((acc, item) => acc + Number(item.subtotal), 0));
   const quantidadeTotal = itens.reduce((acc, item) => acc + Number(item.quantidade), 0);
+  const canNotifyReady = ordem.status === "expedicao"
+    && !isLoadingItens && itens.length > 0
+    && itens.every((item) => Boolean(item.posicao_prateleira?.trim()));
 
   return (
     <div className="space-y-5">
@@ -188,7 +191,7 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
 
         <div className="flex flex-wrap items-center gap-2 pl-12 lg:justify-end lg:pl-0">
           {/* WhatsApp Resend */}
-          {ordem.cliente?.telefone && (
+          {ordem.cliente?.telefone && canNotifyReady && (
             <Button
               variant="outline"
               size="sm"
@@ -200,11 +203,11 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
                 }
                 setIsSendingWhatsApp(true);
                 try {
-                  const evento = ordem.status === "expedicao" ? "os_pronta" : "os_status";
-                  const enviado = await dispararNotificacao(evento, {
+                  const enviado = await dispararNotificacao("os_pronto", {
                     cliente: ordem.cliente?.razao_social || "",
                     telefone: ordem.cliente?.telefone || "",
                     numero: ordem.numero,
+                    valor: formatCurrency(valorTotal),
                     ordem_servico_id: ordemServicoId,
                     cliente_id: ordem.cliente_id,
                     idempotencyKey: createIdempotencyKey("whatsapp-manual"),

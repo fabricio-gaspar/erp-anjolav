@@ -211,6 +211,9 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (orderError) throw orderError;
     if (!order) return json(req, { error: "ROL indisponível" }, 403);
+    if (order.status === "cancelada") {
+      return json(req, { error: "ROL cancelado não pode gerar aviso de entrada ou liberação" }, 409);
+    }
     const idempotencyKey = evento === "rol_entrada"
       ? `rol:${order.id}:entrada`
       : `rol:${order.id}:disponivel:${evento === "rol_pronto_delivery" ? "entrega" : "balcao"}`;
