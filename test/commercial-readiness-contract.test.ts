@@ -40,7 +40,7 @@ test("CI executa os gates visuais e de desempenho depois do build", () => {
   assert.match(packageJson.scripts?.["check:performance"] ?? "", /check-performance-budget/);
 
   const buildStep = workflow.indexOf("run: npm run build");
-  const browserInstallStep = workflow.indexOf("run: npx playwright install --with-deps chromium");
+  const browserInstallStep = workflow.search(/run:\s*npx playwright install (?:--with-deps )?chromium/);
   const e2eStep = workflow.indexOf("run: npm run test:e2e");
   const performanceStep = workflow.indexOf("run: npm run check:performance");
   assert.ok(buildStep >= 0, "o CI deve gerar o build antes de validar os assets");
