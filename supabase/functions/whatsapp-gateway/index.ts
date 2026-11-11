@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
 import { requireAdmin, requireModule } from "../_shared/auth.ts";
 import { handlePreflight, jsonResponse, readJsonBody, requireJsonPost } from "../_shared/http.ts";
-import { normalizeBrazilianWhatsApp, waAkgBaseUrl, waAkgRequest, waAkgSessionId } from "../_shared/wa-akg.ts";
+import { normalizeBrazilianWhatsApp, waAkgBaseUrl, waAkgQrCode, waAkgRequest, waAkgSessionId } from "../_shared/wa-akg.ts";
 import { processReservedDelivery, reserveDelivery } from "../_shared/wa-delivery.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -115,14 +115,18 @@ Deno.serve(async (req) => {
       } else if (!current.response.ok) {
         return jsonResponse(req, { error: "WA-AKG não respondeu à consulta da sessão" }, 502);
       }
-      const started = await waAkgRequest(baseUrl, apiKey, `sessions/${sessionId}/start`, { method: "POST" });
-      if (!started.response.ok && started.response.status !== 409) {
-        return jsonResponse(req, { error: "WA-AKG não iniciou a sessão" }, 502);
+      if (!["connected", "connecting"].includes(providerState(current.body))) {
+        const started = await waAkgRequest(baseUrl, apiKey, `sessions/${sessionId}/start`, { method: "POST" });
+        if (!started.response.ok && started.response.status !== 409) {
+          return jsonResponse(req, { error: "WA-AKG não iniciou a sessão" }, 502);
+        }
       }
-      const qr = await waAkgRequest(baseUrl, apiKey, `sessions/${sessionId}/qr`, { method: "GET" });
-      const qrData = qr.body.data as Record<string, unknown> | undefined;
-      const qrCode = typeof qrData?.base64 === "string" ? qrData.base64.replace(/^data:image\/png;base64,/, "") : null;
-      const connected = providerState(started.body) === "connected";
+      const latest = await waAkgRequest(baseUrl, apiKey, `sessions/${sessionId}`, { method: "GET" });
+      if (!latest.response.ok) return jsonResponse(req, { error: "WA-AKG não confirmou o estado da sessão" }, 502);
+      let connected = providerState(latest.body) === "connected";
+      const qr = connected ? null : await waAkgRequest(baseUrl, apiKey, `sessions/${sessionId}/qr`, { method: "GET" });
+      connected ||= qr?.body.connected === true;
+      const qrCode = connected || !qr?.response.ok ? null : waAkgQrCode(qr.body);
       const { error: updateError } = await db.from("whatsapp_instancias")
         .update({ status: connected ? "conectado" : "aguardando_scan", qr_code: qrCode })
         .eq("tenant_id", auth.tenantId).eq("id", instance.id);

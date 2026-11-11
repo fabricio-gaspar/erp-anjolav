@@ -27,6 +27,14 @@ export function waAkgBaseUrl(raw: string): URL {
   return url;
 }
 
+export function waAkgQrCode(body: Record<string, unknown>): string | null {
+  // The installed WA-AKG returns { success, qr, base64 } at the top level.
+  if (body.success !== true || typeof body.base64 !== "string") return null;
+  const value = body.base64.replace(/^data:image\/png;base64,/, "");
+  return value.length > 0 && value.length <= 250_000 && /^[A-Za-z0-9+/=]+$/.test(value)
+    ? value : null;
+}
+
 export async function waAkgRequest(
   baseUrl: URL,
   apiKey: string,

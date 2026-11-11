@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeBrazilianWhatsApp, sendWaAkgText, waAkgBaseUrl, waAkgSessionId } from "../supabase/functions/_shared/wa-akg.ts";
+import { normalizeBrazilianWhatsApp, sendWaAkgText, waAkgBaseUrl, waAkgQrCode, waAkgSessionId } from "../supabase/functions/_shared/wa-akg.ts";
 
 const originalFetch = globalThis.fetch;
 const originalDeno = (globalThis as typeof globalThis & { Deno?: unknown }).Deno;
@@ -22,6 +22,9 @@ test("isola a sessão por empresa e rejeita telefone ou origem não autorizados"
   assert.throws(() => waAkgBaseUrl("https://private.example.com"), /autorizado/);
   assert.throws(() => waAkgBaseUrl("http://wa.example.com"), /HTTPS/);
   assert.equal(waAkgBaseUrl("https://wa.example.com").origin, "https://wa.example.com");
+  assert.equal(waAkgQrCode({ success: true, qr: "raw", base64: "data:image/png;base64,YWJj" }), "YWJj");
+  assert.equal(waAkgQrCode({ success: false, base64: "YWJj" }), null);
+  assert.equal(waAkgQrCode({ success: true, data: { base64: "YWJj" } }), null);
 });
 
 test("confirma somente resposta com ID; falha incerta nunca autoriza retry automático", async () => {
