@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,8 @@ interface SuprimentoModalProps {
 }
 
 export function SuprimentoModal({ open, onOpenChange, caixaId }: SuprimentoModalProps) {
+  const { pathname } = useLocation();
+  const operationType = pathname.includes("/industrial/") ? "industrial" as const : "domestico" as const;
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -45,6 +48,7 @@ export function SuprimentoModal({ open, onOpenChange, caixaId }: SuprimentoModal
         tipo: "REFORCO",
         valor: valorNumerico,
         descricao: descricao.trim() || "Suprimento de caixa",
+        operation_type: operationType,
         idempotency_key: idempotencyKeyRef.current,
       });
     } catch {

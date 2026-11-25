@@ -103,7 +103,7 @@ export function isCustomerPaymentAllowed(
   if (terms.condition === "faturado") return !payment.pagoAgora && payment.formaPagamento === null;
   if (!payment.pagoAgora) return terms.condition === "retirada" && payment.formaPagamento === null;
   if (payment.canReceivePayments === false) return false;
-  const methods: string[] = ["DINHEIRO", "PIX", "CARTAO_CREDITO", "CARTAO_DEBITO"];
+  const methods: string[] = ["DINHEIRO", "PIX", "CARTAO_CREDITO", "CARTAO_DEBITO", "CREDITO_CLIENTE"];
   if (terms.condition === "retirada") methods.push("FIDELIDADE");
   return methods.includes(payment.formaPagamento ?? "");
 }

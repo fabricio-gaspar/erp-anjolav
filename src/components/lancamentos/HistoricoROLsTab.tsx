@@ -39,6 +39,8 @@ import { VisualizarItensModal } from "@/components/faturamento/VisualizarItensMo
 import { useItensLancamento } from "@/hooks/useLancamentos";
 import { useRolDirectory, type RolDirectoryItem } from "@/hooks/useRolDirectory";
 import { formatNumberToCurrency } from "@/lib/currencyUtils";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { CentralBillingUnavailable } from "@/components/lancamentos/CentralBillingUnavailable";
 import {
   ROL_DIRECTORY_PAGE_SIZE,
   normalizeRolDirectoryDate,
@@ -94,6 +96,7 @@ function RolMobileCard({ item, onView }: { item: RolDirectoryItem; onView: () =>
 }
 
 export function HistoricoROLsTab() {
+  const { activeArea } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selected, setSelected] = useState<RolDirectoryItem | null>(null);
   const search = searchParams.get("rol_q") ?? "";
@@ -158,6 +161,10 @@ export function HistoricoROLsTab() {
     if (endDate) return `Até ${formatDate(endDate)}`;
     return "Todos os lançamentos";
   }, [endDate, startDate]);
+
+  if (activeArea === "central") {
+    return <CentralBillingUnavailable section="do histórico consolidado de ROLs" />;
+  }
 
   return (
     <div className="space-y-4">

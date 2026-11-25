@@ -91,7 +91,8 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
   const { saveContrato, endContrato } = useContratosAluguel();
 
   const [creatingReplacement, setCreatingReplacement] = useState(false);
-  const [description, setDescription] = useState("Contrato industrial");
+  const [contractEnabled, setContractEnabled] = useState(false);
+  const [description, setDescription] = useState("");
   const [baseValue, setBaseValue] = useState("0,00");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState("");
@@ -110,12 +111,13 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
   const [endReason, setEndReason] = useState("");
 
   const editingContract = contrato?.ativo && !creatingReplacement ? contrato : null;
-  const showForm = !contrato || contrato.ativo || creatingReplacement;
+  const showForm = contractEnabled;
   const formDisabled = !canManage || saveContrato.isPending || endContrato.isPending;
 
   useEffect(() => {
     setCreatingReplacement(false);
-    setDescription("Contrato industrial");
+    setContractEnabled(false);
+    setDescription("");
     setBaseValue("0,00");
     setStartDate(format(new Date(), "yyyy-MM-dd"));
     setEndDate("");
@@ -131,6 +133,11 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
     setNewQuantity("1");
     setNewUnitValue("0");
   }, [clienteId]);
+
+  useEffect(() => {
+    if (loadingContrato || creatingReplacement) return;
+    setContractEnabled(Boolean(contrato?.ativo));
+  }, [loadingContrato, contrato?.id, contrato?.ativo, creatingReplacement]);
 
   useEffect(() => {
     if (!contrato?.ativo || creatingReplacement) return;
@@ -158,18 +165,40 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
 
   const resetForReplacement = () => {
     setCreatingReplacement(true);
-    setDescription("Contrato industrial");
+    setContractEnabled(true);
+    setDescription("");
     setBaseValue("0,00");
     setStartDate(format(new Date(), "yyyy-MM-dd"));
     setEndDate("");
-    setBillingAuthorized(false);
-    setFrequency("avulso");
-    setClosingDay("");
+    setBillingAuthorized(true);
+    setFrequency("mensal");
+    setClosingDay("31");
     setDueDay("10");
-    setPaymentMethod(null);
+    setPaymentMethod("boleto");
     setCommercialRules("");
     setNotes("");
     setDraftItems([]);
+  };
+
+  const handleContractEnabledChange = (enabled: boolean) => {
+    if (!canManage) return;
+    if (!enabled) {
+      if (editingContract) {
+        setEndReason("Desativado pelo cadastro do cliente");
+        setEndDialogOpen(true);
+        return;
+      }
+      setContractEnabled(false);
+      setCreatingReplacement(false);
+      return;
+    }
+
+    if (contrato && !contrato.ativo && !creatingReplacement) resetForReplacement();
+    setContractEnabled(true);
+    setBillingAuthorized(true);
+    setFrequency("mensal");
+    setClosingDay("31");
+    setPaymentMethod((current) => current ?? "boleto");
   };
 
   const productMap = useMemo(
@@ -308,6 +337,8 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
       onSuccess: () => {
         setEndDialogOpen(false);
         setEndReason("");
+        setContractEnabled(false);
+        setCreatingReplacement(false);
       },
     });
   };
@@ -317,7 +348,7 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center py-14 text-center">
           <FileText className="mb-3 h-10 w-10 text-muted-foreground/60" />
-          <p className="font-medium">Salve ou selecione um cliente industrial</p>
+          <p className="font-medium">Salve ou selecione um cliente</p>
           <p className="mt-1 text-sm text-muted-foreground">Depois, registre aqui as condições contratuais.</p>
         </CardContent>
       </Card>
@@ -351,7 +382,7 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="flex items-center gap-2 text-xl">
                 <FileCheck2 className="h-5 w-5 text-primary" />
-                Contrato industrial
+                Contrato mensal
               </CardTitle>
               {contrato ? (
                 <StatusBadge variant={contrato.ativo ? "success" : "default"}>
@@ -360,17 +391,28 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
               ) : <StatusBadge>Novo</StatusBadge>}
             </div>
             <CardDescription className="max-w-2xl">
-              Centraliza vigência, preços, regras e autorização de faturamento. A gravação ocorre em uma única operação auditável.
+              Ative o contrato para definir o valor e os serviços cobrados no fechamento mensal. Alterações e encerramentos ficam registrados no histórico.
             </CardDescription>
           </div>
-          {editingContract && (
-            <div className="rounded-lg border bg-background/80 px-3 py-2 text-right">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Versão vigente</p>
-              <p className="font-semibold">{editingContract.versao + 1}</p>
+          <div className="flex items-center justify-between gap-3 rounded-lg border bg-background/80 px-4 py-3 sm:min-w-64">
+            <div>
+              <Label htmlFor="client-contract-enabled" className="font-semibold">Contrato ativo</Label>
+              <p className="text-xs text-muted-foreground">Cobrança no fechamento mensal</p>
             </div>
-          )}
+            <Switch
+              id="client-contract-enabled"
+              checked={contractEnabled}
+              disabled={!canManage || saveContrato.isPending || endContrato.isPending}
+              onCheckedChange={handleContractEnabledChange}
+              aria-label="Ativar ou desativar contrato mensal do cliente"
+            />
+          </div>
         </CardHeader>
       </Card>
+
+      {editingContract && (
+        <p className="text-right text-xs text-muted-foreground">Versão vigente: {editingContract.versao}</p>
+      )}
 
       {!canManage && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
@@ -405,109 +447,80 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
       {showForm && (
         <fieldset disabled={formDisabled} className="min-w-0 space-y-5">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Vigência e identificação</CardTitle>
-              <CardDescription>Dados que definem quando e em quais termos o acordo comercial é válido.</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base"><CircleDollarSign className="h-4 w-4 text-primary" />Dados do contrato</CardTitle>
+              <CardDescription>Informe o serviço e o valor. O fechamento mensal usa as condições abaixo.</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="contract-description">Descrição *</Label>
-                <Input
-                  id="contract-description"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Ex.: Higienização de enxoval hospitalar"
-                />
+                <Label htmlFor="contract-description">Produto ou serviço contratado *</Label>
+                <Input id="contract-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Ex.: Lavagem mensal de uniformes" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contract-base-value">Valor mensal fixo</Label>
+                <CurrencyInput id="contract-base-value" value={baseValue} onChange={(event) => setBaseValue(event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="contract-start-date">Início da vigência *</Label>
                 <Input id="contract-start-date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="contract-closing-day">Dia do fechamento</Label>
+                <Input id="contract-closing-day" type="number" min={1} max={frequency === "quinzenal" ? 16 : 31} value={closingDay} onChange={(event) => setClosingDay(event.target.value)} disabled={!billingAuthorized || frequency === "avulso"} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contract-due-day">Dia do vencimento *</Label>
+                <Input id="contract-due-day" type="number" min={1} max={31} value={dueDay} onChange={(event) => setDueDay(event.target.value)} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <details className="rounded-lg border bg-card p-4 text-sm">
+            <summary className="cursor-pointer font-semibold">Mais condições do contrato</summary>
+            <div className="mt-4 grid gap-4 border-t pt-4 md:grid-cols-2">
+              <div className="space-y-2">
                 <Label htmlFor="contract-end-date">Fim da vigência</Label>
                 <Input id="contract-end-date" type="date" value={endDate} min={startDate} onChange={(event) => setEndDate(event.target.value)} />
                 <p className="text-xs text-muted-foreground">Em branco para prazo indeterminado.</p>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <CircleDollarSign className="h-4 w-4 text-primary" />
-                Cobrança e autorização
-              </CardTitle>
-              <CardDescription>O segmento industrial, sozinho, não concede crédito nem permite faturamento.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="flex flex-col gap-4 rounded-xl border border-primary/20 bg-primary/[0.035] p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="max-w-2xl">
-                  <Label htmlFor="contract-billing-authorized" className="text-base">Autorizar faturamento contratual</Label>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Permite concluir os serviços sem quitação imediata e receber pelo fechamento das faturas de origem.
-                  </p>
+              <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <div>
+                  <Label htmlFor="contract-billing-authorized">Autorizar faturamento contratual</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">Permite receber os serviços no fechamento das faturas.</p>
                 </div>
                 <Switch id="contract-billing-authorized" checked={billingAuthorized} onCheckedChange={handleBillingAuthorization} />
               </div>
-
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contract-base-value">Valor fixo por ciclo</Label>
-                  <CurrencyInput id="contract-base-value" value={baseValue} onChange={(event) => setBaseValue(event.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Periodicidade</Label>
-                  <Select value={frequency} onValueChange={(value) => handleFrequency(value as PeriodicidadeContrato)} disabled={!billingAuthorized}>
-                    <SelectTrigger aria-label="Periodicidade do contrato"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(BILLING_FREQUENCY_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contract-closing-day">
-                    {frequency === "quinzenal" ? "Primeiro fechamento" : "Dia do fechamento"}
-                  </Label>
-                  <Input
-                    id="contract-closing-day"
-                    type="number"
-                    min={1}
-                    max={frequency === "quinzenal" ? 16 : 31}
-                    value={closingDay}
-                    onChange={(event) => setClosingDay(event.target.value)}
-                    disabled={!billingAuthorized || frequency === "avulso"}
-                  />
-                  {frequency === "quinzenal" && <p className="text-xs text-muted-foreground">O segundo fechamento ocorre 15 dias depois.</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contract-due-day">Dia do vencimento *</Label>
-                  <Input id="contract-due-day" type="number" min={1} max={31} value={dueDay} onChange={(event) => setDueDay(event.target.value)} />
-                </div>
-                <div className="space-y-2 md:col-span-2 xl:col-span-1">
-                  <Label>Método preferido</Label>
-                  <Select value={paymentMethod ?? "none"} onValueChange={(value) => setPaymentMethod(value === "none" ? null : value as FormaPagamentoContrato)}>
-                    <SelectTrigger aria-label="Método de pagamento do contrato"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Não definido</SelectItem>
-                      {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-                        <SelectItem
-                          key={value}
-                          value={value}
-                          disabled={!billingAuthorized && (value === "boleto" || value === "transferencia")}
-                        >
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label>Periodicidade</Label>
+                <Select value={frequency} onValueChange={(value) => handleFrequency(value as PeriodicidadeContrato)} disabled={!billingAuthorized}>
+                  <SelectTrigger aria-label="Periodicidade do contrato"><SelectValue /></SelectTrigger>
+                  <SelectContent>{Object.entries(BILLING_FREQUENCY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
-            </CardContent>
-          </Card>
+              <div className="space-y-2">
+                <Label>Método preferido</Label>
+                <Select value={paymentMethod ?? "none"} onValueChange={(value) => setPaymentMethod(value === "none" ? null : value as FormaPagamentoContrato)}>
+                  <SelectTrigger aria-label="Método de pagamento do contrato"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não definido</SelectItem>
+                    {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => <SelectItem key={value} value={value} disabled={!billingAuthorized && (value === "boleto" || value === "transferencia")}>{label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contract-commercial-rules">Regras comerciais</Label>
+                <Textarea id="contract-commercial-rules" rows={3} value={commercialRules} onChange={(event) => setCommercialRules(event.target.value)} placeholder="Exceções e critérios de medição" skipUppercase />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contract-notes">Observações operacionais</Label>
+                <Textarea id="contract-notes" rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Coleta, contatos e orientações" skipUppercase />
+              </div>
+            </div>
+          </details>
 
-          <Card>
+          <details className="rounded-lg border bg-card p-4 text-sm">
+            <summary className="cursor-pointer font-semibold">Serviços por item (opcional){draftItems.length > 0 ? ` · ${draftItems.length} serviço(s) · ${formatCurrency(serviceValue)}` : ""}</summary>
+            <Card className="mt-4 shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <PackagePlus className="h-4 w-4 text-primary" />
@@ -604,32 +617,17 @@ export function ClienteContrato({ clienteId }: ClienteContratoProps) {
                 </>
               )}
 
-              <div className="grid gap-3 rounded-xl border border-primary/20 bg-primary/[0.035] p-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div><p className="text-xs text-muted-foreground">Valor fixo</p><p className="mt-1 font-semibold">{formatCurrency(parseCurrencyToNumber(baseValue))}</p></div>
-                <div><p className="text-xs text-muted-foreground">Serviços de referência</p><p className="mt-1 font-semibold">{formatCurrency(serviceValue)}</p></div>
-                <div><p className="text-xs text-muted-foreground">Quantidade de referência</p><p className="mt-1 font-semibold">{referenceQuantity.toLocaleString("pt-BR")}</p></div>
-                <div className="rounded-lg bg-primary px-3 py-2 text-primary-foreground"><p className="text-xs opacity-80">Valor de referência</p><p className="mt-1 text-lg font-bold">{formatCurrency(referenceValue)}</p></div>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/[0.035] p-4 text-sm">
+                <span>{referenceQuantity.toLocaleString("pt-BR")} unidade(s) de referência · Serviços {formatCurrency(serviceValue)}</span>
+                <span className="font-bold">Total mensal de referência: {formatCurrency(referenceValue)}</span>
               </div>
             </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle className="text-base">Regras e observações</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 lg:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="contract-commercial-rules">Regras comerciais verificadas</Label>
-                <Textarea id="contract-commercial-rules" rows={4} value={commercialRules} onChange={(event) => setCommercialRules(event.target.value)} placeholder="Reajustes, tolerâncias, mínimos, exceções e critérios de medição..." skipUppercase />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contract-notes">Observações operacionais</Label>
-                <Textarea id="contract-notes" rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Janelas de coleta, contatos e orientações da operação..." skipUppercase />
-              </div>
-            </CardContent>
-          </Card>
+            </Card>
+          </details>
 
           <div className="flex flex-col-reverse gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              {editingContract && <Button type="button" variant="outline" className="w-full text-destructive hover:text-destructive sm:w-auto" onClick={() => setEndDialogOpen(true)}><XCircle className="mr-2 h-4 w-4" /> Encerrar contrato</Button>}
+              {editingContract && <Button type="button" variant="outline" className="w-full text-destructive hover:text-destructive sm:w-auto" onClick={() => { setEndReason(""); setEndDialogOpen(true); }}><XCircle className="mr-2 h-4 w-4" /> Encerrar contrato</Button>}
               {creatingReplacement && <Button type="button" variant="ghost" className="w-full sm:w-auto" onClick={() => setCreatingReplacement(false)}>Cancelar novo contrato</Button>}
             </div>
             <Button type="button" onClick={handleSave} disabled={formDisabled} className="w-full gap-2 sm:w-auto" data-testid="save-industrial-contract">

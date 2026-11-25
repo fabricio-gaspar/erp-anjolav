@@ -1,7 +1,7 @@
 /* PDV de balcão: composição densa para o fluxo contínuo de atendimento. */
 .pdv-cashier-page {
-  --pdv-green: hsl(var(--success));
-  --pdv-green-soft: hsl(var(--success-light));
+  --pdv-green: hsl(var(--primary));
+  --pdv-green-soft: hsl(var(--accent));
   --pdv-ink: hsl(var(--foreground));
   --pdv-muted: hsl(var(--muted-foreground));
   display: grid;
@@ -45,8 +45,7 @@
 .pdv-reference-card,
 .pdv-items-card,
 .pdv-summary-card,
-.pdv-payment-card,
-.pdv-quick-actions {
+.pdv-payment-card {
   border: 1px solid hsl(var(--border));
   border-radius: 12px;
   background: hsl(var(--card));
@@ -889,7 +888,7 @@
   gap: 10px;
   margin-top: auto;
   border-radius: 9px;
-  background: linear-gradient(110deg, var(--pdv-green-soft), hsl(var(--success-light) / 0.56));
+  background: linear-gradient(110deg, var(--pdv-green-soft), hsl(var(--primary) / 0.14));
   padding: 12px 14px;
 }
 
@@ -980,86 +979,6 @@
   font-weight: 700 !important;
 }
 
-.pdv-quick-actions {
-  display: grid;
-  min-width: 0;
-  min-height: 86px;
-  grid-template-columns: 253px repeat(9, minmax(0, 1fr));
-  gap: 8px;
-  overflow: hidden;
-  padding: 10px;
-}
-
-.pdv-quick-actions-heading {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
-  padding: 0 6px;
-  transform: translateY(-6px);
-}
-
-.pdv-quick-actions-heading h2 {
-  margin: 0;
-  color: hsl(var(--foreground));
-  font-size: 17px;
-  font-weight: 800;
-}
-
-.pdv-quick-actions-heading p {
-  overflow: hidden;
-  margin: 3px 0 0;
-  color: hsl(var(--muted-foreground));
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pdv-quick-action {
-  display: flex;
-  min-width: 0;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid hsl(var(--border));
-  border-radius: 8px;
-  padding: 0 8px;
-  color: hsl(var(--foreground));
-  font-size: 12px;
-  font-weight: 700;
-  transition: background-color 150ms ease, color 150ms ease;
-}
-
-.pdv-quick-action:hover:not(:disabled) {
-  background: hsl(var(--accent));
-  color: hsl(var(--primary));
-}
-
-.pdv-quick-action:disabled {
-  color: hsl(var(--muted-foreground));
-}
-
-.pdv-quick-action-copy {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-  line-height: 1.1;
-}
-
-.pdv-quick-action-copy > span {
-  overflow: hidden;
-  max-width: 100%;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pdv-quick-action-hotkey {
-  color: hsl(var(--muted-foreground));
-  font-size: 11px;
-  font-weight: 500;
-}
-
 .pdv-more-actions-trigger {
   display: inline-flex;
   width: 30px;
@@ -1094,9 +1013,6 @@
     padding-left: 13px;
   }
 
-  .pdv-quick-actions {
-    grid-template-columns: 206px repeat(9, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 1180px) {
@@ -1114,14 +1030,6 @@
     grid-template-rows: auto auto;
   }
 
-  .pdv-quick-actions {
-    min-width: 1060px;
-  }
-
-  .pdv-cashier-page > nav {
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
 }
 
 @media (max-width: 760px) {
@@ -1157,20 +1065,19 @@
     padding: 12px;
   }
 
-  .pdv-quick-actions-heading p {
-    display: none;
-  }
 }
 
 /* Novo fluxo Balcão / PDV — ROL, Delivery e Orçamento. */
 .pdv-roll-workbench {
-  --pdv-green: #087ed0;
-  --pdv-green-soft: #e6f4ff;
+  --pdv-green: var(--pdv-blue);
+  --pdv-green-soft: var(--pdv-blue-soft);
   min-height: calc(100dvh - 48px);
   height: auto !important;
+  grid-template-rows: auto;
+  align-content: start;
   gap: 12px;
   padding: 12px;
-  background: linear-gradient(180deg, #eef5fa 0%, #e8f0f6 100%);
+  background: linear-gradient(180deg, var(--pdv-page) 0%, color-mix(in srgb, var(--pdv-page), var(--pdv-navy) 5%) 100%);
 }
 
 .pdv-roll-heading {
@@ -1179,7 +1086,7 @@
   align-items: center;
   gap: 16px;
   color: #f8fbff;
-  background: #082c4b;
+  background: var(--pdv-navy);
   margin: -12px -12px 0;
   padding: 10px 18px;
   border-top: 1px solid rgba(255, 255, 255, .12);
@@ -1206,11 +1113,9 @@
   font-size: 11px;
   font-weight: 800;
 }
-.pdv-roll-heading nav button.is-active { border-color: #55b8fb; color: #fff; background: #087ed0; }
+.pdv-roll-heading nav button.is-active { border-color: var(--pdv-blue); color: #fff; background: var(--pdv-blue); }
 
 .pdv-roll-workbench .pdv-step-number { display: none; }
-.pdv-roll-workbench > nav { display: none; }
-
 .pdv-roll-workbench .pdv-reference-card,
 .pdv-roll-workbench .pdv-items-card,
 .pdv-roll-workbench .pdv-summary-card,
@@ -1225,11 +1130,32 @@
   min-height: 0;
 }
 
+.pdv-roll-workbench .pdv-cashier-grid,
+.pdv-roll-workbench .pdv-primary-column,
+.pdv-roll-workbench .pdv-center-column {
+  min-height: 0;
+}
+
+.pdv-roll-workbench .pdv-items-card {
+  height: 100%;
+  min-height: 0;
+}
+
 .pdv-roll-workbench .pdv-card-title { gap: 8px; }
 .pdv-roll-workbench .pdv-card-title h2,
 .pdv-roll-workbench .pdv-items-title h2,
 .pdv-roll-workbench .pdv-summary-heading h2,
 .pdv-roll-workbench .pdv-payment-card h2 { font-size: 15px; }
+.pdv-roll-workbench .pdv-payment-card { padding: 10px; }
+.pdv-roll-workbench .pdv-payment-card > header { gap: 8px; padding-bottom: 7px; }
+.pdv-roll-workbench .pdv-payment-card header p { font-size: 10px; }
+.pdv-roll-workbench .pdv-payment-options { gap: 6px; margin-top: 8px; }
+.pdv-roll-workbench .pdv-payment-option { min-height: 38px; gap: 5px; font-size: 11px; }
+.pdv-roll-workbench .pdv-payment-option svg { width: 15px; height: 15px; }
+.pdv-roll-workbench .pdv-payment-actions { gap: 6px; }
+.pdv-roll-workbench .pdv-payment-actions:not(.pdv-quote-actions) { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); align-items: stretch; }
+.pdv-roll-workbench .pdv-finish-button { min-height: 42px !important; font-size: 12px !important; }
+.pdv-roll-workbench .pdv-print-button { min-height: 38px !important; font-size: 11px !important; }
 
 .pdv-delivery-mode {
   display: grid;
@@ -1252,25 +1178,8 @@
   font-weight: 800;
 }
 
-.pdv-delivery-mode button.is-active { border-color: #087ed0; color: #066bb0; background: #e8f5ff; box-shadow: inset 0 0 0 1px #087ed0; }
+.pdv-delivery-mode button.is-active { border-color: var(--pdv-blue); color: var(--pdv-navy); background: var(--pdv-blue-soft); box-shadow: inset 0 0 0 1px var(--pdv-blue); }
 .pdv-delivery-mode button:disabled { cursor: not-allowed; opacity: .5; }
-
-.pdv-roll-total-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin: 0 14px;
-  border-radius: 6px;
-  padding: 11px 15px;
-  color: #0b2c47;
-  background: linear-gradient(90deg, #d9efff, #bfe3fb);
-  font-size: 14px;
-  font-weight: 750;
-}
-
-.pdv-roll-total-strip span { display: inline-flex; align-items: center; gap: 7px; }
-.pdv-roll-total-strip strong { font-size: 17px; font-weight: 950; }
 
 .pdv-roll-notes { position: relative; display: grid; gap: 6px; padding: 12px 14px 0; }
 .pdv-roll-notes label { color: #122b43; font-size: 12px; font-weight: 800; }
@@ -1279,21 +1188,22 @@
 
 .pdv-roll-tools {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(115px, 1fr));
   gap: 7px;
   padding: 12px 14px 14px;
 }
 
 .pdv-roll-tools button { min-width: 0; gap: 6px; padding-inline: 8px; font-size: 11px; font-weight: 750; }
 .pdv-roll-tools button svg { flex: 0 0 auto; }
+.pdv-roll-tools .pdv-module-shortcut,
 
 .pdv-quote-actions { gap: 12px; }
-.pdv-quote-notice { display: flex; gap: 10px; border: 1px solid #c8b5df; border-radius: 8px; padding: 12px; color: #62378f; background: #f6f0fc; }
+.pdv-quote-notice { display: flex; gap: 10px; border: 1px solid hsl(var(--primary) / .28); border-radius: 8px; padding: 12px; color: hsl(var(--primary)); background: hsl(var(--primary) / .08); }
 .pdv-quote-notice span { display: grid; gap: 2px; }
 .pdv-quote-notice strong { font-size: 12px; }
-.pdv-quote-notice small { color: #765e8d; font-size: 10px; line-height: 1.35; }
-.pdv-roll-workbench--orcamento { --pdv-green: #7545a5; --pdv-green-soft: #f2ebf8; }
-.pdv-roll-workbench--delivery { --pdv-green: #078d92; --pdv-green-soft: #e4f7f6; }
+.pdv-quote-notice small { color: hsl(var(--muted-foreground)); font-size: 10px; line-height: 1.35; }
+.pdv-roll-workbench--orcamento,
+.pdv-roll-workbench--delivery { --pdv-green: var(--pdv-blue); --pdv-green-soft: var(--pdv-blue-soft); }
 
 @media (min-width: 1181px) {
   .pdv-roll-workbench .pdv-cashier-grid {
@@ -1314,7 +1224,7 @@
   .pdv-roll-workbench .pdv-capacity-card { min-height: 0; padding: 12px; }
   .pdv-roll-workbench .pdv-right-column {
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
     gap: 10px;
     align-content: start;
   }
@@ -1328,10 +1238,18 @@
   .pdv-roll-workbench .pdv-customer-meta { display: flex; flex-wrap: wrap; gap: 12px; margin: 5px 0 0 55px; }
   .pdv-roll-workbench .pdv-customer-history { display: none; }
 
-  .pdv-roll-workbench .pdv-items-card { min-height: 600px; }
+  .pdv-roll-workbench .pdv-primary-column {
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: stretch;
+  }
+  .pdv-roll-workbench .pdv-items-card { height: 100%; }
   .pdv-roll-workbench .pdv-items-content { min-height: 270px; }
   .pdv-roll-workbench .pdv-items-table th,
   .pdv-roll-workbench .pdv-items-table td { padding-top: 9px; padding-bottom: 9px; }
+  .pdv-roll-workbench .pdv-payment-option { min-height: 38px; gap: 5px; font-size: 12px; }
+  .pdv-roll-workbench .pdv-payment-option svg { width: 15px; height: 15px; }
+  .pdv-roll-workbench .pdv-finish-button { min-height: 42px !important; font-size: 13px !important; }
+  .pdv-roll-workbench .pdv-print-button { min-height: 38px !important; font-size: 12px !important; }
 }
 
 @media (max-width: 1180px) {
@@ -1373,8 +1291,198 @@
   .pdv-roll-workbench .pdv-items-header { flex-wrap: wrap; gap: 4px; padding-block: 10px; }
   .pdv-roll-workbench .pdv-items-header > div:last-child { width: 100%; min-width: 0; }
   .pdv-customer-selected { gap: 10px; }
-  .pdv-roll-total-strip { align-items: flex-start; flex-direction: column; }
   .pdv-roll-tools { grid-template-columns: 1fr 1fr; }
   .pdv-roll-workbench .pdv-right-column { grid-template-columns: minmax(0, 1fr); }
   .pdv-roll-workbench .pdv-capacity-card { grid-column: auto; }
+}
+
+/* Keep the workbench tools close to the items, without a stretched empty cart. */
+.pdv-roll-workbench .pdv-items-card { grid-template-rows: auto auto minmax(160px, auto) auto auto auto; height: auto; align-content: start; }
+.pdv-roll-workbench .pdv-items-content { min-height: 160px; }
+.pdv-roll-workbench .pdv-primary-column { align-content: start; grid-template-rows: auto auto; }
+.pdv-roll-workbench .pdv-items-empty { min-height: 160px; padding: 40px 20px; }
+
+/* Compacta o carrinho vazio e reduz a altura dos painéis laterais sem esconder ações. */
+.pdv-roll-workbench { min-height: calc(100dvh - 64px); }
+.pdv-roll-workbench .pdv-items-card { grid-template-rows: auto auto auto auto auto auto; }
+.pdv-roll-workbench .pdv-items-content { min-height: 0; }
+.pdv-roll-workbench .pdv-items-empty { min-height: 82px; padding: 12px 16px; }
+.pdv-roll-workbench .pdv-items-empty > svg { width: 22px; height: 22px; margin-bottom: 4px; }
+.pdv-roll-workbench .pdv-items-empty p:last-child { margin-top: 2px; font-size: 11px; line-height: 1.3; }
+.pdv-roll-workbench .pdv-items-header { min-height: 56px; padding-inline: 14px; }
+.pdv-roll-workbench .pdv-roll-notes { padding-top: 8px; }
+.pdv-roll-workbench .pdv-roll-notes textarea { min-height: 52px; }
+.pdv-roll-workbench .pdv-roll-tools { padding-top: 8px; padding-bottom: 10px; }
+
+@media (min-width: 1181px) {
+  .pdv-roll-workbench .pdv-capacity-card { padding: 10px; }
+  .pdv-roll-workbench .pdv-capacity-card .pdv-card-title-row { margin-bottom: 8px; }
+  .pdv-roll-workbench .pdv-delivery-mode { gap: 6px; margin-bottom: 7px; }
+  .pdv-roll-workbench .pdv-delivery-mode button { min-height: 36px; }
+  .pdv-roll-workbench .pdv-capacity-date { min-height: 54px; padding: 6px; }
+  .pdv-roll-workbench .pdv-capacity-summary { margin-top: 7px; }
+  .pdv-roll-workbench .pdv-capacity-meter { height: 6px; margin-top: 4px; }
+  .pdv-roll-workbench .pdv-summary-card { padding: 10px; }
+  .pdv-roll-workbench .pdv-summary-card > header { padding-bottom: 7px; }
+  .pdv-roll-workbench .pdv-summary-lines { gap: 6px; margin-top: 8px; }
+  .pdv-roll-workbench .pdv-adjustment-button { height: 30px; }
+  .pdv-roll-workbench .pdv-summary-card > div.mt-3 { margin-top: 8px; padding: 6px 8px; }
+  .pdv-roll-workbench .pdv-total-banner { padding: 8px 10px; }
+  .pdv-roll-workbench .pdv-total-banner strong { font-size: clamp(22px, 1.6vw, 28px); }
+}
+
+/* Balcão: trilha lateral de navegação e área principal de lançamento. */
+.pdv-roll-workbench {
+  gap: 10px;
+  padding: 10px 12px 14px;
+}
+
+.pdv-workbench-layout {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 208px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+.pdv-workbench-layout.is-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
+.pdv-workbench-content { display: grid; min-width: 0; gap: 10px; }
+.pdv-tools-sidebar {
+  position: sticky;
+  top: 76px;
+  display: flex;
+  min-width: 0;
+  max-height: calc(100dvh - 88px);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  background: hsl(var(--card));
+  box-shadow: 0 1px 4px rgb(8 38 63 / 6%);
+}
+.pdv-tools-sidebar__header {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 5px 7px 5px 12px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 800;
+}
+.pdv-sidebar-toggle { width: 32px; height: 32px; flex: 0 0 auto; }
+.pdv-sidebar-toggle svg { width: 16px; height: 16px; }
+.pdv-tools-sidebar__nav { display: grid; min-height: 0; gap: 2px; overflow-y: auto; padding: 5px; }
+.pdv-tools-group { display: grid; gap: 2px; padding: 3px 0 6px; }
+.pdv-tools-group + .pdv-tools-group { border-top: 1px solid hsl(var(--border)); padding-top: 7px; }
+.pdv-tools-group > h2 {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0 8px;
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.pdv-tools-group > h2 svg { width: 14px; height: 14px; flex: 0 0 auto; }
+.pdv-sidebar-link {
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0 9px;
+  color: hsl(var(--foreground));
+  background: transparent;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.pdv-sidebar-link:hover:not(:disabled) { border-color: hsl(var(--border)); background: hsl(var(--accent)); }
+.pdv-sidebar-link:focus-visible, .pdv-sidebar-toggle:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+.pdv-sidebar-link:disabled { cursor: not-allowed; opacity: .45; }
+.pdv-sidebar-link > svg { width: 17px; height: 17px; flex: 0 0 auto; color: hsl(var(--muted-foreground)); }
+.pdv-sidebar-link > span:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdv-sidebar-link .pdv-whatsapp-status { display: inline-flex; min-width: 0; align-items: center; gap: 5px; margin-left: auto; color: hsl(var(--muted-foreground)); }
+.pdv-whatsapp-status small { font-size: 10px; font-weight: 600; white-space: nowrap; }
+.pdv-whatsapp-status__dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 999px; background: hsl(var(--muted-foreground)); }
+.pdv-whatsapp-status__dot.is-conectado { background: #16a34a; }
+.pdv-whatsapp-status__dot.is-conectando, .pdv-whatsapp-status__dot.is-consultando { background: #d97706; }
+.pdv-whatsapp-status__dot.is-erro { background: hsl(var(--destructive)); }
+.pdv-workbench-layout.is-collapsed .pdv-tools-sidebar__header { justify-content: center; padding-inline: 4px; }
+.pdv-workbench-layout.is-collapsed .pdv-tools-sidebar__nav { padding-inline: 4px; }
+.pdv-workbench-layout.is-collapsed .pdv-tools-group > h2 { justify-content: center; padding-inline: 0; }
+.pdv-workbench-layout.is-collapsed .pdv-tools-group > h2 span,
+.pdv-workbench-layout.is-collapsed .pdv-sidebar-link > span { display: none; }
+.pdv-workbench-layout.is-collapsed .pdv-sidebar-link { justify-content: center; padding-inline: 0; }
+
+.pdv-roll-workbench .pdv-page-heading {
+  min-height: 58px;
+  padding-block: 8px;
+}
+
+.pdv-roll-workbench .pdv-cashier-grid { align-items: start; }
+.pdv-roll-workbench .pdv-items-card { overflow: visible; }
+.pdv-roll-workbench .pdv-items-content { overflow: auto; }
+.pdv-roll-workbench .pdv-items-header { min-height: 48px; padding-block: 6px; }
+.pdv-roll-workbench .pdv-product-entry {
+  grid-template-columns: minmax(0, 1fr) 130px 112px;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.pdv-roll-workbench .pdv-product-search { margin-right: 0; }
+.pdv-roll-workbench .pdv-product-search input { height: 40px; }
+.pdv-roll-workbench .pdv-product-quantity-field { margin: 0; transform: none; }
+.pdv-roll-workbench .pdv-add-button { height: 40px !important; }
+.pdv-roll-workbench .pdv-roll-notes { padding: 8px 12px 12px; }
+.pdv-roll-workbench .pdv-roll-notes label { color: hsl(var(--foreground)); }
+.pdv-roll-workbench .pdv-roll-notes textarea { min-height: 48px; }
+
+.pdv-roll-workbench .pdv-payment-actions { margin-top: 8px; }
+.pdv-roll-workbench .pdv-payment-option:disabled { opacity: .55; }
+.pdv-roll-workbench .pdv-delivery-mode button {
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+.pdv-roll-workbench .pdv-delivery-mode button.is-active {
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent));
+  border-color: hsl(var(--primary));
+}
+
+@media (min-width: 1181px) {
+  .pdv-roll-workbench .pdv-cashier-grid { grid-template-columns: minmax(0, 1fr) minmax(330px, 360px); }
+  .pdv-roll-workbench .pdv-primary-column,
+  .pdv-roll-workbench .pdv-right-column { gap: 8px; }
+  .pdv-roll-workbench .pdv-items-content { min-height: 125px; }
+  .pdv-roll-workbench .pdv-items-empty { min-height: 125px; padding: 25px 16px; }
+  .pdv-roll-workbench .pdv-capacity-date { min-height: 42px; }
+  .pdv-roll-workbench .pdv-payment-options { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .pdv-roll-workbench .pdv-payment-option { flex-direction: column; gap: 2px; min-height: 48px; font-size: 11px; }
+}
+
+@media (max-width: 760px) {
+  .pdv-workbench-layout,
+  .pdv-workbench-layout.is-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .pdv-tools-sidebar { position: static; max-height: none; }
+  .pdv-tools-sidebar__header { min-height: 40px; }
+  .pdv-tools-sidebar__nav { display: flex; gap: 0; overflow-x: auto; overflow-y: hidden; }
+  .pdv-tools-group { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; padding: 0 5px; }
+  .pdv-tools-group + .pdv-tools-group { border-top: 0; border-left: 1px solid hsl(var(--border)); padding-top: 0; }
+  .pdv-tools-group > h2 { display: none; }
+  .pdv-sidebar-link { min-height: 34px; flex: 0 0 auto; gap: 6px; padding-inline: 8px; font-size: 11px; }
+  .pdv-sidebar-link > span:first-of-type { display: inline !important; }
+  .pdv-workbench-layout.is-collapsed .pdv-tools-sidebar__nav { padding-inline: 5px; }
+  .pdv-workbench-layout.is-collapsed .pdv-sidebar-link { justify-content: flex-start; padding-inline: 8px; }
+  .pdv-roll-workbench .pdv-product-entry { grid-template-columns: minmax(0, 1fr) 112px; }
+  .pdv-roll-workbench .pdv-product-entry > :first-child { grid-column: 1 / -1; }
 }

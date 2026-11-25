@@ -24,6 +24,10 @@ export interface ResultadoNotificacaoAutomatica {
   success: boolean;
   skipped: boolean;
   idempotent: boolean;
+  partial: boolean;
+  recipientCount: number;
+  sentCount: number;
+  failedCount: number;
   reason?: string;
 }
 
@@ -163,6 +167,10 @@ export async function dispararNotificacaoAutomatica(
       success: data?.success === true,
       skipped: data?.skipped === true,
       idempotent: data?.idempotent === true,
+      partial: data?.partial === true,
+      recipientCount: Number(data?.recipient_count ?? 0),
+      sentCount: Number(data?.sent_count ?? 0),
+      failedCount: Number(data?.failed_count ?? 0),
       reason: typeof data?.reason === "string" ? data.reason : undefined,
     };
   } catch (error) {
@@ -171,6 +179,10 @@ export async function dispararNotificacaoAutomatica(
       success: false,
       skipped: false,
       idempotent: false,
+      partial: false,
+      recipientCount: 0,
+      sentCount: 0,
+      failedCount: 0,
       reason: "provider_error",
     };
   }

@@ -9,7 +9,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Eye, FileText, Loader2, Play, Receipt, Clock, DollarSign, TrendingUp,
+  AlertCircle, Eye, FileText, Loader2, Play, Receipt, Clock, DollarSign, TrendingUp,
   ChevronLeft, ChevronRight, Calendar, Filter, MoreHorizontal, CircleDollarSign, Ban, RotateCcw,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, parseISO } from "date-fns";
@@ -70,7 +70,7 @@ export function FaturasTab() {
 
   const periodoInicio = format(startOfMonth(currentDate), "yyyy-MM-dd");
   const periodoFim = format(endOfMonth(currentDate), "yyyy-MM-dd");
-  const { faturas, summary, isLoading } = useFaturas(periodoInicio, periodoFim);
+  const { faturas, summary, isLoading, error, refetch } = useFaturas(periodoInicio, periodoFim);
   
   // Fetch complete client data when continuing a fatura
   const { dados: dadosClienteCompletos } = useDadosFaturamentoCompletos(clienteIdParaContinuar);
@@ -151,6 +151,12 @@ export function FaturasTab() {
         <div className="p-4 border-b flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /><div><h3 className="font-semibold">Faturas de {format(currentDate, "MMMM yyyy", { locale: ptBR })}</h3><p className="text-xs text-muted-foreground">Recebimentos são conciliados com os pedidos de origem.</p></div></div>
         {isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        ) : error ? (
+          <div role="alert" className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+            <AlertCircle className="h-9 w-9 text-destructive" aria-hidden="true" />
+            <div><h3 className="font-semibold">Não foi possível carregar as faturas</h3><p className="mt-1 text-sm text-muted-foreground">O erro não será tratado como uma lista vazia.</p></div>
+            <Button variant="outline" onClick={() => void refetch()}>Tentar novamente</Button>
+          </div>
         ) : faturas.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Receipt className="w-12 h-12 mb-4 opacity-50" /><p>Nenhuma fatura neste período</p></div>
         ) : (
@@ -243,7 +249,7 @@ export function FaturasTab() {
           </div>
         )}
 
-        {!isLoading && faturas.length > 0 && (
+        {!isLoading && !error && faturas.length > 0 && (
           <div className="divide-y md:hidden">
             {faturas.map((fatura) => {
               const paymentStatus = getEffectivePaymentStatus(fatura.status_pagamento, fatura.status);

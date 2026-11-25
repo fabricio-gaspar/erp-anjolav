@@ -18,6 +18,7 @@ import {
 } from "@/lib/customerPaymentTerms";
 import { Textarea } from "@/components/ui/textarea";
 import { useContratoCliente } from "@/hooks/useContratosAluguel";
+import { formatCnpj } from "@/lib/nfsePolicy";
 
 interface ClientePagamentoProps {
   clienteId: string | null;
@@ -83,6 +84,10 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
       toast.error("Informe um dia de fechamento entre 1 e 31.");
       return;
     }
+    if (cnpjEmissorId && !configuracoesFiscais.some(config => config.id === cnpjEmissorId && config.ativo)) {
+      toast.error("O CNPJ emissor selecionado está inativo ou indisponível.");
+      return;
+    }
 
     upsertConfiguracao.mutate(
       {
@@ -107,6 +112,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
   const isSaving = upsertConfiguracao.isPending;
   const isLoadingAll = isLoading || isLoadingFiscal || isLoadingDescricoes;
   const descricoesAtivas = descricoes?.filter(d => d.ativo) || [];
+  const configuracoesFiscaisAtivas = configuracoesFiscais.filter(config => config.ativo);
   const cnpjEmissorSelecionado = configuracoesFiscais.find(c => c.id === cnpjEmissorId);
   const descricaoSelecionada = descricoesAtivas.find(d => d.id === descricaoNfId);
 
@@ -242,7 +248,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
           <h3 className="font-semibold text-foreground">Configurações Fiscais para Faturamento</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Defina os valores padrão que serão usados automaticamente ao faturar este cliente.
+          Defina qual dos CNPJs emitirá as notas deste cliente. Esta escolha tem prioridade sobre o padrão do PDV doméstico ou industrial.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -253,15 +259,24 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
                 <SelectValue placeholder="Selecione o CNPJ emissor..." />
               </SelectTrigger>
               <SelectContent className="bg-background">
-                <SelectItem value="none">Nenhum (escolher na hora)</SelectItem>
-                {configuracoesFiscais.map((config) => (
+                <SelectItem value="none">Usar o padrão da operação</SelectItem>
+                {configuracoesFiscaisAtivas.map((config) => (
                   <SelectItem key={config.id} value={config.id}>
-                    {config.nome} - {config.cnpj}
+                    {config.nome} · {formatCnpj(config.cnpj)}
+                    {config.operation_type === "domestico" ? " · doméstico" : config.operation_type === "industrial" ? " · industrial" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">CNPJ da empresa que emitirá a NF para este cliente</p>
+            <p className="text-xs text-muted-foreground">
+              Sem seleção, o sistema usa o único CNPJ padrão da operação. Se houver dois emitentes sem regra, exigirá escolha antes de emitir.
+            </p>
+            {cnpjEmissorId && cnpjEmissorSelecionado && !cnpjEmissorSelecionado.ativo && (
+              <p role="alert" className="text-xs text-destructive">O CNPJ salvo neste cliente está inativo. Escolha outro emitente antes de salvar.</p>
+            )}
+            {configuracoesFiscaisAtivas.length === 0 && (
+              <p role="alert" className="text-xs text-amber-700 dark:text-amber-300">Cadastre e ative os CNPJs em Configurações &gt; Fiscal.</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -363,7 +378,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
           <Separator className="my-2" />
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">CNPJ Emissor:</span>
-            <span className="font-medium">{cnpjEmissorSelecionado ? cnpjEmissorSelecionado.nome : "Não definido"}</span>
+            <span className="font-medium">{cnpjEmissorSelecionado ? `${cnpjEmissorSelecionado.nome} · ${formatCnpj(cnpjEmissorSelecionado.cnpj)}` : "Padrão da operação"}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Descrição NF:</span>

@@ -60,6 +60,7 @@ import {
   useUpdatePendingRolStage,
 } from "@/hooks/usePendingRolQueue";
 import { cn } from "@/lib/utils";
+import { CentralBillingUnavailable } from "@/components/lancamentos/CentralBillingUnavailable";
 
 const PAGE_SIZE = 25;
 
@@ -372,6 +373,10 @@ export function PendentesTab() {
       lancamentoIds: selectedIds,
     };
   }, [completeCustomerData, selectedClient, selectedDetails.data, selectedIds, selectedTotal]);
+
+  if (activeArea === "central") {
+    return <CentralBillingUnavailable section="da fila consolidada de ROLs pendentes" />;
+  }
 
   const openBilling = () => {
     if (selectedIds.length === 0) return;

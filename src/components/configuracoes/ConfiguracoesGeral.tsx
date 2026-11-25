@@ -16,19 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Database,
   Image,
   CreditCard,
   MessageSquare,
-  RefreshCw,
   Upload,
   Check,
   Info,
@@ -133,11 +123,19 @@ Titular: {{banco_titular}}
 {{link_portal}}
 Código de Acesso: {{codigo_portal}}`;
 
-export function ConfiguracoesGeral() {
+export type ConfiguracoesGeralSection =
+  | "identidade"
+  | "endereco"
+  | "pagamentos"
+  | "mensagens-cobranca"
+  | "whatsapp-cloud"
+  | "notificacoes"
+  | "portal-cliente";
+
+export function ConfiguracoesGeral({ section }: { section: ConfiguracoesGeralSection }) {
   const { activeTenant } = useAuth();
-  const { configuracao, saveConfiguracao, isLoading } = useConfiguracoesGerais();
+  const { configuracao, saveConfiguracao } = useConfiguracoesGerais();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isTesting, setIsTesting] = useState(false);
   const [isSearchingCep, setIsSearchingCep] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -206,13 +204,6 @@ export function ConfiguracoesGeral() {
       });
     }
   }, [configuracao]);
-
-  const handleTestConnection = async () => {
-    setIsTesting(true);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsTesting(false);
-    toast.success("Conexão bem-sucedida! O banco de dados está funcionando corretamente.");
-  };
 
   const handleSaveIdentidade = () => {
     saveConfiguracao.mutate({
@@ -424,27 +415,8 @@ export function ConfiguracoesGeral() {
 
   return (
     <div className="space-y-6">
-      {/* Top Row - Banco de Dados + Identidade Visual */}
-      <div className="grid grid-cols-2 gap-6">
-        {/* Banco de Dados */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Database className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold text-foreground">Banco de Dados</h2>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            Teste a conexão com o banco de dados para garantir que tudo está funcionando corretamente.
-          </p>
-          <Button
-            onClick={handleTestConnection}
-            disabled={isTesting}
-            className="w-full bg-slate-800 hover:bg-slate-900 text-white"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isTesting ? "animate-spin" : ""}`} />
-            Testar Conexão
-          </Button>
-        </Card>
-
+      {section === "identidade" && (
+      <div className="space-y-6">
         {/* Identidade Visual */}
         <Card className="p-6">
           <div className="flex items-center gap-2 mb-4">
@@ -562,8 +534,10 @@ export function ConfiguracoesGeral() {
           </Button>
         </Card>
       </div>
+      )}
 
       {/* Endereço da Empresa */}
+      {section === "endereco" && (
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building2 className="w-5 h-5 text-primary" />
@@ -610,8 +584,8 @@ export function ConfiguracoesGeral() {
             </div>
 
             {/* Logradouro + Número */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="sm:col-span-2">
                 <Label className="text-xs text-muted-foreground">Logradouro</Label>
                 <Input
                   placeholder="Rua, Avenida..."
@@ -630,7 +604,7 @@ export function ConfiguracoesGeral() {
             </div>
 
             {/* Bairro + Complemento */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label className="text-xs text-muted-foreground">Bairro</Label>
                 <Input
@@ -650,8 +624,8 @@ export function ConfiguracoesGeral() {
             </div>
 
             {/* Cidade + UF */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="sm:col-span-2">
                 <Label className="text-xs text-muted-foreground">Cidade</Label>
                 <Input
                   placeholder="Cidade"
@@ -711,8 +685,10 @@ export function ConfiguracoesGeral() {
           </Button>
         </div>
       </Card>
+      )}
 
       {/* Dados de Pagamento */}
+      {section === "pagamentos" && (
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
           <CreditCard className="w-5 h-5 text-primary" />
@@ -734,7 +710,7 @@ export function ConfiguracoesGeral() {
             <QrCode className="w-4 h-4 text-amber-600" />
             <h3 className="font-semibold text-sm text-foreground">Chave PIX</h3>
           </div>
-          <div className="grid grid-cols-[200px_1fr] gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[200px_1fr]">
             <div>
               <Label className="text-xs text-muted-foreground">Tipo de Chave</Label>
               <Select value={tipoChave} onValueChange={setTipoChave}>
@@ -768,7 +744,7 @@ export function ConfiguracoesGeral() {
             <Landmark className="w-4 h-4 text-slate-600" />
             <h3 className="font-semibold text-sm text-foreground">Dados Bancários (Transferência)</h3>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <Label className="text-xs text-muted-foreground">Nome do Banco</Label>
               <Input
@@ -809,12 +785,14 @@ export function ConfiguracoesGeral() {
           Salvar Dados de Pagamento
         </Button>
       </Card>
+      )}
 
       {/* Templates de Mensagem */}
+      {section === "mensagens-cobranca" && (
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
           <MessageSquare className="w-5 h-5 text-muted-foreground" />
-          <h2 className="font-semibold text-foreground">Templates de Mensagem (E-mail/WhatsApp)</h2>
+          <h2 className="font-semibold text-foreground">Mensagens de cobrança</h2>
         </div>
 
         <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
@@ -848,7 +826,7 @@ export function ConfiguracoesGeral() {
 
         {/* Tabs de Templates */}
         <Tabs defaultValue="pix" className="mb-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid h-auto w-full grid-cols-1 sm:grid-cols-3">
             <TabsTrigger value="pix" className="flex items-center gap-2">
               <QrCode className="w-4 h-4" />
               PIX
@@ -908,8 +886,10 @@ export function ConfiguracoesGeral() {
           Salvar Templates
         </Button>
       </Card>
+      )}
 
       {/* WhatsApp Cloud API */}
+      {section === "whatsapp-cloud" && (
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
           <MessageSquare className="w-5 h-5 text-muted-foreground" />
@@ -939,12 +919,17 @@ export function ConfiguracoesGeral() {
           Salvar Configurações WhatsApp
         </Button>
       </Card>
+      )}
 
       {/* Notificações Automáticas */}
+      {section === "notificacoes" && (
       <NotificacoesSection />
+      )}
 
       {/* Portal do Cliente */}
+      {section === "portal-cliente" && (
       <PortalClienteSection />
+      )}
     </div>
   );
 }
@@ -1005,7 +990,7 @@ function NotificacoesSection() {
         <div className="flex items-center gap-2">
           <Info className="w-4 h-4 text-blue-500 flex-shrink-0" />
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            Configure templates de mensagens automáticas para cada evento. Use variáveis como {"{cliente}"}, {"{numero}"}, {"{itens}"}, {"{valor}"}, {"{previsao}"} e {"{modalidade}"}.
+            Configure os modelos que alimentam os comprovantes enviados por WhatsApp. Os eventos de entrada, retirada e delivery usam o mesmo conteúdo organizado do ROL e são entregues como imagem PNG no formato do comprovante térmico; aqui você controla texto, variáveis e ativação. Estão disponíveis {"{data_entrada}"}, {"{data_disponibilidade}"}, {"{atendente}"}, {"{cliente_endereco}"}, {"{cliente_telefone}"}, {"{localizacao}"}, {"{valor_bruto}"}, {"{desconto}"}, {"{valor_recebido}"}, {"{a_pagar}"} e {"{observacoes}"}.
           </p>
         </div>
       </div>

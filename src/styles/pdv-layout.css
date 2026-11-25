@@ -1,0 +1,325 @@
+/* Design System operacional compartilhado pelo PDV doméstico e industrial. */
+.pdv-app-shell {
+  --pdv-navy: hsl(var(--brand-navy));
+  --pdv-navy-deep: hsl(var(--brand-navy));
+  --pdv-blue: hsl(var(--primary));
+  --pdv-blue-soft: hsl(var(--accent));
+  --pdv-page: hsl(var(--background));
+  --pdv-front-background: hsl(var(--background));
+  --pdv-surface: hsl(var(--card));
+  --pdv-border: hsl(var(--border));
+  --pdv-muted: hsl(var(--muted-foreground));
+  --pdv-radius: 8px;
+  color: hsl(var(--foreground));
+  background: var(--pdv-page);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* O tema do PDV acompanha o modo global. As superfícies e o texto herdado
+   deixam de permanecer em tons claros/escuros fixos entre as telas. */
+.dark .pdv-app-shell {
+  --pdv-page: hsl(var(--background));
+  --pdv-surface: hsl(var(--card));
+  --pdv-border: hsl(var(--border));
+  --pdv-muted: hsl(var(--muted-foreground));
+  --pdv-blue-soft: hsl(var(--accent));
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  color-scheme: dark;
+}
+
+.pdv-app-header {
+  min-height: 64px;
+  background: var(--pdv-navy);
+  box-shadow: 0 2px 8px rgb(4 24 43 / 18%);
+}
+
+.pdv-app-header__inner { width: 100%; }
+.pdv-app-header__brand-area { flex: 1 1 auto; }
+.pdv-app-brand { text-decoration: none; }
+.pdv-app-header__context { flex: 0 1 auto; }
+.pdv-app-search { flex: 0 1 300px; }
+
+/* Espaçamento e superfícies das páginas internas do PDV. */
+.pdv-layout-main--workspace { min-width: 0; }
+.pdv-layout-main--front {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+.pdv-layout-main--front > .pdv-roll-workbench {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.pdv-layout-main--workspace .page-shell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+.pdv-layout-main--workspace .page-shell > :not([hidden]) ~ :not([hidden]) { margin-top: 0; }
+.pdv-layout-main--workspace :where(.content-panel, .surface-panel, .page-toolbar) { min-width: 0; }
+.pdv-layout-main--workspace :where(.content-panel, .surface-panel) {
+  border-color: var(--pdv-border);
+  border-radius: var(--pdv-radius);
+  box-shadow: 0 1px 4px rgb(8 38 63 / 6%);
+}
+
+/* Cabeçalho único: voltar, divisor, contexto da página e ações. */
+.pdv-page-heading {
+  display: grid;
+  grid-template-columns: auto 1px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 76px;
+  margin: 0;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: var(--pdv-radius);
+  padding: 12px 18px;
+  color: #f8fbff;
+  background: var(--pdv-navy);
+  box-shadow: 0 1px 4px rgb(8 38 63 / 12%);
+  text-align: left;
+}
+.pdv-page-heading__back {
+  display: inline-flex;
+  min-height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  border: 0;
+  border-radius: 5px;
+  padding: 0 4px;
+  color: #d9ecfb;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.pdv-page-heading__back svg { width: 17px; height: 17px; flex: 0 0 auto; }
+.pdv-page-heading__back:hover { color: #fff; background: rgb(255 255 255 / 8%); }
+.pdv-page-heading__back:focus-visible { outline: 2px solid #9ed9ff; outline-offset: 2px; }
+.pdv-page-heading__divider {
+  width: 1px;
+  height: 34px;
+  background: rgb(255 255 255 / 28%);
+}
+.pdv-page-heading__main { min-width: 0; }
+.pdv-page-heading__main > div:first-child { gap: 7px; }
+.pdv-page-heading__dot { display: none; }
+.pdv-page-heading__eyebrow {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  color: #bdd5e7;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  line-height: 1.2;
+}
+.pdv-page-heading__title,
+.pdv-page-heading__main h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(19px, 1.55vw, 25px);
+  font-weight: 850;
+  letter-spacing: -.035em;
+  line-height: 1.12;
+}
+.pdv-page-heading__description,
+.pdv-page-heading__main p {
+  max-width: 75ch;
+  margin: 3px 0 0;
+  color: #c3d7e8;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.pdv-page-heading__main > button {
+  display: inline-flex;
+  align-items: center;
+  color: #c3d7e8;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pdv-page-heading__main > button:hover { color: #fff; }
+.pdv-page-heading__context,
+.pdv-service-selector__context {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid rgb(168 211 240 / 32%);
+  border-radius: 5px;
+  padding: 0 10px;
+  color: #d9efff;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.pdv-page-heading__actions {
+  width: auto;
+  align-items: center;
+  margin: 0;
+}
+.pdv-page-heading__actions > * { flex: 0 0 auto; }
+
+/* Os fluxos especiais compartilham a mesma grade e os mesmos controles. */
+.pdv-app-shell .pdv-client-registration__heading {
+  grid-template-columns: auto 1px minmax(0, 1fr) auto;
+  min-height: 76px;
+  margin: 0;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: var(--pdv-radius);
+  padding: 12px 18px;
+  background: var(--pdv-navy);
+}
+.pdv-app-shell .pdv-client-registration__heading > span { height: 34px; }
+.pdv-app-shell .pdv-client-registration__heading > div { align-items: baseline; gap: 18px; }
+.pdv-app-shell .pdv-client-registration__heading h1 { font-size: clamp(19px, 1.55vw, 25px); }
+.pdv-app-shell .pdv-client-registration__heading small { color: #d9efff; }
+
+.pdv-app-shell .pdv-roll-heading {
+  grid-template-columns: auto 1px minmax(0, 1fr) auto;
+  min-height: 76px;
+  margin: 0;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: var(--pdv-radius);
+  padding: 12px 18px;
+}
+.pdv-app-shell .pdv-roll-heading > span { height: 34px; }
+.pdv-app-shell .pdv-roll-heading h1 { font-size: clamp(19px, 1.55vw, 25px); }
+.pdv-app-shell .pdv-roll-heading p { margin-top: 3px; font-size: 12px; }
+.pdv-app-shell .pdv-roll-heading nav { flex-wrap: wrap; justify-content: flex-end; }
+
+.pdv-app-shell .pdv-service-selector__heading {
+  display: grid;
+  grid-template-columns: auto 1px minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 76px;
+  margin: 0 0 16px;
+  border-bottom: 0;
+  padding-bottom: 12px;
+}
+.pdv-app-shell .pdv-service-selector__heading h1 { margin: 0; font-size: clamp(19px, 1.55vw, 25px); line-height: 1.12; }
+.pdv-app-shell .pdv-service-selector__heading p { margin-top: 3px; font-size: 12px; }
+.pdv-app-shell .pdv-service-selector__eyebrow {
+  display: block;
+  min-height: 0;
+  margin-bottom: 3px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: #bdd5e7;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  line-height: 1.2;
+}
+.pdv-app-shell .pdv-service-selector__context {
+  min-height: 30px;
+  border: 1px solid rgb(168 211 240 / 32%);
+  border-radius: 5px;
+  padding: 0 10px;
+  color: #d9efff;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+@media (max-width: 1100px) {
+  .pdv-app-header__context { gap: 3px; }
+  .pdv-page-heading__actions { grid-column: 1 / -1; }
+  .pdv-app-shell .pdv-roll-heading nav { grid-column: 1 / -1; justify-content: flex-start; overflow-x: auto; }
+}
+
+@media (max-width: 760px) {
+  .pdv-app-header { min-height: 56px; }
+  .pdv-app-header__inner { min-height: 56px; gap: 8px; padding-inline: 10px; }
+  .pdv-app-brand { gap: 6px; }
+  .pdv-app-brand svg { width: 31px; height: 25px; }
+  .pdv-app-brand span { font-size: 20px; }
+  .pdv-app-header__brand-area { gap: 9px; }
+  .pdv-app-header__context { overflow: visible; }
+  .pdv-app-operation { display: none; }
+  .pdv-page-heading,
+  .pdv-app-shell .pdv-client-registration__heading,
+  .pdv-app-shell .pdv-roll-heading,
+  .pdv-app-shell .pdv-service-selector__heading {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-height: 68px;
+    padding: 10px 12px;
+  }
+  .pdv-page-heading__back { gap: 4px; font-size: 11px; }
+  .pdv-page-heading__divider,
+  .pdv-app-shell .pdv-client-registration__heading > span,
+  .pdv-app-shell .pdv-roll-heading > span { height: 30px; }
+  .pdv-page-heading__context,
+  .pdv-service-selector__context,
+  .pdv-app-shell .pdv-client-registration__heading small { display: none; }
+  .pdv-page-heading__actions { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; }
+  .pdv-page-heading__actions > * { flex: 1 1 auto; }
+  .pdv-app-shell .pdv-client-registration__heading > div { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .pdv-app-shell .pdv-roll-heading nav { grid-column: 1 / -1; }
+  .pdv-app-shell .pdv-service-selector__heading h1 { font-size: 20px; }
+}
+
+@media (max-width: 430px) {
+  .pdv-app-shell .pdv-page-heading__main > div:first-child { gap: 4px; }
+  .pdv-app-shell .pdv-page-heading__main h1,
+  .pdv-app-shell .pdv-client-registration__heading h1,
+  .pdv-app-shell .pdv-roll-heading h1,
+  .pdv-app-shell .pdv-service-selector__heading h1 { font-size: 18px; }
+}
+
+@media (max-width: 640px) {
+  .pdv-layout-main--workspace .page-shell { gap: 12px; }
+}
+
+/* O chrome interno usa as mesmas superfícies do painel administrativo. */
+.pdv-app-shell .pdv-page-heading,
+.pdv-app-shell .pdv-client-registration__heading,
+.pdv-app-shell .pdv-roll-heading {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--pdv-radius);
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-card);
+}
+.pdv-app-shell :is(.pdv-page-heading__back, .pdv-client-registration__heading > button, .pdv-client-registration__heading div > button, .pdv-roll-heading > button) {
+  color: hsl(var(--muted-foreground));
+}
+.pdv-app-shell :is(.pdv-page-heading__back:hover, .pdv-client-registration__heading > button:hover, .pdv-client-registration__heading div > button:hover, .pdv-roll-heading > button:hover) {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted));
+}
+.pdv-app-shell :is(.pdv-page-heading__divider, .pdv-client-registration__heading > span, .pdv-roll-heading > span) {
+  background: hsl(var(--border));
+}
+.pdv-app-shell :is(.pdv-page-heading__title, .pdv-page-heading__main h1, .pdv-client-registration__heading h1, .pdv-roll-heading h1) {
+  color: hsl(var(--foreground));
+}
+.pdv-app-shell :is(.pdv-page-heading__description, .pdv-page-heading__main p, .pdv-client-registration__heading small, .pdv-roll-heading p) {
+  color: hsl(var(--muted-foreground));
+}
+.pdv-app-shell :is(.pdv-page-heading__eyebrow, .pdv-service-selector__context) {
+  border-color: hsl(var(--border));
+  color: hsl(var(--accent-foreground));
+  background: hsl(var(--accent));
+}
+.pdv-app-shell .pdv-roll-heading nav button {
+  border-color: hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--card));
+}
+.pdv-app-shell .pdv-roll-heading nav button.is-active {
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+}

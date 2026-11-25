@@ -9,15 +9,16 @@ import { toast } from "sonner";
 
 interface ClienteCondicoesProps {
   clienteId: string | null;
+  section?: "all" | "prices" | "payment" | "configuration";
 }
 
-export const ClienteCondicoes = ({ clienteId }: ClienteCondicoesProps) => {
+export const ClienteCondicoes = ({ clienteId, section = "all" }: ClienteCondicoesProps) => {
   const { activeTenant } = useAuth();
   const queryClient = useQueryClient();
   const preferenceKey = ["cliente-whatsapp", activeTenant?.id, clienteId];
   const preference = useQuery({
     queryKey: preferenceKey,
-    enabled: Boolean(clienteId && activeTenant?.id),
+    enabled: Boolean(clienteId && activeTenant?.id && (section === "all" || section === "configuration")),
     queryFn: async () => {
       const { data, error } = await supabase.from("clientes")
         .select("whatsapp_opt_out")
@@ -41,14 +42,17 @@ export const ClienteCondicoes = ({ clienteId }: ClienteCondicoesProps) => {
     },
     onError: (error: Error) => toast.error(error.message),
   });
+  const showPrices = section === "all" || section === "prices";
+  const showPayment = section === "all" || section === "payment";
+  const showConfiguration = section === "all" || section === "configuration";
   return (
     <div className="pdv-client-form pdv-client-conditions space-y-5">
-      <div className="pdv-client-form-heading">
-        <h2>Tabela de preços</h2>
-        <span>Configure a tabela do cliente, pagamento, faturamento, retirada, entrega e portal.</span>
-      </div>
+      {section === "all" && <div className="pdv-client-form-heading">
+        <h2>Tabela de preços e condições</h2>
+        <span>Configure os preços, o pagamento e as preferências operacionais do cliente.</span>
+      </div>}
 
-      <section id="pdv-client-prices" className="pdv-client-form__identity surface-panel overflow-hidden scroll-mt-24">
+      {showPrices && <section id="pdv-client-prices" className="pdv-client-form__identity surface-panel overflow-hidden scroll-mt-24">
         <div className="flex items-start gap-3 border-b bg-muted/20 px-4 py-4 sm:px-5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">1</span>
           <div>
@@ -57,9 +61,9 @@ export const ClienteCondicoes = ({ clienteId }: ClienteCondicoesProps) => {
           </div>
         </div>
         <div className="p-4 sm:p-5"><ClienteTabelaPrecos clienteId={clienteId} /></div>
-      </section>
+      </section>}
 
-      <section id="pdv-client-payment" className="pdv-client-form__contact surface-panel overflow-hidden scroll-mt-24">
+      {showPayment && <section id="pdv-client-payment" className="pdv-client-form__contact surface-panel overflow-hidden scroll-mt-24">
         <div className="flex items-start gap-3 border-b bg-muted/20 px-4 py-4 sm:px-5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">2</span>
           <div>
@@ -68,8 +72,9 @@ export const ClienteCondicoes = ({ clienteId }: ClienteCondicoesProps) => {
           </div>
         </div>
         <div className="p-4 sm:p-5"><ClientePagamento clienteId={clienteId} onBack={() => document.getElementById("pdv-client-prices")?.scrollIntoView({ behavior: "smooth", block: "start" })} onSave={() => undefined} /></div>
-      </section>
+      </section>}
 
+      {showConfiguration && <>
       <section id="pdv-client-operation" className="pdv-client-form__details surface-panel overflow-hidden scroll-mt-24">
         <div className="flex items-start gap-3 border-b bg-muted/20 px-4 py-4 sm:px-5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">3</span>
@@ -98,6 +103,7 @@ export const ClienteCondicoes = ({ clienteId }: ClienteCondicoesProps) => {
         </div>
         {preference.isError && <p className="mt-2 text-sm text-destructive">Não foi possível carregar a preferência do cliente.</p>}
       </section>
+      </>}
     </div>
   );
 };

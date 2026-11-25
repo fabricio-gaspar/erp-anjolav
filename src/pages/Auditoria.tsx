@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, ChevronLeft, ChevronRight, FilterX, Loader2, ShieldCheck } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Download, FilterX, Loader2, ShieldCheck } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuditEvents, type AuditEventAction } from "@/hooks/useAuditEvents";
+import { downloadCsv } from "@/lib/csvExport";
 
 const PAGE_SIZE = 25;
 
@@ -37,6 +38,9 @@ const ENTITY_OPTIONS = [
   { value: "all", label: "Todas as entidades" },
   { value: "asaas_charges", label: "Cobranças" },
   { value: "configuracoes_fiscais", label: "Configurações fiscais" },
+  { value: "contas_pagar", label: "Contas a pagar" },
+  { value: "contas_pagar_pagamentos", label: "Pagamentos de contas" },
+  { value: "pdv_capacidades_diarias", label: "Capacidade diária" },
   { value: "faturas", label: "Faturas" },
   { value: "ordens_servico", label: "Ordens de Serviço" },
   { value: "pdv_pagamentos", label: "Pagamentos PDV" },
@@ -141,17 +145,31 @@ export default function Auditoria() {
     setCursorHistory((history) => history.slice(0, -1));
   };
 
+  const exportCurrentPage = () => {
+    downloadCsv(`auditoria-pagina-${cursorHistory.length + 1}.csv`, events, [
+      { header: "Ação", value: (event) => formatAction(event.action) },
+      { header: "Entidade", value: (event) => formatEntity(event.entity_table) },
+      { header: "Operador", value: (event) => event.actor_name },
+      { header: "Data e hora", value: (event) => formatOccurredAt(event.occurred_at) },
+    ]);
+  };
+
   return (
-    <AppLayout title="Auditoria" subtitle="Eventos administrativos da empresa ativa">
+    <AppLayout title="Registro de auditoria" subtitle="Ações registradas por usuário na empresa ativa">
       <div className="page-shell mx-auto max-w-6xl">
         <PageHeader
           eyebrow="Administração"
           title="Registro de auditoria"
-          description="Consulta somente leitura das ações registradas para a empresa ativa."
+          description="Consulte criações, alterações e exclusões registradas para a empresa ativa."
           actions={(
-            <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              Detalhes e dados sensíveis não são exibidos nesta tela.
-            </p>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+              <Button type="button" variant="outline" onClick={exportCurrentPage} disabled={events.length === 0} className="gap-2">
+                <Download className="h-4 w-4" />Exportar página
+              </Button>
+              <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Detalhes e dados sensíveis não são exibidos nesta tela.
+              </p>
+            </div>
           )}
         />
 
@@ -249,6 +267,7 @@ export default function Auditoria() {
                   <TableRow>
                     <TableHead>Ação</TableHead>
                     <TableHead>Entidade</TableHead>
+                    <TableHead>Operador</TableHead>
                     <TableHead className="text-right">Data e hora</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -257,6 +276,7 @@ export default function Auditoria() {
                     <TableRow key={event.id}>
                       <TableCell className="font-medium">{formatAction(event.action)}</TableCell>
                       <TableCell>{formatEntity(event.entity_table)}</TableCell>
+                      <TableCell>{event.actor_name}</TableCell>
                       <TableCell className="text-right text-muted-foreground">{formatOccurredAt(event.occurred_at)}</TableCell>
                     </TableRow>
                   ))}

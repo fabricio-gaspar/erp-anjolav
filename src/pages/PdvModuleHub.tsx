@@ -1,41 +1,31 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowDownCircle,
   ArrowRight,
-  BarChart3,
-  Boxes,
+  CalendarDays,
+  Gauge,
+  LockOpen,
   Package,
-  ReceiptText,
+  RefreshCw,
   ShoppingCart,
   Truck,
-  Users,
-  Wrench,
-  type LucideIcon,
 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 import { PdvLayout } from "@/components/layout/PdvLayout";
+import { AbrirCaixaModal } from "@/components/caixa/AbrirCaixaModal";
+import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useCaixaAberto } from "@/hooks/useCaixa";
+import { useAgendaDia, useMetricasProducao } from "@/hooks/useHistoricoProducao";
+import { useListaDiaRols } from "@/hooks/useListaDiaRols";
 import { useNavigationAccess } from "@/hooks/usePermissoesUsuario";
+import { type ListaDiaFiltros } from "@/lib/listaDiaRols";
 import { getCanonicalPdvPath, type PdvArea } from "@/lib/authorization";
-import { cn } from "@/lib/utils";
 import "@/styles/pdv-front.css";
 
-type ModuleTone = "blue" | "teal" | "violet" | "green" | "amber" | "cyan" | "pink" | "indigo" | "slate";
-
-interface PdvModule {
-  id: string;
-  title: string;
-  description: string;
-  icon: LucideIcon;
-  tone: ModuleTone;
-  path: string | null;
-  featured?: boolean;
-  actionLabel?: string;
-}
-
 interface PdvModuleHubProps {
-  /** Área definida pela rota canônica da frente operacional. */
   operation?: PdvArea;
 }
 
@@ -46,6 +36,9 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
   const [searchParams] = useSearchParams();
   const { activeArea } = useWorkspace();
   const { canAccessRoute, isLoading, isError } = useNavigationAccess();
+  const [showAbrirCaixa, setShowAbrirCaixa] = useState(false);
+  const [showFecharCaixa, setShowFecharCaixa] = useState(false);
+  const [cashClosedByOperator, setCashClosedByOperator] = useState(false);
 
   const requestedArea = searchParams.get("operacao");
   const requestedOperation: PdvArea | null = PDV_AREAS.includes(requestedArea as PdvArea)
@@ -63,145 +56,73 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
     || canAccessRoute(`/${area}/clientes`)
   )) ?? operationFromRoute ?? requestedOperation ?? workspaceOperation ?? "residencial";
 
-  const operationLabel = operation === "industrial" ? "Industrial" : "Doméstica";
-  const operationalPath = (suffix = "") => {
+  const operationalPath = useCallback((suffix = "") => {
     const root = getCanonicalPdvPath(operation);
     return suffix ? `${root}/${suffix}` : root;
-  };
+  }, [operation]);
 
   const canUsePdv = canAccessRoute(`/${operation}/caixa`);
+  const {
+    data: caixaAberto,
+    isLoading: isLoadingCaixa,
+    isError: isOpenCashError,
+    refetch: refetchOpenCash,
+  } = useCaixaAberto(canUsePdv && !isLoading);
   const canUseOrders = canAccessRoute(`/${operation}/ordens`);
-  const canUseClients = canAccessRoute(`/${operation}/clientes`);
-  const productsPath = operation === "industrial" ? "/industrial/produtos" : "/residencial/produtos";
-  const canUseProducts = canAccessRoute(productsPath);
-  const stockPath = operation === "industrial" ? "/industrial/estoque" : "/residencial/estoque";
-  const canUseStock = canAccessRoute(stockPath);
   const canUseProduction = canAccessRoute(`/${operation}/producao`);
   const canUseAgenda = canAccessRoute(`/${operation}/agenda`);
-  const reportPath = operation === "industrial"
-    ? "/industrial/relatorios/clientes"
-    : "/residencial/relatorios/caixa";
-  const canUseReports = canAccessRoute(reportPath);
 
-  const modules = useMemo<PdvModule[]>(() => [
-    {
-      id: "balcao",
-      title: "Balcão / PDV",
-      description: "Atendimento · ROLs · Pagamentos",
-      icon: ShoppingCart,
-      tone: "blue",
-      path: canUsePdv ? operationalPath() : null,
-      featured: true,
-      actionLabel: "Novo atendimento",
-    },
-    {
-      id: "produtos",
-      title: "Produtos e serviços",
-      description: "Cadastro de produtos e serviços",
-      icon: Package,
-      tone: "teal",
-      path: canUseProducts ? productsPath : null,
-    },
-    {
-      id: "cadastros",
-      title: "Cadastros",
-      description: "Clientes · Peças · Serviços",
-      icon: Users,
-      tone: "violet",
-      path: canUseClients ? operationalPath("clientes") : null,
-    },
-    {
-      id: "producao",
-      title: "Produção",
-      description: "Fila do dia · Etapas · Capacidade",
-      icon: Wrench,
-      tone: "green",
-      path: canUseProduction ? operationalPath("producao") : null,
-      featured: true,
-    },
-    {
-      id: "expedicao",
-      title: "Rouparia e expedição",
-      description: "Embalagem · Prateleiras",
-      icon: Package,
-      tone: "amber",
-      path: canUseOrders ? operationalPath("ordens?status=abertas") : null,
-    },
-    {
-      id: "logistica",
-      title: "Agenda, coletas e rotas",
-      description: "Agendamentos · Coletas · Rotas",
-      icon: Truck,
-      tone: "cyan",
-      path: canUseAgenda ? operationalPath("agenda?view=rotas") : null,
-    },
-    {
-      id: "relatorios",
-      title: "Relatórios e indicadores",
-      description: "Produção · Vendas · Resultados",
-      icon: BarChart3,
-      tone: "indigo",
-      path: canUseReports ? reportPath : null,
-    },
-    {
-      id: "fechamento",
-      title: "Caixa e fechamento",
-      description: "Sangrias · Suprimentos · Fechamento",
-      icon: ReceiptText,
-      tone: "slate",
-      path: canUsePdv ? operationalPath() : null,
-    },
-    {
-      id: "sangria",
-      title: "Sangria",
-      description: "Retirada de valores do caixa",
-      icon: ArrowDownCircle,
-      tone: "slate",
-      path: canUsePdv ? operationalPath("rol?acao=sangria") : null,
-    },
-    {
-      id: "estoque",
-      title: "Estoque e compras",
-      description: "Insumos · Compras · Movimentações",
-      icon: Boxes,
-      tone: "amber",
-      path: canUseStock ? stockPath : null,
-    },
-  ], [
-    canUseAgenda,
-    canUseClients,
-    canUseOrders,
-    canUsePdv,
-    canUseProducts,
-    canUseStock,
-    canUseProduction,
-    canUseReports,
-    operation,
-    productsPath,
-    reportPath,
-    stockPath,
-  ]);
+  const today = format(new Date(), "yyyy-MM-dd");
+  const dailyColetaFilters = useMemo<ListaDiaFiltros>(() => ({
+    tipoRelatorio: "coleta",
+    dataEntradaInicio: "",
+    dataEntradaFim: "",
+    previsaoInicio: today,
+    previsaoFim: today,
+    modelo: "sem_valor",
+    situacao: "todos",
+    numeroRol: "",
+    clienteId: "",
+  }), [today]);
+  const { metricas: productionMetrics, isLoading: isLoadingProductionMetrics } = useMetricasProducao(
+    !isLoading && (canUseOrders || canUseProduction),
+  );
+  const {
+    entregas = [],
+    retiradas = [],
+    isLoading: isLoadingAgenda,
+  } = useAgendaDia(!isLoading && canUseAgenda, today, today);
+  const { data: dailyColetas, isLoading: isLoadingColetas } = useListaDiaRols(
+    dailyColetaFilters,
+    !isLoading && canUseOrders,
+  );
 
-  const sections = [
-    { title: "Atendimento", modules: modules.slice(0, 3) },
-    { title: "Operação", modules: modules.slice(3, 6) },
-    { title: "Gestão", modules: modules.slice(6) },
+  const indicators = [
+    { label: "Entregas hoje", value: entregas.length, icon: Package },
+    { label: "Em produção", value: productionMetrics?.osEmAberto ?? 0, icon: Gauge },
+    { label: "Aguardando retirada", value: retiradas.length, icon: ShoppingCart },
+    { label: "Coletas pendentes", value: dailyColetas?.totalEncontrado ?? dailyColetas?.rols.length ?? 0, icon: Truck },
   ];
+  const isLoadingIndicators = isLoadingAgenda || isLoadingProductionMetrics || isLoadingColetas;
+  const waitingForCash = canUsePdv
+    && !cashClosedByOperator
+    && !isLoading
+    && !isLoadingCaixa
+    && !caixaAberto
+    && !isOpenCashError;
 
   return (
-    <PdvLayout
-      variant="front"
-      operation={operation}
-      title="Painel principal"
-      subtitle={`Operação ${operationLabel.toLowerCase()} · módulos autorizados`}
-    >
+    <PdvLayout variant="front" operation={operation} title="Painel principal">
       <section className="pdv-front" aria-labelledby="pdv-module-hub-title" data-testid="pdv-front-office">
         <div className="pdv-front-heading">
           <div>
-            <h1 id="pdv-module-hub-title">Painel principal</h1>
-            <p>Selecione um módulo para começar</p>
+            <h1 id="pdv-module-hub-title">Central de operações</h1>
+          <p>Resumo da operação e entrada rápida no PDV.</p>
           </div>
-          <span className="pdv-front-context">Operação {operationLabel}</span>
+          <time className="pdv-front-date" dateTime={new Date().toISOString()}>
+            <CalendarDays aria-hidden="true" />
+            {format(new Date(), "d MMM yyyy", { locale: ptBR })}
+          </time>
         </div>
 
         {isLoading ? (
@@ -210,49 +131,80 @@ export default function PdvModuleHub({ operation: operationFromRoute }: PdvModul
           <div className="pdv-front-state pdv-front-state--error" role="alert">
             Não foi possível verificar as permissões dos módulos. Atualize a página e tente novamente.
           </div>
+        ) : isOpenCashError ? (
+          <div className="pdv-front-state pdv-front-state--error" role="alert">
+            <p>Não foi possível consultar o caixa compartilhado.</p>
+            <button type="button" className="pdv-front-state-action" onClick={() => void refetchOpenCash()}>
+              <RefreshCw className="h-4 w-4" aria-hidden="true" /> Tentar novamente
+            </button>
+          </div>
+        ) : cashClosedByOperator ? (
+          <div className="pdv-front-cash-gate" role="status">
+            <div className="pdv-front-cash-gate-icon" aria-hidden="true"><LockOpen className="h-7 w-7" /></div>
+            <div>
+              <h2>Caixa fechado</h2>
+              <p>O caixa do dia foi encerrado. Abra um novo caixa quando iniciar o próximo expediente.</p>
+              <button type="button" className="pdv-front-cash-gate-action" onClick={() => { setCashClosedByOperator(false); setShowAbrirCaixa(true); }}>
+                Abrir caixa do dia
+              </button>
+            </div>
+          </div>
+        ) : waitingForCash ? (
+          <div className="pdv-front-cash-gate" role="status">
+            <div className="pdv-front-cash-gate-icon" aria-hidden="true"><LockOpen className="h-7 w-7" /></div>
+            <div>
+              <h2>Abra o caixa para iniciar o atendimento</h2>
+              <p>O caixa é compartilhado entre os usuários autorizados desta empresa. A abertura acontece uma única vez no início do dia.</p>
+              <button type="button" className="pdv-front-cash-gate-action" onClick={() => setShowAbrirCaixa(true)}>
+                Abrir caixa do dia
+              </button>
+            </div>
+          </div>
         ) : (
-          <div className="pdv-front-sections">
-            {sections.map((section) => (
-              <section key={section.title} className="pdv-front-section" aria-labelledby={`pdv-section-${section.title}`}>
-                <h2 id={`pdv-section-${section.title}`}>{section.title}</h2>
-                <div className="pdv-front-module-grid">
-                  {section.modules.map((module) => {
-                    const Icon = module.icon;
-                    const enabled = Boolean(module.path);
-                    return (
-                      <button
-                        key={module.id}
-                        type="button"
-                        disabled={!enabled}
-                        onClick={() => module.path && navigate(module.path)}
-                        className={cn(
-                          "pdv-front-tile",
-                          `pdv-front-tile--${module.tone}`,
-                          module.featured && "pdv-front-tile--featured",
-                          !enabled && "pdv-front-tile--disabled",
-                        )}
-                        aria-label={enabled ? `Abrir ${module.title}` : `${module.title}: sem permissão`}
-                      >
-                        <Icon className="pdv-front-tile-icon" strokeWidth={1.9} aria-hidden="true" />
-                        <div className="pdv-front-tile-copy">
-                          <h3>{module.title}</h3>
-                          <p>{module.description}</p>
-                        </div>
-                        {module.actionLabel && (
-                          <span className="pdv-front-tile-action">
-                            {module.actionLabel}<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                          </span>
-                        )}
-                        {!enabled && <span className="pdv-front-tile-lock">Sem acesso</span>}
-                      </button>
-                    );
-                  })}
+          <div className="pdv-front-content">
+            <div className="pdv-front-indicators" aria-label="Indicadores operacionais">
+              {indicators.map((indicator) => {
+                const Icon = indicator.icon;
+                return (
+                  <div key={indicator.label} className="pdv-front-indicator">
+                    <Icon aria-hidden="true" />
+                    <span><small>{indicator.label}</small><strong>{isLoadingIndicators ? "—" : indicator.value.toString().padStart(2, "0")}</strong></span>
+                  </div>
+                );
+              })}
+            </div>
+            <section className="pdv-front-launch" aria-labelledby="pdv-front-launch-title">
+              <div className="pdv-front-launch-copy">
+                <span className="pdv-front-launch-icon" aria-hidden="true"><ShoppingCart /></span>
+                <div>
+                  <h2 id="pdv-front-launch-title">Atendimento</h2>
+                  <p>Abra o PDV e fixe somente os módulos que sua operação precisa.</p>
                 </div>
-              </section>
-            ))}
+              </div>
+              <button
+                type="button"
+                className="pdv-front-launch-action"
+                disabled={!canUsePdv}
+                onClick={() => navigate(operationalPath())}
+                aria-label={canUsePdv ? "Abrir novo atendimento no PDV" : "PDV sem permissão"}
+              >
+                Novo atendimento / PDV <ArrowRight aria-hidden="true" />
+              </button>
+            </section>
+            <p className="pdv-front-launch-hint">Atalhos e módulos adicionais ficam dentro do atendimento, no menu “Módulos”.</p>
+            <footer className="pdv-front-footer">AnjoLav ERP <span aria-hidden="true">•</span> Ambiente {operation === "industrial" ? "Industrial" : "Doméstico"}</footer>
           </div>
         )}
       </section>
+      <AbrirCaixaModal open={showAbrirCaixa || waitingForCash} onOpenChange={setShowAbrirCaixa} mandatory={waitingForCash} />
+      {caixaAberto && (
+        <FecharCaixaModal
+          open={showFecharCaixa}
+          onOpenChange={setShowFecharCaixa}
+          onClosed={() => { setShowFecharCaixa(false); setCashClosedByOperator(true); }}
+          caixa={caixaAberto}
+        />
+      )}
     </PdvLayout>
   );
 }

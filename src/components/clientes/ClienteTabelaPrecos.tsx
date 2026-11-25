@@ -33,7 +33,7 @@ import { useClientes, type Cliente } from "@/hooks/useClientes";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
-import { CLIENT_PRICE_MODE_LABELS, isClientPriceMode } from "@/lib/clientPricing";
+import { CLIENT_PRICE_MODE_LABELS, isClientPriceMode, type ClientPriceMode } from "@/lib/clientPricing";
 
 interface ClienteTabelaPrecosProps {
   clienteId: string | null;
@@ -82,6 +82,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   const [produtoSelecionado, setProdutoSelecionado] = useState("");
   const [produtoSearchOpen, setProdutoSearchOpen] = useState(false);
   const [novoPreco, setNovoPreco] = useState("");
+  const [selectedPriceMode, setSelectedPriceMode] = useState<ClientPriceMode>("padrao");
   const produtoRoute = activeArea === "residencial" ? "/residencial/produtos" : "/industrial/produtos";
 
   // Sincronizar preços do banco com estado local
@@ -117,15 +118,19 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   // Buscar dados do cliente atual para filtrar por classificação
   const clienteAtual = clientes.find((c) => c.id === clienteId);
   const tabelaPrecoTipo: Cliente["tabela_preco_tipo"] = clienteAtual?.tabela_preco_tipo ?? "padrao";
-  const isTabelaPersonalizada = tabelaPrecoTipo === "personalizada";
+  const isTabelaPersonalizada = selectedPriceMode === "personalizada";
+
+  useEffect(() => {
+    setSelectedPriceMode(tabelaPrecoTipo);
+  }, [clienteId, tabelaPrecoTipo]);
 
   const produtosCompativeis = useMemo(() => produtos.filter((p) => {
-    if (p.status !== "ativo") return false;
+    if (p.status !== "ativo" || !(p.tabelas_preco ?? ["padrao", "cesto", "personalizada"]).includes(selectedPriceMode)) return false;
     if (p.unidade_negocio === "ambos" || !p.unidade_negocio) return true;
     if (clienteAtual?.classificacao === "industrial" && p.unidade_negocio === "ID1") return true;
     if (clienteAtual?.classificacao === "residencial" && p.unidade_negocio === "ID2") return true;
     return false;
-  }), [clienteAtual?.classificacao, produtos]);
+  }), [clienteAtual?.classificacao, produtos, selectedPriceMode]);
 
   // Produtos disponíveis (não cadastrados ainda e compatíveis com a classificação do cliente)
   const produtosDisponiveis = produtosCompativeis.filter((p) => {
@@ -157,6 +162,7 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
         await copyPrecosEspeciais.mutateAsync({ sourceClientId: clienteOrigem.id, targetClientId: clienteId });
       }
       await updateCliente.mutateAsync({ id: clienteId, tabela_preco_tipo: clienteOrigem.tabela_preco_tipo });
+      setSelectedPriceMode(clienteOrigem.tabela_preco_tipo);
       setClienteImportar("");
     } catch {
       // Each mutation already explains its own recoverable error to the user.
@@ -225,9 +231,13 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   };
 
   const handleTabelaPrecoChange = (value: string) => {
-    if (!canManageTerms) return;
-    if (!clienteId || !isClientPriceMode(value)) return;
-    updateCliente.mutate({ id: clienteId, tabela_preco_tipo: value });
+    if (!isClientPriceMode(value)) return;
+    setSelectedPriceMode(value);
+  };
+
+  const handleAplicarTabela = () => {
+    if (!canManageTerms || !clienteId || updateCliente.isPending) return;
+    updateCliente.mutate({ id: clienteId, tabela_preco_tipo: selectedPriceMode });
   };
 
   const isLoading = isLoadingClientes || isLoadingProdutos || (isTabelaPersonalizada && isLoadingPrecos);
@@ -279,27 +289,48 @@ export const ClienteTabelaPrecos = ({ clienteId }: ClienteTabelaPrecosProps) => 
   return (
     <div className="space-y-6 mt-6">
       {!canManageTerms && <p className="text-sm text-muted-foreground">Consulta permitida. Para alterar preços ou a tabela, solicite a permissão de condições comerciais ao administrador.</p>}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border rounded-lg bg-muted/20">
-        <div>
-          <p className="font-medium">Tabela de preços do cliente</p>
-          <p className="text-sm text-muted-foreground">
-            {isTabelaPersonalizada
-              ? "Defina preços específicos para este cliente."
-              : tabelaPrecoTipo === "cesto"
-                ? "A tabela Cesto usa os mesmos preços padrão cadastrados."
-                : "Os produtos usam os preços padrão cadastrados."}
-          </p>
+      <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-medium">Tabela aplicada: {CLIENT_PRICE_MODE_LABELS[tabelaPrecoTipo]}</p>
+            <p className="text-sm text-muted-foreground">
+              {selectedPriceMode === "personalizada"
+                ? "A tabela personalizada usa os preços definidos para este cliente e mantém o preço padrão nos demais produtos."
+                : selectedPriceMode === "cesto"
+                  ? "A tabela Cesto compartilha os mesmos preços-base da tabela Padrão."
+                  : "A tabela Padrão é a tabela principal e usa os preços cadastrados nos produtos."}
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={handleAplicarTabela}
+            disabled={!canManageTerms || selectedPriceMode === tabelaPrecoTipo || updateCliente.isPending}
+            className="w-full shrink-0 sm:w-auto"
+          >
+            {updateCliente.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Fixar tabela para este cliente
+          </Button>
         </div>
-        <Select value={tabelaPrecoTipo} onValueChange={handleTabelaPrecoChange} disabled={!canManageTerms || updateCliente.isPending}>
-          <SelectTrigger className="w-full sm:w-[220px] bg-background" aria-label="Tipo de tabela de preços">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-background">
-            <SelectItem value="padrao">Tabela padrão</SelectItem>
-            <SelectItem value="personalizada">Tabela personalizada</SelectItem>
-            <SelectItem value="cesto">Tabela Cesto</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="tablist" aria-label="Tipo de tabela de preços">
+          {(["padrao", "personalizada", "cesto"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="tab"
+              aria-selected={selectedPriceMode === mode}
+              onClick={() => handleTabelaPrecoChange(mode)}
+              disabled={!canManageTerms}
+              className={`min-h-11 rounded-md border px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                selectedPriceMode === mode
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:bg-muted"
+              }`}
+            >
+              Tabela {CLIENT_PRICE_MODE_LABELS[mode]}
+              {mode === "padrao" && <span className="ml-1 text-xs font-normal opacity-80">· principal</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       {canManageTerms && (

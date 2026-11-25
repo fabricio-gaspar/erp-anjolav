@@ -26,7 +26,6 @@ import {
   Eye,
   FileText,
   List,
-  MapPin,
   Gavel,
   Info,
 } from "lucide-react";
@@ -44,6 +43,9 @@ import {
 import { NATUREZAS_OPERACAO, type NaturezaOperacao, validarCpfCnpj } from "@/lib/validacoesFiscais";
 import type { DadosFaturamento } from "./FaturamentoModal";
 import { ConfigBadge } from "./ConfigBadge";
+import { NfseEmissionPanel } from "./NfseEmissionPanel";
+import { selectFiscalEmitter, type FiscalOperation } from "@/lib/nfsePolicy";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 interface EtapaNFProps {
   dados: DadosFaturamento;
@@ -120,23 +122,25 @@ export function EtapaNF({
 }: EtapaNFProps) {
   const [tipoDescricao, setTipoDescricao] = useState<"itens" | "padrao">("itens");
   const [descricaoPadraoSelecionada, setDescricaoPadraoSelecionada] = useState<string>("");
-  const [naturezaOperacao, setNaturezaOperacao] = useState<NaturezaOperacao>("tributacao_municipio");
-  const [naturezaAutoSelected, setNaturezaAutoSelected] = useState(false);
+  const [naturezaOperacao, setNaturezaOperacao] = useState<NaturezaOperacao | "">("");
   const [initialized, setInitialized] = useState(false);
+  const [manualEmitterId, setManualEmitterId] = useState<string | null>(null);
   
-  const { configuracaoAtiva: configuracaoAtivaGlobal, configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscaisOperacionais();
+  const { activeArea } = useWorkspace();
+  const { configuracoes, isLoading: isLoadingFiscal } = useConfiguracoesFiscaisOperacionais();
   const { descricoes, isLoading: isLoadingDescricoes } = useDescricoesServicosFiscais();
   const isLoading = isLoadingFiscal || isLoadingDescricoes;
   
-  // Use client's preferred CNPJ emissor if configured, otherwise use global active config
-  const configuracaoAtiva = useMemo(() => {
-    const cnpjEmissorId = dados.configPagamento?.cnpj_emissor_id;
-    if (cnpjEmissorId && configuracoes) {
-      const configCliente = configuracoes.find(c => c.id === cnpjEmissorId);
-      if (configCliente) return configCliente;
-    }
-    return configuracaoAtivaGlobal;
-  }, [dados.configPagamento?.cnpj_emissor_id, configuracoes, configuracaoAtivaGlobal]);
+  const operationType: FiscalOperation | null = activeArea === "industrial"
+    ? "industrial"
+    : activeArea === "residencial" ? "domestico" : null;
+  const emitterSelection = useMemo(
+    () => selectFiscalEmitter(configuracoes, dados.configPagamento?.cnpj_emissor_id, operationType),
+    [configuracoes, dados.configPagamento?.cnpj_emissor_id, operationType],
+  );
+  const configuracaoAtiva = manualEmitterId === null ? emitterSelection.emitter : configuracoes.find((config) => config.id === manualEmitterId && config.ativo) ?? null;
+
+  useEffect(() => { setManualEmitterId(null); }, [faturaId]);
 
   // Filtrar apenas descrições ativas
   const descricoesAtivas = descricoes?.filter(d => d.ativo) || [];
@@ -162,26 +166,9 @@ export function EtapaNF({
         setTipoDescricao("itens");
       }
 
-      // Auto-selecionar natureza da operação baseado no regime tributário e localidade
-      if (!naturezaAutoSelected && configuracaoAtiva) {
-        const enderecoConfig = configuracaoAtiva.endereco as Record<string, string> | null;
-        const clienteEndereco = dados.clienteEndereco;
-        const cidadeEmitente = enderecoConfig?.cidade?.toLowerCase().trim();
-        const cidadeTomador = clienteEndereco?.cidade?.toLowerCase().trim();
-        
-        // Se municípios são diferentes, tributar fora do município
-        if (cidadeEmitente && cidadeTomador && cidadeEmitente !== cidadeTomador) {
-          setNaturezaOperacao("tributacao_fora");
-        } else {
-          // Padrão: tributação no município
-          setNaturezaOperacao("tributacao_municipio");
-        }
-        setNaturezaAutoSelected(true);
-      }
-      
       setInitialized(true);
     }
-  }, [dados.configPagamento, isLoading, initialized, descricoes, configuracaoAtiva, naturezaAutoSelected, dados.clienteEndereco]);
+  }, [dados.configPagamento, isLoading, initialized, descricoes]);
   
   // Gerar descrição baseada na escolha
   const gerarDescricaoServico = () => {
@@ -244,8 +231,7 @@ export function EtapaNF({
                 Configuração Fiscal não encontrada
               </h3>
               <p className="text-sm text-amber-600 dark:text-amber-500 mt-1">
-                Configure os dados fiscais em Configurações &gt; Fiscal para emitir
-                notas fiscais.
+                {emitterSelection.issue || "Configure os dados fiscais em Configurações > Fiscal para emitir notas fiscais."}
               </p>
             </div>
           </div>
@@ -573,13 +559,21 @@ export function EtapaNF({
         </>
       )}
 
-      <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
-        <AlertTriangle className="h-4 w-4 text-amber-600" />
-        <AlertDescription>
-          A emissão real está bloqueada até a integração com o provedor NFS-e municipal, o certificado A1
-          e o retorno assinado serem homologados. As visualizações acima são apenas prévias sem valor fiscal.
-        </AlertDescription>
-      </Alert>
+      {faturaId ? (
+        <NfseEmissionPanel
+          faturaId={faturaId}
+          preferredEmitterId={dados.configPagamento?.cnpj_emissor_id}
+          operationType={operationType}
+          descricaoServico={gerarDescricaoServico()}
+          naturezaOperacao={naturezaOperacao}
+          onEmitterChange={setManualEmitterId}
+        />
+      ) : (
+        <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription>Gere e salve o relatório da fatura antes de preparar a NFS-e Nacional.</AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:justify-between">
         <Button variant="outline" onClick={onBack} className="gap-2">
@@ -592,16 +586,6 @@ export function EtapaNF({
             <SkipForward className="w-4 h-4" />
             Pular Etapa
           </Button>
-
-          {configuracaoAtiva && (
-            <Button
-              disabled
-              className="gap-2"
-              title="Aguardando homologação da integração NFS-e"
-            >
-              Emissão fiscal indisponível
-            </Button>
-          )}
         </div>
       </div>
     </div>

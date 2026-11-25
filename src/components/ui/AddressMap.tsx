@@ -56,7 +56,7 @@ const MapCenterUpdater = ({ lat, lng }: { lat: number; lng: number }) => {
   const map = useMap();
   
   useEffect(() => {
-    if (lat && lng) {
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
       map.setView([lat, lng], 16, { animate: true });
     }
   }, [map, lat, lng]);
@@ -79,7 +79,7 @@ const MapBoundsUpdater = ({
   const map = useMap();
   
   useEffect(() => {
-    if (clientLat && clientLng && companyLat && companyLng) {
+    if ([clientLat, clientLng, companyLat, companyLng].every(Number.isFinite)) {
       const bounds = L.latLngBounds(
         [clientLat, clientLng],
         [companyLat, companyLng]
@@ -179,14 +179,16 @@ export const AddressMap = ({
   const [tileError, setTileError] = useState(false);
   const [tileRetry, setTileRetry] = useState(0);
 
-  const hasCoordinates = latitude !== null && longitude !== null;
-  const hasCompanyCoordinates = companyLatitude !== null && companyLongitude !== null;
+  const hasCoordinates = latitude !== null && longitude !== null
+    && Number.isFinite(latitude) && Number.isFinite(longitude);
+  const hasCompanyCoordinates = companyLatitude != null && companyLongitude != null
+    && Number.isFinite(companyLatitude) && Number.isFinite(companyLongitude);
   const showBothMarkers = showCompanyMarker && hasCompanyCoordinates && hasCoordinates;
   
   const center: [number, number] = hasCoordinates
-    ? [latitude, longitude]
+    ? [latitude!, longitude!]
     : hasCompanyCoordinates && showCompanyMarker
-    ? [companyLatitude, companyLongitude]
+    ? [companyLatitude!, companyLongitude!]
     : defaultCenter;
   const zoom = hasCoordinates || (hasCompanyCoordinates && showCompanyMarker) ? 16 : defaultZoom;
 

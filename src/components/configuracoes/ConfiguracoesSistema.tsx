@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useHistoricoEnviosMultiple } from "@/hooks/useHistoricoEnvios";
 import { useAutomacoesConfig } from "@/hooks/useAutomacoesConfig";
 import { format } from "date-fns";
@@ -254,6 +255,9 @@ const testServices = {
 };
 
 export function ConfiguracoesSistema() {
+  const { activeTenant } = useAuth();
+  const activeTenantId = activeTenant?.id ?? null;
+  const [isTestingDatabase, setIsTestingDatabase] = useState(false);
   const [services, setServices] = useState<ServiceStatus[]>([
     // APIs Externas
     {
@@ -351,6 +355,8 @@ export function ConfiguracoesSistema() {
   ]);
 
   const [isTesting, setIsTesting] = useState(false);
+  const [statsStatus, setStatsStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [statsError, setStatsError] = useState(false);
   const [databaseStats, setDatabaseStats] = useState<DatabaseStat[]>([
     {
       label: "Clientes",
@@ -397,67 +403,92 @@ export function ConfiguracoesSistema() {
     { table: "HistoricoProducao", relations: "OrdemServico (ordem_servico_id) | Funcionario (funcionario_id)" },
   ];
 
-  // Carregar estatísticas do banco ao montar
-  useEffect(() => {
-    loadDatabaseStats();
-  }, []);
-
-  const loadDatabaseStats = async () => {
+  const loadDatabaseStats = useCallback(async () => {
+    if (!activeTenantId) {
+      setStatsStatus("error");
+      setStatsError(true);
+      return;
+    }
+    setStatsStatus("loading");
+    setStatsError(false);
     try {
-      const [clientesRes, ordensRes, motoristasRes, funcionariosRes, produtosRes] = await Promise.all([
-        supabase.from("clientes").select("id, ativo", { count: "exact" }),
-        supabase.from("ordens_servico").select("id, status", { count: "exact" }),
-        supabase.from("motoristas").select("id, ativo", { count: "exact" }),
-        supabase.from("funcionarios").select("id, ativo", { count: "exact" }),
-        supabase.from("produtos").select("id", { count: "exact" }),
+      type CountResult = { count: number | null; error: { message: string } | null };
+      type CountQuery = PromiseLike<CountResult> & {
+        eq: (column: string, value: string | boolean) => CountQuery;
+        not: (column: string, operator: "in", value: string) => CountQuery;
+      };
+      type CountRelation = {
+        select: (columns: string, options: { count: "exact"; head: true }) => CountQuery;
+      };
+      const fromUntyped = supabase.from as unknown as (table: string) => CountRelation;
+      const countRows = async (table: string, filter?: { column: string; value: string | boolean; operator?: "eq" | "notIn" }) => {
+        let query = fromUntyped(table).select("id", { count: "exact", head: true }).eq("tenant_id", activeTenantId);
+        if (filter?.operator === "notIn") query = query.not(filter.column, "in", String(filter.value));
+        else if (filter) query = query.eq(filter.column, filter.value);
+        const { count, error } = await query;
+        if (error) throw error;
+        return count ?? 0;
+      };
+      const [totalClientes, clientesAtivos, totalOrdens, ordensAbertas, totalMotoristas, motoristasAtivos, totalFuncionarios, funcionariosAtivos, totalProdutos] = await Promise.all([
+        countRows("clientes"),
+        countRows("clientes", { column: "ativo", value: true }),
+        countRows("ordens_servico"),
+        countRows("ordens_servico", { column: "status", value: "(entregue,cancelada,cancelado)", operator: "notIn" }),
+        countRows("motoristas"),
+        countRows("motoristas", { column: "ativo", value: true }),
+        countRows("funcionarios"),
+        countRows("funcionarios", { column: "ativo", value: true }),
+        countRows("produtos"),
       ]);
-
-      const clientesAtivos = clientesRes.data?.filter(c => c.ativo).length || 0;
-      const ordensAbertas = ordensRes.data?.filter(o => !["entregue", "cancelada"].includes(o.status)).length || 0;
-      const motoristasAtivos = motoristasRes.data?.filter(m => m.ativo).length || 0;
-      const funcionariosAtivos = funcionariosRes.data?.filter(f => f.ativo).length || 0;
 
       setDatabaseStats([
         {
           label: "Clientes",
-          value: clientesRes.count || 0,
+          value: totalClientes,
           sublabel: `${clientesAtivos} ativos`,
           icon: <Users className="w-5 h-5 text-blue-500" />,
           iconBg: "bg-blue-50",
         },
         {
           label: "Ordens de Serviço",
-          value: ordensRes.count || 0,
+          value: totalOrdens,
           sublabel: `${ordensAbertas} em aberto`,
           icon: <FileText className="w-5 h-5 text-green-500" />,
           iconBg: "bg-green-50",
         },
         {
           label: "Motoristas",
-          value: motoristasRes.count || 0,
+          value: totalMotoristas,
           sublabel: `${motoristasAtivos} ativos`,
           icon: <Truck className="w-5 h-5 text-purple-500" />,
           iconBg: "bg-purple-50",
         },
         {
           label: "Funcionários",
-          value: funcionariosRes.count || 0,
+          value: totalFuncionarios,
           sublabel: `${funcionariosAtivos} ativos`,
           icon: <UserCheck className="w-5 h-5 text-amber-500" />,
           iconBg: "bg-amber-50",
         },
         {
           label: "Produtos",
-          value: produtosRes.count || 0,
+          value: totalProdutos,
           sublabel: "cadastrados",
           icon: <Package className="w-5 h-5 text-cyan-500" />,
           iconBg: "bg-cyan-50",
         },
       ]);
+      setStatsStatus("ready");
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
+      setStatsError(true);
+      setStatsStatus("error");
     }
-  };
+  }, [activeTenantId]);
+
+  useEffect(() => {
+    void loadDatabaseStats();
+  }, [loadDatabaseStats]);
 
   const handleTestAll = async () => {
     setIsTesting(true);
@@ -546,7 +577,34 @@ export function ConfiguracoesSistema() {
     });
 
     // Recarregar estatísticas do banco
-    loadDatabaseStats();
+    void loadDatabaseStats();
+  };
+
+  const handleTestDatabaseConnection = async () => {
+    setIsTestingDatabase(true);
+    const start = performance.now();
+    try {
+      const { error } = await supabase
+        .from("configuracoes_gerais")
+        .select("id", { head: true })
+        .limit(1);
+      if (error) throw error;
+
+      const latency = Math.round(performance.now() - start);
+      setServices((current) => current.map((service) => service.id === "supabase"
+        ? { ...service, status: latency > 2000 ? "slow" : "online", latency }
+        : service));
+      toast({ title: "Conexão bem-sucedida", description: `Banco de dados acessível em ${latency} ms.` });
+    } catch (error) {
+      const latency = Math.round(performance.now() - start);
+      setServices((current) => current.map((service) => service.id === "supabase"
+        ? { ...service, status: "offline", latency }
+        : service));
+      console.error("Erro no teste de conexão com o banco:", error);
+      toast({ title: "Falha na conexão", description: "Não foi possível acessar o banco de dados. Tente novamente.", variant: "destructive" });
+    } finally {
+      setIsTestingDatabase(false);
+    }
   };
 
   const getStatusBadge = (status: ServiceStatusType, latency?: number) => {
@@ -642,10 +700,19 @@ export function ConfiguracoesSistema() {
             <Sparkles className="w-5 h-5 text-amber-500" />
             <h2 className="font-semibold text-foreground">Saúde do Sistema</h2>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="text-sm text-muted-foreground">
               {services.filter(s => s.status === "online").length}/{services.length} online
             </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleTestDatabaseConnection}
+              disabled={isTestingDatabase || isTesting}
+            >
+              <Database className="mr-2 h-4 w-4" />
+              Testar banco
+            </Button>
             <Button
               size="sm"
               onClick={handleTestAll}
@@ -714,11 +781,13 @@ export function ConfiguracoesSistema() {
             <Database className="w-5 h-5 text-muted-foreground" />
             <h2 className="font-semibold text-foreground">Estatísticas do Banco de Dados</h2>
           </div>
-          <Button variant="ghost" size="sm" onClick={loadDatabaseStats}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+          <Button variant="ghost" size="sm" onClick={() => void loadDatabaseStats()} disabled={statsStatus === "loading"}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${statsStatus === "loading" ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
         </div>
+
+        {statsError && <p className="mb-4 text-sm text-destructive" role="alert">Não foi possível consultar as estatísticas da empresa ativa. Atualize para tentar novamente.</p>}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
           {databaseStats.map((stat, index) => (
@@ -729,10 +798,10 @@ export function ConfiguracoesSistema() {
               <div className={`w-10 h-10 rounded-full ${stat.iconBg} flex items-center justify-center mb-2`}>
                 {stat.icon}
               </div>
-              <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+              <p className="text-2xl font-bold text-foreground">{statsStatus === "ready" ? stat.value : statsStatus === "loading" ? "…" : "—"}</p>
               <p className="text-xs text-muted-foreground">{stat.label}</p>
               <Badge variant="secondary" className="text-xs mt-1">
-                {stat.sublabel}
+                {statsStatus === "ready" ? stat.sublabel : statsStatus === "loading" ? "Consultando…" : "Indisponível"}
               </Badge>
             </div>
           ))}

@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Palette, Tag, MapPin, MessageSquare, Plus, X, Sparkles } from "lucide-react";
+import { AlertTriangle, Palette, Tag, MessageSquare, Plus, X, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 
@@ -65,6 +65,10 @@ interface ItemDetalhes {
   tipo_preco?: string;
   servicos_adicionais?: string[];
   complemento?: string;
+  metragem_m2?: number;
+  largura_m?: number;
+  comprimento_m?: number;
+  lacre?: string;
 }
 
 interface ItemDetalhesModalProps {
@@ -72,45 +76,63 @@ interface ItemDetalhesModalProps {
   onOpenChange: (open: boolean) => void;
   itemNome: string;
   quantidade: number;
+  unidade: string;
+  precoUnitario: number;
+  unidadePreco: string;
   detalhes: ItemDetalhes;
   onSave: (detalhes: ItemDetalhes) => void;
 }
+
+const parseMeasurement = (value: string | number | undefined) => {
+  const numeric = typeof value === "number" ? value : Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+};
+
+const isValidMeasurementInput = (value: string, decimals: number) => {
+  if (!value.trim()) return true;
+  const pattern = decimals === 2 ? /^\d{1,3}(?:[.,]\d{1,2})?$/ : /^\d{1,3}(?:[.,]\d{1,4})?$/;
+  return pattern.test(value.trim());
+};
+
+const formatMeasurement = (value?: number | null, maxDigits = 2) => value == null
+  ? ""
+  : new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: maxDigits }).format(value);
+
+const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+}).format(value);
+
+const isMeterUnit = (unit: string) => ["mt", "m", "metro", "metros", "m²", "m2"].includes(unit.trim().toLowerCase());
 
 export function ItemDetalhesModal({
   open,
   onOpenChange,
   itemNome,
   quantidade,
+  unidade,
+  precoUnitario,
+  unidadePreco,
   detalhes,
   onSave,
 }: ItemDetalhesModalProps) {
+  const isMeterItem = isMeterUnit(unidade);
   const [corSelecionada, setCorSelecionada] = useState(detalhes.cor_item || "");
   const [corOutra, setCorOutra] = useState("");
   const [marcaSelecionada, setMarcaSelecionada] = useState(detalhes.marca_item || "");
   const [marcaOutra, setMarcaOutra] = useState("");
   const [showMarcaInput, setShowMarcaInput] = useState(false);
-  const [corredor, setCorredor] = useState("");
-  const [secao, setSecao] = useState("");
-  const [prateleira, setPrateleira] = useState("");
   const [avarias, setAvarias] = useState(detalhes.avarias || "");
-  const [observacoes, setObservacoes] = useState(detalhes.observacoes || "");
   const [operacao, setOperacao] = useState(detalhes.operacao || "lavagem_passadoria");
-  const [tipoPreco, setTipoPreco] = useState(detalhes.tipo_preco || "quantidade");
   const [servicosAdicionais, setServicosAdicionais] = useState<string[]>(detalhes.servicos_adicionais || []);
   const [complemento, setComplemento] = useState(detalhes.complemento || "");
+  const [largura, setLargura] = useState("");
+  const [comprimento, setComprimento] = useState("");
+  const [metragem, setMetragem] = useState("");
+  const [lacre, setLacre] = useState("");
 
   useEffect(() => {
     if (open) {
-      // Parse existing position
-      if (detalhes.posicao_prateleira) {
-        const parts = detalhes.posicao_prateleira.split("-");
-        if (parts.length === 3) {
-          setCorredor(parts[0]);
-          setSecao(parts[1]);
-          setPrateleira(parts[2]);
-        }
-      }
-      
       // Check if color is custom
       if (detalhes.cor_item && !CORES_PREDEFINIDAS.includes(detalhes.cor_item)) {
         setCorSelecionada("Outra");
@@ -132,13 +154,29 @@ export function ItemDetalhesModal({
       }
       
       setAvarias(detalhes.avarias || "");
-      setObservacoes(detalhes.observacoes || "");
       setOperacao(detalhes.operacao || "lavagem_passadoria");
-      setTipoPreco(detalhes.tipo_preco || "quantidade");
       setServicosAdicionais(detalhes.servicos_adicionais || []);
       setComplemento(detalhes.complemento || "");
+      setLargura(formatMeasurement(detalhes.largura_m));
+      setComprimento(formatMeasurement(detalhes.comprimento_m));
+      setMetragem(formatMeasurement(detalhes.metragem_m2, 4));
+      setLacre(detalhes.lacre || "");
     }
   }, [open, detalhes]);
+
+  const larguraNumerica = parseMeasurement(largura);
+  const comprimentoNumerico = parseMeasurement(comprimento);
+  const medidasIniciadas = Boolean(largura.trim() || comprimento.trim());
+  const medidasValidas = isValidMeasurementInput(largura, 2)
+    && isValidMeasurementInput(comprimento, 2)
+    && (!medidasIniciadas || Boolean(larguraNumerica && comprimentoNumerico));
+  const areaCalculada = medidasValidas && larguraNumerica && comprimentoNumerico
+    ? Number((larguraNumerica * comprimentoNumerico).toFixed(4))
+    : null;
+  const areaDiretaValida = isValidMeasurementInput(metragem, 4);
+  const metragemNumerica = areaCalculada ?? (!medidasIniciadas && areaDiretaValida ? parseMeasurement(metragem) : null);
+  const areaValida = Boolean(metragemNumerica && metragemNumerica <= 999);
+  const totalItem = areaValida ? Math.round((precoUnitario * Number(metragemNumerica) + Number.EPSILON) * 100) / 100 : 0;
 
   const handleMarcaSelect = (marca: string) => {
     setMarcaSelecionada(marca);
@@ -158,22 +196,27 @@ export function ItemDetalhesModal({
   };
 
   const handleSave = () => {
+    if (isMeterItem && !areaValida) return;
     const cor = corSelecionada === "Outra" ? corOutra : corSelecionada;
     const marca = showMarcaInput ? marcaOutra.trim() : marcaSelecionada;
-    const posicao = corredor && secao && prateleira 
-      ? `${corredor}-${secao}-${prateleira}` 
-      : undefined;
 
     onSave({
       cor_item: cor || undefined,
       marca_item: marca || undefined,
       avarias: avarias || undefined,
-      posicao_prateleira: posicao,
-      observacoes: observacoes || undefined,
+      // Mantém os dados antigos sem expô-los nesta tela do PDV.
+      posicao_prateleira: detalhes.posicao_prateleira,
+      observacoes: detalhes.observacoes,
       operacao,
-      tipo_preco: tipoPreco,
+      tipo_preco: isMeterItem ? "metro" : unidade.toLowerCase() === "kg" ? "peso" : "quantidade",
       servicos_adicionais: servicosAdicionais,
       complemento: complemento || undefined,
+      ...(isMeterItem ? {
+        metragem_m2: metragemNumerica ?? undefined,
+        largura_m: larguraNumerica ?? undefined,
+        comprimento_m: comprimentoNumerico ?? undefined,
+        lacre: lacre.trim() || undefined,
+      } : {}),
     });
     onOpenChange(false);
   };
@@ -190,7 +233,7 @@ export function ItemDetalhesModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-primary" />
-            Identificação e detalhes da peça
+            Identificação e detalhes do item
           </DialogTitle>
         </DialogHeader>
 
@@ -198,7 +241,11 @@ export function ItemDetalhesModal({
           {/* Item Info */}
           <div className="bg-muted/50 rounded-lg p-3">
             <p className="font-semibold text-foreground">{itemNome}</p>
-            <p className="text-sm text-muted-foreground">Quantidade: {quantidade}</p>
+            <p className="text-sm text-muted-foreground">
+              {isMeterItem
+                ? detalhes.metragem_m2 ? `Área lançada: ${formatMeasurement(detalhes.metragem_m2, 4)} m²` : "Informe as dimensões para calcular a área"
+                : `${unidadePreco === "kg" ? "Peso" : "Quantidade"}: ${quantidade} ${unidadePreco}`}
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -215,19 +262,89 @@ export function ItemDetalhesModal({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Tipo de preço</Label>
-              <Select value={tipoPreco} onValueChange={setTipoPreco}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="quantidade">Por quantidade</SelectItem>
-                  <SelectItem value="peso">Por peso</SelectItem>
-                  <SelectItem value="metro">Por metro</SelectItem>
-                  <SelectItem value="servico">Valor do serviço</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">Cobrança cadastrada:</span>{" "}
+              <strong>{formatCurrency(precoUnitario)} / {unidadePreco}</strong>
             </div>
           </div>
+
+          {isMeterItem && (
+            <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/[0.04] p-3">
+              <div>
+                <p className="font-semibold text-foreground">Medidas e cobrança por área</p>
+                <p className="text-xs text-muted-foreground">Informe largura e comprimento em metros. O PDV calcula m² × preço por m²; centímetros também contam (ex.: 3,25 × 2,75).</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="item-largura-m">Largura (m)</Label>
+                  <Input
+                    id="item-largura-m"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex.: 2,00"
+                    maxLength={6}
+                    value={largura}
+                    onChange={(event) => setLargura(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="item-comprimento-m">Comprimento (m)</Label>
+                  <Input
+                    id="item-comprimento-m"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex.: 3,00"
+                    maxLength={6}
+                    value={comprimento}
+                    onChange={(event) => setComprimento(event.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-metragem-m2">Metragem total (m²)</Label>
+                <Input
+                  id="item-metragem-m2"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Informe diretamente se não for retangular"
+                  value={areaCalculada ? formatMeasurement(areaCalculada, 4) : metragem}
+                  onChange={(event) => setMetragem(event.target.value)}
+                  readOnly={medidasIniciadas}
+                  maxLength={8}
+                  className={medidasIniciadas ? "bg-muted" : undefined}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {areaCalculada
+                    ? `Área calculada: ${formatMeasurement(areaCalculada, 4)} m²`
+                    : medidasIniciadas
+                      ? "Preencha as duas medidas para calcular a área, ou apague ambas para informar a área diretamente."
+                      : "Para formatos irregulares, informe diretamente a área total em m²."}
+                </p>
+                {(!medidasValidas || !areaDiretaValida || (metragem.trim() && !metragemNumerica) || (metragemNumerica && metragemNumerica > 999)) && (
+                  <p role="alert" className="text-xs font-medium text-destructive">Informe medidas válidas com até 2 casas decimais e uma área maior que zero (máximo 999 m²).</p>
+                )}
+                {areaValida && (
+                  <div className="rounded-md border border-primary/20 bg-background px-3 py-2 text-sm">
+                    <p className="text-muted-foreground">{formatCurrency(precoUnitario)} / m² × {formatMeasurement(Number(metragemNumerica), 4)} m²</p>
+                    <p className="font-bold text-foreground">Total do item: {formatCurrency(totalItem)}</p>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-lacre">Número do lacre</Label>
+                <Input
+                  id="item-lacre"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={30}
+                  placeholder="Ex.: 000123"
+                  value={lacre}
+                  onChange={(event) => setLacre(event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Informe o número do lacre fixado no tapete para conferência.</p>
+              </div>
+            </div>
+          )}
 
           {/* Cor */}
           <div className="space-y-2">
@@ -312,48 +429,6 @@ export function ItemDetalhesModal({
             )}
           </div>
 
-          {/* Posição na Prateleira */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Posição na Prateleira (após finalização)
-            </Label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Input
-                  placeholder="Corredor"
-                  value={corredor}
-                  onChange={(e) => setCorredor(e.target.value.toUpperCase())}
-                  maxLength={3}
-                  className="text-center"
-                />
-                <span className="text-xs text-muted-foreground">Corredor</span>
-              </div>
-              <span className="self-center text-muted-foreground">-</span>
-              <div className="flex-1">
-                <Input
-                  placeholder="Seção"
-                  value={secao}
-                  onChange={(e) => setSecao(e.target.value)}
-                  maxLength={3}
-                  className="text-center"
-                />
-                <span className="text-xs text-muted-foreground">Seção</span>
-              </div>
-              <span className="self-center text-muted-foreground">-</span>
-              <div className="flex-1">
-                <Input
-                  placeholder="Prat."
-                  value={prateleira}
-                  onChange={(e) => setPrateleira(e.target.value)}
-                  maxLength={3}
-                  className="text-center"
-                />
-                <span className="text-xs text-muted-foreground">Prateleira</span>
-              </div>
-            </div>
-          </div>
-
           {/* Avarias */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2 text-warning">
@@ -394,23 +469,13 @@ export function ItemDetalhesModal({
             />
           </div>
 
-          {/* Observações Gerais */}
-          <div className="space-y-2">
-            <Label>Observações Gerais</Label>
-            <Textarea
-              placeholder="Outras informações relevantes sobre o item..."
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
-              rows={2}
-            />
-          </div>
         </div>
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} disabled={isMeterItem && !areaValida}>
             Salvar Detalhes
           </Button>
         </DialogFooter>

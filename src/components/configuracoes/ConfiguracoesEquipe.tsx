@@ -554,6 +554,8 @@ function FuncionariosTab({
     cpf: "",
     email: "",
     login: "",
+    senha: "",
+    confirmacaoSenha: "",
     accessProfile: "pdv_domestico" as EmployeeAccessProfile,
     data_admissao: "",
     carga_horaria: "44",
@@ -572,6 +574,8 @@ function FuncionariosTab({
       cpf: "",
       email: "",
       login: "",
+      senha: "",
+      confirmacaoSenha: "",
       accessProfile: "pdv_domestico",
       data_admissao: "",
       carga_horaria: "44",
@@ -609,6 +613,14 @@ function FuncionariosTab({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nome.trim() || !formData.login.trim() || !formData.email.trim() || !activeTenant) return;
+    if (formData.senha.length < 12 || formData.senha.length > 128) {
+      toast.error("A senha deve ter entre 12 e 128 caracteres.");
+      return;
+    }
+    if (formData.senha !== formData.confirmacaoSenha) {
+      toast.error("As senhas não coincidem.");
+      return;
+    }
 
     let uploadedAvatarPath: string | null = null;
     let employeeMutationStarted = false;
@@ -647,6 +659,7 @@ function FuncionariosTab({
         cpf: formData.cpf || undefined,
         email: formData.email || undefined,
         login: formData.login,
+        senha: formData.senha,
         accessProfile: formData.accessProfile,
         inviteRedirectTo: `${window.location.origin}/reset-password`,
         avatar_url: avatarUrl,
@@ -698,7 +711,7 @@ function FuncionariosTab({
                 <div>
                   <h3 className="font-semibold text-foreground">Novo usuário e funcionário</h3>
                   <p className="text-sm text-muted-foreground">
-                    Vincule à empresa, defina o painel e gere o link de ativação
+                    Vincule à empresa, defina o painel e a senha inicial
                   </p>
                 </div>
               </div>
@@ -866,10 +879,10 @@ function FuncionariosTab({
               <div className="border border-primary/30 bg-primary/5 rounded-lg p-4">
                 <h4 className="text-sm font-semibold text-primary mb-1 flex items-center gap-2">
                   <LinkIcon className="w-4 h-4" />
-                  Empresa, painel e ativação
+                  Empresa, painel e acesso
                 </h4>
                 <p className="text-xs text-muted-foreground mb-4">
-                  O usuário receberá acesso somente à empresa e ao painel definidos abaixo. A senha será criada pelo próprio usuário no link de ativação.
+                  O usuário receberá acesso somente à empresa e ao painel definidos abaixo. Defina uma senha inicial diretamente no sistema.
                 </p>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
@@ -917,7 +930,7 @@ function FuncionariosTab({
                 </div>
                 <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="new-employee-email">Email para ativação *</Label>
+                    <Label htmlFor="new-employee-email">E-mail de acesso *</Label>
                     <Input
                       id="new-employee-email"
                       type="email"
@@ -942,6 +955,17 @@ function FuncionariosTab({
                     />
                   </div>
                 </div>
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-employee-password">Senha inicial *</Label>
+                    <Input id="new-employee-password" type="password" value={formData.senha} onChange={(e) => setFormData({ ...formData, senha: e.target.value })} minLength={12} maxLength={128} autoComplete="new-password" required skipUppercase />
+                    <p className="text-xs text-muted-foreground">Use de 12 a 128 caracteres.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-employee-password-confirm">Confirmar senha *</Label>
+                    <Input id="new-employee-password-confirm" type="password" value={formData.confirmacaoSenha} onChange={(e) => setFormData({ ...formData, confirmacaoSenha: e.target.value })} minLength={12} maxLength={128} autoComplete="new-password" required skipUppercase />
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2">
@@ -950,7 +974,7 @@ function FuncionariosTab({
                 </Button>
                 <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 gap-2" disabled={createFuncionario.isPending || isUploading || isSwitchingTenant || !activeTenant}>
                   {(createFuncionario.isPending || isUploading) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  Cadastrar e gerar link
+                  Cadastrar usuário
                 </Button>
               </div>
             </form>

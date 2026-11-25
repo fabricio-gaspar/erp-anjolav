@@ -17,9 +17,10 @@ import { createIdempotencyKey } from "@/lib/idempotency";
 interface AbrirCaixaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mandatory?: boolean;
 }
 
-export function AbrirCaixaModal({ open, onOpenChange }: AbrirCaixaModalProps) {
+export function AbrirCaixaModal({ open, onOpenChange, mandatory = false }: AbrirCaixaModalProps) {
   const [valorAbertura, setValorAbertura] = useState("0");
   const idempotencyKeyRef = useRef<string | null>(null);
 
@@ -47,6 +48,7 @@ export function AbrirCaixaModal({ open, onOpenChange }: AbrirCaixaModalProps) {
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
+    if (mandatory && !nextOpen) return;
     if (!nextOpen && !abrirCaixa.isPending) idempotencyKeyRef.current = null;
     onOpenChange(nextOpen);
   };
@@ -55,12 +57,17 @@ export function AbrirCaixaModal({ open, onOpenChange }: AbrirCaixaModalProps) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Abrir Caixa</DialogTitle>
+          <DialogTitle>{mandatory ? "Abrir caixa do dia" : "Abrir Caixa"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
-            O operador será identificado pela sessão autenticada e ficará registrado na abertura.
+            {mandatory
+              ? "O primeiro operador autorizado abre o caixa compartilhado. Depois disso, os demais usuários entram no mesmo caixa sem repetir a abertura."
+              : "O operador será identificado pela sessão autenticada e ficará registrado na abertura."}
+          </p>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            O valor informado é o fundo de troco. Ele será somado ao dinheiro esperado no fechamento; informe R$ 0,00 se não houver valor inicial.
           </p>
 
           <div className="space-y-2">
@@ -73,13 +80,15 @@ export function AbrirCaixaModal({ open, onOpenChange }: AbrirCaixaModalProps) {
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-            >
-              Cancelar
-            </Button>
+            {!mandatory && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOpenChange(false)}
+              >
+                Cancelar
+              </Button>
+            )}
             <Button type="submit" disabled={abrirCaixa.isPending}>
               {abrirCaixa.isPending && (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

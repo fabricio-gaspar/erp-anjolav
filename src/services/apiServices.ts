@@ -60,12 +60,37 @@ export interface NominatimResponse {
   lat: string;
   lon: string;
   display_name: string;
+  address?: {
+    road?: string;
+    pedestrian?: string;
+    residential?: string;
+    house_number?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    state?: string;
+    state_code?: string;
+    postcode?: string;
+    country_code?: string;
+  };
 }
 
 export interface GeocodingResult {
   latitude: number;
   longitude: number;
   displayName?: string;
+  precision?: "address" | "street";
+  postalCodeMismatch?: boolean;
+}
+
+export interface ClientAddressForGeocoding {
+  postalCode: string;
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
 }
 
 // Limpar caracteres não numéricos
@@ -87,7 +112,7 @@ export const buscarCep = async (cep: string): Promise<ViaCepResponse | null> => 
   }
 
   const data: ViaCepResponse = await response.json();
-  
+
   if (data.erro) {
     return null;
   }
@@ -163,21 +188,127 @@ export const buscarCepBrasilApiComGeolocalizacao = async (
 // Busca de CEP com fallback
 export const buscarCepComFallback = async (cep: string): Promise<ViaCepResponse | null> => {
   try {
-    const resultadoComGeolocalizacao = await buscarCepBrasilApiComGeolocalizacao(cep);
-    if (resultadoComGeolocalizacao) return resultadoComGeolocalizacao;
+    const viaCep = await buscarCep(cep);
+    if (viaCep) return { ...viaCep, latitude: null, longitude: null };
   } catch {
-    // Continua com os provedores de endereço sem coordenadas.
+    // Continua com o provedor alternativo de endereço.
   }
 
   try {
-    const resultado = await buscarCep(cep);
-    if (resultado) return resultado;
+    const brasilApi = await buscarCepBrasilApi(cep);
+    if (brasilApi) return { ...brasilApi, latitude: null, longitude: null };
   } catch {
-    // Continua silenciosamente com o provedor alternativo.
+    // Último fallback abaixo.
   }
 
-  // Fallback para BrasilAPI
-  return buscarCepBrasilApi(cep);
+  // A consulta de endereço nunca injeta coordenadas do centro do CEP.
+  try {
+    const fallback = await buscarCepBrasilApiComGeolocalizacao(cep);
+    return fallback ? { ...fallback, latitude: null, longitude: null } : null;
+  } catch {
+    return null;
+  }
+};
+
+const normalizeAddressMatch = (value: string) => value
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLocaleLowerCase("pt-BR")
+  .replace(/^(rua|r\.?|avenida|av\.?|alameda|travessa|estrada)\s+/i, "")
+  .replace(/[^a-z0-9]/g, "");
+
+/**
+ * Geocodifica o endereço informado pelo cliente. CEP sozinho é apenas uma
+ * referência de área e não deve posicionar o marcador do imóvel.
+ */
+export const geocodeEnderecoCliente = async (
+  address: ClientAddressForGeocoding,
+): Promise<GeocodingResult | null> => {
+  const street = address.street.trim();
+  const city = address.city.trim();
+  const state = address.state.trim();
+  if (!street || !city || !state) return null;
+
+  try {
+    const wantedStreet = normalizeAddressMatch(street);
+    const wantedCity = normalizeAddressMatch(city);
+    const wantedState = normalizeAddressMatch(state);
+    const wantedNumber = normalizeAddressMatch(address.number.trim());
+    const postalCode = address.postalCode.replace(/\D/g, "");
+    const postalCodeQueries = postalCode ? [postalCode, ""] : [""];
+    const stateNames: Record<string, string> = {
+      ac: "acre", al: "alagoas", ap: "amapa", am: "amazonas", ba: "bahia", ce: "ceara",
+      df: "distritofederal", es: "espiritosanto", go: "goias", ma: "maranhao", mt: "matogrosso",
+      ms: "matogrossodosul", mg: "minasgerais", pa: "para", pb: "paraiba", pr: "parana",
+      pe: "pernambuco", pi: "piaui", rj: "riodejaneiro", rn: "riograndedonorte",
+      rs: "riograndedosul", ro: "rondonia", rr: "roraima", sc: "santacatarina",
+      sp: "saopaulo", se: "sergipe", to: "tocantins",
+    };
+    for (const postalCodeQuery of postalCodeQueries) {
+      const params = new URLSearchParams({
+        street: [street, address.number.trim()].filter(Boolean).join(" "),
+        neighbourhood: address.neighborhood.trim(),
+        city,
+        state,
+        country: "Brasil",
+        countrycodes: "br",
+        format: "jsonv2",
+        addressdetails: "1",
+        limit: "5",
+      });
+      if (postalCodeQuery) params.set("postalcode", postalCodeQuery);
+
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+        headers: {
+          "User-Agent": "AnjoLav-ERP/1.0",
+          "Accept-Language": "pt-BR,pt;q=0.9",
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) continue;
+
+      const results: NominatimResponse[] = await response.json();
+      const candidates = results.flatMap((result) => {
+        const details = result.address;
+        const road = details?.road || details?.pedestrian || details?.residential || "";
+        const resultCity = details?.city || details?.town || details?.village || details?.municipality || "";
+        const resultState = details?.state_code || details?.state || "";
+        const normalizedResultState = normalizeAddressMatch(resultState);
+        const stateMatches = normalizedResultState === wantedState
+          || normalizedResultState.endsWith(wantedState)
+          || normalizedResultState === stateNames[wantedState];
+        const resultNumber = normalizeAddressMatch(details?.house_number || "");
+        const latitude = Number(result.lat);
+        const longitude = Number(result.lon);
+        if (details?.country_code?.toLowerCase() !== "br"
+          || normalizeAddressMatch(road) !== wantedStreet
+          || normalizeAddressMatch(resultCity) !== wantedCity
+          || !stateMatches
+          || (wantedNumber && resultNumber && resultNumber !== wantedNumber)
+          || !Number.isFinite(latitude) || !Number.isFinite(longitude)
+          || latitude < -34 || latitude > 6 || longitude < -75 || longitude > -32) {
+          return [];
+        }
+        return [{
+          latitude,
+          longitude,
+          displayName: result.display_name,
+          precision: wantedNumber && resultNumber === wantedNumber ? "address" as const : "street" as const,
+          postalCodeMismatch: Boolean(
+            postalCode
+            && details?.postcode
+            && details.postcode.replace(/\D/g, "") !== postalCode,
+          ),
+        }];
+      });
+      const bestMatch = candidates.sort((left, right) => Number(right.precision === "address") - Number(left.precision === "address"))[0];
+      if (bestMatch) return bestMatch;
+    }
+    return null;
+  } catch (error) {
+    console.error("Erro ao geocodificar endereço do cliente:", error);
+    return null;
+  }
 };
 
 // BrasilAPI - Consulta de CNPJ

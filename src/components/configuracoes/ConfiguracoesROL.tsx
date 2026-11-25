@@ -646,6 +646,10 @@ export function ConfiguracoesROL() {
         </div>
       </Card>
 
+      <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+        Esta prévia controla a impressão do ROL, incluindo papel, logo e código de barras. Os avisos automáticos por WhatsApp usam os modelos textuais em Configurações gerais → Notificações automáticas, com os mesmos dados do ROL.
+      </p>
+
       {/* Footer Actions */}
       <div className="flex justify-between">
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>

@@ -5,13 +5,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { OrdemServico } from "./useOrdensServico";
 import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 
-export const useFilteredOrdensServico = () => {
+export const useFilteredOrdensServico = (enabled = true) => {
   const { activeArea } = useWorkspace();
   const { activeTenant, session } = useAuth();
 
   return useQuery({
     queryKey: ["ordens_servico", session?.user.id, activeTenant?.id, activeArea],
-    enabled: Boolean(session?.user.id && activeTenant?.id),
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
     queryFn: async () => {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para listar pedidos");
@@ -20,9 +20,9 @@ export const useFilteredOrdensServico = () => {
         .from("ordens_servico")
         .select(`
           *,
-          cliente:clientes(razao_social, classificacao),
-          motorista:motoristas(nome),
-          veiculo:veiculos(placa, modelo)
+          cliente:clientes!ordens_servico_cliente_id_fkey(razao_social, classificacao),
+          motorista:motoristas!ordens_servico_motorista_id_fkey(nome),
+          veiculo:veiculos!ordens_servico_veiculo_id_fkey(placa, modelo)
         `)
         .filter("tenant_id", "eq", activeTenant.id)
         .order("created_at", { ascending: false });

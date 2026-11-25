@@ -44,7 +44,7 @@ const MODULOS: ModuloConfig[] = [
   { key: 'ordens', nome: 'ROLs', descricao: 'Gerenciamento de ROLs', icon: ClipboardList, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100', categoria: 'OPERACIONAL' },
   { key: 'producao', nome: 'Produção', descricao: 'Fluxo operacional Kanban', icon: Factory, iconColor: 'text-pink-600', iconBg: 'bg-pink-100', categoria: 'OPERACIONAL' },
   { key: 'agenda', nome: 'Agenda', descricao: 'Calendário de retiradas e entregas', icon: Calendar, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100', categoria: 'OPERACIONAL' },
-  { key: 'produtos', nome: 'Produtos', descricao: 'Catálogo de produtos e serviços', icon: Package, iconColor: 'text-violet-600', iconBg: 'bg-violet-100', categoria: 'OPERACIONAL' },
+  { key: 'produtos', nome: 'Catálogo', descricao: 'Acesso ao cadastro de produtos e serviços', icon: Package, iconColor: 'text-violet-600', iconBg: 'bg-violet-100', categoria: 'OPERACIONAL' },
   { key: 'faturamento', nome: 'Faturamento', descricao: 'Emissão de notas e cobranças', icon: FileText, iconColor: 'text-amber-600', iconBg: 'bg-amber-100', categoria: 'FINANCEIRO' },
   { key: 'caixa', nome: 'Caixa PDV', descricao: 'Controle de caixa e movimentações', icon: DollarSign, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100', categoria: 'FINANCEIRO' },
   { key: 'contas_receber', nome: 'Contas a Receber', descricao: 'Gestão de recebimentos', icon: CreditCard, iconColor: 'text-blue-600', iconBg: 'bg-blue-100', categoria: 'FINANCEIRO' },

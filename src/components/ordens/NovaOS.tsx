@@ -48,6 +48,7 @@ interface CartItem {
   avarias?: string;
   posicao_prateleira?: string;
   observacoes?: string;
+  lacre?: string;
 }
 
 interface CatalogItem {
@@ -322,7 +323,7 @@ export function NovaOS({ onSuccess }: NovaOSProps) {
       </div>
 
       {selectedDetailItem && <ItemDetalhesModal open onOpenChange={(open) => !open && setDetailItemId(null)} itemNome={selectedDetailItem.name}
-        quantidade={selectedDetailItem.quantity} detalhes={selectedDetailItem} onSave={(details) => {
+        quantidade={selectedDetailItem.quantity} unidade={selectedDetailItem.unit ?? "unidade"} precoUnitario={selectedDetailItem.unitPrice} unidadePreco={orderUnitLabel(selectedDetailItem.unit)} detalhes={selectedDetailItem} onSave={(details) => {
           setCart((current) => current.map((item) => item.productId === selectedDetailItem.productId ? { ...item, ...details } : item));
           setDetailItemId(null); submissionRef.current = null;
         }} />}

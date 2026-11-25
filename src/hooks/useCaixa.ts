@@ -43,6 +43,7 @@ export type ClosedCashRegister = Pick<
   | "diferenca"
   | "status"
   | "observacoes"
+  | "fechamento_resumo"
 >;
 
 export interface CaixaMovimentacao {
@@ -51,9 +52,15 @@ export interface CaixaMovimentacao {
   tipo: string;
   valor: number;
   descricao: string | null;
+  ocorrido_em: string;
+  responsavel_nome: string | null;
+  categoria: string | null;
+  referencia: string | null;
   forma_pagamento: string | null;
+  evento_pagamento: string | null;
   cliente_id: string | null;
   ordem_servico_id: string | null;
+  criado_por: string | null;
   created_at: string;
 }
 
@@ -69,6 +76,7 @@ export interface FecharCaixaData {
   valor_contado_pix: number;
   valor_contado_cartao_credito: number;
   valor_contado_cartao_debito: number;
+  valor_contado_outros: number;
   observacoes?: string;
   idempotency_key: string;
 }
@@ -78,6 +86,11 @@ export interface MovimentacaoData {
   tipo: "SANGRIA" | "REFORCO";
   valor: number;
   descricao: string;
+  ocorrido_em?: string;
+  responsavel_nome?: string;
+  categoria?: string;
+  referencia?: string;
+  operation_type?: "industrial" | "domestico";
   idempotency_key: string;
 }
 
@@ -87,6 +100,8 @@ export interface CaixaResumo {
   identificador: string;
   operador: string;
   abertoEm: string;
+  fundoAbertura: number;
+  dinheiroVendas: number;
   dinheiro: number;
   pix: number;
   cartaoCredito: number;
@@ -95,6 +110,8 @@ export interface CaixaResumo {
   vendasLiquidas: number;
   sangrias: number;
   suprimentos: number;
+  pendenteRetirada: number;
+  rolsPendentesRetirada: number;
 }
 
 export type CashDifferenceFilter = "todos" | "com" | "sem" | "sobra" | "falta";
@@ -219,6 +236,10 @@ export const useCaixaAberto = (enabled = true) => {
       if (error) throw error;
       return data as Caixa | null;
     },
+    // The register is shared between computers/users. A short poll closes a
+    // mandatory opening gate when another operator opens the register first.
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
     enabled: enabled && Boolean(activeTenant?.id && session?.user.id),
   });
 };
@@ -372,12 +393,13 @@ export const useFecharCaixa = () => {
 
   return useMutation({
     mutationFn: async (data: FecharCaixaData) => {
-      const { data: updatedCaixa, error } = await supabase.rpc("fechar_caixa", {
+      const { data: updatedCaixa, error } = await supabase.rpc("fechar_caixa_auditado", {
         _caixa_id: data.caixa_id,
         _valor_contado_dinheiro: data.valor_contado_dinheiro,
         _valor_conferido_pix: data.valor_contado_pix,
         _valor_conferido_cartao_credito: data.valor_contado_cartao_credito,
         _valor_conferido_cartao_debito: data.valor_contado_cartao_debito,
+        _valor_conferido_outros: data.valor_contado_outros,
         _observacoes: data.observacoes ?? null,
         _idempotency_key: data.idempotency_key,
       });
@@ -400,13 +422,23 @@ export const useAddMovimentacao = () => {
 
   return useMutation({
     mutationFn: async (data: MovimentacaoData) => {
-      const { data: movimentacao, error } = await supabase.rpc("registrar_movimentacao_caixa", {
+      const payload = {
         _caixa_id: data.caixa_id,
         _tipo: data.tipo,
         _valor: data.valor,
         _descricao: data.descricao,
+        _ocorrido_em: data.ocorrido_em ?? new Date().toISOString(),
+        _responsavel_nome: data.responsavel_nome ?? null,
+        _categoria: data.categoria ?? (data.tipo === "REFORCO" ? "OUTROS" : null),
+        _referencia: data.referencia ?? null,
         _idempotency_key: data.idempotency_key,
-      });
+      };
+      const { data: movimentacao, error } = data.operation_type
+        ? await supabase.rpc("registrar_movimentacao_caixa_auditada_v2", {
+          ...payload,
+          _operation_type: data.operation_type,
+        })
+        : await supabase.rpc("registrar_movimentacao_caixa_auditada", payload);
       if (error) throw error;
       return movimentacao;
     },

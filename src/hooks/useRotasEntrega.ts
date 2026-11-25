@@ -4,6 +4,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { createIdempotencyKey } from "@/lib/idempotency";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export type RouteStatus = "pendente" | "em_rota" | "concluida" | "cancelada";
 export type StopStatus =
@@ -37,6 +38,7 @@ export interface AddressSnapshot {
 export interface RotaEntrega {
   id: string;
   tenant_id: string;
+  operation_type: "domestico" | "industrial" | null;
   data: string;
   motorista_id: string | null;
   veiculo_id: string | null;
@@ -101,6 +103,7 @@ export interface RotaOperacao {
 
 export interface RotaInsert {
   data: string;
+  operation_type: "domestico" | "industrial";
   motorista_id?: string | null;
   veiculo_id?: string | null;
   km_inicial?: number | null;
@@ -137,14 +140,14 @@ export interface RouteEventInput {
 
 const routeSelection = `
   *,
-  motorista:motoristas(id, nome),
-  veiculo:veiculos(id, placa, modelo)
+  motorista:motoristas!rotas_entrega_motorista_id_fkey(id, nome),
+  veiculo:veiculos!rotas_entrega_veiculo_id_fkey(id, placa, modelo)
 `;
 
 const stopSelection = `
   *,
-  cliente:clientes(id, razao_social, nome_fantasia),
-  ordem_servico:ordens_servico(id, numero)
+  cliente:clientes!paradas_rota_cliente_id_fkey(id, razao_social, nome_fantasia),
+  ordem_servico:ordens_servico!paradas_rota_ordem_servico_id_fkey(id, numero)
 `;
 
 async function loadStops(routeId: string, tenantId: string): Promise<ParadaRota[]> {
@@ -160,18 +163,20 @@ async function loadStops(routeId: string, tenantId: string): Promise<ParadaRota[
 
 export function useRotasDoDia(data: string) {
   const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
   return useQuery({
-    queryKey: ["rotas_entrega", session?.user.id, activeTenant?.id, data],
+    queryKey: ["rotas_entrega", session?.user.id, activeTenant?.id, activeArea, data],
     queryFn: async () => {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar as rotas");
       }
-      const { data: routes, error } = await supabase
+      let query = supabase
         .from("rotas_entrega")
         .select(routeSelection)
         .filter("tenant_id", "eq", activeTenant.id)
-        .eq("data", data)
-        .order("created_at", { ascending: true });
+        .eq("data", data);
+      if (activeArea !== "central") query = query.eq("operation_type", activeArea === "industrial" ? "industrial" : "domestico");
+      const { data: routes, error } = await query.order("created_at", { ascending: true });
       if (error) throw error;
 
       return Promise.all(
@@ -187,17 +192,19 @@ export function useRotasDoDia(data: string) {
 
 export function useRotaAtiva(motoristaId: string | null) {
   const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
   return useQuery({
-    queryKey: ["rota_ativa", session?.user.id, activeTenant?.id, motoristaId],
+    queryKey: ["rota_ativa", session?.user.id, activeTenant?.id, activeArea, motoristaId],
     queryFn: async () => {
       if (!motoristaId || !session?.user.id || !activeTenant?.id) return null;
-      const { data, error } = await supabase
+      let query = supabase
         .from("rotas_entrega")
         .select(routeSelection)
         .filter("tenant_id", "eq", activeTenant.id)
         .eq("motorista_id", motoristaId)
-        .eq("status", "em_rota")
-        .maybeSingle();
+        .eq("status", "em_rota");
+      if (activeArea !== "central") query = query.eq("operation_type", activeArea === "industrial" ? "industrial" : "domestico");
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       if (!data) return null;
       return { ...data, paradas: await loadStops(data.id, activeTenant.id) } as unknown as RotaEntrega;
@@ -208,16 +215,18 @@ export function useRotaAtiva(motoristaId: string | null) {
 
 export function useRota(rotaId: string | null) {
   const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
   return useQuery({
-    queryKey: ["rota_entrega", session?.user.id, activeTenant?.id, rotaId],
+    queryKey: ["rota_entrega", session?.user.id, activeTenant?.id, activeArea, rotaId],
     queryFn: async () => {
       if (!rotaId || !session?.user.id || !activeTenant?.id) return null;
-      const { data, error } = await supabase
+      let query = supabase
         .from("rotas_entrega")
         .select(routeSelection)
         .eq("id", rotaId)
-        .filter("tenant_id", "eq", activeTenant.id)
-        .single();
+        .filter("tenant_id", "eq", activeTenant.id);
+      if (activeArea !== "central") query = query.eq("operation_type", activeArea === "industrial" ? "industrial" : "domestico");
+      const { data, error } = await query.single();
       if (error) throw error;
       return { ...data, paradas: await loadStops(rotaId, activeTenant.id) } as unknown as RotaEntrega;
     },
@@ -260,6 +269,7 @@ export function useRotasEntregaMutations() {
       queryClient.invalidateQueries({ queryKey: ["rota_operacoes"] }),
       queryClient.invalidateQueries({ queryKey: ["agendamentos"] }),
       queryClient.invalidateQueries({ queryKey: ["ordens_servico"] }),
+      queryClient.invalidateQueries({ queryKey: ["delivery-rols-in-progress"] }),
     ]);
   };
 
@@ -273,6 +283,7 @@ export function useRotasEntregaMutations() {
         _km_inicial: route.km_inicial ?? null,
         _observacoes: route.observacoes ?? null,
         _idempotency_key: route.idempotencyKey ?? createIdempotencyKey("route-create"),
+        _operacao: route.operation_type,
       });
       if (error) throw error;
       return data as { routeId: string; status: RouteStatus; idempotent: boolean };

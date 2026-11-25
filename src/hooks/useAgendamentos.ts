@@ -11,11 +11,14 @@ export interface Agendamento {
   horario: string | null;
   frequencia: string | null;
   recorrente: boolean;
+  gerado_por_configuracao_cliente?: boolean;
   motorista_id: string | null;
   observacoes: string | null;
   status: "agendado" | "confirmado" | "realizado" | "cancelado";
   created_at: string;
   updated_at: string;
+  /** Evento recorrente exibido a partir da configuração do cliente. */
+  isConfiguredSchedule?: boolean;
   // Relacionamentos
   cliente?: {
     razao_social: string;
@@ -25,7 +28,7 @@ export interface Agendamento {
   };
 }
 
-export type AgendamentoInsert = Omit<Agendamento, "id" | "created_at" | "updated_at" | "cliente" | "motorista">;
+export type AgendamentoInsert = Omit<Agendamento, "id" | "created_at" | "updated_at" | "cliente" | "motorista" | "isConfiguredSchedule" | "gerado_por_configuracao_cliente">;
 export type AgendamentoUpdate = Partial<AgendamentoInsert>;
 
 export function useAgendamentos() {

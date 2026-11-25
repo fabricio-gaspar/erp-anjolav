@@ -189,9 +189,9 @@ export const useCreateFuncionario = () => {
         tenantId: typeof result.tenantId === "string" ? result.tenantId : "",
       } satisfies CreateFuncionarioResult;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       void invalidateEmployeeQueries(queryClient);
-      toast.success("Usuário vinculado e link de ativação gerado.");
+      toast.success(result.accessLink ? "Usuário vinculado e link de ativação gerado." : "Usuário cadastrado com sucesso.");
     },
     onError: (error: Error) => {
       toast.error(error.message || "Erro ao cadastrar funcionário");

@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { useMotoristas } from "@/hooks/useMotoristas";
 import { useVeiculos } from "@/hooks/useVeiculos";
 import { useRotasEntregaMutations } from "@/hooks/useRotasEntrega";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 interface NovaRotaModalProps {
   open: boolean;
@@ -53,12 +54,14 @@ export function NovaRotaModal({
   const { motoristasAtivos, isLoading: isLoadingMotoristas } = useMotoristas();
   const { veiculosAtivos, isLoading: isLoadingVeiculos } = useVeiculos();
   const { createRota } = useRotasEntregaMutations();
+  const { activeArea } = useWorkspace();
 
   const [data, setData] = useState<Date>(new Date());
   const [motoristaId, setMotoristaId] = useState<string>("");
   const [veiculoId, setVeiculoId] = useState<string>("");
   const [kmInicial, setKmInicial] = useState<string>("");
   const [observacoes, setObservacoes] = useState<string>("");
+  const [operationType, setOperationType] = useState<"domestico" | "industrial" | "">("");
 
   // Reset form when modal opens
   useEffect(() => {
@@ -68,12 +71,15 @@ export function NovaRotaModal({
       setVeiculoId("");
       setKmInicial("");
       setObservacoes("");
+      setOperationType(activeArea === "central" ? "" : activeArea === "industrial" ? "industrial" : "domestico");
     }
-  }, [defaultDate, open]);
+  }, [activeArea, defaultDate, open]);
 
   const handleSubmit = async () => {
+    if (!operationType) return;
     const result = await createRota.mutateAsync({
       data: format(data, "yyyy-MM-dd"),
+      operation_type: operationType,
       motorista_id: motoristaId || null,
       veiculo_id: veiculoId || null,
       km_inicial: kmInicial ? parseFloat(kmInicial) : null,
@@ -97,6 +103,14 @@ export function NovaRotaModal({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {activeArea === "central" && <div className="space-y-2">
+            <Label htmlFor="route-operation">Operação da rota <span className="text-destructive">*</span></Label>
+            <Select value={operationType} onValueChange={(value) => setOperationType(value as "domestico" | "industrial")}>
+              <SelectTrigger id="route-operation"><SelectValue placeholder="Selecione a operação" /></SelectTrigger>
+              <SelectContent><SelectItem value="domestico">Doméstico</SelectItem><SelectItem value="industrial">Industrial</SelectItem></SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Cada rota reúne paradas de uma operação para registrar os quilômetros corretamente.</p>
+          </div>}
           {/* Data */}
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
@@ -222,7 +236,7 @@ export function NovaRotaModal({
           >
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading || data < startOfDay(new Date()) || !motoristaId || !veiculoId}>
+          <Button onClick={handleSubmit} disabled={isLoading || data < startOfDay(new Date()) || !motoristaId || !veiculoId || !operationType}>
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

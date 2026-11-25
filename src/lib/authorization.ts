@@ -80,7 +80,7 @@ function getFirstAccessibleRouteInArea(
   access: RouteAccessContext,
 ): AppRouteDefinition | null {
   return APP_ROUTES.find(
-    (route) => route.area === area && isRouteAccessible(route, access),
+    (route) => route.area === area && !("showInNavigation" in route && route.showInNavigation === false) && isRouteAccessible(route, access),
   ) ?? null;
 }
 
