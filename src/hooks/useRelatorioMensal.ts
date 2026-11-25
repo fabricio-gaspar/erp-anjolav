@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { addMonths, format, startOfMonth, endOfMonth } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import type { FolhaPagamento } from "@/hooks/useFolhaPagamento";
 import type { FolhaBeneficio } from "@/hooks/useFolhaBeneficios";
+import { totalMonthlySales } from "@/lib/monthlyReportMath";
 
 export type SetorRelatorio = "todos" | "industrial" | "loja";
 
@@ -67,7 +68,7 @@ const CAT_CONTAS_MENSAIS = ["contas_mensais", "Utilidades", "Aluguel", "Manuten�
 const CAT_IMPOSTOS = ["impostos", "Impostos"];
 const CAT_FOLHA = ["folha_pagamento", "Salários"];
 
-export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos") {
+export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos", enabled = true) {
   const { activeTenant, user } = useAuth();
   const inicio = startOfMonth(mesRef);
   const fim = endOfMonth(mesRef);
@@ -80,24 +81,26 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
     queryFn: async () => {
       if (!activeTenant) throw new Error("Empresa ativa não identificada");
       // 1. Faturas pagas no período
-      const incluiIndustrial = setor === "todos" || setor === "industrial";
-      const incluiLoja = setor === "todos" || setor === "loja";
 
       const faturasQuery = supabase
-        .from("faturas")
-        .select("id, valor_total, status, created_at, cliente:clientes!faturas_cliente_id_fkey(razao_social, classificacao)")
-        .eq("tenant_id", activeTenant.id)
-        .eq("status", "pago")
-        .gte("created_at", inicioStr + "T00:00:00")
-        .lte("created_at", fimStr + "T23:59:59");
+        .from("v_contas_receber")
+        .select("id, cliente_id, valor, status, data_recebimento")
+        .eq("origem", "fatura")
+        .eq("status", "recebido")
+        .gte("data_recebimento", inicioStr)
+        .lte("data_recebimento", fimStr);
 
       // 2. Vendas caixa (loja)
       const vendasQuery = supabase
         .from("caixa_movimentacoes")
-        .select("id, valor, created_at")
-        .eq("tipo", "VENDA")
-        .gte("created_at", inicioStr + "T00:00:00")
-        .lte("created_at", fimStr + "T23:59:59");
+        .select("id, valor, created_at, operation_type, evento_pagamento, tipo")
+        .eq("tenant_id", activeTenant.id)
+        .in("tipo", ["VENDA", "ESTORNO"])
+        .gte("created_at", inicio.toISOString())
+        .lt("created_at", addMonths(inicio, 1).toISOString());
+
+      if (setor === "industrial") vendasQuery.eq("operation_type", "industrial");
+      if (setor === "loja") vendasQuery.eq("operation_type", "domestico");
 
       // 3. Folha do mês
       const folhaQuery = supabase
@@ -112,6 +115,7 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
         .from("contas_pagar")
         .select("*")
         .eq("tenant_id", activeTenant.id)
+        .neq("status", "cancelado")
         .gte("vencimento", inicioStr)
         .lte("vencimento", fimStr);
 
@@ -126,6 +130,23 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
       if (vr.error) throw vr.error;
       if (flr.error) throw flr.error;
       if (cr.error) throw cr.error;
+      // Do not present a silently capped API response as a complete total.
+      if ([fr.data, vr.data, flr.data, cr.data].some((rows) => (rows?.length ?? 0) >= 1000)) {
+        throw new Error("O mês contém registros demais para totalizar com segurança.");
+      }
+
+      const faturaRows = fr.data ?? [];
+      const faturaClientIds = [...new Set(faturaRows.map((invoice) => invoice.cliente_id).filter((id): id is string => Boolean(id)))];
+      const clientClassifications = new Map<string, string>();
+      if (faturaClientIds.length > 0) {
+        const { data: clientRows, error: clientsError } = await supabase
+          .from("clientes")
+          .select("id, classificacao")
+          .eq("tenant_id", activeTenant.id)
+          .in("id", faturaClientIds);
+        if (clientsError) throw clientsError;
+        (clientRows ?? []).forEach((client) => clientClassifications.set(client.id, client.classificacao));
+      }
 
       // 5. Benefícios extras vinculados às folhas do mês
       const payrollRows = (flr.data ?? []) as unknown as FolhaPagamento[];
@@ -139,26 +160,39 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
           .eq("ativo", true)
           .in("folha_id", folhaIds);
         if (ebx) throw ebx;
+        if ((bx?.length ?? 0) >= 1000) throw new Error("O mês contém benefícios demais para totalizar com segurança.");
         beneficiosExtras = (bx ?? []) as unknown as FolhaBeneficio[];
       }
 
-      const faturasFiltered = (fr.data || []).filter((f) => {
-        if (!incluiIndustrial) return false;
-        if (setor === "industrial") return f.cliente?.classificacao === "industrial";
+      const faturasFiltered = faturaRows.filter((f) => {
+        if (setor === "industrial") return f.cliente_id ? clientClassifications.get(f.cliente_id) === "industrial" : false;
+        if (setor === "loja") return f.cliente_id ? clientClassifications.get(f.cliente_id) === "residencial" : false;
         return true;
       });
-      const receitasFaturas = faturasFiltered.reduce((sum, invoice) => sum + Number(invoice.valor_total), 0);
+      const receitasFaturas = faturasFiltered.reduce((sum, invoice) => sum + Number(invoice.valor), 0);
 
-      const receitasLoja = incluiLoja
-        ? (vr.data || []).reduce((sum, sale) => sum + Number(sale.valor), 0)
-        : 0;
-      const receitasLojaCount = incluiLoja ? (vr.data || []).length : 0;
+      // The receivables view excludes cash movements already represented by an
+      // invoice. Reuse that rule so the same receipt is never counted twice.
+      const eligibleSaleIds = new Set<string>();
+      const cashSales = vr.data || [];
+      for (let offset = 0; offset < cashSales.length; offset += 100) {
+        const ids = cashSales.slice(offset, offset + 100).map((sale) => sale.id);
+        const { data: eligible, error: eligibleError } = await supabase
+          .from("v_contas_receber").select("id").in("id", ids);
+        if (eligibleError) throw eligibleError;
+        (eligible ?? []).forEach((row) => { if (row.id) eligibleSaleIds.add(row.id); });
+      }
+      const eligibleSales = cashSales.filter((sale) => eligibleSaleIds.has(sale.id));
+      const receitasLoja = totalMonthlySales(eligibleSales);
+      const receitasLojaCount = eligibleSales.filter((sale) => sale.tipo !== "ESTORNO" && sale.evento_pagamento !== "ESTORNO").length;
 
       const receitasTotais = receitasFaturas + receitasLoja;
 
       // Folha
       const benefitsByPayroll = new Map<string, number>();
       beneficiosExtras.forEach((benefit) => {
+        if ((benefit.tipo || "beneficio") !== "beneficio") return;
+
         benefitsByPayroll.set(
           benefit.folha_id,
           (benefitsByPayroll.get(benefit.folha_id) || 0) + Number(benefit.valor || 0),
@@ -229,10 +263,12 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
           valor: Number(b.valor || 0),
         };
       });
-      const despesasBeneficiosExtras = beneficiosExtrasItens.reduce(
-        (sum, benefit) => sum + benefit.valor,
-        0,
-      );
+      const despesasBeneficiosExtras = beneficiosExtrasItens
+        .filter((benefit) => benefit.tipo === "beneficio")
+        .reduce(
+          (sum, benefit) => sum + benefit.valor,
+          0,
+        );
       const catMap = new Map<string, { categoria: string; total: number; count: number }>();
       beneficiosExtrasItens.forEach((b) => {
         const sign = b.tipo === "beneficio" ? 1 : -1;
@@ -281,6 +317,6 @@ export function useRelatorioMensal(mesRef: Date, setor: SetorRelatorio = "todos"
           })),
       };
     },
-    enabled: Boolean(activeTenant && user),
+    enabled: Boolean(enabled && activeTenant && user),
   });
 }

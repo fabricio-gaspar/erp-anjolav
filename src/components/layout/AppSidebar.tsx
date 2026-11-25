@@ -33,6 +33,8 @@ import {
   BarChart3,
   Droplets,
   ShieldCheck,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Children, isValidElement, useState, type ElementType, type ReactElement, type ReactNode } from "react";
@@ -204,7 +206,7 @@ const UserSection = ({ compact = false }: UserSectionProps) => {
 
   const handleSair = async () => {
     await signOut();
-    navigate("/login");
+    navigate(activeArea === "central" ? "/login/central" : "/login/pdv");
   };
 
   const displayName = funcionario?.nome || user?.email?.split("@")[0] || "Usuário";
@@ -320,6 +322,8 @@ const ROUTE_ICONS: Readonly<Record<string, ElementType>> = {
   "/central": LayoutDashboard,
   "/central/financeiro": DollarSign,
   "/central/contas": Wallet,
+  "/central/contas-receber": TrendingUp,
+  "/central/contas-pagar": TrendingDown,
   "/central/agenda-eventos": Calendar,
   "/central/relatorios/quilometragem": Route,
   "/central/relatorios/mensal": BarChart3,

@@ -11,9 +11,10 @@ export const AUDIT_EVENT_SUMMARY_COLUMNS = [
   "entity_schema",
   "entity_table",
   "occurred_at",
+  "actor_id",
 ] as const;
 
-export const AUDIT_EVENT_SUMMARY_SELECT = "id,action,entity_schema,entity_table,occurred_at" as const;
+export const AUDIT_EVENT_SUMMARY_SELECT = "id,action,entity_schema,entity_table,occurred_at,actor_id" as const;
 
 type AuditEventRow = Database["public"]["Tables"]["audit_events"]["Row"];
 

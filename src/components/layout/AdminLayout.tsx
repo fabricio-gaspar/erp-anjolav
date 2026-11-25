@@ -2,7 +2,6 @@ import { Fragment, useMemo } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Building2,
-  CalendarDays,
   ChevronDown,
   LogOut,
   Moon,
@@ -25,13 +24,6 @@ interface AdminLayoutProps {
   children?: React.ReactNode;
 }
 
-const DATE_RANGE_LABELS = {
-  hoje: "Hoje",
-  "7d": "Últimos 7 dias",
-  "30d": "Últimos 30 dias",
-  mes: "Este mês",
-} as const;
-
 export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -48,22 +40,19 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
   const operationalAccess = useOperationalAccessContext();
   const {
     operation,
-    dateRange,
-    unitId,
     setOperation,
-    setDateRange,
-    setUnitId,
   } = useAdminContext();
   const content = children || <Outlet />;
   const displayName = funcionario?.nome || user?.email?.split("@")[0] || "Usuário";
-  const availableUnits = operationalAccess.data?.units ?? [];
   const availableOperations = operationalAccess.data?.operations.length
     ? operationalAccess.data.operations
     : ["industrial", "domestico"] as const;
-  const unitSelectorUnavailable = operationalAccess.isLoading || operationalAccess.isError;
 
   const navigation = useMemo(() => {
-    const visible = ADMIN_ROUTES.filter((route) => isLoadingAccess || canAccessRoute(toAdminPermissionRoute(route)));
+    const hub = ADMIN_ROUTES.find((route) => route.path === "/admin/relatorios/central");
+    const hasHub = !isLoadingAccess && !!hub && canAccessRoute(toAdminPermissionRoute(hub));
+    const consolidatedReports = new Set(["/admin/financeiro/caixas", "/admin/relatorios", "/admin/relatorios/quilometragem"]);
+    const visible = ADMIN_ROUTES.filter((route) => !route.hiddenFromNavigation && (isLoadingAccess || canAccessRoute(toAdminPermissionRoute(route))) && !(hasHub && consolidatedReports.has(route.path)));
     return visible.reduce<Array<{ section: string; routes: typeof visible }>>((groups, route) => {
       const current = groups.at(-1);
       if (current?.section === route.section) {
@@ -75,7 +64,7 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
     }, []);
   }, [canAccessRoute, isLoadingAccess]);
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path || (path === "/admin/relatorios/central" && ["/admin/financeiro/caixas", "/admin/relatorios", "/admin/relatorios/quilometragem"].includes(location.pathname));
 
   const handleTenantChange = async (tenantId: string) => {
     if (tenantId === activeTenant?.id) return;
@@ -85,7 +74,7 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/login", { replace: true });
+    navigate("/login/central", { replace: true });
   };
 
   const navigationItems = (compact = false) => navigation.map((group) => (
@@ -114,7 +103,7 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
   ));
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="admin-app-shell flex min-h-screen w-full min-w-0 bg-background">
       <aside className="hidden w-64 shrink-0 border-r bg-card lg:flex lg:flex-col">
         <div className="flex min-h-16 items-center gap-3 border-b px-5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20">
@@ -162,26 +151,6 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
                 </label>
               )}
 
-              <label
-                className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1.5 text-xs font-semibold"
-                title={operationalAccess.isError ? "Não foi possível carregar as unidades autorizadas." : undefined}
-              >
-                <Building2 className="h-3.5 w-3.5 shrink-0 text-primary" />
-                <span className="sr-only">Unidade</span>
-                <select
-                  aria-label="Unidade"
-                  value={unitId ?? ""}
-                  onChange={(event) => setUnitId(event.target.value || null)}
-                  className="max-w-28 bg-transparent outline-none"
-                  disabled={unitSelectorUnavailable}
-                >
-                  <option value="">Todas as unidades</option>
-                  {availableUnits.map((unit) => (
-                    <option key={unit.id} value={unit.id}>{unit.name}</option>
-                  ))}
-                </select>
-              </label>
-
               <label className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1.5 text-xs font-semibold">
                 <span className="sr-only">Operação</span>
                 <select
@@ -194,19 +163,6 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
                   {availableOperations.map((operationType) => (
                     <option key={operationType} value={operationType}>{OPERATION_LABELS[operationType]}</option>
                   ))}
-                </select>
-              </label>
-
-              <label className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1.5 text-xs font-semibold">
-                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-primary" />
-                <span className="sr-only">Período</span>
-                <select
-                  aria-label="Período"
-                  value={dateRange}
-                  onChange={(event) => setDateRange(event.target.value as typeof dateRange)}
-                  className="max-w-32 bg-transparent outline-none"
-                >
-                  {Object.entries(DATE_RANGE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </label>
 
@@ -229,8 +185,8 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
             {navigationItems(true)}
           </nav>
         </header>
-        <main className="w-full flex-1 overflow-y-auto p-4 sm:p-6">
-          <div className="mx-auto h-full w-full max-w-[1920px]">{content}</div>
+        <main className="admin-app-main min-w-0 w-full flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="admin-app-content mx-auto min-h-full w-full max-w-[1920px]">{content}</div>
         </main>
       </div>
     </div>

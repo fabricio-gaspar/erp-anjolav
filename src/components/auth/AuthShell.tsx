@@ -6,9 +6,10 @@ interface AuthShellProps {
   title: string;
   subtitle: string;
   badge?: string;
+  environmentLabel?: string;
 }
 
-export function AuthShell({ children, title, subtitle, badge }: AuthShellProps) {
+export function AuthShell({ children, title, subtitle, badge, environmentLabel = "Ambiente operacional" }: AuthShellProps) {
   return (
     <main className="min-h-screen bg-[#062443] font-sans text-white">
       <div className="grid min-h-screen lg:grid-cols-[minmax(460px,1.2fr)_minmax(420px,0.8fr)]">
@@ -28,7 +29,7 @@ export function AuthShell({ children, title, subtitle, badge }: AuthShellProps) 
 
             {/* Content Section */}
             <div className="max-w-xl">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-[#79c9ef]">Ambiente operacional</p>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-[#79c9ef]">{environmentLabel}</p>
               <h1 className="mt-5 text-4xl font-black leading-[1.08] tracking-[-0.045em] text-white xl:text-5xl">
                 O cuidado que suas roupas merecem. A gestão que sua lavanderia precisa.
               </h1>

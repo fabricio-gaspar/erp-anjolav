@@ -7,6 +7,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 export interface Fatura {
   id: string;
   cliente_id: string;
+  configuracao_fiscal_id: string | null;
   periodo_inicio: string;
   periodo_fim: string;
   valor_total: number;
@@ -14,7 +15,6 @@ export interface Fatura {
   status_pagamento: "pendente" | "parcial" | "pago" | "cancelado";
   valor_pago: number;
   versao_financeira: number;
-  data_ultimo_pagamento: string | null;
   cancelado_em: string | null;
   cancelado_por: string | null;
   cancelamento_motivo: string | null;
@@ -42,6 +42,8 @@ export interface Fatura {
   status_sefaz: string | null;
   erros_sefaz: Json | null;
   natureza_operacao: string | null;
+  nfse_status: string;
+  operation_type: "domestico" | "industrial" | null;
   // Etapa 3 - Pagamento
   forma_pagamento: string | null;
   data_vencimento: string | null;
@@ -69,6 +71,7 @@ export interface Fatura {
 export interface FaturaUpdate {
   status?: string;
   numero_nf?: string | null;
+  configuracao_fiscal_id?: string | null;
   asaas_charge_id?: string | null;
   valor_total?: number;
   // Etapa 1
@@ -91,6 +94,8 @@ export interface FaturaUpdate {
   status_sefaz?: string | null;
   erros_sefaz?: Json | null;
   natureza_operacao?: string | null;
+  nfse_status?: string;
+  operation_type?: "domestico" | "industrial" | null;
   // Etapa 3
   forma_pagamento?: string | null;
   data_vencimento?: string | null;
@@ -321,7 +326,7 @@ export function useFaturas(
     if (!data) throw new Error("Fatura não encontrada neste painel");
   };
 
-  const { data: faturas = [], isLoading, error } = useQuery({
+  const { data: faturas = [], isLoading, error, refetch } = useQuery({
     queryKey: ["faturas", activeArea, periodoInicio, periodoFim, incluirPeriodosSobrepostos, clienteId],
     queryFn: async () => {
       let query = supabase
@@ -479,6 +484,7 @@ export function useFaturas(
     summary,
     isLoading,
     error,
+    refetch,
     updateFatura,
     registrarPagamento,
     cancelarFatura,

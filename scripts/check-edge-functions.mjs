@@ -1,42 +1,18 @@
-import fs from "node:fs";
-import path from "node:path";
-import ts from "typescript";
+import { execFileSync } from "node:child_process";
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
+import process from "node:process";
 
-const functionsRoot = path.resolve("supabase/functions");
-const files = [];
+const root = resolve("supabase/functions");
+const entries = readdirSync(root, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && !entry.name.startsWith("_"))
+  .map((entry) => resolve(root, entry.name, "index.ts"));
 
-function collect(directory) {
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const fullPath = path.join(directory, entry.name);
-    if (entry.isDirectory()) collect(fullPath);
-    else if (entry.isFile() && entry.name.endsWith(".ts")) files.push(fullPath);
-  }
+if (entries.length === 0) {
+  throw new Error("Nenhuma Edge Function encontrada para checagem");
 }
 
-collect(functionsRoot);
-
-const errors = [];
-for (const file of files) {
-  const source = fs.readFileSync(file, "utf8");
-  const result = ts.transpileModule(source, {
-    fileName: file,
-    reportDiagnostics: true,
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.ES2022,
-    },
-  });
-
-  for (const diagnostic of result.diagnostics ?? []) {
-    if (diagnostic.category !== ts.DiagnosticCategory.Error) continue;
-    const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, " ");
-    errors.push(`${path.relative(process.cwd(), file)}: ${message}`);
-  }
-}
-
-if (errors.length > 0) {
-  console.error(errors.join("\n"));
-  process.exitCode = 1;
-} else {
-  console.log(`Edge function syntax checked: ${files.length} TypeScript files`);
-}
+const deno = process.platform === "win32"
+  ? resolve("node_modules/deno/deno.exe")
+  : resolve("node_modules/.bin/deno");
+execFileSync(deno, ["check", ...entries], { stdio: "inherit", env: process.env });

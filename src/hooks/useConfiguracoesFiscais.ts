@@ -2,34 +2,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-import type { Json } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/types";
 
-export interface ConfiguracaoFiscal {
-  id: string;
-  nome: string;
-  cnpj: string | null;
-  razao_social: string | null;
-  inscricao_municipal: string | null;
-  inscricao_estadual: string | null;
-  endereco: Json;
-  aliquota_iss: number | null;
-  codigo_servico: string | null;
+type FiscalRow = Database["public"]["Tables"]["configuracoes_fiscais"]["Row"];
+
+export type ConfiguracaoFiscal = FiscalRow & {
   ambiente: "producao" | "homologacao";
-  ativo: boolean;
-  certificado_url: string | null;
-  validade_certificado: string | null;
-  urls_webservice: Json;
-  series_numeracao: Json;
-  csc_dados: Json;
-  regime_tributario: string | null;
-  // Novos campos para integração NFS-e
-  codigo_municipio_ibge: string | null;
-  url_api_nfse: string | null;
-  senha_certificado_encrypted: string | null;
   modo_emissao: "simulacao" | "homologacao" | "producao" | null;
-  created_at: string;
-  updated_at: string;
-}
+  credencial_status: "nao_configurada" | "configurada" | "homologada" | "expirada" | "erro";
+};
 
 export interface DescricaoServicoFiscal {
   id: string;
@@ -38,13 +19,8 @@ export interface DescricaoServicoFiscal {
   created_at: string;
 }
 
-export type ConfiguracaoFiscalInsert = Omit<ConfiguracaoFiscal, "id" | "created_at" | "updated_at"> & {
-  codigo_municipio_ibge?: string | null;
-  url_api_nfse?: string | null;
-  senha_certificado_encrypted?: string | null;
-  modo_emissao?: "simulacao" | "homologacao" | "producao" | null;
-};
-export type ConfiguracaoFiscalUpdate = Partial<ConfiguracaoFiscalInsert>;
+export type ConfiguracaoFiscalInsert = Database["public"]["Tables"]["configuracoes_fiscais"]["Insert"];
+export type ConfiguracaoFiscalUpdate = Database["public"]["Tables"]["configuracoes_fiscais"]["Update"];
 
 export type ConfiguracaoFiscalOperacional = Pick<
   ConfiguracaoFiscal,
@@ -63,6 +39,11 @@ export type ConfiguracaoFiscalOperacional = Pick<
   | "regime_tributario"
   | "codigo_municipio_ibge"
   | "modo_emissao"
+  | "operation_type"
+  | "provedor_nfse"
+  | "credencial_status"
+  | "homologado_em"
+  | "emitir_automaticamente"
   | "created_at"
   | "updated_at"
 >;
@@ -77,9 +58,11 @@ export function useConfiguracoesFiscaisOperacionais() {
     },
   });
 
+  const activeConfigurations = configuracoes.filter((config) => config.ativo);
+
   return {
     configuracoes,
-    configuracaoAtiva: configuracoes.find((config) => config.ativo),
+    configuracaoAtiva: activeConfigurations.length === 1 ? activeConfigurations[0] : undefined,
     isLoading,
     error,
   };
@@ -100,7 +83,8 @@ export function useConfiguracoesFiscais() {
     },
   });
 
-  const configuracaoAtiva = configuracoes.find((c) => c.ativo);
+  const activeConfigurations = configuracoes.filter((config) => config.ativo);
+  const configuracaoAtiva = activeConfigurations.length === 1 ? activeConfigurations[0] : undefined;
 
   const createConfiguracao = useMutation({
     mutationFn: async (config: ConfiguracaoFiscalInsert) => {
@@ -158,33 +142,6 @@ export function useConfiguracoesFiscais() {
     },
   });
 
-  const setAtiva = useMutation({
-    mutationFn: async (id: string) => {
-      // Desativa todas
-      await supabase
-        .from("configuracoes_fiscais")
-        .update({ ativo: false })
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-
-      // Ativa a selecionada
-      const { data, error } = await supabase
-        .from("configuracoes_fiscais")
-        .update({ ativo: true })
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["configuracoes_fiscais"] });
-      toast.success("Configuração fiscal ativada!");
-    },
-    onError: (error) => {
-      toast.error("Erro ao ativar configuração: " + error.message);
-    },
-  });
-
   return {
     configuracoes,
     configuracaoAtiva,
@@ -193,7 +150,6 @@ export function useConfiguracoesFiscais() {
     createConfiguracao,
     updateConfiguracao,
     deleteConfiguracao,
-    setAtiva,
   };
 }
 

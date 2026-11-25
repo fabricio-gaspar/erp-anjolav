@@ -21,6 +21,14 @@ type WhatsAppConfigUpdate = Pick<
   "nome_instancia" | "api_url" | "webhook_n8n_url"
 >;
 
+function getGatewayError(error: unknown, data: unknown, fallback: string) {
+  if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
+    return new Error(data.error);
+  }
+  if (error instanceof Error) return error;
+  return new Error(fallback);
+}
+
 export function useWhatsAppConfig() {
   const queryClient = useQueryClient();
   const { activeTenant } = useAuth();
@@ -70,7 +78,7 @@ export function useWhatsAppConfig() {
       const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: { action: "connect" },
       });
-      if (error || data?.error) throw error || new Error(data.error);
+      if (error || data?.error) throw getGatewayError(error, data, "Não foi possível conectar o WA-AKG");
       return data;
     },
     onSuccess: (data) => {
@@ -89,7 +97,7 @@ export function useWhatsAppConfig() {
       const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: { action: "status" },
       });
-      if (error || data?.error) throw error || new Error(data.error);
+      if (error || data?.error) throw getGatewayError(error, data, "Não foi possível verificar o WA-AKG");
       return data;
     },
     onSuccess: (data) => {
@@ -108,7 +116,7 @@ export function useWhatsAppConfig() {
       const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: { action: "disconnect" },
       });
-      if (error || data?.error) throw error || new Error(data.error);
+      if (error || data?.error) throw getGatewayError(error, data, "Não foi possível desconectar o WA-AKG");
       return data;
     },
     onSuccess: () => {
@@ -134,7 +142,7 @@ export function useWhatsAppConfig() {
           idempotency_key: idempotencyKey || createIdempotencyKey("whatsapp-manual"),
         },
       });
-      if (error || data?.success !== true) throw error || new Error(data?.error || "Envio não confirmado");
+      if (error || data?.success !== true) throw getGatewayError(error, data, "Envio não confirmado pelo WA-AKG");
       return data;
     },
     onSuccess: () => {
@@ -150,7 +158,7 @@ export function useWhatsAppConfig() {
       const { data, error } = await supabase.functions.invoke("whatsapp-gateway", {
         body: { action: "retry", delivery_id: deliveryId },
       });
-      if (error || data?.error) throw error || new Error(data.error);
+      if (error || data?.error) throw getGatewayError(error, data, "Não foi possível tentar o envio novamente");
       return data;
     },
     onSuccess: (data) => {
@@ -175,7 +183,7 @@ export function useWhatsAppConfig() {
           reason: params.reason,
         },
       });
-      if (error || data?.error) throw error || new Error(data.error);
+      if (error || data?.error) throw getGatewayError(error, data, "Não foi possível conciliar o envio");
       return data;
     },
     onSuccess: () => {

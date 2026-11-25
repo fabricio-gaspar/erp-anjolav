@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
-import { requireAdmin } from "../_shared/auth.ts";
-import { isValidCnpj, isValidCpf } from "../_shared/br-document.ts";
-import { handlePreflight, jsonResponse, readJsonBody, requireJsonPost } from "../_shared/http.ts";
+import { requireAdmin } from "./_shared/auth.ts";
+import { isValidCnpj, isValidCpf } from "./_shared/br-document.ts";
+import { handlePreflight, jsonResponse, readJsonBody, requireJsonPost } from "./_shared/http.ts";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -357,10 +357,10 @@ Deno.serve(async (req) => {
       if (accessProfile && !email) {
         return jsonResponse(req, { error: "O email é obrigatório para gerar o link de ativação" }, 400);
       }
-      if (accessProfile && !inviteRedirectTo) {
+      if (accessProfile && !password && !inviteRedirectTo) {
         return jsonResponse(req, { error: "URL de ativação inválida" }, 400);
       }
-      if (!accessProfile && email && (password.length < 12 || password.length > 128)) {
+      if (email && (password || !accessProfile) && (password.length < 12 || password.length > 128)) {
         return jsonResponse(req, { error: "A senha deve ter entre 12 e 128 caracteres" }, 400);
       }
       if (rawCpf && (!cpf || !isValidCpf(cpf))) {
@@ -387,7 +387,7 @@ Deno.serve(async (req) => {
       let createdUserId: string | null = null;
       let accessLink: string | null = null;
       if (email) {
-        if (accessProfile && inviteRedirectTo) {
+        if (accessProfile && inviteRedirectTo && !password) {
           const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
             type: "invite",
             email,

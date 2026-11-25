@@ -7,6 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
+  Download,
+  History,
   Loader2,
   Pencil,
   Plus,
@@ -41,6 +43,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { EditarContaPagarModal } from "@/components/contas/EditarContaPagarModal";
+import { HistoricoPagamentosContaModal } from "@/components/contas/HistoricoPagamentosContaModal";
 import { NovaContaPagarModal } from "@/components/contas/NovaContaPagarModal";
 import { RegistrarPagamentoContaModal } from "@/components/contas/RegistrarPagamentoContaModal";
 import {
@@ -53,6 +56,7 @@ import {
   type ContaPagarDirectoryItem,
 } from "@/hooks/useContasPagarDirectory";
 import { formatNumberToCurrency } from "@/lib/currencyUtils";
+import { downloadCsv } from "@/lib/csvExport";
 import {
   FINANCIAL_ACCOUNT_PAGE_SIZE,
   financialAccountDateRangeIsValid,
@@ -84,6 +88,7 @@ const ContasPagarContent = () => {
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
   const [accountToEdit, setAccountToEdit] = useState<ContaPagar | null>(null);
   const [accountToPay, setAccountToPay] = useState<ContaPagar | null>(null);
+  const [accountToHistory, setAccountToHistory] = useState<ContaPagar | null>(null);
   const [accountToCancel, setAccountToCancel] = useState<ContaPagar | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const cancelIdempotencyKey = useRef(criarChaveOperacaoFinanceira("payable-cancel"));
@@ -151,6 +156,19 @@ const ContasPagarContent = () => {
     return "Todos os vencimentos";
   }, [endDate, startDate]);
 
+  const exportCurrentPage = () => {
+    downloadCsv(`contas-a-pagar-pagina-${page}.csv`, accounts, [
+      { header: "Descrição", value: (account) => account.descricao },
+      { header: "Fornecedor", value: (account) => account.fornecedor },
+      { header: "Categoria", value: (account) => account.categoria },
+      { header: "Valor", value: (account) => account.valor },
+      { header: "Valor pago", value: (account) => account.valor_pago },
+      { header: "Saldo", value: (account) => Math.max(Number(account.valor) - Number(account.valor_pago || 0), 0) },
+      { header: "Vencimento", value: (account) => account.vencimento },
+      { header: "Situação", value: (account) => accountStatus(account.status_exibicao).label },
+    ]);
+  };
+
   const openCancellation = (account: ContaPagar) => {
     setAccountToCancel(account);
     setCancelReason("");
@@ -209,7 +227,10 @@ const ContasPagarContent = () => {
               <div className="flex items-center gap-2"><ReceiptText className="h-5 w-5 text-primary" /><h2 className="text-lg font-black">Obrigações e pagamentos</h2></div>
               <p className="mt-1 text-sm text-muted-foreground">Pagamentos parciais permanecem auditáveis e não reescrevem o valor original.</p>
             </div>
-            <Button className="min-h-11 w-full gap-2 font-bold lg:w-auto" onClick={() => setIsNewAccountOpen(true)}><Plus className="h-4 w-4" /> Nova despesa</Button>
+            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+              <Button variant="outline" className="min-h-11 gap-2" onClick={exportCurrentPage} disabled={accounts.length === 0}><Download className="h-4 w-4" />Exportar página</Button>
+              <Button className="min-h-11 w-full gap-2 font-bold lg:w-auto" onClick={() => setIsNewAccountOpen(true)}><Plus className="h-4 w-4" /> Nova despesa</Button>
+            </div>
           </div>
 
           <div className="grid gap-3 border-b p-4 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_180px_160px_160px_auto]">
@@ -251,7 +272,7 @@ const ContasPagarContent = () => {
             <div className="flex min-h-48 flex-col items-center justify-center px-6 text-center"><ReceiptText className="mb-3 h-10 w-10 text-muted-foreground/50" /><p className="font-semibold">Nenhuma conta encontrada</p><p className="mt-1 text-sm text-muted-foreground">Ajuste os filtros ou registre uma nova despesa.</p></div>
           ) : (
             <>
-              <div className="hidden grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_130px_130px_150px] gap-4 border-b bg-muted/40 px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground lg:grid">
+              <div className="hidden grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_130px_130px_200px] gap-4 border-b bg-muted/40 px-4 py-3 text-xs font-bold uppercase tracking-wider text-muted-foreground lg:grid">
                 <span>Despesa</span><span>Fornecedor</span><span>Saldo</span><span>Situação</span><span className="text-right">Ações</span>
               </div>
               <div className="divide-y">
@@ -261,7 +282,7 @@ const ContasPagarContent = () => {
                   const canChangeTerms = Number(account.valor_pago) <= 0 && account.status !== "cancelado";
                   const canPay = account.status === "pendente" || account.status === "parcial";
                   return (
-                    <article key={account.id} className="grid gap-3 px-4 py-4 transition-colors hover:bg-muted/20 lg:grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_130px_130px_150px] lg:items-center lg:gap-4">
+                    <article key={account.id} className="grid gap-3 px-4 py-4 transition-colors hover:bg-muted/20 lg:grid-cols-[minmax(0,2fr)_minmax(120px,1fr)_130px_130px_200px] lg:items-center lg:gap-4">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2"><h3 className="break-words font-bold text-foreground">{account.descricao}</h3><span className="lg:hidden"><StatusBadge variant={accountState.variant}>{accountState.label}</StatusBadge></span></div>
                         <p className="mt-1 text-sm text-muted-foreground">Vence em {format(parseISO(account.vencimento), "dd/MM/yyyy")}{account.categoria ? ` · ${account.categoria}` : ""}</p>
@@ -271,6 +292,7 @@ const ContasPagarContent = () => {
                       <div className="hidden lg:block"><StatusBadge variant={accountState.variant}>{accountState.label}</StatusBadge></div>
                       <div className="flex flex-wrap gap-2 lg:justify-end">
                         {canPay && <Button size="sm" className="min-h-10 flex-1 lg:flex-none" onClick={() => setAccountToPay(account)}>Pagar</Button>}
+                        <Button variant="outline" size="icon" className="h-10 w-10" aria-label={`Ver pagamentos de ${account.descricao}`} onClick={() => setAccountToHistory(account)}><History className="h-4 w-4" /></Button>
                         {canChangeTerms && <Button variant="outline" size="icon" className="h-10 w-10" aria-label={`Editar ${account.descricao}`} onClick={() => setAccountToEdit(account)}><Pencil className="h-4 w-4" /></Button>}
                         {canChangeTerms && <Button variant="ghost" size="icon" className="h-10 w-10 text-destructive hover:text-destructive" aria-label={`Cancelar ${account.descricao}`} onClick={() => openCancellation(account)}><Trash2 className="h-4 w-4" /></Button>}
                       </div>
@@ -297,6 +319,12 @@ const ContasPagarContent = () => {
       <NovaContaPagarModal open={isNewAccountOpen} onOpenChange={setIsNewAccountOpen} />
       <EditarContaPagarModal open={Boolean(accountToEdit)} onOpenChange={(nextOpen) => { if (!nextOpen) setAccountToEdit(null); }} conta={accountToEdit} />
       <RegistrarPagamentoContaModal open={Boolean(accountToPay)} onOpenChange={(nextOpen) => { if (!nextOpen) setAccountToPay(null); }} conta={accountToPay} />
+      <HistoricoPagamentosContaModal
+        open={Boolean(accountToHistory)}
+        onOpenChange={(nextOpen) => { if (!nextOpen) setAccountToHistory(null); }}
+        contaId={accountToHistory?.id ?? null}
+        descricao={accountToHistory?.descricao ?? "Despesa"}
+      />
 
       <AlertDialog open={Boolean(accountToCancel)} onOpenChange={(nextOpen) => { if (!nextOpen) setAccountToCancel(null); }}>
         <AlertDialogContent>

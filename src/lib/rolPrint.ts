@@ -2,11 +2,17 @@ import type { ROLPreviewConfig } from "../components/configuracoes/ROLPreview.ts
 import { escapeHtml, safeHttpsUrl } from "./safePrint.ts";
 import { parseCustomerPaymentTerms, PAYMENT_CONDITION_LABELS, PAYMENT_METHOD_LABELS, BILLING_FREQUENCY_LABELS } from "./customerPaymentTerms.ts";
 import { CLIENT_PRICE_MODE_LABELS, isClientPriceMode } from "./clientPricing.ts";
+import { generateCode128BPattern } from "./code128.ts";
+import { buildOrderScanCode } from "./orderScanner.ts";
 
 /** Temporary, narrow extension for OS columns absent from generated database types. */
 export interface RolOrderCommercialSnapshot {
   condicao_pagamento?: string | null;
   condicoes_comerciais?: unknown;
+  delivery_modelo_snapshot?: string | null;
+  delivery_distancia_km_snapshot?: number | null;
+  delivery_taxa_base_snapshot?: number | null;
+  delivery_taxa_km_snapshot?: number | null;
 }
 
 export interface RolCommercialData {
@@ -17,10 +23,16 @@ export interface RolCommercialData {
   origem?: string | null;
   statusOS?: string | null;
   statusPagamento?: string | null;
+  formaPagamento?: string | null;
   valorPago?: number | null;
   valorTotal: number;
   valorDesconto?: number;
   valorUrgencia?: number;
+  taxaEntrega?: number;
+  deliveryModelo?: string | null;
+  deliveryDistanciaKm?: number | null;
+  deliveryTaxaBase?: number | null;
+  deliveryTaxaKm?: number | null;
 }
 
 export interface PrintOSData extends RolCommercialData {
@@ -28,7 +40,18 @@ export interface PrintOSData extends RolCommercialData {
   clienteNome: string;
   clienteTelefone?: string;
   clienteEmail?: string;
-  itens: { id?: string; nome: string; unidade?: string; quantidade: number; precoUnitario: number; subtotal: number }[];
+  clienteCodigo?: string;
+  clienteEndereco?: {
+    logradouro?: string | null;
+    numero?: string | null;
+    complemento?: string | null;
+    bairro?: string | null;
+    cidade?: string | null;
+    uf?: string | null;
+    cep?: string | null;
+  };
+  atendenteNome?: string;
+  itens: { id?: string; nome: string; unidade?: string; quantidade: number; precoUnitario: number; subtotal: number; posicaoPrateleira?: string | null; detalhes?: string | null }[];
   valorTotal: number;
   dataEmissao: Date;
   previsaoEntrega?: Date;
@@ -49,11 +72,14 @@ export interface PrintOSData extends RolCommercialData {
 
 interface RolOrderData extends RolOrderCommercialSnapshot {
   valor_total: number | null;
+  valor_acrescimo_express?: number | null;
+  taxa_entrega?: number | null;
   valor_desconto?: number | null;
   valor_pago?: number | null;
   urgente?: boolean | null;
   percentual_urgencia?: number | null;
   status_pagamento?: string | null;
+  forma_pagamento?: string | null;
   status?: string | null;
   origem?: string | null;
 }
@@ -67,7 +93,9 @@ export function buildRolOrderDetails(
   const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
   const discount = Number.isFinite(order.valor_desconto) ? Math.max(0, order.valor_desconto ?? 0) : 0;
   const urgencyRate = order.urgente && Number.isFinite(order.percentual_urgencia) ? Math.max(0, order.percentual_urgencia ?? 0) : 0;
-  const urgency = Math.round(Math.max(0, subtotal - discount) * urgencyRate) / 100;
+  const urgency = Number.isFinite(order.valor_acrescimo_express)
+    ? Math.max(0, Number(order.valor_acrescimo_express))
+    : Math.round(Math.max(0, subtotal - discount) * urgencyRate) / 100;
   return {
     condicaoPagamento: order.condicao_pagamento ?? null,
     condicoesComerciais: order.condicoes_comerciais,
@@ -75,9 +103,15 @@ export function buildRolOrderDetails(
     origem: order.origem,
     statusOS: order.status,
     statusPagamento: order.status_pagamento,
+    formaPagamento: order.forma_pagamento,
     valorPago: order.valor_pago,
     valorDesconto: discount,
     valorUrgencia: urgency,
+    taxaEntrega: Number.isFinite(order.taxa_entrega) ? Math.max(0, Number(order.taxa_entrega)) : 0,
+    deliveryModelo: order.delivery_modelo_snapshot ?? null,
+    deliveryDistanciaKm: Number.isFinite(order.delivery_distancia_km_snapshot) ? Math.max(0, Number(order.delivery_distancia_km_snapshot)) : null,
+    deliveryTaxaBase: Number.isFinite(order.delivery_taxa_base_snapshot) ? Math.max(0, Number(order.delivery_taxa_base_snapshot)) : null,
+    deliveryTaxaKm: Number.isFinite(order.delivery_taxa_km_snapshot) ? Math.max(0, Number(order.delivery_taxa_km_snapshot)) : null,
     valorTotal: order.valor_total !== null && Number.isFinite(order.valor_total)
       ? order.valor_total
       : Math.max(0, Math.round((subtotal - discount + urgency) * 100) / 100),
@@ -157,6 +191,60 @@ export function generateROLCommercialHTML(data: RolCommercialData, showPrices = 
   </div>`;
 }
 
+function generateRolBarcodeSvg(value: string, height = 34): string {
+  const pattern = generateCode128BPattern(value);
+  const moduleWidth = 1.4;
+  const quietZone = 8;
+  const width = (pattern.length + quietZone * 2) * moduleWidth;
+  let x = quietZone * moduleWidth;
+  const bars = pattern.map((bit) => {
+    const bar = bit === 1 ? `<rect x="${x}" y="0" width="${moduleWidth}" height="${height}" fill="#111"/>` : "";
+    x += moduleWidth;
+    return bar;
+  }).join("");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Código do ROL">${bars}</svg>`;
+}
+
+function formatRolDate(date?: Date | null, withTime = false): string {
+  if (!date || Number.isNaN(date.getTime())) return "—";
+  const value = date.toLocaleDateString("pt-BR");
+  return withTime ? `${value} ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : value;
+}
+
+function formatRolMoney(value: number | null | undefined): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value) || 0);
+}
+
+function formatRolUnit(unit?: string): string {
+  const normalized = (unit || "").trim().toLowerCase();
+  if (["mt", "m", "metro", "metros", "m²", "m2"].includes(normalized)) return "m²";
+  if (["kg", "quilo", "kilo"].includes(normalized)) return "kg";
+  if (["un", "unidade"].includes(normalized)) return "unidade";
+  if (["pç", "pc", "peça", "peca"].includes(normalized)) return "peça";
+  return unit || "";
+}
+
+function formatRolQuantity(value: number): string {
+  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 }).format(value);
+}
+
+function formatRolQuantitySummary(items: PrintOSData["itens"]): string {
+  const totals = new Map<string, { unit: string; quantity: number }>();
+  items.forEach((item) => {
+    const unit = formatRolUnit(item.unidade) || "unidade";
+    const entry = totals.get(unit);
+    totals.set(unit, { unit, quantity: (entry?.quantity ?? 0) + item.quantidade });
+  });
+  return [...totals.values()].map(({ unit, quantity }) => `${formatRolQuantity(quantity)} ${unit}`).join(" · ") || "0 itens";
+}
+
+function addressLines(address?: PrintOSData["clienteEndereco"]): string {
+  if (!address) return "";
+  const street = [address.logradouro, address.numero].filter(Boolean).join(", ");
+  const locality = [address.bairro, address.cidade, address.uf].filter(Boolean).join(" · ");
+  return [street, address.complemento, locality, address.cep && `CEP ${address.cep}`].filter(Boolean).map(escapeHtml).join("<br />");
+}
+
 export const getFontFamily = (font: string) => {
   switch (font) {
     case 'courier': return 'Courier New, monospace';
@@ -218,15 +306,20 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
         .rol-info { text-align: center; margin-bottom: 8px; }
         .rol-title { font-size: 10px; font-weight: bold; color: ${corSecundaria}; }
         .rol-number { font-size: 9px; color: #666; }
+         .rol-barcode { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 4px; }
+         .rol-barcode svg { width: 46%; height: 28px; }
+         .rol-barcode-label { font-size: 8px; font-family: monospace; }
         .section { border-top: 1px dashed #666; padding-top: 8px; margin-bottom: 8px; }
         .client-info { font-size: 10px; }
         .previsao { color: #d97706; font-weight: 500; }
         .items-header { display: flex; justify-content: space-between; font-size: 9px; font-weight: bold; color: ${corPrimaria}; margin-bottom: 4px; }
         .item-row { display: flex; justify-content: space-between; font-size: ${tamanhoItem}px; padding: 2px 0; }
-        .item-qty { width: 48px; flex-shrink: 0; overflow-wrap: anywhere; }
+        .item-qty { width: 64px; flex-shrink: 0; overflow-wrap: anywhere; }
+         .item-operation { width: 30px; flex-shrink: 0; text-align: center; }
         .item-name { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
         .item-unit { width: 45px; flex-shrink: 0; text-align: right; }
         .item-total { width: 50px; flex-shrink: 0; text-align: right; }
+        .item-details { padding: 1px 0 3px 64px; font-size: 8px; color: #666; overflow-wrap: anywhere; }
         .commercial-terms { overflow-wrap: anywhere; break-inside: avoid; }
         .totals { border-top: 1px dashed #666; padding-top: 8px; margin-bottom: 8px; }
         .total-row { display: flex; justify-content: space-between; font-size: 10px; }
@@ -254,11 +347,15 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
       <div class="rol-info">
         <div class="rol-title">ROL DE LAVANDERIA</div>
         <div class="rol-number">Nº ${osNumero} - ${escapeHtml(data.dataEmissao.toLocaleDateString('pt-BR'))} ${escapeHtml(data.dataEmissao.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))}</div>
+         <div class="rol-barcode">${generateRolBarcodeSvg(buildOrderScanCode(data.numero))}<span class="rol-barcode-label">${osNumero}</span></div>
       </div>
 
       <div class="section">
         <div class="client-info"><strong>Cliente:</strong> ${escapeHtml(data.clienteNome)}</div>
+         ${data.clienteCodigo ? `<div class="client-info"><strong>Cód.:</strong> ${escapeHtml(data.clienteCodigo)}</div>` : ''}
         ${data.clienteTelefone ? `<div class="client-info"><strong>Tel:</strong> ${escapeHtml(data.clienteTelefone)}</div>` : ''}
+         ${addressLines(data.clienteEndereco) ? `<div class="client-info"><strong>Endereço:</strong><br />${addressLines(data.clienteEndereco)}</div>` : ''}
+         ${data.atendenteNome ? `<div class="client-info"><strong>Atendente:</strong> ${escapeHtml(data.atendenteNome)}</div>` : ''}
         ${config.previsaoEntrega && data.previsaoEntrega ? `<div class="client-info previsao"><strong>Previsão:</strong> ${data.previsaoEntrega.toLocaleDateString('pt-BR')}</div>` : ''}
         <div class="client-info"><strong>Recebimento:</strong> ${recebimentoLabel}</div>
         <div class="client-info"><strong>Modalidade de entrega:</strong> ${entregaLabel}</div>
@@ -270,26 +367,36 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
         <div class="items-header">
           <span class="item-qty">QTD</span>
           <span class="item-name">ITEM</span>
+           <span class="item-operation">OP.</span>
           ${config.tipoPreco ? '<span class="item-unit">UNIT</span><span class="item-total">TOTAL</span>' : ''}
         </div>
         ${data.itens.map(item => `
-          <div class="item-row">
-            <span class="item-qty">${escapeHtml(item.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 20 }))}${item.unidade ? ` ${escapeHtml(item.unidade)}` : 'x'}</span>
-            <span class="item-name">${escapeHtml(item.nome)}</span>
-            ${config.tipoPreco ? `<span class="item-unit">${item.precoUnitario.toFixed(2)}</span><span class="item-total">${item.subtotal.toFixed(2)}</span>` : ''}
+          <div class="item-row-wrap">
+            <div class="item-row">
+              <span class="item-qty">${escapeHtml(formatRolQuantity(item.quantidade))} ${escapeHtml(formatRolUnit(item.unidade))}</span>
+              <span class="item-name">${escapeHtml(item.nome)}</span>
+               <span class="item-operation">—</span>
+              ${config.tipoPreco ? `<span class="item-unit">${item.precoUnitario.toFixed(2)}</span><span class="item-total">${item.subtotal.toFixed(2)}</span>` : ''}
+            </div>
+            ${item.detalhes ? `<div class="item-details">${escapeHtml(item.detalhes)}</div>` : ''}
           </div>
         `).join('')}
       </div>
 
-      ${config.tipoPreco ? `
+      ${(config.tipoPreco || (data.taxaEntrega ?? 0) > 0 || data.deliveryModelo === "km") ? `
         <div class="totals">
-          ${(data.valorDesconto ?? 0) > 0 || (data.valorUrgencia ?? 0) > 0 ? `<div class="total-row"><span>Subtotal:</span><span>R$ ${data.itens.reduce((sum, item) => sum + item.subtotal, 0).toFixed(2)}</span></div>` : ''}
-          ${config.linhaDesconto && (data.valorDesconto ?? 0) > 0 ? `<div class="total-row"><span>Desconto:</span><span>- R$ ${data.valorDesconto.toFixed(2)}</span></div>` : ''}
-          ${(data.valorUrgencia ?? 0) > 0 ? `<div class="total-row"><span>Urgência:</span><span>+ R$ ${data.valorUrgencia.toFixed(2)}</span></div>` : ''}
-          <div class="total-row grand-total">
-            <span>TOTAL:</span>
-            <span>R$ ${data.valorTotal.toFixed(2)}</span>
-          </div>
+          ${config.tipoPreco ? `
+            ${(data.valorDesconto ?? 0) > 0 || (data.valorUrgencia ?? 0) > 0 || (data.taxaEntrega ?? 0) > 0 ? `<div class="total-row"><span>Subtotal:</span><span>${formatRolMoney(data.itens.reduce((sum, item) => sum + item.subtotal, 0))}</span></div>` : ''}
+            ${config.linhaDesconto && (data.valorDesconto ?? 0) > 0 ? `<div class="total-row"><span>Desconto:</span><span>- ${formatRolMoney(data.valorDesconto)}</span></div>` : ''}
+            ${(data.valorUrgencia ?? 0) > 0 ? `<div class="total-row"><span>Lavagem Expressa:</span><span>+ ${formatRolMoney(data.valorUrgencia)}</span></div>` : ''}
+          ` : ''}
+          ${(data.taxaEntrega ?? 0) > 0 ? `<div class="total-row"><span>Taxa de delivery:</span><span>+ ${formatRolMoney(data.taxaEntrega)}</span></div>` : ''}
+          ${data.deliveryModelo === "km" && data.deliveryDistanciaKm != null ? `<div class="total-row"><span>Distância cobrada:</span><span>${formatRolQuantity(data.deliveryDistanciaKm)} km</span></div><div class="total-row"><span>Tarifa delivery:</span><span>${formatRolMoney(data.deliveryTaxaBase ?? 0)} base + ${formatRolMoney(data.deliveryTaxaKm ?? 0)}/km</span></div>` : ''}
+          ${config.tipoPreco ? `
+            <div class="total-row grand-total"><span>TOTAL:</span><span>${formatRolMoney(data.valorTotal)}</span></div>
+            <div class="total-row"><span>VALOR RECEBIDO:</span><span>${formatRolMoney(data.valorPago)}</span></div>
+            <div class="total-row"><span>A PAGAR:</span><span>${formatRolMoney(Math.max(0, data.valorTotal - Number(data.valorPago || 0)))}</span></div>
+          ` : ''}
         </div>
       ` : ''}
 
@@ -327,6 +434,95 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
       </div>
     </body>
     </html>
+  `;
+}
+
+/**
+ * Produces the second customer-facing document: the availability/collection
+ * receipt. It is deliberately separate from the entry ROL so each action has
+ * one unambiguous document and the availability copy can include locations.
+ */
+export function generateROLDisponibilidadeHTMLWithData(config: ROLPreviewConfig, data: PrintOSData): string {
+  const width = config.larguraPapel === "58mm" ? "58mm" : "80mm";
+  const fontFamily = getFontFamily(config.fontePrincipal);
+  const margemSuperior = boundedNumber(config.margemSuperior, 10, 0, 100);
+  const margemLateral = boundedNumber(config.margemLateral, 8, 0, 100);
+  const logoUrl = safeHttpsUrl(config.logoUrl);
+  const osNumero = escapeHtml(data.numero);
+  const locations = data.itens
+    .map((item) => item.posicaoPrateleira?.trim())
+    .filter((value): value is string => Boolean(value));
+  const locationLabel = locations.length > 0 ? [...new Set(locations)].join(" · ") : "A confirmar";
+  const paid = Number(data.valorPago || 0);
+  const outstanding = Math.max(0, data.valorTotal - paid);
+  const address = addressLines(data.clienteEndereco);
+
+  return `
+    <!DOCTYPE html>
+    <html><head><meta charset="UTF-8"><title>ROL disponível - ${osNumero}</title>
+      <style>
+        @page { size: ${width} auto; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: ${fontFamily}; width: ${width}; padding: ${margemSuperior}px ${margemLateral}px; font-size: 10px; line-height: 1.3; color: #111; }
+        .header { text-align: center; border-bottom: 1px solid #111; padding-bottom: 7px; margin-bottom: 7px; }
+        .logo { max-height: 40px; max-width: 70%; margin-bottom: 5px; }
+        .company { font-size: 13px; font-weight: bold; text-transform: uppercase; }
+        .muted { color: #444; font-size: 9px; }
+        .title { text-align: center; font-size: 14px; font-weight: bold; margin: 4px 0 8px; }
+        .section { border-top: 1px solid #111; padding-top: 6px; margin-top: 7px; }
+        .section-title { text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 5px; }
+        .row { display: flex; justify-content: space-between; gap: 5px; }
+        .client { line-height: 1.45; }
+        table { width: 100%; border-collapse: collapse; font-size: 9px; }
+        th, td { border-bottom: 1px solid #777; padding: 3px 1px; text-align: left; vertical-align: top; }
+        th { font-weight: bold; }
+        th:last-child, td:last-child { text-align: right; }
+        .total { font-weight: bold; font-size: 11px; }
+        .location { border: 1px solid #111; padding: 6px; text-align: center; font-weight: bold; font-size: 11px; }
+        .signature { padding-top: 22px; text-align: center; }
+        .signature-line { border-bottom: 1px solid #111; margin: 0 20px 4px; }
+        .footer { border-top: 1px solid #111; margin-top: 8px; padding-top: 6px; text-align: center; }
+      </style>
+    </head><body>
+      <div class="header">
+        ${config.exibirLogo && logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="Logo" class="logo" />` : ""}
+        <div class="company">${escapeHtml(config.nomeCompleto || config.nomeCurto)}</div>
+        ${config.telefone ? `<div class="muted">Telefone: ${escapeHtml(config.telefone)}</div>` : ""}
+        ${config.email ? `<div class="muted">E-mail: ${escapeHtml(config.email)}</div>` : ""}
+      </div>
+      <div class="title">ROL DISPONÍVEL: ${osNumero}</div>
+      <div class="row"><span>Data de disponibilidade: ${formatRolDate(new Date(), true)}</span><span>Atendido por: ${escapeHtml(data.atendenteNome || "—")}</span></div>
+
+      <div class="section client">
+        <div class="section-title">DADOS DO CLIENTE</div>
+        <div><strong>Nome:</strong> ${escapeHtml(data.clienteNome)}</div>
+        ${address ? `<div><strong>Endereço:</strong><br />${address}</div>` : ""}
+        ${data.clienteTelefone ? `<div><strong>Telefone:</strong> ${escapeHtml(data.clienteTelefone)}</div>` : ""}
+      </div>
+
+      <div class="section">
+        <div class="section-title">PEÇAS DISPONÍVEIS</div>
+        <table><thead><tr><th>ROL</th><th>ENTRADA</th><th>PEÇA</th><th>LOCAL</th><th>QTD.</th></tr></thead>
+          <tbody>${data.itens.map((item) => `<tr><td>${osNumero}</td><td>${formatRolDate(data.dataEmissao)}</td><td>${escapeHtml(item.nome)}</td><td>${escapeHtml(item.posicaoPrateleira || "—")}</td><td>${escapeHtml(`${formatRolQuantity(item.quantidade)} ${formatRolUnit(item.unidade)}`)}</td></tr>`).join("")}</tbody>
+        </table>
+        <div class="row total" style="margin-top: 5px;"><span>VOLUMES DISPONÍVEIS:</span><span>${escapeHtml(formatRolQuantitySummary(data.itens))}</span></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">ROL / PAGAMENTO</div>
+        <div class="row"><span>VALOR DO ROL:</span><span>${formatRolMoney(data.valorTotal)}</span></div>
+        ${(data.taxaEntrega ?? 0) > 0 ? `<div class="row"><span>TAXA DE DELIVERY:</span><span>${formatRolMoney(data.taxaEntrega)}</span></div>` : ''}
+        ${data.deliveryModelo === "km" && data.deliveryDistanciaKm != null ? `<div class="row"><span>DISTÂNCIA COBRADA:</span><span>${formatRolQuantity(data.deliveryDistanciaKm)} km</span></div><div class="row"><span>TARIFA:</span><span>${formatRolMoney(data.deliveryTaxaBase ?? 0)} base + ${formatRolMoney(data.deliveryTaxaKm ?? 0)}/km</span></div>` : ''}
+        <div class="row"><span>VALOR RECEBIDO:</span><span>${formatRolMoney(paid)}</span></div>
+        <div class="row total"><span>VALOR EM ABERTO:</span><span>${formatRolMoney(outstanding)}</span></div>
+        <div class="row"><span>FORMA DE RECEBIMENTO:</span><span>${escapeHtml(data.formaPagamento || getRolCommercialSummary(data).preferredMethod || "Não informada")}</span></div>
+      </div>
+
+      <div class="section location">LOCALIZAÇÃO PARA RETIRADA<br />${escapeHtml(locationLabel)}</div>
+      ${data.observacoes ? `<div class="section"><strong>Observações:</strong> ${escapeHtml(data.observacoes)}</div>` : ""}
+      ${config.assinaturaCliente ? `<div class="signature"><div class="signature-line"></div><div class="muted">Assinatura do Cliente</div></div>` : ""}
+      <div class="footer"><div>${escapeHtml(config.textoRodape || "Obrigado pela preferência!")}</div><div class="muted">${escapeHtml(config.slogan)}</div></div>
+    </body></html>
   `;
 }
 

@@ -35,51 +35,27 @@ export function validarCPF(cpf: string): boolean {
 /**
  * Valida dígitos verificadores de CNPJ
  */
+export function normalizarCnpj(cnpj: string): string {
+  return cnpj.toUpperCase().replace(/[./-]/g, "");
+}
+
 export function validarCNPJ(cnpj: string): boolean {
-  const cleaned = cnpj.replace(/\D/g, '');
-  
-  if (cleaned.length !== 14) return false;
-  
-  // Verifica se todos os dígitos são iguais
-  if (/^(\d)\1{13}$/.test(cleaned)) return false;
-  
-  // Valida primeiro dígito verificador
-  let tamanho = cleaned.length - 2;
-  let numeros = cleaned.substring(0, tamanho);
-  const digitos = cleaned.substring(tamanho);
-  let soma = 0;
-  let pos = tamanho - 7;
-  
-  for (let i = tamanho; i >= 1; i--) {
-    soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-  
-  let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
-  if (resultado !== parseInt(digitos.charAt(0))) return false;
-  
-  // Valida segundo dígito verificador
-  tamanho = tamanho + 1;
-  numeros = cleaned.substring(0, tamanho);
-  soma = 0;
-  pos = tamanho - 7;
-  
-  for (let i = tamanho; i >= 1; i--) {
-    soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
-    if (pos < 2) pos = 9;
-  }
-  
-  resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
-  if (resultado !== parseInt(digitos.charAt(1))) return false;
-  
-  return true;
+  const cleaned = normalizarCnpj(cnpj);
+  if (!/^[A-Z0-9]{12}\d{2}$/.test(cleaned) || /^(\d)\1{13}$/.test(cleaned)) return false;
+  const digits = Array.from(cleaned, (character) => character.charCodeAt(0) - 48);
+  const digit = (weights: number[]) => {
+    const remainder = weights.reduce((sum, weight, index) => sum + digits[index] * weight, 0) % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+  return digit([5,4,3,2,9,8,7,6,5,4,3,2]) === digits[12]
+    && digit([6,5,4,3,2,9,8,7,6,5,4,3,2]) === digits[13];
 }
 
 /**
  * Valida CPF ou CNPJ
  */
 export function validarCpfCnpj(documento: string): { valid: boolean; tipo: 'cpf' | 'cnpj' | null; erro?: string } {
-  const cleaned = documento.replace(/\D/g, '');
+  const cleaned = normalizarCnpj(documento);
   
   if (!cleaned) {
     return { valid: false, tipo: null, erro: 'Documento não informado' };
@@ -118,8 +94,8 @@ export function formatarCPF(cpf: string): string {
  * Formata CNPJ para exibição
  */
 export function formatarCNPJ(cnpj: string): string {
-  const cleaned = cnpj.replace(/\D/g, '');
-  return cleaned.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  const cleaned = normalizarCnpj(cnpj);
+  return cleaned.replace(/([A-Z0-9]{2})([A-Z0-9]{3})([A-Z0-9]{3})([A-Z0-9]{4})(\d{2})/, '$1.$2.$3/$4-$5');
 }
 
 /**
@@ -138,8 +114,8 @@ export const NATUREZAS_OPERACAO = [
   { value: 'tributacao_fora', label: 'Tributação Fora do Município', descricao: 'Serviço prestado em município diferente' },
   { value: 'isencao', label: 'Isenção', descricao: 'Serviço isento de ISS' },
   { value: 'imune', label: 'Imune', descricao: 'Prestador imune ao ISS' },
-  { value: 'exigibilidade_suspensa', label: 'Exigibilidade Suspensa', descricao: 'Exigibilidade suspensa por decisão judicial' },
-  { value: 'exportacao', label: 'Exportação de Serviços', descricao: 'Serviço prestado para o exterior' },
+  { value: 'suspensa_judicial', label: 'Exigibilidade suspensa judicialmente', descricao: 'Suspensão por decisão judicial' },
+  { value: 'suspensa_administrativa', label: 'Exigibilidade suspensa administrativamente', descricao: 'Suspensão por decisão administrativa' },
 ] as const;
 
 export type NaturezaOperacao = typeof NATUREZAS_OPERACAO[number]['value'];

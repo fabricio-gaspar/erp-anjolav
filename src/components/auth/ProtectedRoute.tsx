@@ -6,6 +6,7 @@ import { useIsAdmin, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import type { ModulePermissionKey, RoutePermissionRequirement } from "@/lib/authorization";
 import { AlertTriangle, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getLoginPath } from "@/lib/loginRouting";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -50,7 +51,8 @@ export function ProtectedRoute({
 
   if (!session) {
     // Redirect to login, preserving the intended destination
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    const loginPath = getLoginPath(location.pathname, requiredArea);
+    return <Navigate to={loginPath} state={{ from: location }} replace />;
   }
 
   if (mfaChallengeRequired && location.pathname !== "/mfa") {

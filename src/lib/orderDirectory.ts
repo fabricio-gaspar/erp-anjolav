@@ -1,54 +1,26 @@
+import { format, isValid, parseISO } from "date-fns";
+
 export const ORDER_DIRECTORY_PAGE_SIZE = 25;
-const MAX_ORDER_SEARCH_LENGTH = 80;
 
-export const ORDER_OPERATIONAL_FILTERS = [
+export const ORDER_ROL_STATUS_FILTERS = [
   "all",
-  "open",
-  "retirada",
-  "separacao",
-  "lavagem",
-  "secagem",
-  "passadoria",
-  "embalagem",
-  "expedicao",
   "entregue",
-  "cancelada",
+  "nao_entregue",
+  "retirado",
+  "a_retirar",
 ] as const;
 
-export const ORDER_PAYMENT_FILTERS = ["all", "pendente", "parcial", "pago"] as const;
-export const ORDER_QUALITY_FILTERS = ["all", "nao_iniciada", "em_analise", "aprovada", "com_pendencias"] as const;
-export const ORDER_LOGISTICS_FILTERS = [
-  "all",
-  "nao_iniciada",
-  "aguardando_coleta",
-  "coletado",
-  "aguardando_entrega",
-  "em_rota",
-  "entrega_parcial",
-  "entregue",
-  "tentativa_falha",
-  "cancelada",
-] as const;
-export const ORDER_FISCAL_FILTERS = ["all", "nao_aplicavel", "pendente", "emitida", "cancelada"] as const;
-export const ORDER_DEADLINE_FILTERS = ["all", "late", "today", "next_7_days", "without_deadline"] as const;
+export const ORDER_REPORT_PAYMENT_FILTERS = ["all", "pago", "nao_pago"] as const;
 
-export type OrderOperationalFilter = typeof ORDER_OPERATIONAL_FILTERS[number];
-export type OrderPaymentFilter = typeof ORDER_PAYMENT_FILTERS[number];
-export type OrderQualityFilter = typeof ORDER_QUALITY_FILTERS[number];
-export type OrderLogisticsFilter = typeof ORDER_LOGISTICS_FILTERS[number];
-export type OrderFiscalFilter = typeof ORDER_FISCAL_FILTERS[number];
-export type OrderDeadlineFilter = typeof ORDER_DEADLINE_FILTERS[number];
+export type OrderRolStatusFilter = typeof ORDER_ROL_STATUS_FILTERS[number];
+export type OrderReportPaymentFilter = typeof ORDER_REPORT_PAYMENT_FILTERS[number];
+export type RolReportStatus = Exclude<OrderRolStatusFilter, "all"> | "cancelado";
 
 export interface OrderDirectoryFilters {
-  orderSearch: string;
-  clientSearch: string;
-  responsibleSearch: string;
-  operational: OrderOperationalFilter;
-  payment: OrderPaymentFilter;
-  quality: OrderQualityFilter;
-  logistics: OrderLogisticsFilter;
-  fiscal: OrderFiscalFilter;
-  deadline: OrderDeadlineFilter;
+  rolStatus: OrderRolStatusFilter;
+  payment: OrderReportPaymentFilter;
+  dataInicio: string;
+  dataFim: string;
 }
 
 export function normalizeOrderDirectoryPage(value: string | number | null | undefined): number {
@@ -64,44 +36,22 @@ export function normalizeOrderDirectoryFilter<T extends string>(
   return value && allowed.includes(value as T) ? value as T : fallback;
 }
 
-export function sanitizeOrderDirectorySearch(term: string): string {
-  const chunks = term.normalize("NFKC").match(/[\p{L}\p{N}]+/gu) ?? [];
-  return [...chunks.join(" ")].slice(0, MAX_ORDER_SEARCH_LENGTH).join("").trim();
+export function normalizeOrderDirectoryDate(value: string | null | undefined): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+  const parsed = parseISO(value);
+  return isValid(parsed) && format(parsed, "yyyy-MM-dd") === value ? value : "";
 }
 
-export function buildOrderDirectoryPattern(term: string): string | null {
-  const safeTerm = sanitizeOrderDirectorySearch(term);
-  if (!safeTerm) return null;
-  return `%${safeTerm.split(/\s+/).filter(Boolean).join("%")}%`;
+export function classifyRolReportStatus(status: string | null | undefined): RolReportStatus {
+  if (status === "entregue") return "entregue";
+  if (status === "expedicao") return "a_retirar";
+  if (status === "retirada") return "retirado";
+  if (status === "cancelada") return "cancelado";
+  return "nao_entregue";
 }
 
-export function buildOrderIdentifierPattern(term: string): string | null {
-  const safeTerm = sanitizeOrderDirectorySearch(term);
-  if (!safeTerm) return null;
-  const chunks = safeTerm.match(/[\p{L}]+|\p{N}+/gu) ?? [];
-  return chunks.length > 0 ? `%${chunks.join("%")}%` : null;
-}
-
-export function buildOrderDirectoryRelatedFilter(term: string, fields: readonly string[]): string | null {
-  const pattern = buildOrderDirectoryPattern(term);
-  if (!pattern) return null;
-  return fields.map((field) => `${field}.ilike.${pattern}`).join(",");
-}
-
-export function buildOrderDirectoryClientFilter(term: string): string | null {
-  const safeTerm = sanitizeOrderDirectorySearch(term);
-  if (!safeTerm) return null;
-  const namePattern = `%${safeTerm.split(/\s+/).filter(Boolean).join("%")}%`;
-  const digits = safeTerm.replace(/\D/g, "");
-  const identityPattern = digits.length >= 3 ? `%${[...digits].join("%")}%` : namePattern;
-
-  return [
-    `razao_social.ilike.${namePattern}`,
-    `nome_fantasia.ilike.${namePattern}`,
-    `cpf_cnpj.ilike.${identityPattern}`,
-    `telefone.ilike.${identityPattern}`,
-    `telefone2.ilike.${identityPattern}`,
-  ].join(",");
+export function classifyRolReportPayment(status: string | null | undefined): Exclude<OrderReportPaymentFilter, "all"> {
+  return status === "pago" ? "pago" : "nao_pago";
 }
 
 export function getOrderDirectoryRange(page: number, pageSize = ORDER_DIRECTORY_PAGE_SIZE) {
@@ -116,14 +66,9 @@ export function getOrderDirectoryRange(page: number, pageSize = ORDER_DIRECTORY_
 
 export function hasActiveOrderDirectoryFilters(filters: OrderDirectoryFilters): boolean {
   return Boolean(
-    filters.orderSearch
-    || filters.clientSearch
-    || filters.responsibleSearch
-    || filters.operational !== "all"
+    filters.rolStatus !== "all"
     || filters.payment !== "all"
-    || filters.quality !== "all"
-    || filters.logistics !== "all"
-    || filters.fiscal !== "all"
-    || filters.deadline !== "all",
+    || filters.dataInicio
+    || filters.dataFim,
   );
 }

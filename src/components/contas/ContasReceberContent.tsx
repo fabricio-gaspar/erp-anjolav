@@ -8,6 +8,7 @@ import {
   ChevronRight,
   CreditCard,
   DollarSign,
+  Download,
   FileText,
   Loader2,
   Plus,
@@ -47,6 +48,7 @@ import {
   type OrigemReceita,
 } from "@/hooks/useContasReceberUnificado";
 import { formatNumberToCurrency } from "@/lib/currencyUtils";
+import { downloadCsv } from "@/lib/csvExport";
 import {
   FINANCIAL_ACCOUNT_PAGE_SIZE,
   financialAccountDateRangeIsValid,
@@ -102,15 +104,19 @@ function originInfo(origin: string) {
   return origemLabel[origin as OrigemReceita] ?? origemLabel.manual;
 }
 
+function receivableDescription(description: string) {
+  return description.replace(/\bOrdem de Serviço\b/gi, "ROL").replace(/\bOS\b/gi, "ROL");
+}
+
 function ReceivableMobileCard({ account }: { account: ContaReceberUnificada }) {
   const origin = originInfo(account.origem);
   const OriginIcon = origin.icon;
   const balance = Math.max(Number(account.valor) - Number(account.valor_recebido), 0);
   return (
-    <article className="rounded-xl border bg-background p-4" aria-label={`Conta a receber ${account.descricao}`}>
+    <article className="rounded-xl border bg-background p-4" aria-label={`Conta a receber ${receivableDescription(account.descricao)}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="break-words font-black text-foreground">{account.descricao}</h3>
+          <h3 className="break-words font-black text-foreground">{receivableDescription(account.descricao)}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{account.cliente_nome || "Cliente não informado"}</p>
         </div>
         <StatusBadge variant={statusVariant(account.status)}>{statusLabel(account.status)}</StatusBadge>
@@ -205,6 +211,19 @@ const ContasReceberContent = () => {
     return "Todos os vencimentos";
   }, [endDate, startDate]);
 
+  const exportCurrentPage = () => {
+    downloadCsv(`contas-a-receber-pagina-${page}.csv`, accounts, [
+      { header: "Descrição", value: (account) => receivableDescription(account.descricao) },
+      { header: "Cliente", value: (account) => account.cliente_nome },
+      { header: "Origem", value: (account) => originInfo(account.origem).label },
+      { header: "Valor", value: (account) => account.valor },
+      { header: "Valor recebido", value: (account) => account.valor_recebido },
+      { header: "Saldo", value: (account) => Math.max(Number(account.valor) - Number(account.valor_recebido), 0) },
+      { header: "Vencimento", value: (account) => account.data_vencimento },
+      { header: "Situação", value: (account) => statusLabel(account.status) },
+    ]);
+  };
+
   return (
     <>
       <div className="space-y-4">
@@ -240,9 +259,14 @@ const ContasReceberContent = () => {
               </div>
               <p className="mt-1 text-sm text-muted-foreground">Origens consolidadas sem duplicar venda, fatura ou recebimento.</p>
             </div>
-            <Button className="min-h-11 w-full gap-2 bg-success font-bold hover:bg-success/90 lg:w-auto" onClick={() => setShowNovaCobranca(true)}>
-              <Plus className="h-4 w-4" /> Nova cobrança Asaas
-            </Button>
+            <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+              <Button variant="outline" className="min-h-11 gap-2" onClick={exportCurrentPage} disabled={accounts.length === 0}>
+                <Download className="h-4 w-4" />Exportar página
+              </Button>
+              <Button className="min-h-11 w-full gap-2 bg-success font-bold hover:bg-success/90 lg:w-auto" onClick={() => setShowNovaCobranca(true)}>
+                <Plus className="h-4 w-4" /> Nova cobrança Asaas
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-3 border-b p-4 md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_170px_160px_150px_150px_auto]">
@@ -343,7 +367,7 @@ const ContasReceberContent = () => {
                       const balance = Math.max(Number(account.valor) - Number(account.valor_recebido), 0);
                       return (
                         <TableRow key={`${account.origem}-${account.id}`}>
-                          <TableCell className="font-bold">{account.descricao}</TableCell>
+                          <TableCell className="font-bold">{receivableDescription(account.descricao)}</TableCell>
                           <TableCell className="text-muted-foreground">{account.cliente_nome || "—"}</TableCell>
                           <TableCell><Badge variant="outline" className={`gap-1 text-xs ${accountOrigin.className}`}><OriginIcon className="h-3 w-3" />{accountOrigin.label}</Badge></TableCell>
                           <TableCell className="text-right font-semibold">R$ {formatNumberToCurrency(Number(account.valor))}</TableCell>

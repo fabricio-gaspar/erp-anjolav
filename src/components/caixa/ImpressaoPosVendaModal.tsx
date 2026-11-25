@@ -7,7 +7,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, CheckCircle, Printer, Tag, FileText } from "lucide-react";
@@ -23,7 +22,6 @@ interface ImpressaoPosVendaModalProps {
   osNumero: string;
   clienteNome: string;
   valorTotal: number;
-  totalPecas: number;
   previsaoEntrega: Date;
   onComplete: () => void;
 }
@@ -35,25 +33,22 @@ export function ImpressaoPosVendaModal({
   osNumero,
   clienteNome,
   valorTotal,
-  totalPecas,
   previsaoEntrega,
   onComplete,
 }: ImpressaoPosVendaModalProps) {
   const [imprimirROL, setImprimirROL] = useState(true);
   const [imprimirEtiquetas, setImprimirEtiquetas] = useState(true);
-  const [quantidadeEtiquetas, setQuantidadeEtiquetas] = useState(totalPecas.toString());
   const [isLoading, setIsLoading] = useState(false);
 
   const { printROL, printEtiquetas } = usePrintOS(osId);
 
-  // Update quantity when modal opens or totalPecas changes
+  // Reinitialize the optional print choices for each newly created ROL.
   useEffect(() => {
     if (open) {
-      setQuantidadeEtiquetas(totalPecas.toString());
       setImprimirROL(true);
       setImprimirEtiquetas(true);
     }
-  }, [open, totalPecas]);
+  }, [open]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -75,12 +70,7 @@ export function ImpressaoPosVendaModal({
       }
 
       if (imprimirEtiquetas) {
-        const qty = Number.parseInt(quantidadeEtiquetas, 10);
-        if (!Number.isInteger(qty) || qty < 1 || qty > 999) {
-          toast.error("Informe uma quantidade de etiquetas entre 1 e 999.");
-          return;
-        }
-        const printed = await printEtiquetas(qty, osId);
+        const printed = await printEtiquetas(1, osId);
         if (!printed) {
           toast.error("Não foi possível abrir a impressão das etiquetas. Libere os pop-ups e tente novamente.");
           return;
@@ -120,9 +110,7 @@ export function ImpressaoPosVendaModal({
           {/* Resumo do ROL */}
           <div className="bg-muted/50 rounded-lg p-4 text-center">
             <p className="font-semibold text-lg">{clienteNome}</p>
-            <div className="flex justify-center gap-4 mt-2 text-sm text-muted-foreground">
-              <span>{totalPecas} peças</span>
-              <span>•</span>
+            <div className="flex justify-center mt-2 text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">
                 {formatCurrency(valorTotal)}
               </span>
@@ -173,20 +161,6 @@ export function ImpressaoPosVendaModal({
                   <span className="font-medium">Imprimir Etiquetas</span>
                 </label>
               </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="qtd-etiquetas" className="text-sm text-muted-foreground">
-                  Qtd:
-                </Label>
-                <Input
-                  id="qtd-etiquetas"
-                  type="number"
-                  value={quantidadeEtiquetas}
-                  onChange={(e) => setQuantidadeEtiquetas(e.target.value)}
-                  className="w-16 h-8 text-center"
-                  min="1"
-                  disabled={!imprimirEtiquetas}
-                />
-              </div>
             </div>
 
             <p className="rounded-lg border border-green-200 bg-green-50/50 p-3 text-xs text-green-800 dark:border-green-900 dark:bg-green-950/30 dark:text-green-200">
@@ -194,7 +168,7 @@ export function ImpressaoPosVendaModal({
             </p>
 
             <p className="text-xs text-muted-foreground text-center">
-              💡 Sugestão: 1 etiqueta por peça para identificação no processo
+              Uma etiqueta será impressa por linha de produto do ROL.
             </p>
           </div>
         </div>

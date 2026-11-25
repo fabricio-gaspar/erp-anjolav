@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Loader2, Package, Clock, Calendar, Truck, FileText, Printer, Tag, Send } from "lucide-react";
+import { ArrowLeft, Loader2, Package, PackageCheck, Clock, Calendar, Truck, FileText, Printer, Tag, Send } from "lucide-react";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -21,12 +21,11 @@ import { HistoricoTimeline } from "@/components/producao/HistoricoTimeline";
 import { FormularioEtapa } from "@/components/producao/FormularioEtapa";
 import { ImprimirOSModal } from "@/components/ordens/ImprimirOSModal";
 import { usePrintOS } from "@/hooks/usePrintOS";
-import { dispararNotificacao } from "@/services/notificacaoService";
+import { dispararNotificacaoAutomatica } from "@/services/notificacaoService";
 import { toast } from "@/hooks/use-toast";
 import { OrderStateOverview } from "@/components/ordens/OrderStateOverview";
 import { QualityDeliveryPanel } from "@/components/ordens/QualityDeliveryPanel";
 import { OrderRecordsPanel } from "@/components/ordens/OrderRecordsPanel";
-import { createIdempotencyKey } from "@/lib/idempotency";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
@@ -123,7 +122,7 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
 
   const { historico, isLoading: isLoadingHistorico } = useHistoricoProducao(ordemServicoId);
   const { itens, isLoading: isLoadingItens } = useItensOrdemServico(ordemServicoId);
-  const { printROL, printEtiqueta, isLoading: isPrinting } = usePrintOS(ordemServicoId);
+  const { printROL, printEtiqueta, printROLDisponibilidade, isLoading: isPrinting } = usePrintOS(ordemServicoId);
   const { data: mensagens, isLoading: isLoadingMensagens, isError: mensagensError } = useMensagensLog({ ordem_servico_id: ordemServicoId });
 
   if (isLoading) {
@@ -203,20 +202,27 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
                 }
                 setIsSendingWhatsApp(true);
                 try {
-                  const enviado = await dispararNotificacao("os_pronto", {
-                    cliente: ordem.cliente?.razao_social || "",
-                    telefone: ordem.cliente?.telefone || "",
-                    numero: ordem.numero,
-                    valor: formatCurrency(valorTotal),
-                    ordem_servico_id: ordemServicoId,
-                    cliente_id: ordem.cliente_id,
-                    idempotencyKey: createIdempotencyKey("whatsapp-manual"),
-                  });
+                  const evento = ordem.entrega_modalidade === "entrega"
+                    ? "rol_pronto_delivery"
+                    : "rol_pronto_retirada";
+                  const enviado = await dispararNotificacaoAutomatica(
+                    evento,
+                    ordemServicoId,
+                    `rol:${ordemServicoId}:disponivel:${ordem.entrega_modalidade === "entrega" ? "entrega" : "balcao"}`,
+                  );
+                  if (enviado.partial) {
+                    toast({
+                      title: "ROL enviado parcialmente",
+                      description: `Enviado para ${enviado.sentCount} de ${enviado.recipientCount} números. Confira os celulares cadastrados.`,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
                   toast({
-                    title: enviado
-                      ? "WhatsApp confirmado pelo WA-AKG"
+                    title: enviado.success
+                      ? (enviado.idempotent ? "Aviso já enviado anteriormente" : "WhatsApp confirmado pelo WA-AKG")
                       : "Envio de WhatsApp não confirmado",
-                    variant: enviado ? "default" : "destructive",
+                    variant: enviado.success ? "default" : "destructive",
                   });
                 } finally {
                   setIsSendingWhatsApp(false);
@@ -248,6 +254,12 @@ export function DetalhesOS({ ordemServicoId, onBack }: DetalhesOSProps) {
                 <Tag className="h-4 w-4 mr-2" />
                 Imprimir Etiqueta
               </DropdownMenuItem>
+              {canNotifyReady && (
+                <DropdownMenuItem onClick={() => printROLDisponibilidade()}>
+                  <PackageCheck className="h-4 w-4 mr-2" />
+                  Imprimir ROL disponível
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => setShowPrintModal(true)}>
                 <Printer className="h-4 w-4 mr-2" />
                 Opções de Impressão...

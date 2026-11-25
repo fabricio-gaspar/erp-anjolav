@@ -14,10 +14,11 @@ import { Archive, ChevronLeft, ChevronRight, Copy, Download, Loader2, MoreHorizo
 import { useProdutos, Produto } from "@/hooks/useProdutos";
 import { useProductDirectory } from "@/hooks/useProductDirectory";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIAS, ProdutoFilters } from "@/components/produtos/ProdutoFilters";
 import { ProdutoForm, ProdutoFormData } from "@/components/produtos/ProdutoForm";
 import { ProdutoStats } from "@/components/produtos/ProdutoStats";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { getAllowedProductUnits, type BusinessArea } from "@/lib/workspaceScope";
 import {
@@ -37,12 +38,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 const defaultFormData: ProdutoFormData = {
   codigo: "",
   nome: "",
   categoria: "",
   preco: 0,
+  tabelas_preco: ["padrao"],
   unidade: "peca",
   unidade_negocio: "ambos",
   porte: "",
@@ -65,12 +70,13 @@ const getNewProductDefaults = (area: BusinessArea): ProdutoFormData => ({
 
 const getUnitLabel = (unit: string | null | undefined) => {
   if (unit === "kg") return "kg";
-  if (unit === "metro") return "metro";
-  if (unit === "unidade") return "un.";
+  if (unit === "metro") return "m²";
+  if (unit === "unidade") return "unidade";
   return "peça";
 };
 
 const Produtos = () => {
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeArea } = useWorkspace();
   const { createProduto, updateProduto, setProdutoStatus } = useProdutos({ enabled: false });
@@ -118,6 +124,11 @@ const Produtos = () => {
   const [editingProduto, setEditingProduto] = useState<Produto | null>(null);
   const [formData, setFormData] = useState<ProdutoFormData>(() => getNewProductDefaults(activeArea));
   const [produtoToArchive, setProdutoToArchive] = useState<Produto | null>(null);
+  const [showPriceAdjustment, setShowPriceAdjustment] = useState(false);
+  const [priceAdjustmentProduct, setPriceAdjustmentProduct] = useState<Produto | null>(null);
+  const [priceAdjustmentArea, setPriceAdjustmentArea] = useState<"residencial" | "industrial">(activeArea === "industrial" ? "industrial" : "residencial");
+  const [priceAdjustmentPercent, setPriceAdjustmentPercent] = useState("");
+  const [isApplyingPriceAdjustment, setIsApplyingPriceAdjustment] = useState(false);
 
   useEffect(() => {
     const openNewProduct = searchParams.get("novo") === "1";
@@ -158,6 +169,7 @@ const Produtos = () => {
       codigo: formData.codigo || null,
       nome: formData.nome,
       preco: formData.preco,
+      tabelas_preco: formData.tabelas_preco,
       unidade: formData.unidade,
       unidade_negocio: formData.unidade_negocio,
       porte: formData.porte || null,
@@ -191,6 +203,7 @@ const Produtos = () => {
       nome: produto.nome,
       categoria: produto.categoria || "",
       preco: produto.preco,
+      tabelas_preco: produto.tabelas_preco || ["padrao"],
       unidade: produto.unidade || "peca",
       unidade_negocio: produto.unidade_negocio || "ambos",
       porte: produto.porte || "",
@@ -215,6 +228,7 @@ const Produtos = () => {
       nome: `${produto.nome} (Cópia)`,
       categoria: produto.categoria || "",
       preco: produto.preco,
+      tabelas_preco: produto.tabelas_preco || ["padrao"],
       unidade: produto.unidade || "peca",
       unidade_negocio: produto.unidade_negocio || "ambos",
       porte: produto.porte || "",
@@ -243,6 +257,39 @@ const Produtos = () => {
 
   const handleReactivate = (produto: Produto) => {
     setProdutoStatus.mutate({ id: produto.id, status: "ativo" });
+  };
+
+  const openPriceAdjustment = (produto: Produto | null = null) => {
+    setPriceAdjustmentProduct(produto);
+    setPriceAdjustmentArea(activeArea === "industrial" ? "industrial" : "residencial");
+    setPriceAdjustmentPercent("");
+    setShowPriceAdjustment(true);
+  };
+
+  const applyPriceAdjustment = async () => {
+    const percentage = Number(priceAdjustmentPercent.replace(",", "."));
+    if (!Number.isFinite(percentage) || percentage < -90 || percentage > 500) {
+      toast.error("Informe um percentual entre -90 e 500.");
+      return;
+    }
+    setIsApplyingPriceAdjustment(true);
+    try {
+      const { data, error } = await supabase.rpc("aplicar_reajuste_produtos_pdv", {
+        _area: priceAdjustmentArea,
+        _percentual: percentage,
+        _produto_id: priceAdjustmentProduct?.id ?? null,
+        _apenas_ativos: true,
+      });
+      if (error) throw error;
+      const changed = Number((data as { alterados?: number } | null)?.alterados ?? 0);
+      toast.success(`${changed} produto(s) atualizado(s).`);
+      setShowPriceAdjustment(false);
+      await refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível aplicar o reajuste.");
+    } finally {
+      setIsApplyingPriceAdjustment(false);
+    }
   };
 
   const handleExportCSV = () => {
@@ -337,14 +384,17 @@ const Produtos = () => {
 
   const isSaving = createProduto.isPending || updateProduto.isPending || setProdutoStatus.isPending;
   const areaLabel = activeArea === "residencial" ? "Doméstico" : activeArea === "industrial" ? "Industrial" : "Central";
+  const isPdvWorkspace = location.pathname.startsWith("/pdv/");
 
   return (
-    <AppLayout title="Produtos & Serviços" subtitle="Cadastro de produtos e serviços de lavanderia">
+    <AppLayout title="Catálogo" subtitle="Cadastro e preços dos produtos e serviços da lavanderia">
       <div className="page-shell">
         <PageHeader
-          eyebrow={`OPERAÇÃO ${areaLabel.toLocaleUpperCase("pt-BR")} · CATÁLOGO TÉCNICO`}
-          title="Produtos & Serviços"
-          description={`Definições técnicas e precificação da operação ${areaLabel.toLocaleLowerCase("pt-BR")}`}
+          eyebrow={isPdvWorkspace ? "Catálogo" : activeArea === "central" ? "Catálogo · todas as operações" : `OPERAÇÃO ${areaLabel.toLocaleUpperCase("pt-BR")} · CATÁLOGO`}
+          title="Catálogo"
+          description={isPdvWorkspace
+            ? "Cadastro, preços e categorias de produtos e serviços"
+            : activeArea === "central" ? "Cadastro e preços para as operações doméstica e industrial" : `Definições técnicas e precificação da operação ${areaLabel.toLocaleLowerCase("pt-BR")}`}
           actions={(
             <>
               <Button
@@ -355,6 +405,9 @@ const Produtos = () => {
               >
                 <Download className="h-4 w-4" />Exportar página
               </Button>
+              <Button variant="outline" className="w-full gap-2 sm:w-auto" onClick={() => openPriceAdjustment()}>
+                Reajustar preços
+              </Button>
               <Button
                 className="w-full gap-2 font-bold sm:w-auto"
                 onClick={() => {
@@ -362,7 +415,7 @@ const Produtos = () => {
                   else setShowForm(true);
                 }}
               >
-                <Plus className="h-4 w-4" />Novo Produto
+                <Plus className="h-4 w-4" />Novo produto ou serviço
               </Button>
             </>
           )}
@@ -373,9 +426,9 @@ const Produtos = () => {
 
           <div className="content-panel space-y-5">
             {showForm && (
-              <section className="rounded-xl border bg-muted/10 p-4" aria-label={editingProduto ? "Editar produto" : "Novo produto"}>
+              <section className="rounded-xl border bg-muted/10 p-4" aria-label={editingProduto ? "Editar produto ou serviço" : "Novo produto ou serviço"}>
                 <h2 className="mb-3 font-semibold text-foreground">
-                  {editingProduto ? "Editar produto" : "Novo produto"}
+                  {editingProduto ? "Editar produto ou serviço" : "Novo produto ou serviço"}
                 </h2>
                 <ProdutoForm
                   formData={formData}
@@ -500,6 +553,9 @@ const Produtos = () => {
                                 <DropdownMenuItem onClick={() => handleDuplicate(produto)}>
                                   <Copy className="mr-2 h-4 w-4" />Duplicar
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openPriceAdjustment(produto)}>
+                                  Ajustar preço
+                                </DropdownMenuItem>
                                 {active ? (
                                   <DropdownMenuItem onClick={() => setProdutoToArchive(produto)}>
                                     <Archive className="mr-2 h-4 w-4" />Arquivar
@@ -555,6 +611,22 @@ const Produtos = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={showPriceAdjustment} onOpenChange={setShowPriceAdjustment}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{priceAdjustmentProduct ? "Ajustar preço do produto" : "Reajustar preços do catálogo"}</DialogTitle>
+            <DialogDescription>
+              {priceAdjustmentProduct ? `Aplicar somente a ${priceAdjustmentProduct.nome}.` : "Aplicar o mesmo percentual em todos os produtos ativos da operação selecionada."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!priceAdjustmentProduct && <div className="space-y-2"><Label htmlFor="price-adjustment-area">Operação</Label><select id="price-adjustment-area" value={priceAdjustmentArea} onChange={(event) => setPriceAdjustmentArea(event.target.value as typeof priceAdjustmentArea)} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="residencial">Doméstico</option><option value="industrial">Industrial</option></select></div>}
+            <div className="space-y-2"><Label htmlFor="price-adjustment-percent">Percentual (%)</Label><Input id="price-adjustment-percent" inputMode="decimal" value={priceAdjustmentPercent} onChange={(event) => setPriceAdjustmentPercent(event.target.value)} placeholder="Ex.: 10 ou -5" /><p className="text-xs text-muted-foreground">Use valor positivo para aumentar e negativo para reduzir.</p></div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setShowPriceAdjustment(false)}>Cancelar</Button><Button onClick={() => void applyPriceAdjustment()} disabled={isApplyingPriceAdjustment}>{isApplyingPriceAdjustment ? "Aplicando…" : "Aplicar reajuste"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={Boolean(produtoToArchive)} onOpenChange={open => !open && setProdutoToArchive(null)}>
         <AlertDialogContent>

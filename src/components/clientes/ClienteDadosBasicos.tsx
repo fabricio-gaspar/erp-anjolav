@@ -53,6 +53,7 @@ interface ClienteDadosBasicosProps {
   clienteId: string | null;
   onNext: () => void;
   onClienteSaved: (clienteId: string) => void;
+  onSaved?: (clienteId: string) => void;
   onOpenExistingClient: (clienteId: string) => void;
   onCnpjDataLoaded?: (data: BrasilApiCnpjResponse) => void;
 }
@@ -173,6 +174,7 @@ export const ClienteDadosBasicos = ({
   clienteId,
   onNext,
   onClienteSaved,
+  onSaved,
   onOpenExistingClient,
   onCnpjDataLoaded,
 }: ClienteDadosBasicosProps) => {
@@ -460,6 +462,7 @@ export const ClienteDadosBasicos = ({
       const savedClient = await saveIdentity.mutateAsync(snapshot);
       onClienteSaved(savedClient.id);
       if (goNext) onNext();
+      else onSaved?.(savedClient.id);
     } catch {
       // O hook apresenta a causa e o estado local é mantido para uma nova tentativa.
     }
@@ -770,7 +773,7 @@ export const ClienteDadosBasicos = ({
           <FormField
             id="client-phone"
             className="pdv-client-field--phone"
-            label="Telefone principal"
+            label="Celular / WhatsApp 1"
             optional
             error={errors.phone}
           >
@@ -1047,7 +1050,7 @@ export const ClienteDadosBasicos = ({
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             <FormField
               id="client-secondary-phone"
-              label="Telefone alternativo"
+              label="Celular / WhatsApp 2"
               optional
               error={errors.secondaryPhone}
             >
@@ -1067,6 +1070,7 @@ export const ClienteDadosBasicos = ({
               />
             </FormField>
           </div>
+          <p className="text-xs text-muted-foreground md:col-span-2 xl:col-span-3">Quando os dois números estiverem preenchidos, os avisos de entrada e disponibilidade do ROL serão enviados para ambos.</p>
           <FormField
             id="client-notes"
             label="Observações"

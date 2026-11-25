@@ -40,56 +40,56 @@ const OPTIONS = [
 export default function PdvServiceSelector({ operation }: PdvServiceSelectorProps) {
   const navigate = useNavigate();
   const root = operation === "industrial" ? "/pdv/industrial" : "/pdv/domestico";
-  const operationLabel = operation === "industrial" ? "Industrial" : "Doméstica";
 
   return (
     <PdvLayout
       variant="front"
       operation={operation}
       title="Balcão / PDV"
-      subtitle={`Operação ${operationLabel.toLowerCase()}`}
     >
-      <main className="pdv-service-selector" data-testid="pdv-service-selector">
-        <button
-          type="button"
-          className="pdv-service-selector__back"
-          onClick={() => navigate(operation === "industrial" ? "/pdv/painel/industrial" : "/pdv/painel/domestico")}
-        >
-          <ArrowLeft className="h-4 w-4" /> Voltar ao painel principal
-        </button>
+      <div className="pdv-service-selector" data-testid="pdv-service-selector">
+        <div className="pdv-service-selector__content">
+          <header className="pdv-service-selector__heading pdv-page-heading">
+            <button
+              type="button"
+              className="pdv-page-heading__back"
+              aria-label="Voltar ao painel principal"
+              onClick={() => navigate(operation === "industrial" ? "/pdv/painel/industrial" : "/pdv/painel/domestico")}
+            >
+              <ArrowLeft aria-hidden="true" /> <span>Voltar</span>
+            </button>
+            <span className="pdv-page-heading__divider" aria-hidden="true" />
+            <div className="pdv-page-heading__main">
+              <span className="pdv-service-selector__eyebrow pdv-page-heading__eyebrow">Balcão / PDV</span>
+              <h1>Como deseja iniciar o atendimento?</h1>
+              <p>Escolha o tipo de operação. O atendente permanecerá no PDV durante todo o fluxo.</p>
+            </div>
+          </header>
 
-        <header className="pdv-service-selector__heading">
-          <div>
-            <span className="pdv-service-selector__eyebrow">Balcão / PDV</span>
-            <h1>Como deseja iniciar o atendimento?</h1>
-            <p>Escolha o tipo de operação. O atendente permanecerá no PDV durante todo o fluxo.</p>
-          </div>
-          <span className="pdv-service-selector__context">Operação {operationLabel}</span>
-        </header>
-
-        <section className="pdv-service-selector__grid" aria-label="Tipos de atendimento">
-          {OPTIONS.map((option) => {
-            const Icon = option.icon;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                data-testid={`pdv-service-${option.id}`}
-                className={cn("pdv-service-card", `pdv-service-card--${option.tone}`)}
-                onClick={() => navigate(`${root}/${option.id}`)}
-              >
-                <span className="pdv-service-card__icon"><Icon aria-hidden="true" /></span>
-                <span className="pdv-service-card__copy">
-                  <small>{option.helper}</small>
-                  <strong>{option.title}</strong>
-                  <span>{option.description}</span>
-                </span>
-                <span className="pdv-service-card__action">Iniciar <ArrowRight className="h-4 w-4" /></span>
-              </button>
-            );
-          })}
-        </section>
-      </main>
+          <section className="pdv-service-selector__grid" aria-label="Tipos de atendimento">
+            {OPTIONS.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  data-testid={`pdv-service-${option.id}`}
+                  className={cn("pdv-service-card", `pdv-service-card--${option.tone}`)}
+                  onClick={() => navigate(`${root}/${option.id}`)}
+                >
+                  <span className="pdv-service-card__icon"><Icon aria-hidden="true" /></span>
+                  <span className="pdv-service-card__copy">
+                    <small>{option.helper}</small>
+                    <strong>{option.title}</strong>
+                    <span>{option.description}</span>
+                  </span>
+                  <span className="pdv-service-card__action">Iniciar <ArrowRight className="h-4 w-4" /></span>
+                </button>
+              );
+            })}
+          </section>
+        </div>
+      </div>
     </PdvLayout>
   );
 }

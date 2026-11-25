@@ -13,24 +13,24 @@ export interface ConfiguracaoPadrao {
   horario_entrega?: string;
 }
 
-// Retorna configuração padrão baseada na classificação do cliente
+// Cadastros novos não recebem coletas ou entregas recorrentes sem ativação explícita.
 export function getConfigPadraoPorClassificacao(classificacao: string): ConfiguracaoPadrao {
   if (classificacao === "industrial") {
     return {
       frequencia: "semanal",
-      dias_retirada: ["ter", "qui"],
-      dias_entrega: ["ter", "qui"],
-      horario_retirada: "08:00",
-      horario_entrega: "08:00",
+      dias_retirada: [],
+      dias_entrega: [],
+      horario_retirada: "",
+      horario_entrega: "",
     };
   } else {
     // residencial
     return {
       frequencia: "quinzenal",
-      dias_retirada: ["qua"],
-      dias_entrega: ["sex"],
-      horario_retirada: "09:00",
-      horario_entrega: "09:00",
+      dias_retirada: [],
+      dias_entrega: [],
+      horario_retirada: "",
+      horario_entrega: "",
     };
   }
 }

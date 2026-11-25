@@ -21,6 +21,7 @@ export interface DataOverview {
   };
   entities: EntityStats[];
   destructiveEnabled: boolean;
+  canDeleteTestData: boolean;
   lastUpdated: Date;
 }
 
@@ -106,6 +107,7 @@ export function useDataManagement() {
       const result = await dataAdminRequest<{
         counts: Record<string, number>;
         destructiveEnabled: boolean;
+        canDeleteTestData: boolean;
       }>({ operation: "stats" });
       const entities = entityDefinitions.map((definition) => ({
         ...definition,
@@ -123,6 +125,7 @@ export function useDataManagement() {
         categories,
         entities,
         destructiveEnabled: result.destructiveEnabled,
+        canDeleteTestData: result.canDeleteTestData,
         lastUpdated: new Date(),
       };
     },
@@ -156,18 +159,32 @@ export async function exportAllData(): Promise<Record<string, Array<Record<strin
 
 export async function deleteEntityData(table: string): Promise<number> {
   if (!knownTables.has(table)) throw new Error("Tabela não autorizada para exclusão");
-  const result = await dataAdminRequest<{ deleted: number }>({
-    operation: "delete-table",
-    table,
-    confirmation: `EXCLUIR:${table}`,
-  });
+  const result = await deleteEntitiesData([table]);
+  if (result.errors.length > 0) {
+    throw new Error(`Não foi possível excluir todas as dependências: ${result.errors.join(", ")}`);
+  }
   return result.deleted;
+}
+
+export async function deleteEntitiesData(
+  tables: string[],
+  confirmation = "EXCLUIR SELECIONADOS",
+): Promise<{ deleted: number; errors: string[]; expanded?: string[] }> {
+  const normalized = [...new Set(tables)];
+  if (normalized.length === 0 || normalized.some((table) => !knownTables.has(table))) {
+    throw new Error("Entidade não autorizada para exclusão");
+  }
+  return dataAdminRequest({
+    operation: "delete-tables",
+    tables: normalized,
+    confirmation,
+  });
 }
 
 export async function deleteAllData(): Promise<{ deleted: number; errors: string[] }> {
   return dataAdminRequest({
-    operation: "delete-all",
-    confirmation: "ZERAR DADOS OPERACIONAIS",
+    operation: "delete-test-data",
+    confirmation: "ZERAR DADOS DE TESTE",
   });
 }
 

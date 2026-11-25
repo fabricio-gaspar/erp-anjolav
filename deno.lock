@@ -8,6 +8,8 @@
       "dependencies": [
         "npm:@eslint/js@^9.32.0",
         "npm:@hookform/resolvers@^3.10.0",
+        "npm:@maplibre/maplibre-gl-leaflet@~0.1.4",
+        "npm:@playwright/test@^1.64.1",
         "npm:@radix-ui/react-accordion@^1.2.11",
         "npm:@radix-ui/react-alert-dialog@^1.1.14",
         "npm:@radix-ui/react-aspect-ratio@^1.1.7",
@@ -48,6 +50,7 @@
         "npm:clsx@^2.1.1",
         "npm:cmdk@^1.1.1",
         "npm:date-fns@^3.6.0",
+        "npm:deno@^2.9.6",
         "npm:embla-carousel-react@^8.6.0",
         "npm:eslint-plugin-react-hooks@^5.2.0",
         "npm:eslint-plugin-react-refresh@~0.4.20",
@@ -56,6 +59,7 @@
         "npm:input-otp@^1.4.2",
         "npm:leaflet@^1.9.4",
         "npm:lucide-react@0.462",
+        "npm:maplibre-gl@^6.17.0",
         "npm:next-themes@0.3",
         "npm:postcss@^8.5.6",
         "npm:qrcode.react@^4.2.0",
@@ -74,6 +78,7 @@
         "npm:typescript-eslint@^8.38.0",
         "npm:typescript@^5.8.3",
         "npm:vaul@~0.9.9",
+        "npm:vite-plugin-pwa@2.0.0",
         "npm:vite@^6.4.3",
         "npm:zod@^3.25.76"
       ]

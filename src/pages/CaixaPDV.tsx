@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PdvLayout } from "@/components/layout/PdvLayout";
@@ -7,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Archive,
+  BarChart3,
+  CheckCircle2,
   Search,
-  FileSearch,
   ArrowDownCircle,
   ArrowUpCircle,
-  Lock,
   ShoppingCart,
   Trash2,
   Plus,
@@ -27,8 +28,6 @@ import {
   UserRound,
   UserPlus,
   CalendarDays,
-  ChevronDown,
-  MapPin,
   X,
   Phone,
   Mail,
@@ -36,17 +35,27 @@ import {
   Pencil,
   Printer,
   Package,
+  PackageCheck,
   ClipboardList,
   Boxes,
   Truck,
   CalendarRange,
   MoreHorizontal,
   Banknote,
-  QrCode,
+  Smartphone,
   CircleCheck,
   ArrowLeft,
   Save,
   Calculator,
+  MessageSquare,
+  Wifi,
+  WifiOff,
+  CircleAlert,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Wrench,
+  ReceiptText,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProdutos, Produto } from "@/hooks/useProdutos";
@@ -61,11 +70,14 @@ import { FecharCaixaModal } from "@/components/caixa/FecharCaixaModal";
 import { SangriaModal } from "@/components/caixa/SangriaModal";
 import { SuprimentoModal } from "@/components/caixa/SuprimentoModal";
 import { ConsultarOSModal } from "@/components/caixa/ConsultarOSModal";
-import { ReceberPagamentoModal, type PixRecebimentoRequest } from "@/components/caixa/ReceberPagamentoModal";
-import { PixPagamentoModal } from "@/components/caixa/PixPagamentoModal";
+import { ConsultarOrcamentosPdvModal } from "@/components/caixa/ConsultarOrcamentosPdvModal";
+import { ReceberPagamentoModal } from "@/components/caixa/ReceberPagamentoModal";
 import { ListaDoDiaModal } from "@/components/caixa/ListaDoDiaModal";
+import { DisponibilizacaoDoDiaModal } from "@/components/caixa/DisponibilizacaoDoDiaModal";
 import { PdvFulfillmentPanel, type PdvFulfillmentSettings } from "@/components/caixa/PdvFulfillmentPanel";
-import { CadastroRapidoClienteModal } from "@/components/caixa/CadastroRapidoClienteModal";
+import { CadastroCompletoClientePdvModal } from "@/components/caixa/CadastroCompletoClientePdvModal";
+import { PdvWhatsAppDeviceModal } from "@/components/caixa/PdvWhatsAppDeviceModal";
+import { CreditoClienteModal } from "@/components/caixa/CreditoClienteModal";
 import { useSavePdvQuote } from "@/hooks/usePdvQuotes";
 
 import { AjudaAtalhosModal } from "@/components/caixa/AjudaAtalhosModal";
@@ -74,14 +86,23 @@ import { toast } from "sonner";
 import { addDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { usePrintOS } from "@/hooks/usePrintOS";
-import { useCreatePdvSale, usePdvCapacity, usePdvCustomerLoyaltySummary, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
-import { createPdvIdempotencyKey, type PdvPixPayment } from "@/lib/pdvPayment";
+import { useApplyPdvCustomerCredit, useCreatePdvSale, usePdvCapacity, usePdvCustomerCreditSummary, usePdvCustomerLoyaltySummary, useRecordPdvPayment, useRedeemPdvLoyalty } from "@/hooks/usePdvPayments";
+import { createPdvIdempotencyKey } from "@/lib/pdvPayment";
+import type { PdvSaleRequest } from "@/lib/pdvSale";
+import { isOfflineLikeError } from "@/lib/offlinePolicy";
+import { createOfflineLocalReference, printOfflinePdvReceipt } from "@/lib/offlineReceipt";
+import type { OfflinePdvReceipt } from "@/lib/offlineStore";
 import { getCanonicalPdvPath } from "@/lib/authorization";
+import { supabase } from "@/integrations/supabase/client";
+import { usePdvCommercialRules } from "@/hooks/usePdvCommercialRules";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { calculateDeliveryFee, calculateDistanceKm } from "@/lib/deliveryPricing";
 
 
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useOperationalContext } from "@/contexts/OperationalContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOfflineRuntime } from "@/contexts/OfflineRuntimeContext";
 import { useNavigationAccess, usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { buildClientPriceCatalog, CLIENT_PRICE_MODE_LABELS, normalizeClientPriceMode } from "@/lib/clientPricing";
 import { getDefaultPdvDeliveryDate } from "@/lib/pdvFulfillment";
@@ -115,6 +136,7 @@ import "@/styles/pdv-cashier.css";
 
 interface CartItem {
   id: string;
+  cartLineId?: string;
   nome: string;
   codigo?: string | null;
   descricao?: string | null;
@@ -132,6 +154,10 @@ interface CartItem {
   tipo_preco?: string;
   servicos_adicionais?: string[];
   complemento?: string;
+  metragem_m2?: number;
+  largura_m?: number;
+  comprimento_m?: number;
+  lacre?: string;
 }
 
 export type PdvServiceMode = "rol" | "delivery" | "orcamento";
@@ -143,23 +169,28 @@ interface OSRecemCriada {
   previsaoEntrega: Date;
 }
 
-interface PixFlowContext {
-  orderId: string;
-  orderNumber: string;
-  amount: number;
-  cashRegisterId: string;
-  moment: "ENTRADA" | "RETIRADA";
-  idempotencyKey: string;
-  initialPix?: PdvPixPayment | null;
-  initialError?: string | null;
-  source: "sale" | "receivable";
-}
-
 interface DiscardRequest {
   title: string;
   description: string;
   confirmLabel: string;
   action: () => void;
+}
+
+interface PdvShortcutModule {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  path?: string;
+  action?: "fechar-caixa";
+  permissionPath: string;
+}
+
+function readPdvSidebarCollapsed(key: string) {
+  try {
+    return typeof window !== "undefined" && window.localStorage.getItem(key) === "collapsed";
+  } catch {
+    return false;
+  }
 }
 
 interface PdvPaymentSelection {
@@ -181,15 +212,78 @@ const getPdvUnitDisplay = (unidade: string) => {
   switch (unidade) {
     case "Pç": return "Peça";
     case "Kg": return "Kg";
-    case "Mt": return "Mt";
-    case "Un": return "Un";
+    case "Mt": return "m²";
+    case "Un": return "Unidade";
     default: return unidade;
   }
 };
 
-const formatCarga = (value: number) => new Intl.NumberFormat("pt-BR", {
+const getPriceUnitLabel = (unidade: string) => {
+  switch (unidade) {
+    case "Pç": return "peça";
+    case "Kg": return "kg";
+    case "Mt": return "m²";
+    case "Un": return "unidade";
+    default: return unidade;
+  }
+};
+
+const getQuantityInputLabel = (unidade: string) => {
+  if (unidade === "Kg") return "Peso (kg)";
+  if (unidade === "Pç") return "Quantidade (peças)";
+  if (unidade === "Un") return "Quantidade (unidades)";
+  return "Quantidade";
+};
+
+const isMeterUnit = (unidade: string) => ["mt", "m", "metro", "metros", "m²", "m2"].includes(unidade.trim().toLowerCase());
+
+const formatMetres = (value: number) => new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 }).format(value);
+
+const formatSquareMetres = (value: number) => new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 4,
+}).format(value);
+
+const getCartLineKey = (item: CartItem) => item.cartLineId ?? item.id;
+
+const getLineTotal = (item: CartItem) => Math.round((item.preco * item.quantidade + Number.EPSILON) * 100) / 100;
+
+const hasValidMeterArea = (item: CartItem) => {
+  if (!isMeterUnit(item.unidade)) return true;
+  const area = item.metragem_m2;
+  if (!Number.isFinite(area) || Number(area) <= 0 || Math.abs(item.quantidade - Number(area)) > 0.000001) return false;
+  const hasWidth = Number(item.largura_m) > 0;
+  const hasLength = Number(item.comprimento_m) > 0;
+  if (hasWidth !== hasLength) return false;
+  if (!hasWidth) return true;
+  const calculatedArea = Number((Number(item.largura_m) * Number(item.comprimento_m)).toFixed(4));
+  return Math.abs(calculatedArea - Number(area)) < 0.0001;
+};
+
+const formatCarga = (value: number) => new Intl.NumberFormat("pt-BR", {
+  maximumFractionDigits: 0,
+}).format(value);
+
+const normalizeSearchText = (value?: string | null) =>
+  (value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+const matchesSearch = (query: string, ...values: Array<string | null | undefined>) => {
+  const prefix = normalizeSearchText(query);
+  return Boolean(prefix) && values.some((value) => normalizeSearchText(value).startsWith(prefix));
+};
+
+const searchRank = (query: string, ...values: Array<string | null | undefined>) => {
+  const normalizedQuery = normalizeSearchText(query);
+  const normalizedValues = values.map(normalizeSearchText).filter(Boolean);
+  if (!normalizedQuery) return 99;
+  if (normalizedValues.some((value) => value === normalizedQuery)) return 0;
+  if (normalizedValues.some((value) => value.startsWith(normalizedQuery))) return 1;
+  if (normalizedValues.some((value) => value.split(/\s+/).some((word) => word.startsWith(normalizedQuery)))) return 2;
+  return 3;
+};
 
 const isValidQuantity = (value: number, unidade: string) =>
   Number.isFinite(value) && value > 0 && value <= 999 &&
@@ -200,6 +294,7 @@ const createInitialFulfillment = (mode: PdvServiceMode = "rol"): PdvFulfillmentS
   urgent: false,
   receiptMode: mode === "delivery" ? "coleta" : "balcao",
   deliveryMode: mode === "delivery" ? "entrega" : "balcao",
+  deliveryFee: 0,
   driverId: "",
   vehicleId: "",
   capacityOverride: false,
@@ -220,33 +315,72 @@ const CaixaPDV = ({ mode = "rol" }: { mode?: PdvServiceMode }) => {
 
 const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
 
-  const { search } = useLocation();
+  const location = useLocation();
+  const { search } = location;
   const navigate = useNavigate();
   const { activeArea } = useWorkspace();
+  const { activeTenant, funcionario, user } = useAuth();
+  const queryClient = useQueryClient();
+  const offlineRuntime = useOfflineRuntime();
   const area = activeArea === "industrial" ? "industrial" : "residencial";
   const areaLabel = area === "industrial" ? "Industrial" : "Doméstico";
+  const { data: commercialRules } = usePdvCommercialRules(area);
+  const { configuracao: configuracaoGeral } = useConfiguracoesGerais(offlineRuntime.isOperationalOnline);
   const { setOperationSwitchLocked } = useOperationalContext();
   const { canAccessRoute } = useNavigationAccess();
   const { allowed: canOperateCaixa } = usePermissaoModulo("caixa");
+  const { allowed: canManageOrders } = usePermissaoModulo("ordens");
   const canUseLoyalty = area === "residencial" && canOperateCaixa;
   const { allowed: canManageCommercialTerms } = usePermissaoModulo("alterar_condicoes_comerciais");
   const canManageContracts = canAccessRoute("/" + area + "/clientes");
   const canCreateClient = canAccessRoute("/" + area + "/clientes");
   const canCreateSale = canAccessRoute("/" + area + "/caixa");
   const canViewDayList = area === "residencial" && canAccessRoute("/residencial/agenda");
-  const { produtos, isLoading: isLoadingProdutos, isError: productsError, refetch: refetchProducts } = useProdutos();
+  const { produtos, isLoading: isLoadingProdutos, isError: productsError, refetch: refetchProducts } = useProdutos({
+    enabled: offlineRuntime.isOperationalOnline,
+  });
   const {
     clientes,
     isLoading: isLoadingClientes,
     isError: clientsError,
     refetch: refetchClients,
-  } = useClientes();
-  const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto(canOperateCaixa);
-  const canReceivePayments = canOperateCaixa && !!caixaAberto;
+  } = useClientes({ enabled: offlineRuntime.isOperationalOnline });
+  const { data: caixaAberto, isLoading: isLoadingCaixa } = useCaixaAberto(
+    canOperateCaixa && offlineRuntime.isOperationalOnline,
+  );
+  const canReceivePayments = offlineRuntime.isOperationalOnline && canOperateCaixa && !!caixaAberto;
+  const whatsappProviderStatus = useQuery({
+    queryKey: ["pdv-whatsapp-provider-status", activeTenant?.id],
+    enabled: Boolean(activeTenant?.id) && offlineRuntime.isOperationalOnline && canOperateCaixa,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("whatsapp-gateway", { body: { action: "status" } });
+      if (error || data?.error) throw new Error(typeof data?.error === "string" ? data.error : error?.message || "Falha ao consultar o WhatsApp");
+      return { connected: data?.connected === true, status: String(data?.status || "desconectado") };
+    },
+    staleTime: 30_000,
+    refetchInterval: offlineRuntime.isOperationalOnline && canOperateCaixa ? 60_000 : false,
+    retry: 1,
+  });
+  const whatsappProviderState = whatsappProviderStatus.isFetching
+    ? "consultando"
+    : whatsappProviderStatus.isError
+      ? "erro"
+      : whatsappProviderStatus.data?.connected
+        ? "conectado"
+        : ["connecting", "conectando", "aguardando_scan", "qr_ready", "starting"].includes(whatsappProviderStatus.data?.status.toLowerCase() ?? "")
+          ? "conectando"
+          : "desconectado";
+  const whatsappProviderLabel = whatsappProviderState === "conectado" ? "Conectado"
+    : whatsappProviderState === "conectando" ? "Conectando"
+      : whatsappProviderState === "erro" ? "Erro"
+        : whatsappProviderState === "consultando" ? "Verificando"
+          : "Desconectado";
   const createPdvSale = useCreatePdvSale();
+  const recordPdvPayment = useRecordPdvPayment();
   const savePdvQuote = useSavePdvQuote();
   const redeemLoyalty = useRedeemPdvLoyalty();
-  const { printROL, printEtiqueta } = usePrintOS();
+  const applyCustomerCredit = useApplyPdvCustomerCredit();
+  const { printROL, printEtiqueta, printROLDisponibilidade } = usePrintOS();
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const clientSearchRef = useRef<HTMLInputElement>(null);
@@ -260,8 +394,14 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   const [showContracts, setShowContracts] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const { data: customerCredit, isLoading: isLoadingCustomerCredit } = usePdvCustomerCreditSummary(
+    selectedClientId,
+    canOperateCaixa && offlineRuntime.isOperationalOnline,
+  );
   const [showClientList, setShowClientList] = useState(false);
-  const [showQuickClientModal, setShowQuickClientModal] = useState(false);
+  const [showFullClientModal, setShowFullClientModal] = useState(false);
+  const [showCustomerCreditModal, setShowCustomerCreditModal] = useState(false);
+  const [customerCreditMode, setCustomerCreditMode] = useState<"add" | "subtract">("add");
   const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(() => createInitialFulfillment(mode));
   const [fulfillmentDraft, setFulfillmentDraft] = useState<PdvFulfillmentSettings | null>(null);
   const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
@@ -273,10 +413,12 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   
   // Estados para modais de pagamento e impressão
   const [showPagamentoModal, setShowPagamentoModal] = useState(false);
+  const [paymentAdjustmentOnly, setPaymentAdjustmentOnly] = useState(false);
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [showImpressaoModal, setShowImpressaoModal] = useState(false);
   const [osRecemCriada, setOsRecemCriada] = useState<OSRecemCriada | null>(null);
+  const [offlineReceipt, setOfflineReceipt] = useState<OfflinePdvReceipt | null>(null);
   const [isProcessingVenda, setIsProcessingVenda] = useState(false);
-  const [pixContext, setPixContext] = useState<PixFlowContext | null>(null);
   const saleIdempotencyRef = useRef<string | null>(null);
   const submittingRef = useRef(false);
   const prefilledClientRef = useRef(false);
@@ -286,19 +428,30 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   const [showFecharCaixaModal, setShowFecharCaixaModal] = useState(false);
   const [showSangriaModal, setShowSangriaModal] = useState(false);
   const sangriaShortcutHandledRef = useRef(false);
+  const whatsappShortcutHandledRef = useRef(false);
   const [showSuprimentoModal, setShowSuprimentoModal] = useState(false);
   const [showConsultarOSModal, setShowConsultarOSModal] = useState(false);
+  const [showPdvQuotesModal, setShowPdvQuotesModal] = useState(false);
   const [pdvLookupMode, setPdvLookupMode] = useState<"consulta" | "posicao">("consulta");
   const [showReceberPagamentoModal, setShowReceberPagamentoModal] = useState(false);
   const [osParaReceber, setOsParaReceber] = useState<OrdemServicoConsulta | null>(null);
   
   // Novos estados para funcionalidades profissionais
-  const [showHistoricoVendas, setShowHistoricoVendas] = useState(false);
   const [showListaDia, setShowListaDia] = useState(false);
+  const [showDisponibilizacaoDia, setShowDisponibilizacaoDia] = useState(false);
+  const [showWhatsAppDeviceModal, setShowWhatsAppDeviceModal] = useState(false);
   const [showAjudaAtalhos, setShowAjudaAtalhos] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [discardRequest, setDiscardRequest] = useState<DiscardRequest | null>(null);
   const [rolNotes, setRolNotes] = useState("");
+  const [quoteValidUntil, setQuoteValidUntil] = useState(() => format(addDays(new Date(), 7), "yyyy-MM-dd"));
+
+  useEffect(() => {
+    if (!commercialRules) return;
+    setFulfillment((current) => current.deliveryFee > 0
+      ? current
+      : { ...current, deliveryFee: commercialRules.defaultDeliveryFee });
+  }, [commercialRules]);
 
   useEffect(() => {
     const params = new URLSearchParams(search);
@@ -309,30 +462,70 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     params.delete("acao");
     navigate({ search: params.toString() ? `?${params.toString()}` : "" }, { replace: true });
   }, [canReceivePayments, navigate, search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get("acao") !== "whatsapp" || whatsappShortcutHandledRef.current) return;
+
+    whatsappShortcutHandledRef.current = true;
+    setShowWhatsAppDeviceModal(true);
+    params.delete("acao");
+    navigate({ search: params.toString() ? `?${params.toString()}` : "" }, { replace: true });
+  }, [navigate, search]);
   
 
-  const { precos: precosEspeciais, isLoading: pricesLoading, isError: pricesError, refetch: refetchPrices } = usePrecosEspeciais(selectedClientId);
+  const { precos: precosEspeciais, isLoading: pricesLoading, isError: pricesError, refetch: refetchPrices } = usePrecosEspeciais(
+    selectedClientId,
+    offlineRuntime.isOperationalOnline,
+  );
   // Session-only shortcut; never restore a customer from global browser storage.
   const [ultimoClienteId, setUltimoClienteId] = useState<string | null>(null);
   const clientesFiltradosPorTipo = useMemo(() => clientes.filter(c => c.ativo && c.classificacao === area), [clientes, area]);
   const selectedClient = useMemo(() => clientesFiltradosPorTipo.find(c => c.id === selectedClientId), [clientesFiltradosPorTipo, selectedClientId]);
-  const { endereco: enderecoCliente, isLoading: enderecoLoading, isError: enderecoError } = useEnderecoCliente(selectedClient?.id ?? null);
-  const { configuracao: configuracaoPagamento, isLoading: termsLoading, isError: termsError, refetch: refetchTerms } = useConfiguracaoPagamentoCliente(selectedClient?.id ?? null);
-  const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(selectedClient?.id ?? null, canUseLoyalty);
+  const { endereco: enderecoCliente, isLoading: enderecoLoading, isError: enderecoError } = useEnderecoCliente(
+    selectedClient?.id ?? null,
+    offlineRuntime.isOperationalOnline,
+  );
+  const deliveryDistanceKm = useMemo(() => calculateDistanceKm(
+    configuracaoGeral?.endereco_latitude,
+    configuracaoGeral?.endereco_longitude,
+    enderecoCliente?.latitude,
+    enderecoCliente?.longitude,
+  ), [configuracaoGeral?.endereco_latitude, configuracaoGeral?.endereco_longitude, enderecoCliente?.latitude, enderecoCliente?.longitude]);
+  const deliveryPricing = useMemo(() => ({
+    model: commercialRules?.deliveryPricingModel ?? "fixo" as const,
+    baseFee: commercialRules?.deliveryBaseFee ?? commercialRules?.defaultDeliveryFee ?? 0,
+    feePerKm: commercialRules?.deliveryFeePerKm ?? 0,
+  }), [commercialRules]);
+  const calculatedDeliveryFee = calculateDeliveryFee(deliveryPricing, deliveryDistanceKm);
+  const { configuracao: configuracaoPagamento, isLoading: termsLoading, isError: termsError, refetch: refetchTerms } = useConfiguracaoPagamentoCliente(
+    selectedClient?.id ?? null,
+    offlineRuntime.isOperationalOnline,
+  );
+  const { data: customerLoyalty, isLoading: isLoadingCustomerLoyalty } = usePdvCustomerLoyaltySummary(
+    selectedClient?.id ?? null,
+    canUseLoyalty && offlineRuntime.isOperationalOnline,
+  );
   const deliveryDateKey = format(fulfillment.deliveryDate, "yyyy-MM-dd");
-  const { data: capacity, isLoading: capacityLoading, isError: capacityError } = usePdvCapacity(selectedClient?.id ?? null, deliveryDateKey, Boolean(selectedClient));
+  const { data: capacity, isFetching: capacityLoading, isError: capacityError } = usePdvCapacity(
+    area,
+    selectedClient?.id ?? null,
+    deliveryDateKey,
+    offlineRuntime.isOperationalOnline,
+  );
   const fulfillmentDraftDateKey = format((fulfillmentDraft ?? fulfillment).deliveryDate, "yyyy-MM-dd");
   const {
     data: fulfillmentDraftCapacity,
-    isLoading: fulfillmentDraftCapacityLoading,
+    isFetching: fulfillmentDraftCapacityLoading,
     isError: fulfillmentDraftCapacityError,
   } = usePdvCapacity(
+    area,
     selectedClient?.id ?? null,
     fulfillmentDraftDateKey,
-    Boolean(selectedClient && showFulfillmentModal),
+    Boolean(selectedClient && showFulfillmentModal && offlineRuntime.isOperationalOnline),
   );
-  const catalogLoading = isLoadingProdutos || isLoadingClientes || pricesLoading || termsLoading;
-  const catalogError = pricesError || termsError || productsError || clientsError;
+  const catalogLoading = offlineRuntime.isOperationalOnline && (isLoadingProdutos || isLoadingClientes || pricesLoading || termsLoading);
+  const catalogError = offlineRuntime.isOperationalOnline && (pricesError || termsError || productsError || clientsError);
   const catalogReady = canCreateSale && !!selectedClient && !catalogLoading && !catalogError;
   const isFaturado = configuracaoPagamento?.condicao_pagamento === "faturado";
   const paymentTerms = parseCustomerPaymentTerms(configuracaoPagamento);
@@ -345,23 +538,31 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   const getPrecoForProduto = useCallback((produto: Produto): number =>
     produtosAtivos.find(p => p.id === produto.id)?.precoAplicado ?? NaN, [produtosAtivos]);
   const invalidQuantity = cart.some(item => {
-    const raw = quantityDrafts[item.id];
+    const raw = quantityDrafts[getCartLineKey(item)];
     return raw !== undefined && (!/^\d+(?:[.,]\d+)?$/.test(raw) || !isValidQuantity(Number(raw.replace(",", ".")), item.unidade));
   });
   const cartValid = catalogReady && cart.length > 0 && !invalidQuantity && cart.every(item =>
     isValidQuantity(item.quantidade, item.unidade) && Number.isFinite(item.preco) && item.preco >= 0 &&
+    hasValidMeterArea(item) &&
     produtosAtivos.some(p => p.id === item.id && p.precoAplicado === item.preco && getUnidadeLabel(p.unidade) === item.unidade));
   const totalItems = cart.reduce((sum, item) => sum + item.quantidade, 0);
-  const totalValue = cart.reduce((sum, item) => sum + item.preco * item.quantidade, 0);
+  const totalValue = cart.reduce((sum, item) => sum + getLineTotal(item), 0);
+  const effectiveDiscount = Math.min(Math.max(0, appliedDiscount), totalValue);
+  const urgencyAmount = fulfillment.urgent
+    ? Math.max(0, (totalValue - effectiveDiscount) * (commercialRules?.urgencyPercentage ?? 30) / 100)
+    : 0;
+  const deliveryFeeAmount = fulfillment.deliveryMode === "entrega" ? Math.max(0, fulfillment.deliveryFee) : 0;
+  const totalAfterDiscount = Math.max(0, totalValue - effectiveDiscount + urgencyAmount + deliveryFeeAmount);
   const capacityLimit = Number(capacity?.limit ?? 0);
   const capacityReserved = Number(capacity?.reserved ?? 0);
+  const capacityLoad = capacityReserved + totalItems;
   const capacityProgress = capacity?.configured && Number.isFinite(capacityLimit) && capacityLimit > 0
-    ? Math.min(100, Math.max(0, ((capacityReserved + totalItems) / capacityLimit) * 100))
+    ? Math.min(100, Math.max(0, (capacityReserved / capacityLimit) * 100))
     : 0;
   const capacityAvailableAfterThisSale = capacity?.configured
     ? Number(capacity.available ?? 0) - totalItems
     : null;
-  const isCapacityExceeded = capacityAvailableAfterThisSale !== null && capacityAvailableAfterThisSale < -0.0001;
+  const isCapacityExceeded = offlineRuntime.isOperationalOnline && capacityAvailableAfterThisSale !== null && capacityAvailableAfterThisSale < -0.0001;
   const requiresOperationalAddress = fulfillment.receiptMode === "coleta" || fulfillment.deliveryMode === "entrega";
   const addressReady = Boolean(enderecoCliente?.logradouro?.trim() && enderecoCliente?.cidade?.trim() && enderecoCliente?.uf?.trim());
   const fulfillmentAddressSnapshot = enderecoCliente ? {
@@ -373,45 +574,90 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     cidade: enderecoCliente.cidade,
     uf: enderecoCliente.uf,
     pais: enderecoCliente.pais,
+    latitude: enderecoCliente.latitude,
+    longitude: enderecoCliente.longitude,
   } : undefined;
+  useEffect(() => {
+    if (!commercialRules || fulfillment.deliveryMode !== "entrega" || deliveryPricing.model !== "km") return;
+    const deliveryFee = calculatedDeliveryFee ?? 0;
+    setFulfillment((current) => current.deliveryMode === "entrega" && Math.abs(current.deliveryFee - deliveryFee) > 0.009
+      ? { ...current, deliveryFee }
+      : current);
+  }, [calculatedDeliveryFee, commercialRules, deliveryPricing.model, fulfillment.deliveryMode]);
   const fulfillmentBlockReason = (() => {
     if (!selectedClient) return "Selecione um cliente antes de definir prazo e entrega.";
-    if (isFaturado && fulfillment.urgent) return "Pedidos faturados não aceitam urgência neste fluxo.";
-    if (capacityLoading) return "Aguarde a consulta de capacidade para a data escolhida.";
-    if (capacityError) return "Não foi possível validar a capacidade da data escolhida.";
+    if (!Number.isFinite(fulfillment.deliveryDate?.getTime())) return "Informe uma previsão de entrega válida.";
+    if (format(fulfillment.deliveryDate, "yyyy-MM-dd") < format(new Date(), "yyyy-MM-dd")) return "A previsão de entrega não pode estar no passado.";
+    if (!offlineRuntime.isOperationalOnline && offlineRuntime.offlineBlockReason) return offlineRuntime.offlineBlockReason;
+    if (isFaturado && fulfillment.urgent) return "Pedidos faturados não aceitam Lavagem Expressa neste fluxo.";
+    if (offlineRuntime.isOperationalOnline && capacityLoading) return "Aguarde a consulta de capacidade para a data escolhida.";
+    if (offlineRuntime.isOperationalOnline && capacityError) return "Não foi possível validar a capacidade da data escolhida.";
     if (isCapacityExceeded && (!fulfillment.capacityOverride || !canManageCommercialTerms)) return "A data escolhida está sem capacidade para este pedido.";
-    if (requiresOperationalAddress && enderecoLoading) return "Aguarde o carregamento do endereço para coleta ou delivery.";
-    if (requiresOperationalAddress && enderecoError) return "Não foi possível validar o endereço para coleta ou delivery.";
+    if (requiresOperationalAddress && offlineRuntime.isOperationalOnline && enderecoLoading) return "Aguarde o carregamento do endereço para coleta ou delivery.";
+    if (requiresOperationalAddress && offlineRuntime.isOperationalOnline && enderecoError) return "Não foi possível validar o endereço para coleta ou delivery.";
     if (requiresOperationalAddress && !addressReady) return "Cadastre um endereço principal completo para coleta ou delivery.";
+    if (fulfillment.deliveryMode === "entrega" && deliveryPricing.model === "km" && deliveryDistanceKm == null) return "Cadastre coordenadas da empresa e do cliente para calcular a taxa por KM.";
     return null;
   })();
+  const checkoutBlockReasons = (() => {
+    if (!canCreateSale) return ["Seu perfil não tem permissão para criar atendimentos neste PDV."];
+    if (!selectedClient) return ["Selecione um cliente para carregar a tabela de preços."];
+    if (catalogLoading) return ["Aguarde a validação do cliente, catálogo e preços."];
+    if (catalogError) return ["Não foi possível validar cliente, catálogo ou preços; atualize os dados e tente novamente."];
+
+    const reasons: string[] = [];
+    if (cart.length === 0) reasons.push("Adicione pelo menos um produto ou serviço.");
+    if (invalidQuantity) reasons.push("Corrija as quantidades dos itens antes de continuar.");
+    if (cart.some((item) => !hasValidMeterArea(item))) reasons.push("Informe as medidas válidas dos produtos cobrados por área.");
+    if (cart.length > 0 && !cartValid && !invalidQuantity && cart.every((item) => hasValidMeterArea(item))) {
+      reasons.push("Confira o preço e a unidade de cada item na tabela aplicada ao cliente.");
+    }
+
+    if (mode === "orcamento") {
+      if (!quoteValidUntil) reasons.push("Defina até quando o orçamento será válido.");
+      else if (quoteValidUntil < format(new Date(), "yyyy-MM-dd")) reasons.push("A validade do orçamento não pode estar no passado.");
+      if (!offlineRuntime.isOperationalOnline) reasons.push("Conecte o PDV à internet para salvar o orçamento.");
+    } else if (selectedClient && reasons.length === 0 && fulfillmentBlockReason) {
+      reasons.push(fulfillmentBlockReason);
+    }
+    return reasons;
+  })();
+  const firstCheckoutBlockReason = checkoutBlockReasons[0] ?? null;
 
   const filteredProdutos = useMemo(() => {
-    return produtosAtivos.filter((produto) => {
-      const matchesSearch = 
-        produto.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        produto.codigo?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesSearch;
-    });
+    const termo = searchTerm.trim();
+    if (!termo) return [];
+
+    return produtosAtivos
+      .filter((produto) => matchesSearch(termo, produto.nome, produto.codigo))
+      .sort((a, b) => {
+        const rankDifference = searchRank(termo, a.nome, a.codigo) - searchRank(termo, b.nome, b.codigo);
+        return rankDifference || a.nome.localeCompare(b.nome, "pt-BR");
+      });
   }, [produtosAtivos, searchTerm]);
 
   const produtoProntoParaAdicionar = useMemo(() => {
-    const termo = searchTerm.trim().toLowerCase();
+    const termo = normalizeSearchText(searchTerm);
     if (!termo) return null;
     return filteredProdutos.find((produto) =>
-      produto.codigo?.toLowerCase() === termo || produto.nome.toLowerCase() === termo
+      normalizeSearchText(produto.codigo) === termo || normalizeSearchText(produto.nome) === termo
     ) ?? (filteredProdutos.length === 1 ? filteredProdutos[0] : null);
   }, [filteredProdutos, searchTerm]);
 
   const filteredClientes = useMemo(() => {
-    if (!clientSearch) return clientesFiltradosPorTipo.slice(0, 10);
-    const term = clientSearch.toLowerCase();
-    return clientesFiltradosPorTipo.filter(c => 
-      c.razao_social.toLowerCase().includes(term) ||
-      c.nome_fantasia?.toLowerCase().includes(term) ||
-      c.cpf_cnpj?.includes(term) ||
-      c.telefone?.includes(term)
-    ).slice(0, 10);
+    const term = clientSearch.trim();
+    if (!term) return [];
+
+    return clientesFiltradosPorTipo
+      .filter(c => matchesSearch(term, c.nome_fantasia || c.razao_social, c.cpf_cnpj, c.telefone))
+      .sort((a, b) => {
+        const rankDifference = searchRank(term, a.nome_fantasia || a.razao_social, a.cpf_cnpj, a.telefone)
+          - searchRank(term, b.nome_fantasia || b.razao_social, b.cpf_cnpj, b.telefone);
+        const nameA = a.nome_fantasia || a.razao_social;
+        const nameB = b.nome_fantasia || b.razao_social;
+        return rankDifference || nameA.localeCompare(nameB, "pt-BR");
+      })
+      .slice(0, 10);
   }, [clientesFiltradosPorTipo, clientSearch]);
 
   const focusClientSearch = useCallback(() => {
@@ -427,9 +673,28 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     
     const preco = getPrecoForProduto(produto);
     if (!Number.isFinite(preco) || preco < 0) return;
-    setQuantityDrafts(prev => { const next = { ...prev }; delete next[produto.id]; return next; });
+    const unidade = getUnidadeLabel(produto.unidade);
+    const isAreaBased = isMeterUnit(unidade);
+    const existing = isAreaBased ? undefined : cart.find((item) => item.id === produto.id);
+    const cartLineId = isAreaBased
+      ? `area-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`
+      : undefined;
+    const itemParaDetalhes: CartItem = existing
+      ? { ...existing, quantidade: Math.min(999, existing.quantidade + 1) }
+      : {
+          ...(cartLineId ? { cartLineId } : {}),
+          id: produto.id,
+          nome: produto.nome,
+          codigo: produto.codigo,
+          descricao: produto.descricao,
+          preco,
+          precoOriginal: produto.preco,
+          unidade,
+          quantidade: isAreaBased ? 0 : 1,
+        };
+    setQuantityDrafts(prev => { const next = { ...prev }; delete next[getCartLineKey(itemParaDetalhes)]; return next; });
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === produto.id);
+      const existing = isAreaBased ? undefined : prev.find((item) => item.id === produto.id);
       if (existing) {
         return prev.map((item) =>
           item.id === produto.id
@@ -438,19 +703,24 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         );
       }
       return [...prev, { 
+        ...(cartLineId ? { cartLineId } : {}),
         id: produto.id,
         nome: produto.nome,
         codigo: produto.codigo,
         descricao: produto.descricao,
         preco,
         precoOriginal: produto.preco,
-        unidade: getUnidadeLabel(produto.unidade),
-        quantidade: 1 
+        unidade,
+        quantidade: isAreaBased ? 0 : 1
       }];
     });
     setSearchTerm("");
     setShowProductList(false);
-  }, [catalogReady, produtosAtivos, getPrecoForProduto]);
+    if (isAreaBased) {
+      setSelectedCartItem(itemParaDetalhes);
+      setDetalhesModalOpen(true);
+    }
+  }, [catalogReady, produtosAtivos, getPrecoForProduto, cart]);
 
   const handleAddCurrentProduct = () => {
     if (!produtoProntoParaAdicionar) {
@@ -467,7 +737,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     setCart((prev) =>
       prev
         .map((item) =>
-          item.id === id
+          getCartLineKey(item) === id && !isMeterUnit(item.unidade)
             ? { ...item, quantidade: isValidQuantity(item.quantidade + delta, item.unidade) ? item.quantidade + delta : item.quantidade }
             : item
         )
@@ -476,7 +746,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   }, []);
 
   const removeFromCart = (id: string) => {
-    setCart((prev) => prev.filter((item) => item.id !== id));
+    setCart((prev) => prev.filter((item) => getCartLineKey(item) !== id));
     setQuantityDrafts(prev => { const next = { ...prev }; delete next[id]; return next; });
   };
 
@@ -487,6 +757,8 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     setFulfillmentDraft(null);
     setShowFulfillmentModal(false);
     setPaymentShortcut(null);
+    setPaymentAdjustmentOnly(false);
+    setAppliedDiscount(0);
     setRolNotes("");
   }, [mode]);
 
@@ -503,9 +775,15 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
 
   const applyFulfillmentChanges = useCallback(() => {
     if (!fulfillmentDraft) return;
+    if (offlineRuntime.isOperationalOnline && (
+      fulfillmentDraftCapacityLoading || fulfillmentDraftCapacityError || fulfillmentDraftCapacity?.date !== fulfillmentDraftDateKey
+    )) {
+      toast.error("Aguarde a capacidade da data escolhida antes de aplicar as alterações.");
+      return;
+    }
     setFulfillment(fulfillmentDraft);
     closeFulfillmentModal();
-  }, [closeFulfillmentModal, fulfillmentDraft]);
+  }, [closeFulfillmentModal, fulfillmentDraft, fulfillmentDraftCapacity, fulfillmentDraftCapacityError, fulfillmentDraftCapacityLoading, fulfillmentDraftDateKey, offlineRuntime.isOperationalOnline]);
 
   const requestDiscard = useCallback((request: Omit<DiscardRequest, "confirmLabel"> & { confirmLabel?: string }) => {
     if (cart.length === 0) {
@@ -529,10 +807,12 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   }, [cart.length, clearCart, requestDiscard]);
 
   const editQuantity = (item: CartItem, raw: string) => {
-    setQuantityDrafts(prev => ({ ...prev, [item.id]: raw }));
+    if (isMeterUnit(item.unidade)) return;
+    const lineKey = getCartLineKey(item);
+    setQuantityDrafts(prev => ({ ...prev, [lineKey]: raw }));
     const value = Number(raw.replace(",", "."));
     if (/^\d+(?:[.,]\d+)?$/.test(raw) && isValidQuantity(value, item.unidade)) {
-      setCart(prev => prev.map(current => current.id === item.id ? { ...current, quantidade: value } : current));
+      setCart(prev => prev.map(current => getCartLineKey(current) === lineKey ? { ...current, quantidade: value } : current));
     }
   };
 
@@ -551,18 +831,29 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     tipo_preco?: string;
     servicos_adicionais?: string[];
     complemento?: string;
+    metragem_m2?: number;
+    largura_m?: number;
+    comprimento_m?: number;
+    lacre?: string;
   }) => {
     if (!selectedCartItem) return;
-    setCart(prev => prev.map(item => 
-      item.id === selectedCartItem.id
-        ? { ...item, ...detalhes }
-        : item
-    ));
+    setCart(prev => prev.map(item => {
+      if (getCartLineKey(item) !== getCartLineKey(selectedCartItem)) return item;
+      const quantityFromMeasurement = isMeterUnit(item.unidade)
+        ? detalhes.metragem_m2 && isValidQuantity(detalhes.metragem_m2, item.unidade) ? detalhes.metragem_m2 : 0
+        : item.quantidade;
+      return { ...item, ...detalhes, quantidade: quantityFromMeasurement };
+    }));
+    setQuantityDrafts(prev => {
+      const next = { ...prev };
+      delete next[getCartLineKey(selectedCartItem)];
+      return next;
+    });
     setSelectedCartItem(null);
   };
 
   const hasItemDetalhes = (item: CartItem) => {
-    return !!(item.cor_item || item.marca_item || item.avarias || item.posicao_prateleira || item.observacoes || item.operacao || item.servicos_adicionais?.length || item.complemento);
+    return !!(item.cor_item || item.marca_item || item.avarias || item.posicao_prateleira || item.observacoes || item.operacao || item.servicos_adicionais?.length || item.complemento || item.metragem_m2 || item.largura_m || item.comprimento_m || item.lacre);
   };
 
   const applySelectedClient = useCallback((clientId: string) => {
@@ -602,7 +893,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       const produto = produtosAtivos.find(p => p.id === item.id);
       if (!produto || !Number.isFinite(produto.precoAplicado) || produto.precoAplicado < 0) return [];
       const unidade = getUnidadeLabel(produto.unidade);
-      if (!isValidQuantity(item.quantidade, unidade)) return [];
+      if (isMeterUnit(unidade) ? item.quantidade !== 0 && !isValidQuantity(item.quantidade, unidade) : !isValidQuantity(item.quantidade, unidade)) return [];
       return [{ ...item, preco: produto.precoAplicado, unidade }];
     }));
   }, [catalogReady, produtosAtivos]);
@@ -626,16 +917,9 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       setShowImpressaoModal(true);
       return;
     }
-    if (!catalogReady || !cartValid) {
-      toast.error("Confira cliente, tabela, condição e quantidades antes de finalizar");
-      return;
-    }
-    if (cart.length === 0) {
-      toast.error("Adicione produtos ao carrinho");
-      return;
-    }
-    if (!selectedClientId) {
-      toast.error("Selecione um cliente");
+    if (!catalogReady || !cartValid || cart.length === 0 || !selectedClientId) {
+      const reason = firstCheckoutBlockReason ?? "Confira cliente, tabela e itens antes de finalizar.";
+      toast.error(reason);
       return;
     }
     if (fulfillmentBlockReason) {
@@ -644,7 +928,14 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     }
     saleIdempotencyRef.current ??= createPdvIdempotencyKey("sale");
     setShowPagamentoModal(true);
-  }, [catalogReady, cartValid, cart.length, selectedClientId, osRecemCriada, fulfillmentBlockReason]);
+  }, [catalogReady, cartValid, cart.length, selectedClientId, osRecemCriada, fulfillmentBlockReason, firstCheckoutBlockReason]);
+
+  const handleApplyDiscount = useCallback((discountAmount: number) => {
+    setAppliedDiscount(discountAmount);
+    setPaymentAdjustmentOnly(false);
+    setShowPagamentoModal(false);
+    toast.success(`Desconto aplicado: ${formatCurrency(discountAmount)}. Finalize o ROL no painel principal.`);
+  }, []);
 
   // Função para finalizar venda
   const handleFinalizarVenda = async (dados: DadosPagamento) => {
@@ -671,23 +962,52 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     
     submittingRef.current = true;
     setIsProcessingVenda(true);
+    let pendingOfflineRequest: PdvSaleRequest | null = null;
+    let pendingOfflineReceipt: OfflinePdvReceipt | null = null;
+    const saveOfflineSale = async (messagePrefix = "ROL salvo offline") => {
+      if (!pendingOfflineRequest || !pendingOfflineReceipt) {
+        throw new Error("Os dados do ROL offline não foram preparados");
+      }
+      if (pendingOfflineRequest.payment !== null || pendingOfflineRequest.cashRegisterId !== null) {
+        throw new Error("Somente ROLs sem recebimento podem ser salvos offline");
+      }
+      await offlineRuntime.queueSale({ request: pendingOfflineRequest, receipt: pendingOfflineReceipt });
+      setOfflineReceipt(pendingOfflineReceipt);
+      setShowPagamentoModal(false);
+      setUltimoClienteId(selectedClientId);
+      saleIdempotencyRef.current = null;
+      clearCart();
+      setSelectedClientId(null);
+      setClientSearch("");
+      toast.success(`${messagePrefix}: ${pendingOfflineReceipt.localReference}.`, {
+        action: {
+          label: "Imprimir provisório",
+          onClick: () => { void printOfflinePdvReceipt(pendingOfflineReceipt); },
+        },
+      });
+    };
     
     try {
       const saleKey = saleIdempotencyRef.current ?? createPdvIdempotencyKey("sale");
       saleIdempotencyRef.current = saleKey;
-      const payment = !dados.pagoAgora || !dados.formaPagamento || dados.formaPagamento === "FIDELIDADE"
+      const splitPayments = dados.pagamentos ?? [];
+      const firstSplitPayment = splitPayments[0];
+      const initialPaymentMethod = firstSplitPayment?.method ?? dados.formaPagamento;
+      const initialPaymentAmount = firstSplitPayment?.amount ?? dados.valorPagamento;
+      const payment = !dados.pagoAgora || !initialPaymentMethod || initialPaymentMethod === "FIDELIDADE" || initialPaymentMethod === "CREDITO_CLIENTE"
         ? null
-        : dados.formaPagamento === "PIX"
-          ? { method: "PIX" as const }
+        : initialPaymentMethod === "PIX"
+          ? { method: "PIX" as const, amount: initialPaymentAmount }
           : {
-              method: dados.formaPagamento,
-              amountReceived: dados.formaPagamento === "DINHEIRO" ? dados.valorRecebido : undefined,
-              installments: dados.formaPagamento === "CARTAO_CREDITO" ? dados.parcelas ?? 1 : 1,
+              method: initialPaymentMethod,
+              amount: initialPaymentAmount,
+              amountReceived: initialPaymentMethod === "DINHEIRO" ? (firstSplitPayment?.amountReceived ?? dados.valorRecebido) : undefined,
+              installments: initialPaymentMethod === "CARTAO_CREDITO" ? dados.parcelas ?? 1 : 1,
               brand: dados.bandeira,
               nsu: dados.nsu,
               authorizationCode: dados.codigoAutorizacao,
             };
-      const result = await createPdvSale.mutateAsync({
+      const saleRequest: PdvSaleRequest = {
         clientId: selectedClientId,
         cashRegisterId: dados.pagoAgora ? caixaAberto?.id ?? null : null,
         deliveryDate: dados.previsaoEntrega.toISOString().split("T")[0],
@@ -696,6 +1016,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         discountAmount: dados.valorDesconto,
         receiptMode: dados.receiptMode,
         deliveryMode: dados.deliveryMode,
+        deliveryFee: fulfillment.deliveryFee,
         addressSnapshot: dados.addressSnapshot,
         capacityOverride: isCapacityExceeded && fulfillment.capacityOverride && canManageCommercialTerms,
         driverId: dados.motoristaId,
@@ -710,37 +1031,90 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           observacoes: [
             item.observacoes,
             item.operacao ? `Operação: ${item.operacao}` : null,
-            item.tipo_preco ? `Tipo de preço: ${item.tipo_preco}` : null,
             item.servicos_adicionais?.length ? `Serviços adicionais: ${item.servicos_adicionais.join(", ")}` : null,
             item.complemento ? `Complemento: ${item.complemento}` : null,
+            item.metragem_m2 ? `Área: ${formatSquareMetres(item.metragem_m2)} m²` : null,
+            item.largura_m && item.comprimento_m ? `Medidas: ${formatMetres(item.largura_m)} m × ${formatMetres(item.comprimento_m)} m` : null,
+            item.metragem_m2 ? `Cálculo: ${formatCurrency(item.preco)} / m² × ${formatSquareMetres(item.metragem_m2)} m² = ${formatCurrency(getLineTotal(item))}` : null,
+            item.lacre ? `Lacre: ${item.lacre}` : null,
           ].filter(Boolean).join(" · ") || undefined,
         })),
         notes: rolNotes.trim() || null,
         payment,
         idempotencyKey: saleKey,
-      });
+      };
+      const receiptCreatedAt = new Date().toISOString();
+      const offlineSaleReceipt: OfflinePdvReceipt = {
+        localReference: createOfflineLocalReference(saleKey, receiptCreatedAt),
+        createdAt: receiptCreatedAt,
+        tenantName: activeTenant?.name ?? "AnjoLav",
+        area,
+        operatorName: funcionario?.nome || user?.email || "Operador",
+        clientId: selectedClient.id,
+        clientName: selectedClient.nome_fantasia || selectedClient.razao_social,
+        clientDocument: selectedClient.cpf_cnpj,
+        deliveryDate: saleRequest.deliveryDate,
+        receiptMode: dados.receiptMode,
+        deliveryMode: dados.deliveryMode,
+        notes: saleRequest.notes,
+        subtotal: totalValue,
+        discountAmount: dados.valorDesconto,
+        urgencyAmount: dados.urgente ? Math.max(0, (totalValue - dados.valorDesconto) * dados.percentualUrgencia / 100) : 0,
+        deliveryFee: dados.deliveryMode === "entrega" ? Math.max(0, fulfillment.deliveryFee) : 0,
+        total: dados.valorTotal,
+        items: cart.map((item) => ({
+          productId: item.id,
+          name: item.nome,
+          quantity: item.quantidade,
+          unit: item.unidade,
+          unitPrice: item.preco,
+          subtotal: getLineTotal(item),
+          details: [item.cor_item && `Cor: ${item.cor_item}`, item.marca_item && `Marca: ${item.marca_item}`, item.metragem_m2 && `Área: ${formatSquareMetres(item.metragem_m2)} m²`, item.largura_m && item.comprimento_m && `Medidas: ${formatMetres(item.largura_m)} m × ${formatMetres(item.comprimento_m)} m`, item.lacre && `Lacre: ${item.lacre}`, item.observacoes]
+            .filter(Boolean)
+            .join(" · ") || null,
+        })),
+      };
+      pendingOfflineRequest = saleRequest;
+      pendingOfflineReceipt = offlineSaleReceipt;
+
+      if (!offlineRuntime.isOperationalOnline) {
+        if (!offlineRuntime.canQueueOffline) {
+          throw new Error(offlineRuntime.offlineBlockReason || "O modo offline não está pronto neste PDV");
+        }
+        if (dados.pagoAgora) {
+          throw new Error("Recebimentos não podem ser registrados sem conexão");
+        }
+        await saveOfflineSale();
+        return;
+      }
+
+      const result = await createPdvSale.mutateAsync(saleRequest);
+      offlineRuntime.reportBackendSuccess();
+
+      if (splitPayments.length > 1 && caixaAberto) {
+        const additional = splitPayments.map((item, index) => ({ item, index })).slice(1);
+        for (const { item, index } of additional) {
+          const idempotencyKey = `${saleKey}:split:${index}`;
+          try {
+            await recordPdvPayment.mutateAsync({
+              orderId: result.order.id,
+              cashRegisterId: caixaAberto.id,
+              moment: "ENTRADA",
+              idempotencyKey,
+              payment: { method: item.method, amount: item.amount, amountReceived: item.method === "DINHEIRO" ? (item.amountReceived ?? item.amount) : undefined, installments: 1 },
+            });
+          } catch (splitError) {
+            toast.error(`ROL ${result.order.number} foi criado; a forma adicional ${item.method} não foi registrada. Consulte o histórico de pagamentos antes de tentar novamente. ${splitError instanceof Error ? splitError.message : ""}`);
+            break;
+          }
+        }
+      }
 
       setOsRecemCriada({
         id: result.order.id,
         numero: result.order.number,
         valorTotal: result.order.total,
         previsaoEntrega: dados.previsaoEntrega,
-      });
-
-      // O recibo de entrada é enviado a partir do ROL já persistido. O envio
-      // não bloqueia o caixa e a chave impede duplicidade em novo clique.
-      void dispararNotificacaoAutomatica(
-        "rol_entrada",
-        result.order.id,
-        `rol:${result.order.id}:entrada`,
-      ).then((notification) => {
-        if (notification.success && !notification.skipped && !notification.idempotent) {
-          toast.success(`ROL ${result.order.number} enviado ao cliente pelo WhatsApp.`);
-          return;
-        }
-        if (!notification.success && !notification.idempotent) {
-          toast.message(`ROL ${result.order.number} criado; o envio automático não foi concluído. Verifique o WhatsApp do cliente.`);
-        }
       });
 
       setShowPagamentoModal(false);
@@ -758,25 +1132,46 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           toast.error(loyaltyError instanceof Error ? loyaltyError.message : "O ROL foi criado, mas não foi possível resgatar os pontos");
         }
       }
-      if (dados.pagoAgora && caixaAberto && dados.formaPagamento === "PIX") {
-        if (result.pixError) toast.error(`ROL ${result.order.number} criado; PIX pendente. Retome o pagamento neste ROL, sem criar outro atendimento. ${result.pixError}`);
-        setPixContext({
-          orderId: result.order.id,
-          orderNumber: result.order.number,
-          amount: result.pix?.amount ?? result.order.total,
-          cashRegisterId: caixaAberto.id,
-          moment: "ENTRADA",
-          idempotencyKey: `${saleKey}:pix`,
-          initialPix: result.pix,
-          initialError: result.pixError,
-          source: "sale",
-        });
-      } else {
-        setShowImpressaoModal(true);
+      if (dados.pagoAgora && caixaAberto && dados.formaPagamento === "CREDITO_CLIENTE" && dados.valorCreditoAplicar) {
+        try {
+          const applied = await applyCustomerCredit.mutateAsync({
+            orderId: result.order.id,
+            cashRegisterId: caixaAberto.id,
+            moment: "ENTRADA",
+            amount: dados.valorCreditoAplicar,
+            idempotencyKey: `${saleKey}:credit`,
+          });
+          const balance = Number(applied.saldoCredito ?? 0);
+          toast.success(`Crédito aplicado ao ROL ${result.order.number}. Saldo restante: ${formatCurrency(balance)}`);
+        } catch (creditError) {
+          toast.error(creditError instanceof Error ? `ROL criado, mas o crédito não foi aplicado: ${creditError.message}` : "ROL criado, mas o crédito não foi aplicado. Consulte o pagamento do ROL antes de tentar novamente.");
+        }
       }
+      // Aguarda operações de pagamento e crédito antes de consultar os valores para o PDF.
+      void dispararNotificacaoAutomatica("rol_entrada", result.order.id, `rol:${result.order.id}:entrada`).then((notification) => {
+        if (notification.partial) {
+          toast.warning(`ROL ${result.order.number} enviado para ${notification.sentCount} de ${notification.recipientCount} números. Confira os celulares cadastrados.`);
+        } else if (notification.success && !notification.skipped && !notification.idempotent) {
+          toast.success(`PDF do ROL ${result.order.number} aceito para envio pelo WhatsApp.`);
+        } else if (!notification.success) {
+          toast.message(`ROL ${result.order.number} criado; o envio automático não foi concluído. Verifique o WhatsApp do cliente.`);
+        }
+      });
+      setShowImpressaoModal(true);
       
     } catch (error) {
       console.error("Erro ao finalizar venda:", error);
+      offlineRuntime.reportBackendFailure(error);
+      if (!dados.pagoAgora && pendingOfflineRequest && pendingOfflineReceipt && isOfflineLikeError(error) && offlineRuntime.canQueueOffline) {
+        try {
+          // Se o servidor recebeu o pedido antes da queda, a mesma chave de
+          // idempotência retorna o ROL existente quando a fila for reenviada.
+          await saveOfflineSale("Conexão interrompida; ROL protegido na fila offline");
+          return;
+        } catch (queueError) {
+          console.error("Não foi possível proteger o ROL na fila offline", queueError);
+        }
+      }
       toast.error(error instanceof Error ? error.message : "Erro ao finalizar venda");
     } finally {
       submittingRef.current = false;
@@ -785,8 +1180,16 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   };
 
   const handleSaveQuote = async () => {
+    if (!user?.id) {
+      toast.error("Sua sessão não está disponível para registrar o responsável do orçamento");
+      return;
+    }
     if (!selectedClient || !cartValid || savePdvQuote.isPending) {
       toast.error("Selecione o cliente e confira os itens antes de salvar o orçamento");
+      return;
+    }
+    if (!quoteValidUntil || quoteValidUntil < format(new Date(), "yyyy-MM-dd")) {
+      toast.error("Defina uma validade igual ou posterior a hoje");
       return;
     }
 
@@ -794,7 +1197,9 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       const quote = await savePdvQuote.mutateAsync({
         clientId: selectedClient.id,
         total: totalValue,
-        validUntil: format(addDays(new Date(), 7), "yyyy-MM-dd"),
+        validUntil: quoteValidUntil,
+        area,
+        createdBy: user.id,
         notes: rolNotes,
         items: cart.map((item) => ({
           produto_id: item.id,
@@ -803,7 +1208,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           quantidade: item.quantidade,
           unidade: item.unidade,
           preco_unitario: item.preco,
-          subtotal: item.preco * item.quantidade,
+          subtotal: getLineTotal(item),
           tabela_preco: clientPriceMode,
           detalhes: {
             cor: item.cor_item ?? null,
@@ -815,29 +1220,18 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
             tipo_preco: item.tipo_preco ?? null,
             servicos_adicionais: item.servicos_adicionais ?? [],
             complemento: item.complemento ?? null,
+            metragem_m2: item.metragem_m2 ?? null,
+            largura_m: item.largura_m ?? null,
+            comprimento_m: item.comprimento_m ?? null,
+            lacre: item.lacre ?? null,
           },
         })),
       });
-      toast.success(`Orçamento salvo com sucesso · ${formatCurrency(Number(quote.valor_total))}`);
+      toast.success(`${quote.codigo} salvo · ${formatCurrency(Number(quote.valor_total))}`);
       clearCart();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o orçamento");
     }
-  };
-
-  const handleSaveSessionDraft = () => {
-    if (!selectedClient || cart.length === 0) {
-      toast.error("Selecione o cliente e adicione itens antes de salvar o rascunho");
-      return;
-    }
-    sessionStorage.setItem(`anjolav:pdv-draft:${area}:${mode}`, JSON.stringify({
-      clientId: selectedClient.id,
-      cart,
-      fulfillment,
-      notes: rolNotes,
-      savedAt: new Date().toISOString(),
-    }));
-    toast.success("Rascunho salvo nesta sessão do PDV");
   };
 
   // Função após impressão (ou pular)
@@ -847,32 +1241,12 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       setUltimoClienteId(selectedClientId);
     }
     setOsRecemCriada(null);
+    setOfflineReceipt(null);
     saleIdempotencyRef.current = null;
     clearCart();
     setSelectedClientId(null);
     setClientSearch("");
     toast.success("Venda finalizada com sucesso!");
-  };
-
-  const handlePixRecebimento = (request: PixRecebimentoRequest) => {
-    if (!canReceivePayments) return;
-    setPixContext({
-      ...request,
-      moment: "RETIRADA",
-      source: "receivable",
-    });
-  };
-
-  const handlePixFinished = (confirmed: boolean) => {
-    const source = pixContext?.source;
-    setPixContext(null);
-    if (source === "sale") {
-      setShowImpressaoModal(true);
-      if (!confirmed) toast.info("O ROL foi criado e o pagamento permanece pendente");
-    } else {
-      setOsParaReceber(null);
-      if (!confirmed) toast.info("O pagamento do ROL permanece pendente");
-    }
   };
 
   // Detectar leitura de código de barras (digitação rápida)
@@ -953,10 +1327,11 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       e.preventDefault();
       focusClientSearch();
     }
-    // F3 - Agenda do dia
+    // F3 - Busca de produtos, conforme a ajuda de atalhos.
     if (e.key === "F3") {
       e.preventDefault();
-      if (canViewDayList) setShowListaDia(true);
+      if (searchInputRef.current?.disabled) toast.info("Selecione um cliente e aguarde a tabela de preços para buscar produtos.");
+      else searchInputRef.current?.focus();
     }
     // F4 - Pagamento
     if (e.key === "F4") {
@@ -1012,12 +1387,12 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
         const lastItem = cart[cart.length - 1];
-        updateQuantity(lastItem.id, 1);
+        updateQuantity(getCartLineKey(lastItem), 1);
       }
       if (e.key === "-") {
         e.preventDefault();
         const lastItem = cart[cart.length - 1];
-        updateQuantity(lastItem.id, -1);
+        updateQuantity(getCartLineKey(lastItem), -1);
       }
     }
     // ESC - Fechar modais
@@ -1027,13 +1402,11 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         setShowConsultarOSModal(false);
         setPdvLookupMode("consulta");
       }
-      if (showHistoricoVendas) setShowHistoricoVendas(false);
       if (showAjudaAtalhos) setShowAjudaAtalhos(false);
       if (showFulfillmentModal) closeFulfillmentModal();
     }
   }, [
     canReceivePayments,
-    canViewDayList,
     cart,
     focusClientSearch,
     handleOpenPagamento,
@@ -1045,7 +1418,6 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     showConsultarOSModal,
     closeFulfillmentModal,
     showFulfillmentModal,
-    showHistoricoVendas,
     showPagamentoModal,
     toggleFullscreen,
     updateQuantity,
@@ -1093,6 +1465,63 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     setShowConsultarOSModal(true);
   }, []);
 
+  const handleDarBaixa = useCallback(async (ordem: OrdemServicoConsulta) => {
+    if (!window.confirm(`Confirmar baixa do ROL ${ordem.numero}? Esta ação registra a entrega/retirada do cliente.`)) return;
+    try {
+      const { error } = await supabase.rpc("dar_baixa_rol_pdv", { _ordem_servico_id: ordem.id });
+      if (error) throw error;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["consulta-os"] }),
+        queryClient.invalidateQueries({ queryKey: ["ordens_servico"] }),
+        queryClient.invalidateQueries({ queryKey: ["order-directory"] }),
+        queryClient.invalidateQueries({ queryKey: ["vendas-do-dia"] }),
+      ]);
+      toast.success(`ROL ${ordem.numero} baixado com sucesso.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível dar baixa no ROL.");
+    }
+  }, [queryClient]);
+
+  const notificationFailureMessage = (reason?: string) => {
+    const messages: Record<string, string> = {
+      CLIENT_INACTIVE: "O cadastro do cliente está inativo. Ative o cadastro antes de avisar.",
+      CLIENT_OPT_OUT: "O cliente desativou mensagens pelo WhatsApp.",
+      PHONE_INVALID: "Nenhum telefone válido está cadastrado no cliente.",
+      PHONE_CHANGED: "O telefone mudou durante o envio. Confira o cadastro e gere um novo aviso.",
+      PROVIDER_DISABLED: "O envio WA-AKG está desativado nas configurações da empresa.",
+      PROVIDER_UNCONFIGURED: "Falta configurar a conexão WA-AKG desta empresa.",
+      PROVIDER_URL_INVALID: "A origem WA-AKG configurada não foi autorizada.",
+      ROL_IMAGE_MISSING: "A imagem do comprovante do ROL não foi preparada.",
+      ROL_IMAGE_UNAVAILABLE: "Não foi possível carregar o comprovante do ROL.",
+      ROL_IMAGE_STORE_FAILED: "Não foi possível preparar o comprovante do ROL para envio.",
+      template_inativo: "O modelo de mensagem deste aviso está desativado.",
+      falhou: "O provedor não concluiu a mensagem. Confira o dispositivo WA-AKG e o histórico de envios.",
+      incerto: "O provedor não confirmou o resultado. Confira o histórico antes de reenviar para evitar duplicidade.",
+      pendente: "A mensagem permanece na fila. Confira a conexão do dispositivo WA-AKG.",
+    };
+    if (!reason) return "Confira a conexão e o histórico do WhatsApp antes de tentar novamente.";
+    return messages[reason] ?? `Motivo informado pelo canal: ${reason}. Confira o histórico antes de reenviar.`;
+  };
+
+  const enviarAvisoDisponibilidade = async (ordemId: string, modalidade: string, ordemNumero?: string) => {
+    const evento = modalidade === "entrega" ? "rol_pronto_delivery" : "rol_pronto_retirada";
+    const resultado = await dispararNotificacaoAutomatica(
+      evento,
+      ordemId,
+      `rol:${ordemId}:disponivel:${modalidade === "entrega" ? "entrega" : "balcao"}`,
+    );
+    if (resultado.partial) {
+      toast.warning(`ROL ${ordemNumero || ordemId}: aviso enviado para ${resultado.sentCount} de ${resultado.recipientCount} números. ${notificationFailureMessage(resultado.reason)}`);
+      return false;
+    }
+    if (resultado.success) {
+      toast.success(resultado.idempotent ? `Aviso do ROL ${ordemNumero || ordemId} já enviado anteriormente.` : `Cliente avisado: ROL ${ordemNumero || ordemId} disponível.`);
+      return true;
+    }
+    toast.error(`Não foi possível enviar o aviso do ROL ${ordemNumero || ordemId}. ${notificationFailureMessage(resultado.reason)}`);
+    return false;
+  };
+
   const workbenchTitle = mode === "delivery"
     ? "Balcão / PDV — Novo Delivery"
     : mode === "orcamento"
@@ -1100,24 +1529,180 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       : "Balcão / PDV — Novo ROL";
   const serviceLabel = mode === "delivery" ? "Delivery" : mode === "orcamento" ? "orçamento" : "ROL";
   const selectorPath = area === "industrial" ? "/pdv/industrial" : "/pdv/domestico";
+  const panelPath = area === "industrial" ? "/pdv/painel/industrial" : "/pdv/painel/domestico";
+  const quickModuleOptions: PdvShortcutModule[] = [
+    { id: "entregar", title: "Entregar pedido", icon: CheckCircle2, permissionPath: `/${area}/ordens`, path: `${selectorPath}/ordens?situacao=a_retirar` },
+    { id: "agenda", title: "Agenda", icon: CalendarDays, permissionPath: `/${area}/agenda`, path: `${selectorPath}/agenda` },
+    { id: "producao", title: "Produção", icon: Wrench, permissionPath: `/${area}/producao`, path: `${selectorPath}/producao` },
+    { id: "delivery", title: "Delivery", icon: Truck, permissionPath: `/${area}/agenda`, path: `${selectorPath}/agenda?tipo=entrega&view=rotas` },
+    { id: "catalogo", title: "Catálogo", icon: PackageCheck, permissionPath: area === "industrial" ? "/industrial/produtos" : "/residencial/produtos", path: `${selectorPath}/produtos` },
+    { id: "estoque", title: "Estoque", icon: Boxes, permissionPath: `/${area}/estoque`, path: `${selectorPath}/estoque` },
+    { id: "relatorios", title: "Relatórios", icon: BarChart3, permissionPath: area === "industrial" ? "/industrial/relatorios/clientes" : "/residencial/relatorios/caixa", path: `${selectorPath}/relatorios` },
+    { id: "fechamento", title: "Fechar caixa", icon: ReceiptText, permissionPath: `/${area}/caixa`, action: "fechar-caixa" as const },
+  ].filter((module) => canAccessRoute(module.permissionPath));
+  const sidebarPreferenceKey = `anjolav:pdv-sidebar:v1:${activeTenant?.id ?? ""}:${user?.id ?? ""}:${area}`;
+  const [sidebarPreference, setSidebarPreference] = useState(() => ({
+    key: sidebarPreferenceKey,
+    collapsed: readPdvSidebarCollapsed(sidebarPreferenceKey),
+  }));
+  const sidebarCollapsed = sidebarPreference.key === sidebarPreferenceKey && sidebarPreference.collapsed;
+
+  useEffect(() => {
+    if (sidebarPreference.key !== sidebarPreferenceKey) {
+      setSidebarPreference({ key: sidebarPreferenceKey, collapsed: readPdvSidebarCollapsed(sidebarPreferenceKey) });
+      return;
+    }
+    try {
+      window.localStorage.setItem(sidebarPreferenceKey, sidebarPreference.collapsed ? "collapsed" : "expanded");
+    } catch {
+      // O menu continua funcionando enquanto a página estiver aberta.
+    }
+  }, [sidebarPreference, sidebarPreferenceKey]);
+
+  const renderSidebarModule = (module: PdvShortcutModule) => {
+    const Icon = module.icon;
+    const isCloseCash = module.action === "fechar-caixa";
+    return (
+      <button
+        key={module.id}
+        type="button"
+        className="pdv-sidebar-link"
+        aria-label={module.title}
+        title={isCloseCash && !canReceivePayments ? "Não há caixa aberto para fechar" : module.title}
+        disabled={isCloseCash && !canReceivePayments}
+        onClick={() => openQuickModule(module)}
+      >
+        <Icon aria-hidden="true" />
+        <span>{module.title}</span>
+      </button>
+    );
+  };
+  const hasUnsavedAttendance = !osRecemCriada && Boolean(selectedClientId || cart.length > 0 || rolNotes.trim());
+
+  const leaveAttendance = (action: () => void, destination: string) => {
+    if (!hasUnsavedAttendance) {
+      action();
+      return;
+    }
+    setDiscardRequest({
+      title: `Sair do atendimento e abrir ${destination}?`,
+      description: "Há dados ainda não salvos neste atendimento. Se continuar, o rascunho será descartado.",
+      confirmLabel: "Sair e continuar",
+      action,
+    });
+  };
+
+  const openQuickModule = (module: PdvShortcutModule) => {
+    if (module.action === "fechar-caixa") {
+      const openCloseCash = () => {
+        if (caixaAberto) setShowFecharCaixaModal(true);
+        else toast.info("Não há caixa aberto para fechar.");
+      };
+      if (hasUnsavedAttendance) {
+        setDiscardRequest({
+          title: "Sair do atendimento e fechar o caixa?",
+          description: "Há dados ainda não salvos neste atendimento. Se continuar, o rascunho será descartado antes de abrir o fechamento.",
+          confirmLabel: "Descartar e continuar",
+          action: () => {
+            clearCart();
+            setSelectedClientId(null);
+            setClientSearch("");
+            openCloseCash();
+          },
+        });
+      } else {
+        openCloseCash();
+      }
+      return;
+    }
+    if (module.path) {
+      navigate(module.path, {
+        state: {
+          pdvReturnTo: `${location.pathname}${location.search}`,
+          pdvBackgroundLocation: location,
+        },
+      });
+    }
+  };
 
   return (
     <PdvLayout variant="front" operation={area} title={workbenchTitle} subtitle={`Atendimento ${areaLabel}`}>
 
       <div className={cn("pdv-cashier-page pdv-roll-workbench", `pdv-roll-workbench--${mode}`)} data-testid="pdv-cashier-reference">
-        <div className="pdv-roll-heading">
-          <button type="button" onClick={() => navigate(selectorPath)}><ArrowLeft className="h-4 w-4" /> Voltar</button>
-          <span aria-hidden="true" />
-          <div>
+        <div className="pdv-roll-heading pdv-page-heading">
+          <button type="button" className="pdv-page-heading__back" aria-label="Voltar à Central de operações" onClick={() => leaveAttendance(() => navigate(panelPath), "a Central de operações")}><ArrowLeft aria-hidden="true" /> <span>Voltar</span></button>
+          <span className="pdv-page-heading__divider" aria-hidden="true" />
+          <div className="pdv-page-heading__main">
             <h1>{workbenchTitle}</h1>
             <p>{mode === "delivery" ? "Coleta e entrega no endereço do cliente" : mode === "orcamento" ? "Proposta sem cobrança ou movimentação de caixa" : "Atendimento completo de peças e serviços"}</p>
           </div>
-          <nav aria-label="Tipo de atendimento">
-            <button type="button" className={mode === "rol" ? "is-active" : undefined} onClick={() => navigate(`${selectorPath}/rol`)}>ROL</button>
-            <button type="button" className={mode === "delivery" ? "is-active" : undefined} onClick={() => navigate(`${selectorPath}/delivery`)}>Delivery</button>
-            <button type="button" className={mode === "orcamento" ? "is-active" : undefined} onClick={() => navigate(`${selectorPath}/orcamento`)}>Orçamento</button>
+          <nav className="pdv-page-heading__actions" aria-label="Tipo de atendimento">
+            <button type="button" className={mode === "rol" ? "is-active" : undefined} aria-pressed={mode === "rol"} onClick={() => mode !== "rol" && leaveAttendance(() => navigate(`${selectorPath}/rol`), "atendimento ROL")}>ROL</button>
+            <button type="button" className={mode === "delivery" ? "is-active" : undefined} aria-pressed={mode === "delivery"} onClick={() => mode !== "delivery" && leaveAttendance(() => navigate(`${selectorPath}/delivery`), "atendimento Delivery")}>Delivery</button>
+            <button type="button" className={mode === "orcamento" ? "is-active" : undefined} aria-pressed={mode === "orcamento"} onClick={() => mode !== "orcamento" && leaveAttendance(() => navigate(`${selectorPath}/orcamento`), "Orçamento")}>Orçamento</button>
           </nav>
         </div>
+        <div className={cn("pdv-workbench-layout", sidebarCollapsed && "is-collapsed")}>
+          <aside className="pdv-tools-sidebar" aria-label="Atalhos do Balcão / PDV">
+            <div className="pdv-tools-sidebar__header">
+              {!sidebarCollapsed && <span>Atalhos do atendimento</span>}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="pdv-sidebar-toggle"
+                aria-label={sidebarCollapsed ? "Expandir menu de atalhos" : "Recolher menu de atalhos"}
+                aria-expanded={!sidebarCollapsed}
+                title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}
+                onClick={() => setSidebarPreference({ key: sidebarPreferenceKey, collapsed: !sidebarCollapsed })}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+              </Button>
+            </div>
+            <nav className="pdv-tools-sidebar__nav">
+              <section className="pdv-tools-group" aria-label="Consultas e relatórios">
+                <h2><ClipboardList aria-hidden="true" /><span>Consultas e relatórios</span></h2>
+                <button type="button" className="pdv-sidebar-link" aria-label="Consultar ROLs" title="Consultar ROLs" onClick={() => openOrderLookup()}><ClipboardList aria-hidden="true" /><span>Consultar ROLs</span></button>
+                <button type="button" className="pdv-sidebar-link" aria-label="Orçamentos" title="Orçamentos" onClick={() => setShowPdvQuotesModal(true)}><FileText aria-hidden="true" /><span>Orçamentos</span></button>
+                {quickModuleOptions.filter((module) => module.id === "relatorios").map(renderSidebarModule)}
+                {canViewDayList && <button type="button" className="pdv-sidebar-link" aria-label="Lista do dia" title="Lista do dia" onClick={() => setShowListaDia(true)}><CalendarDays aria-hidden="true" /><span>Lista do dia</span></button>}
+              </section>
+
+              <section className="pdv-tools-group" aria-label="Operação">
+                <h2><Wrench aria-hidden="true" /><span>Operação</span></h2>
+                {quickModuleOptions.filter((module) => module.id === "agenda").map(renderSidebarModule)}
+                {quickModuleOptions.filter((module) => module.id === "producao").map(renderSidebarModule)}
+                <button type="button" className="pdv-sidebar-link" aria-label="Disponibilização" title="Disponibilização" disabled={!canViewDayList} onClick={() => setShowDisponibilizacaoDia(true)}><PackageCheck aria-hidden="true" /><span>Disponibilização</span></button>
+                {quickModuleOptions.filter((module) => module.id === "delivery").map(renderSidebarModule)}
+                {quickModuleOptions.filter((module) => ["catalogo", "estoque"].includes(module.id)).map(renderSidebarModule)}
+              </section>
+
+              <section className="pdv-tools-group" aria-label="Entrega">
+                <h2><CheckCircle2 aria-hidden="true" /><span>Entrega</span></h2>
+                {quickModuleOptions.filter((module) => module.id === "entregar").map(renderSidebarModule)}
+              </section>
+
+              <section className="pdv-tools-group" aria-label="Caixa">
+                <h2><ReceiptText aria-hidden="true" /><span>Caixa</span></h2>
+                <button type="button" className="pdv-sidebar-link" aria-label="Sangria" title={canReceivePayments ? "Registrar sangria no caixa aberto" : "Abra o caixa para registrar uma sangria"} disabled={!canReceivePayments} onClick={() => setShowSangriaModal(true)}><ArrowDownCircle aria-hidden="true" /><span>Sangria</span></button>
+                {quickModuleOptions.filter((module) => module.id === "fechamento").map(renderSidebarModule)}
+              </section>
+
+              <section className="pdv-tools-group" aria-label="Comunicação">
+                <h2><MoreHorizontal aria-hidden="true" /><span>Comunicação</span></h2>
+                <button type="button" className="pdv-sidebar-link" aria-label={`WhatsApp · ${whatsappProviderLabel}`} title={`WhatsApp · ${whatsappProviderLabel}`} onClick={() => setShowWhatsAppDeviceModal(true)}>
+                  <MessageSquare aria-hidden="true" />
+                  <span>WhatsApp</span>
+                  <span className="pdv-whatsapp-status" aria-label={`Estado do WhatsApp: ${whatsappProviderLabel}`}>
+                    <span aria-hidden="true" className={cn("pdv-whatsapp-status__dot", `is-${whatsappProviderState}`)} />
+                    <small>{whatsappProviderLabel}</small>
+                  </span>
+                </button>
+              </section>
+            </nav>
+          </aside>
+
+          <div className="pdv-workbench-content" role="region" aria-label="Atendimento em andamento">
         <div className="pdv-cashier-grid">
           <section className="pdv-primary-column" aria-label="Etapas de entrada do pedido">
             <section className="pdv-reference-card pdv-customer-card" aria-labelledby="pdv-client-title">
@@ -1127,8 +1712,8 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                   <h2 id="pdv-client-title">Cliente</h2>
                 </div>
                 {canCreateClient && !selectedClient && (
-                  <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" onClick={() => setShowQuickClientModal(true)}>
-                    <UserPlus className="h-3.5 w-3.5" /> Novo
+                  <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs" aria-label="Cadastrar cliente" onClick={() => setShowFullClientModal(true)}>
+                    <UserPlus className="h-3.5 w-3.5" /> Cadastrar
                   </Button>
                 )}
               </div>
@@ -1150,12 +1735,14 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                 />
                 {showClientList && (
                   <div className="pdv-customer-result-list">
-                    {isLoadingClientes ? (
+                    {!clientSearch.trim() ? (
+                      <p className="p-3 text-center text-sm text-muted-foreground">Digite a primeira letra para buscar um cliente.</p>
+                    ) : isLoadingClientes ? (
                       <p className="p-3 text-center text-sm text-muted-foreground">Carregando clientes…</p>
                     ) : filteredClientes.length === 0 ? (
                       <div className="space-y-2 p-3 text-center text-sm text-muted-foreground">
-                        <p>Nenhum cliente encontrado.</p>
-                        {canCreateClient && <Button type="button" size="sm" onClick={() => setShowQuickClientModal(true)}><UserPlus className="mr-2 h-4 w-4" />Cadastrar cliente</Button>}
+                        <p>Cliente não encontrado nesta operação.</p>
+                        {canCreateClient && <Button type="button" size="sm" onClick={() => setShowFullClientModal(true)}><UserPlus className="mr-2 h-4 w-4" />Cadastrar novo cliente</Button>}
                       </div>
                     ) : (
                       filteredClientes.map((cliente) => (
@@ -1199,19 +1786,14 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                       {selectedClient.cpf_cnpj && <span><IdCard className="h-3.5 w-3.5" /><span>{selectedClient.cpf_cnpj}</span></span>}
                       {selectedClient.email && <span><Mail className="h-3.5 w-3.5" /><span>{selectedClient.email}</span></span>}
                     </div>
-                    <button type="button" className="pdv-customer-history" onClick={() => setShowHistoricoVendas(true)}>
-                      <span className="flex items-center gap-2"><FileSearch className="h-4 w-4" /> Ver histórico do cliente</span>
-                      <span aria-hidden="true">›</span>
-                    </button>
+                    {area === "industrial" && !termsLoading && !termsError && !paymentTerms.conditionConfigured && (
+                      <p role="status" className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+                        Condição de pagamento não configurada: este ROL usará pagamento na retirada e não seguirá para faturamento. Para faturar, configure a condição no cadastro do cliente antes de finalizar.
+                      </p>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="mt-4 flex flex-1 items-center rounded-lg border border-dashed border-border bg-muted/20 px-4 text-center text-xs text-muted-foreground">
-                    Escolha o cliente para liberar a tabela de preço, os serviços e a finalização do atendimento.
-                  </div>
-                </div>
-              )}
+              ) : null}
             </section>
 
           <section className="pdv-center-column">
@@ -1220,12 +1802,12 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                 <div className="pdv-items-title">
                   <span className="pdv-step-number" aria-hidden="true">4</span>
                   <div className="pdv-items-title-copy">
-                    <h2 id="pdv-items-title">Itens da venda</h2>
+                    <h2 id="pdv-items-title">Itens do atendimento</h2>
                     <p>Adicione produtos e serviços da lavanderia.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="pdv-items-stats">{cart.length} {cart.length === 1 ? "produto" : "produtos"} · {formatCarga(totalItems)} {totalItems === 1 ? "unidade" : "unidades"}</span>
+                  <span className="pdv-items-stats">{cart.length} {cart.length === 1 ? "item adicionado" : "itens adicionados"}</span>
                   <Button type="button" variant="outline" size="sm" className="pdv-clear-button hidden gap-1.5 sm:inline-flex" onClick={requestClearSale}>
                     <Trash2 className="h-3.5 w-3.5" /> Limpar itens
                   </Button>
@@ -1250,7 +1832,9 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                   />
                   {showProductList && (
                     <div className="pdv-product-result-list">
-                      {isLoadingProdutos ? (
+                      {!searchTerm.trim() ? (
+                        <p className="p-3 text-center text-sm text-muted-foreground">Digite a primeira letra para buscar um produto ou serviço.</p>
+                      ) : isLoadingProdutos ? (
                         <div className="flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando produtos…</div>
                       ) : filteredProdutos.length === 0 ? (
                         <p className="p-3 text-center text-sm text-muted-foreground">Nenhum produto ou serviço encontrado.</p>
@@ -1263,7 +1847,10 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                                 <span className="block truncate text-sm font-semibold">{produto.nome}</span>
                                 <span className="block text-[11px] text-muted-foreground">{produto.codigo || "Sem código"}</span>
                               </span>
-                              <span className="shrink-0 text-sm font-bold text-success">{formatCurrency(preco)}</span>
+                              <span className="shrink-0 text-right text-sm font-bold text-success">
+                                {formatCurrency(preco)}
+                                <span className="block text-[10px] font-medium text-muted-foreground">por {getPriceUnitLabel(getUnidadeLabel(produto.unidade))}</span>
+                              </span>
                             </button>
                           );
                         })
@@ -1273,12 +1860,18 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                 </div>
 
                 <div className="pdv-product-quantity-field">
-                  <span>Quantidade</span>
-                  <div className="pdv-product-quantity">
-                    <button type="button" disabled={!currentItem} onClick={() => currentItem && updateQuantity(currentItem.id, -1)} aria-label="Diminuir quantidade do item atual"><Minus className="h-4 w-4" /></button>
-                    <Input aria-label="Quantidade do item atual" inputMode="decimal" disabled={!currentItem} value={currentItem ? quantityDrafts[currentItem.id] ?? String(currentItem.quantidade) : "1"} onChange={(event) => currentItem && editQuantity(currentItem, event.target.value)} />
-                    <button type="button" disabled={!currentItem || !catalogReady} onClick={() => currentItem && updateQuantity(currentItem.id, 1)} aria-label="Aumentar quantidade do item atual"><Plus className="h-4 w-4" /></button>
-                  </div>
+                  <span>{currentItem && isMeterUnit(currentItem.unidade) ? "Área calculada" : currentItem ? getQuantityInputLabel(currentItem.unidade) : "Quantidade"}</span>
+                  {currentItem && isMeterUnit(currentItem.unidade) ? (
+                    <div className="flex min-h-10 items-center rounded-md border bg-muted/30 px-3 text-sm font-semibold">
+                      {currentItem.metragem_m2 ? `${formatSquareMetres(currentItem.metragem_m2)} m²` : "Informe as medidas no item"}
+                    </div>
+                  ) : (
+                    <div className="pdv-product-quantity">
+                      <button type="button" disabled={!currentItem} onClick={() => currentItem && updateQuantity(getCartLineKey(currentItem), -1)} aria-label="Diminuir quantidade do item atual"><Minus className="h-4 w-4" /></button>
+                      <Input aria-label="Quantidade do item atual" inputMode="decimal" disabled={!currentItem} value={currentItem ? quantityDrafts[getCartLineKey(currentItem)] ?? String(currentItem.quantidade) : "1"} onChange={(event) => currentItem && editQuantity(currentItem, event.target.value)} />
+                      <button type="button" disabled={!currentItem || !catalogReady} onClick={() => currentItem && updateQuantity(getCartLineKey(currentItem), 1)} aria-label="Aumentar quantidade do item atual"><Plus className="h-4 w-4" /></button>
+                    </div>
+                  )}
                 </div>
 
                 <Button type="button" className="pdv-add-button gap-2" disabled={!catalogReady} onClick={handleAddCurrentProduct}>
@@ -1298,27 +1891,34 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                     <div className="pdv-items-empty">
                       <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
                       <p className="font-medium">Nenhum item lançado</p>
-                      <p className="mt-1 text-xs">Selecione o cliente e adicione um serviço.</p>
+                      <p className="mt-1 text-xs">Os itens adicionados aparecerão aqui.</p>
                     </div>
                   ) : cart.map((item, index) => (
-                    <article key={item.id} className={cn("rounded-lg border p-3", item.avarias && "border-warning/40 bg-warning/5")}>
+                    <article key={getCartLineKey(item)} className={cn("rounded-lg border p-3", item.avarias && "border-warning/40 bg-warning/5")}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-muted-foreground">ITEM {index + 1}</p>
                           <p className="truncate font-black">{item.nome}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{formatCurrency(item.preco)} / {item.unidade}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{formatCurrency(item.preco)} por {getPriceUnitLabel(item.unidade)}</p>
                         </div>
-                        <p className="shrink-0 text-lg font-black text-success">{formatCurrency(item.preco * item.quantidade)}</p>
+                        <p className="shrink-0 text-lg font-black text-success">{formatCurrency(getLineTotal(item))}</p>
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-2">
-                        <div className="pdv-table-quantity">
-                          <button type="button" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}><Minus className="h-3.5 w-3.5" /></button>
-                          <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={(event) => editQuantity(item, event.target.value)} />
-                          <button type="button" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}><Plus className="h-3.5 w-3.5" /></button>
-                        </div>
+                        {isMeterUnit(item.unidade) ? (
+                          <div className="text-sm font-semibold">
+                            {item.metragem_m2 ? `${formatSquareMetres(item.metragem_m2)} m²` : <span className="text-destructive">Medidas pendentes</span>}
+                            {item.largura_m && item.comprimento_m && <span className="ml-2 text-xs font-normal text-muted-foreground">{formatMetres(item.largura_m)} × {formatMetres(item.comprimento_m)} m</span>}
+                          </div>
+                        ) : (
+                          <div className="pdv-table-quantity">
+                            <button type="button" onClick={() => updateQuantity(getCartLineKey(item), -1)} aria-label={`Diminuir ${item.nome}`}><Minus className="h-3.5 w-3.5" /></button>
+                            <Input aria-label={`${getQuantityInputLabel(item.unidade)} de ${item.nome}`} inputMode={item.unidade === "Kg" ? "decimal" : "numeric"} value={quantityDrafts[getCartLineKey(item)] ?? String(item.quantidade)} onChange={(event) => editQuantity(item, event.target.value)} />
+                            <button type="button" onClick={() => updateQuantity(getCartLineKey(item), 1)} aria-label={`Aumentar ${item.nome}`}><Plus className="h-3.5 w-3.5" /></button>
+                          </div>
+                        )}
                         <div className="flex items-center gap-1">
                           <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => openDetalhesModal(item)} aria-label={`Detalhes de ${item.nome}`}><FileText className="h-4 w-4" /></Button>
-                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromCart(item.id)} aria-label={`Remover ${item.nome}`}><Trash2 className="h-4 w-4" /></Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeFromCart(getCartLineKey(item))} aria-label={`Remover ${item.nome}`}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </div>
                     </article>
@@ -1331,7 +1931,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                       <th className="w-14 text-center">#</th>
                       <th className="w-[105px]">Item</th>
                       <th>Descrição</th>
-                      <th className="w-[128px] text-center">Quant.</th>
+                      <th className="w-[128px] text-center">Qtd. / peso / área</th>
                       <th className="w-[94px] text-center">Unidade</th>
                       <th className="w-[105px] text-right">Preço unit.</th>
                       <th className="w-[113px] text-right">Total</th>
@@ -1345,7 +1945,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                           <div className="pdv-items-empty">
                             <ShoppingCart className="mx-auto mb-2 h-8 w-8 opacity-30" />
                             <p className="font-medium">Nenhum item lançado</p>
-                            <p className="mt-1 text-xs">Selecione primeiro o cliente e pesquise um produto ou serviço para iniciar a venda.</p>
+                            <p className="mt-1 text-xs">Os itens adicionados aparecerão aqui.</p>
                           </div>
                         </td>
                       </tr>
@@ -1353,7 +1953,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                       cart.map((item, index) => {
                         const temDetalhes = hasItemDetalhes(item);
                         return (
-                          <tr key={item.id} className={cn(item.avarias && "bg-warning/5")}>
+                          <tr key={getCartLineKey(item)} className={cn(item.avarias && "bg-warning/5")}>
                             <td className="text-center font-semibold text-muted-foreground">{index + 1}</td>
                             <td>
                               <div className="pdv-item-product">
@@ -1366,22 +1966,36 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                                 <span className="pdv-item-name">{item.nome}</span>
                                 {item.avarias && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />}
                               </div>
-                              <span className="pdv-item-description">{item.descricao || (temDetalhes ? "Detalhes de peça registrados" : "Lavagem e processamento")}</span>
+                              <span className="pdv-item-description">
+                                {item.descricao?.trim().toLocaleLowerCase("pt-BR") === "detalhes de peça registrados"
+                                  ? "Detalhes do item registrados"
+                                  : item.descricao || (temDetalhes ? "Detalhes do item registrados" : "Lavagem e processamento")}
+                              </span>
                             </td>
                             <td>
-                              <div className="pdv-table-quantity">
-                                <button type="button" onClick={() => updateQuantity(item.id, -1)} aria-label={`Diminuir ${item.nome}`}><Minus className="h-3.5 w-3.5" /></button>
-                                <Input aria-label={`Quantidade de ${item.nome}`} inputMode={["Kg", "Mt"].includes(item.unidade) ? "decimal" : "numeric"} value={quantityDrafts[item.id] ?? String(item.quantidade)} onChange={(event) => editQuantity(item, event.target.value)} />
-                                <button type="button" onClick={() => updateQuantity(item.id, 1)} aria-label={`Aumentar ${item.nome}`}><Plus className="h-3.5 w-3.5" /></button>
-                              </div>
+                              {isMeterUnit(item.unidade) ? (
+                                <div className="text-center text-sm font-semibold">
+                                  {item.metragem_m2 ? `${formatSquareMetres(item.metragem_m2)} m²` : <span className="text-destructive">Pendente</span>}
+                                  {item.largura_m && item.comprimento_m && <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">{formatMetres(item.largura_m)} × {formatMetres(item.comprimento_m)} m</span>}
+                                </div>
+                              ) : (
+                                <div className="pdv-table-quantity">
+                                  <button type="button" onClick={() => updateQuantity(getCartLineKey(item), -1)} aria-label={`Diminuir ${item.nome}`}><Minus className="h-3.5 w-3.5" /></button>
+                                  <Input aria-label={`${getQuantityInputLabel(item.unidade)} de ${item.nome}`} inputMode={item.unidade === "Kg" ? "decimal" : "numeric"} value={quantityDrafts[getCartLineKey(item)] ?? String(item.quantidade)} onChange={(event) => editQuantity(item, event.target.value)} />
+                                  <button type="button" onClick={() => updateQuantity(getCartLineKey(item), 1)} aria-label={`Aumentar ${item.nome}`}><Plus className="h-3.5 w-3.5" /></button>
+                                </div>
+                              )}
                             </td>
-                            <td className="text-center"><span className="pdv-unit-chip"><span>{getPdvUnitDisplay(item.unidade)}</span><ChevronDown className="h-3.5 w-3.5" /></span></td>
-                            <td className="text-right font-semibold tabular-nums">{formatCurrency(item.preco)}</td>
-                            <td className="text-right font-black tabular-nums">{formatCurrency(item.preco * item.quantidade)}</td>
+                            <td className="text-center"><span className="pdv-unit-chip">{getPdvUnitDisplay(item.unidade)}</span></td>
+                            <td className="text-right font-semibold tabular-nums">
+                              <span className="block">{formatCurrency(item.preco)}</span>
+                              <span className="block text-[10px] font-normal text-muted-foreground">por {getPriceUnitLabel(item.unidade)}</span>
+                            </td>
+                            <td className="text-right font-black tabular-nums">{formatCurrency(getLineTotal(item))}</td>
                             <td>
                               <div className="pdv-item-actions">
                                 <Button type="button" variant="outline" size="icon" className="h-10 w-10 text-primary" onClick={() => openDetalhesModal(item)} aria-label={`Detalhes de ${item.nome}`} title="Editar detalhes do item"><Pencil className="h-4 w-4" /></Button>
-                                <Button type="button" variant="outline" size="icon" className="h-10 w-10 text-destructive" onClick={() => removeFromCart(item.id)} aria-label={`Remover ${item.nome}`} title="Remover item"><Trash2 className="h-4 w-4" /></Button>
+                                <Button type="button" variant="outline" size="icon" className="h-10 w-10 text-destructive" onClick={() => removeFromCart(getCartLineKey(item))} aria-label={`Remover ${item.nome}`} title="Remover item"><Trash2 className="h-4 w-4" /></Button>
                               </div>
                             </td>
                           </tr>
@@ -1390,11 +2004,6 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                     )}
                   </tbody>
                 </table>
-              </div>
-
-              <div className="pdv-roll-total-strip">
-                <span><Boxes className="h-5 w-5" /> Total de peças: <strong>{formatCarga(totalItems)}</strong></span>
-                <span>Total do {serviceLabel}: <strong>{formatCurrency(totalValue)}</strong></span>
               </div>
 
               <div className="pdv-roll-notes">
@@ -1410,19 +2019,34 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                 <small>{rolNotes.length} / 500</small>
               </div>
 
-              <div className="pdv-roll-tools" aria-label="Ferramentas do ROL">
-                <Button type="button" variant="outline" onClick={() => openOrderLookup()}><ClipboardList className="h-4 w-4" /> Consultar ROLs</Button>
-                <Button type="button" variant="outline" disabled={!canViewDayList} onClick={() => setShowListaDia(true)}><CalendarDays className="h-4 w-4" /> Lista do dia</Button>
-                <Button type="button" variant="outline" onClick={() => openOrderLookup("posicao")}><Archive className="h-4 w-4" /> Prateleiras</Button>
-                {canCreateClient && <Button type="button" variant="outline" onClick={() => setShowQuickClientModal(true)}><IdCard className="h-4 w-4" /> Novo cliente</Button>}
-                <Button type="button" variant="outline" disabled={!canReceivePayments} title={canReceivePayments ? "Registrar sangria no caixa aberto" : "Abra o caixa para registrar uma sangria"} onClick={() => setShowSangriaModal(true)}><ArrowDownCircle className="h-4 w-4" /> Sangria</Button>
-                <Button type="button" variant="outline" onClick={() => setShowHistoricoVendas(true)}><FileSearch className="h-4 w-4" /> Histórico</Button>
-              </div>
             </section>
           </section>
           </section>
 
-          <aside className="pdv-right-column" aria-label="Prazo, capacidade, resumo e finalização do pedido">
+          <aside className="pdv-right-column" aria-label={mode === "orcamento" ? "Validade, resumo e salvamento da proposta" : "Prazo, capacidade, resumo e finalização do pedido"}>
+            {mode === "orcamento" ? (
+              <section className="pdv-reference-card pdv-capacity-card" aria-labelledby="pdv-quote-validity-title">
+                <div className="pdv-card-title-row">
+                  <div className="pdv-card-title">
+                    <span className="pdv-step-number" aria-hidden="true">3</span>
+                    <div>
+                      <h2 id="pdv-quote-validity-title">Validade da proposta</h2>
+                      <p className="mt-1 text-xs text-muted-foreground">Defina até quando os preços deste orçamento serão válidos.</p>
+                    </div>
+                  </div>
+                </div>
+                <label htmlFor="pdv-quote-validity" className="mt-3 block text-sm font-semibold">Válido até</label>
+                <Input
+                  id="pdv-quote-validity"
+                  type="date"
+                  min={format(new Date(), "yyyy-MM-dd")}
+                  value={quoteValidUntil}
+                  onChange={(event) => setQuoteValidUntil(event.target.value)}
+                  aria-label="Data de validade do orçamento"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">A proposta não define data de entrega, não reserva capacidade e não movimenta o caixa.</p>
+              </section>
+            ) : (
             <section className="pdv-reference-card pdv-capacity-card" aria-labelledby="pdv-capacity-title">
               <div className="pdv-card-title-row">
                 <div className="pdv-card-title">
@@ -1454,33 +2078,36 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                   <small>Data prometida</small>
                   <strong>{format(fulfillment.deliveryDate, "dd/MM/yyyy")} <span className="font-medium text-muted-foreground">({format(fulfillment.deliveryDate, "EEEE", { locale: ptBR })})</span></strong>
                 </span>
-                <button type="button" className="pdv-capacity-edit" disabled={!selectedClient} onClick={() => openFulfillmentModal()} aria-label="Editar prazo e entrega">
-                  <Pencil className="h-4 w-4" />
-                </button>
               </div>
               <Button type="button" variant="outline" size="sm" className="mt-2 w-full gap-2" disabled={!selectedClient} onClick={() => openFulfillmentModal()}>
                 <CalendarDays className="h-4 w-4" /> Consultar agenda e capacidade
               </Button>
               <div className="pdv-capacity-summary">
                 <div className="pdv-capacity-heading">
-                  <span className="flex items-center gap-1.5">Capacidade da data <Info className="h-3.5 w-3.5 text-primary" /></span>
+                  <span className="flex items-center gap-1.5">Capacidade de {format(fulfillment.deliveryDate, "dd/MM/yyyy")} <Info className="h-3.5 w-3.5 text-primary" /></span>
                 </div>
                 {capacityLoading ? (
                   <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Consultando agenda…</p>
                 ) : capacityError ? (
                   <p role="alert" className="mt-2 text-xs text-destructive">Não foi possível validar a capacidade.</p>
                 ) : !capacity?.configured ? (
-                  <p className="mt-2 text-xs text-muted-foreground">Sem limite diário configurado para este setor.</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Sem limite diário padrão configurado para {areaLabel.toLowerCase()}.
+                  </p>
                 ) : (
                   <>
                     <div className="pdv-capacity-meter-row">
                       <div className="pdv-capacity-meter" aria-label={`Capacidade utilizada: ${capacityProgress.toFixed(0)}%`}><span style={{ width: `${capacityProgress}%` }} /></div>
-                      <strong>{formatCarga(capacityReserved + totalItems)} de {formatCarga(capacityLimit)} cargas</strong>
+                      <strong aria-label={`Capacidade já agendada para ${format(fulfillment.deliveryDate, "dd/MM/yyyy")}: ${formatCarga(capacityReserved)} de ${formatCarga(capacityLimit)} peças ou cargas`}>
+                        {formatCarga(capacityReserved)}/{formatCarga(capacityLimit)}
+                      </strong>
                     </div>
+                    <p className="mt-1 text-xs text-muted-foreground">Após este ROL: {formatCarga(capacityLoad)}/{formatCarga(capacityLimit)} · +{formatCarga(totalItems)} peças/carga.</p>
                   </>
                 )}
               </div>
             </section>
+            )}
             <section className="pdv-summary-card" aria-labelledby="pdv-summary-title">
               <header>
                 <div className="pdv-summary-heading">
@@ -1503,16 +2130,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                     <DropdownMenuSeparator />
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger><CreditCard className="mr-2 h-4 w-4" />Caixa e financeiro</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="w-72 p-2">
-                        {canOperateCaixa && <>
-                          <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowFecharCaixaModal(true); }}><Lock className="mr-2 h-4 w-4" />Fechar caixa<DropdownMenuShortcut>F10</DropdownMenuShortcut></DropdownMenuItem>
-                          <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowSangriaModal(true); }}><ArrowDownCircle className="mr-2 h-4 w-4" />Sangria<DropdownMenuShortcut>F7</DropdownMenuShortcut></DropdownMenuItem>
-                          <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowSuprimentoModal(true); }}><ArrowUpCircle className="mr-2 h-4 w-4" />Suprimento</DropdownMenuItem>
-                        </>}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
+                    {canOperateCaixa && <DropdownMenuItem disabled={!canReceivePayments} onSelect={() => { if (canReceivePayments) setShowSuprimentoModal(true); }}><ArrowUpCircle className="mr-2 h-4 w-4" />Suprimento</DropdownMenuItem>}
                     <DropdownMenuSeparator />
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger><Keyboard className="mr-2 h-4 w-4" />Tela e atalhos</DropdownMenuSubTrigger>
@@ -1525,21 +2143,43 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                 </DropdownMenu>
               </header>
               <div className="pdv-summary-lines">
-                <div className="pdv-summary-line"><span>Subtotal ({formatCarga(totalItems)} itens)</span><strong>{formatCurrency(totalValue)}</strong></div>
-                <div className="pdv-adjustment-line">
-                  <span className="text-[13px] text-muted-foreground">Desconto</span>
-                  <button type="button" className="pdv-adjustment-button" disabled={mode === "orcamento"} aria-label="Configurar desconto na finalização" onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>{formatCurrency(0)}</button>
-                  <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
-                </div>
-                <div className="pdv-adjustment-line">
-                  <span className="text-[13px] text-muted-foreground">Acréscimo</span>
-                  <button type="button" className="pdv-adjustment-button" disabled={mode === "orcamento"} aria-label="Configurar urgência na finalização" onClick={() => openFulfillmentModal()}>{formatCurrency(0)}</button>
-                  <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
-                </div>
+                <div className="pdv-summary-line"><span>Subtotal</span><strong>{formatCurrency(totalValue)}</strong></div>
+                {mode !== "orcamento" && <>
+                  <div className="pdv-adjustment-line">
+                    <span className="text-[13px] text-muted-foreground">Desconto</span>
+                    <button type="button" className="pdv-adjustment-button" aria-label="Configurar desconto" onClick={() => { setPaymentShortcut(null); setPaymentAdjustmentOnly(true); handleOpenPagamento(); }}>{formatCurrency(effectiveDiscount)}</button>
+                    <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
+                  </div>
+                  <div className="pdv-adjustment-line">
+                    <span className="text-[13px] text-muted-foreground">{fulfillment.urgent ? "Lavagem Expressa" : "Acréscimo"}</span>
+                    <button type="button" className="pdv-adjustment-button" aria-label="Configurar Lavagem Expressa" onClick={() => openFulfillmentModal()}>{formatCurrency(urgencyAmount)}</button>
+                    <span className="flex h-[34px] items-center justify-center rounded-md border text-xs font-bold text-muted-foreground">%</span>
+                  </div>
+                </>}
+                {mode !== "orcamento" && deliveryFeeAmount > 0 && <div className="pdv-summary-line"><span>Taxa de delivery</span><strong>{formatCurrency(deliveryFeeAmount)}</strong></div>}
               </div>
+              {canOperateCaixa && mode !== "orcamento" && (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <CreditCard className="h-4 w-4 shrink-0 text-primary" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-muted-foreground">Crédito disponível</p>
+                      <p className="text-sm font-bold text-foreground">{isLoadingCustomerCredit ? "Consultando…" : formatCurrency(Number(customerCredit?.saldo ?? 0))}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-1.5">
+                  <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" disabled={!canReceivePayments} onClick={() => { setCustomerCreditMode("add"); setShowCustomerCreditModal(true); }}>
+                    <CreditCard className="h-3.5 w-3.5" /> Adicionar
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" disabled={!canReceivePayments || Number(customerCredit?.saldo ?? 0) <= 0} onClick={() => { setCustomerCreditMode("subtract"); setShowCustomerCreditModal(true); }}>
+                    Abater
+                  </Button>
+                  </div>
+                </div>
+              )}
               <div className="pdv-total-banner">
                 <small>Total do {serviceLabel}</small>
-                <strong>{formatCurrency(totalValue)}</strong>
+                <strong>{formatCurrency(mode === "orcamento" ? totalValue : totalAfterDiscount)}</strong>
               </div>
             </section>
 
@@ -1551,32 +2191,67 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                   <p>{mode === "orcamento" ? "O orçamento não movimenta o caixa." : "Selecione a forma para a finalização."}</p>
                 </div>
               </header>
+              <div
+                role="status"
+                aria-live="polite"
+                className={cn(
+                  "mt-3 rounded-lg border px-3 py-2.5 text-xs",
+                  checkoutBlockReasons.length > 0
+                    ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+                    : "border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100",
+                )}
+              >
+                <p className="flex items-center gap-2 font-semibold">
+                  {checkoutBlockReasons.length > 0
+                    ? <AlertTriangle className="h-4 w-4 shrink-0" />
+                    : <CheckCircle2 className="h-4 w-4 shrink-0" />}
+                  {checkoutBlockReasons.length > 0 ? "Antes de continuar" : mode === "orcamento" ? "Proposta pronta para salvar" : "Atendimento pronto para finalizar"}
+                </p>
+                {checkoutBlockReasons.length > 0 ? (
+                  <ul className="mt-1.5 space-y-1 pl-6">
+                    {checkoutBlockReasons.map((reason) => <li key={reason}>{reason}</li>)}
+                  </ul>
+                ) : (
+                  <p className="mt-1 pl-6">
+                    {mode === "orcamento"
+                      ? "Salvar a proposta não movimenta o caixa."
+                      : isFaturado
+                        ? "O valor seguirá para faturamento, sem recebimento neste caixa."
+                        : "Na próxima etapa, forma, valor recebido, troco e dados obrigatórios de pagamento serão conferidos antes de gravar o ROL."}
+                  </p>
+                )}
+              </div>
               {mode === "orcamento" ? (
                 <div className="pdv-payment-actions pdv-quote-actions">
-                  <div className="pdv-quote-notice"><Calculator className="h-5 w-5" /><span><strong>Validade padrão: 7 dias</strong><small>Preços e tabela usados ficam gravados no orçamento.</small></span></div>
-                  <Button type="button" data-testid="pdv-save-quote" className="pdv-finish-button gap-2" disabled={!cartValid || savePdvQuote.isPending} onClick={() => void handleSaveQuote()}>
+                  <div className="pdv-quote-notice"><Calculator className="h-5 w-5" /><span><strong>{quoteValidUntil ? `Válido até ${format(new Date(`${quoteValidUntil}T00:00:00`), "dd/MM/yyyy")}` : "Defina a validade da proposta"}</strong><small>Cliente, operação, responsável e itens ficam registrados.</small></span></div>
+                  <Button type="button" data-testid="pdv-save-quote" className="pdv-finish-button gap-2" disabled={!cartValid || !quoteValidUntil || quoteValidUntil < format(new Date(), "yyyy-MM-dd") || savePdvQuote.isPending || !offlineRuntime.isOperationalOnline} onClick={() => void handleSaveQuote()}>
                     {savePdvQuote.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />} Salvar orçamento
                   </Button>
                 </div>
               ) : (
                 <>
-                  {!isLoadingCaixa && !canReceivePayments && !isFaturado && <p className="mt-2 text-xs text-warning">Abra o caixa e confirme sua permissão para receber agora.</p>}
-                  {!isLoadingCaixa && canOperateCaixa && !caixaAberto && (
+                  {!offlineRuntime.isOperationalOnline && <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">Modo offline: salve apenas ROL sem recebimento. A validação de capacidade será refeita ao sincronizar.</p>}
+                  {offlineRuntime.isOperationalOnline && !isLoadingCaixa && !canReceivePayments && !isFaturado && <p className="mt-2 text-xs text-warning">Abra o caixa e confirme sua permissão para receber agora.</p>}
+                  {offlineRuntime.isOperationalOnline && !isLoadingCaixa && canOperateCaixa && !caixaAberto && (
                     <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={() => setShowAbrirCaixaModal(true)}>
                       Abrir caixa para receber
                     </Button>
                   )}
                   <div className="pdv-payment-options">
-                    <button type="button" className={cn("pdv-payment-option", !isFaturado && canReceivePayments && (!paymentShortcut || paymentShortcut.pagoAgora && paymentShortcut.formaPagamento === "DINHEIRO") && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "DINHEIRO" }); handleOpenPagamento(); }}><Banknote className="h-5 w-5" /> Dinheiro</button>
-                    <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "PIX" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "PIX" }); handleOpenPagamento(); }}><QrCode className="h-5 w-5" /> PIX</button>
-                    <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "CARTAO_DEBITO" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentShortcut({ pagoAgora: true, formaPagamento: "CARTAO_DEBITO" }); handleOpenPagamento(); }}><CreditCard className="h-5 w-5" /> Cartão</button>
-                    <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora === false && "is-selected")} disabled={isFaturado} onClick={() => { setPaymentShortcut({ pagoAgora: false, formaPagamento: null }); handleOpenPagamento(); }}><CalendarRange className="h-5 w-5" /> Posterior</button>
+                    <button type="button" className={cn("pdv-payment-option", !isFaturado && canReceivePayments && (!paymentShortcut || paymentShortcut.pagoAgora && paymentShortcut.formaPagamento === "DINHEIRO") && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentAdjustmentOnly(false); setPaymentShortcut({ pagoAgora: true, formaPagamento: "DINHEIRO" }); handleOpenPagamento(); }}><Banknote className="h-5 w-5" /> Dinheiro</button>
+                    <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "PIX" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentAdjustmentOnly(false); setPaymentShortcut({ pagoAgora: true, formaPagamento: "PIX" }); handleOpenPagamento(); }}><Smartphone className="h-5 w-5" /> PIX</button>
+                    <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora && paymentShortcut.formaPagamento === "CARTAO_DEBITO" && "is-selected")} disabled={isFaturado || !canReceivePayments} onClick={() => { setPaymentAdjustmentOnly(false); setPaymentShortcut({ pagoAgora: true, formaPagamento: "CARTAO_DEBITO" }); handleOpenPagamento(); }}><CreditCard className="h-5 w-5" /> Cartão</button>
+                    <button type="button" className={cn("pdv-payment-option", paymentShortcut?.pagoAgora === false && "is-selected")} disabled={isFaturado || Boolean(fulfillmentBlockReason)} onClick={() => { setPaymentAdjustmentOnly(false); setPaymentShortcut({ pagoAgora: false, formaPagamento: null }); handleOpenPagamento(); }}><CalendarRange className="h-5 w-5" /> Posterior</button>
                   </div>
                   <div className="pdv-payment-actions">
-                    <Button type="button" data-testid="pdv-workflow-finalize" className="pdv-finish-button gap-2" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={() => { setPaymentShortcut(null); handleOpenPagamento(); }}>
-                      <CircleCheck className="h-5 w-5" /> {isFaturado ? "Finalizar ROL faturado" : mode === "delivery" ? "Finalizar delivery (F4)" : "Finalizar ROL (F4)"}
+                    <Button type="button" data-testid="pdv-workflow-finalize" className="pdv-finish-button gap-2" disabled={!cartValid || isProcessingVenda || Boolean(fulfillmentBlockReason)} onClick={() => { setPaymentAdjustmentOnly(false); setPaymentShortcut(null); handleOpenPagamento(); }}>
+                      <CircleCheck className="h-5 w-5" /> {!offlineRuntime.isOperationalOnline ? "Salvar ROL offline" : isFaturado ? "Finalizar ROL faturado" : mode === "delivery" ? "Finalizar delivery (F4)" : "Finalizar ROL (F4)"}
                     </Button>
                     <Button type="button" variant="outline" className="pdv-print-button gap-2" onClick={() => {
+                      if (offlineReceipt) {
+                        void printOfflinePdvReceipt(offlineReceipt);
+                        return;
+                      }
                       if (osRecemCriada) {
                         void printROL(osRecemCriada.id);
                         return;
@@ -1592,25 +2267,9 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           </aside>
         </div>
 
-        <nav aria-label="Atalhos do atendimento" className="scrollbar-hide" data-testid="pdv-primary-shortcuts">
-          <div className="pdv-quick-actions">
-            <div className="pdv-quick-actions-heading">
-              <span className="pdv-step-number" aria-hidden="true">7</span>
-              <div className="min-w-0">
-                <h2>Ações rápidas</h2>
-                <p>Acesso aos principais atalhos sem abandonar o atendimento.</p>
-              </div>
-            </div>
-            <button data-testid="pdv-workflow-client" type="button" className="pdv-quick-action" title={selectedClient ? "Trocar o cliente deste atendimento" : "Selecionar cliente"} onClick={() => selectedClient ? clearClient() : focusClientSearch()}><UserRound className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Clientes</span><span className="pdv-quick-action-hotkey">F2</span></span></button>
-            <button data-testid="pdv-workflow-day-list" type="button" className="pdv-quick-action" aria-label="Lista do dia" disabled={!canViewDayList} onClick={() => setShowListaDia(true)}><CalendarDays className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Agenda</span><span className="pdv-quick-action-hotkey">F3</span></span></button>
-            <button type="button" className="pdv-quick-action" onClick={() => openOrderLookup()}><ClipboardList className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Ordens</span><span className="pdv-quick-action-hotkey">F6</span></span></button>
-            <button type="button" className="pdv-quick-action" onClick={() => openOrderLookup("posicao")}><Boxes className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Produção</span></span></button>
-            <button type="button" className="pdv-quick-action" aria-label="Posição do ROL" onClick={() => openOrderLookup("posicao")}><MapPin className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Prateleira</span></span></button>
-            <button data-testid="pdv-workflow-fulfillment" type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "entrega" })}><Truck className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Entrega</span></span></button>
-            <button type="button" className="pdv-quick-action" disabled={!selectedClient} onClick={() => openFulfillmentModal({ deliveryMode: "balcao" })}><Archive className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Retirada</span></span></button>
-            <button type="button" className="pdv-quick-action" disabled={!canReceivePayments} onClick={() => setShowFecharCaixaModal(true)}><Lock className="h-5 w-5" /><span className="pdv-quick-action-copy"><span>Fechamento</span></span></button>
           </div>
-        </nav>
+        </div>
+
       </div>
 
       {/* Modal de Detalhes do Item */}
@@ -1620,6 +2279,9 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           onOpenChange={setDetalhesModalOpen}
           itemNome={selectedCartItem.nome}
           quantidade={selectedCartItem.quantidade}
+          unidade={selectedCartItem.unidade}
+          precoUnitario={selectedCartItem.preco}
+          unidadePreco={getPriceUnitLabel(selectedCartItem.unidade)}
           detalhes={{
             cor_item: selectedCartItem.cor_item,
             marca_item: selectedCartItem.marca_item,
@@ -1630,6 +2292,10 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
             tipo_preco: selectedCartItem.tipo_preco,
             servicos_adicionais: selectedCartItem.servicos_adicionais,
             complemento: selectedCartItem.complemento,
+            metragem_m2: selectedCartItem.metragem_m2,
+            largura_m: selectedCartItem.largura_m,
+            comprimento_m: selectedCartItem.comprimento_m,
+            lacre: selectedCartItem.lacre,
           }}
           onSave={saveDetalhes}
         />
@@ -1658,6 +2324,8 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                 capacityError={fulfillmentDraftCapacityError}
                 canOverrideCapacity={canManageCommercialTerms}
                 canSetUrgency={!isFaturado}
+                deliveryPricing={deliveryPricing}
+                deliveryDistanceKm={deliveryDistanceKm}
                 onChange={setFulfillmentDraft}
               />
             </div>
@@ -1674,30 +2342,53 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       {/* Modal de Pagamento */}
       <PagamentoModal
         open={showPagamentoModal}
-        onOpenChange={setShowPagamentoModal}
+        onOpenChange={(nextOpen) => {
+          setShowPagamentoModal(nextOpen);
+          if (!nextOpen) setPaymentAdjustmentOnly(false);
+        }}
         cart={cart}
         cliente={selectedClient ? {
           id: selectedClient.id,
           razao_social: selectedClient.razao_social,
           nome_fantasia: selectedClient.nome_fantasia,
           cpf_cnpj: selectedClient.cpf_cnpj,
+          classificacao: selectedClient.classificacao,
         } : null}
         totalOriginal={totalValue}
-        totalItems={totalItems}
+        initialDiscountAmount={effectiveDiscount}
+        adjustmentOnly={paymentAdjustmentOnly}
+        onApplyDiscount={handleApplyDiscount}
         loyalty={canUseLoyalty ? customerLoyalty ?? null : null}
         canManageCommercialTerms={canManageCommercialTerms}
         canReceivePayments={canReceivePayments}
+        offlineMode={!offlineRuntime.isOperationalOnline}
+        customerCredit={canOperateCaixa ? customerCredit ?? null : null}
+        customerCreditLoading={isLoadingCustomerCredit}
         termsLoading={catalogLoading}
         termsError={catalogError || !cartValid}
         loyaltyLoading={isLoadingCustomerLoyalty}
         configuracaoPagamento={configuracaoPagamento ?? null}
         fulfillment={fulfillment}
+        urgencyPercentage={commercialRules?.urgencyPercentage ?? 30}
         fulfillmentAddressSnapshot={fulfillmentAddressSnapshot}
         fulfillmentBlockReason={fulfillmentBlockReason}
         initialSelection={paymentShortcut}
         onConfirm={handleFinalizarVenda}
         isLoading={isProcessingVenda}
       />
+
+      {canOperateCaixa && selectedClient && mode !== "orcamento" && (
+        <CreditoClienteModal
+          open={showCustomerCreditModal}
+          onOpenChange={setShowCustomerCreditModal}
+          client={{ id: selectedClient.id, name: selectedClient.nome_fantasia || selectedClient.razao_social }}
+          cashRegisterId={caixaAberto?.id ?? null}
+          canReceivePayments={canReceivePayments}
+          summary={customerCredit}
+          isLoadingSummary={isLoadingCustomerCredit}
+          mode={customerCreditMode}
+        />
+      )}
 
       {/* Modal de Impressão Pós-Venda */}
       {osRecemCriada && (
@@ -1708,7 +2399,6 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           osNumero={osRecemCriada.numero}
           clienteNome={selectedClient?.nome_fantasia || selectedClient?.razao_social || "Cliente"}
           valorTotal={osRecemCriada.valorTotal}
-          totalPecas={totalItems}
           previsaoEntrega={osRecemCriada.previsaoEntrega}
           onComplete={handleImpressaoComplete}
         />
@@ -1748,17 +2438,54 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           if (!open) setPdvLookupMode("consulta");
         }}
         positionMode={pdvLookupMode === "posicao"}
-        onReceberPagamento={canReceivePayments ? (ordem) => {
-          if (!canReceivePayments || ordem.condicao_pagamento === "faturado") return;
+        canReceivePayments={canReceivePayments}
+        receivePaymentBlockReason={!offlineRuntime.isOperationalOnline
+          ? "Reconecte o PDV para receber pagamentos."
+          : !canOperateCaixa
+            ? "Seu perfil não possui permissão para operar o caixa."
+            : !caixaAberto
+              ? "Abra o caixa antes de receber o saldo do ROL."
+              : null}
+        onReceberPagamento={canOperateCaixa ? (ordem) => {
+          if (!canReceivePayments || ordem.condicao_pagamento === "faturado") {
+            toast.error(!offlineRuntime.isOperationalOnline ? "Reconecte o PDV para receber pagamentos." : "Abra o caixa para receber o saldo do ROL.");
+            return;
+          }
           setOsParaReceber(ordem);
           setShowReceberPagamentoModal(true);
         } : undefined}
+        onDarBaixa={canOperateCaixa || canManageOrders ? handleDarBaixa : undefined}
+        onEnviarEntrada={(ordem) => {
+          void dispararNotificacaoAutomatica("rol_entrada", ordem.id, `rol:${ordem.id}:entrada:manual`).then((resultado) => {
+            if (resultado.partial) {
+              toast.warning(`Aviso de entrada enviado para ${resultado.sentCount} de ${resultado.recipientCount} números. Confira os celulares cadastrados.`);
+              return;
+            }
+            if (resultado.success) {
+              toast.success(resultado.idempotent ? "Aviso de entrada já enviado anteriormente." : "Aviso de entrada enviado ao cliente.");
+            } else {
+              toast.error("Não foi possível enviar o aviso de entrada pelo WhatsApp.");
+            }
+          });
+        }}
         onImprimirROL={(osId) => {
           void printROL(osId);
         }}
         onImprimirEtiquetas={(osId) => {
           void printEtiqueta(osId);
         }}
+        onImprimirDisponibilidade={(osId) => {
+          void printROLDisponibilidade(osId);
+        }}
+        onEnviarDisponibilidade={(ordem) => {
+          void enviarAvisoDisponibilidade(ordem.id, ordem.entrega_modalidade, ordem.numero);
+        }}
+      />
+
+      <ConsultarOrcamentosPdvModal
+        area={area}
+        open={showPdvQuotesModal}
+        onOpenChange={setShowPdvQuotesModal}
       />
 
       {/* Modal Receber Pagamento */}
@@ -1768,6 +2495,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           open={showReceberPagamentoModal}
           onOpenChange={setShowReceberPagamentoModal}
           osId={osParaReceber.id}
+          clienteId={osParaReceber.cliente.id}
           osNumero={osParaReceber.numero}
           clienteNome={osParaReceber.cliente?.nome_fantasia || osParaReceber.cliente?.razao_social || "Cliente"}
           valorTotal={osParaReceber.valor_total || 0}
@@ -1775,39 +2503,24 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
           onSuccess={() => {
             setOsParaReceber(null);
           }}
-          onRequestPix={handlePixRecebimento}
         />
       )}
-
-      {canReceivePayments && pixContext && (
-        <PixPagamentoModal
-          open
-          onOpenChange={() => undefined}
-          orderId={pixContext.orderId}
-          orderNumber={pixContext.orderNumber}
-          amount={pixContext.amount}
-          cashRegisterId={pixContext.cashRegisterId}
-          moment={pixContext.moment}
-          idempotencyKey={pixContext.idempotencyKey}
-          initialPix={pixContext.initialPix}
-          initialError={pixContext.initialError}
-          onFinished={handlePixFinished}
-        />
-      )}
-
-      <ConsultarOSModal
-        open={showHistoricoVendas}
-        onOpenChange={setShowHistoricoVendas}
-        recent
-        onImprimirROL={osId => { void printROL(osId); }}
-        onImprimirEtiquetas={osId => { void printEtiqueta(osId); }}
-      />
 
       {canViewDayList && <ListaDoDiaModal
         open={showListaDia}
         onOpenChange={setShowListaDia}
-        onSelectClient={(clientId) => { setSelectedClientId(clientId); setShowListaDia(false); }}
       />}
+
+      {canViewDayList && <DisponibilizacaoDoDiaModal
+        open={showDisponibilizacaoDia}
+        onOpenChange={setShowDisponibilizacaoDia}
+        onEnviarDisponibilidade={enviarAvisoDisponibilidade}
+      />}
+
+      <PdvWhatsAppDeviceModal
+        open={showWhatsAppDeviceModal}
+        onOpenChange={setShowWhatsAppDeviceModal}
+      />
 
       {canManageContracts && selectedClient && <Dialog open={showContracts} onOpenChange={setShowContracts}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
@@ -1818,15 +2531,20 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         </DialogContent>
       </Dialog>}
 
-      {canCreateClient && <CadastroRapidoClienteModal
-        open={showQuickClientModal}
-        onOpenChange={setShowQuickClientModal}
-        classification={area}
-        onCreated={(clientId) => {
+      {canCreateClient && <CadastroCompletoClientePdvModal
+        open={showFullClientModal}
+        onOpenChange={setShowFullClientModal}
+        clientes={clientesFiltradosPorTipo}
+        initialSearch={clientSearch}
+        isLoadingClientes={isLoadingClientes}
+        hasClientesError={clientsError}
+        onRetryClientes={() => { void refetchClients(); }}
+        canCreateClient={canCreateClient}
+        canEditClient={canAccessRoute("/" + area + "/clientes")}
+        onSelectClient={(clientId) => {
           selectClient(clientId);
           void refetchClients();
         }}
-        onUseExisting={selectClient}
       />}
 
       {/* Modal Ajuda Atalhos */}

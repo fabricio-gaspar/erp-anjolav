@@ -1,18 +1,19 @@
-import { lazy, Suspense, useEffect, type ComponentType, type LazyExoticComponent } from "react";
+import { lazy, Suspense, useEffect, type ComponentType, type LazyExoticComponent, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, type Location } from "react-router-dom";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
-import { dashboardQueryDefaults } from "@/lib/queryDefaults";
+import { queryClient } from "@/lib/queryClient";
 import { aplicarTema, getTemaIdFromCorPrimaria } from "@/lib/themeUtils";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { ThemeModeProvider } from "@/contexts/ThemeModeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
+import { OfflineRuntimeProvider } from "@/contexts/OfflineRuntimeContext";
 import { OperationalProvider } from "@/contexts/OperationalContext";
-import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
+import { useWorkspace, WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useNavigationAccess } from "@/hooks/usePermissoesUsuario";
 import {
@@ -22,8 +23,10 @@ import {
   type AppRoutePath,
   type LegacyRouteRedirect,
 } from "@/lib/appRoutes";
-import { getCanonicalPdvPath } from "@/lib/authorization";
+import { getCanonicalPdvPath, getPdvFrontPath } from "@/lib/authorization";
+import { useCaixaAberto } from "@/hooks/useCaixa";
 import { ADMIN_ROUTES, type AdminRoutePath } from "@/lib/adminRoutes";
+import { PdvModuleDialog } from "@/components/layout/PdvModuleDialog";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clientes = lazy(() => import("./pages/Clientes"));
@@ -33,7 +36,8 @@ const OrdensServico = lazy(() => import("./pages/OrdensServico"));
 const Agenda = lazy(() => import("./pages/Agenda"));
 const CaixaPDV = lazy(() => import("./pages/CaixaPDV"));
 const PdvModuleHub = lazy(() => import("./pages/PdvModuleHub"));
-const PdvServiceSelector = lazy(() => import("./pages/PdvServiceSelector"));
+const PdvReportsHub = lazy(() => import("./pages/PdvReportsHub"));
+const AdminReportsHub = lazy(() => import("./pages/AdminReportsHub"));
 const Lancamentos = lazy(() => import("./pages/Lancamentos"));
 const DashboardFinanceiro = lazy(() => import("./pages/DashboardFinanceiro"));
 const Contas = lazy(() => import("./pages/Contas"));
@@ -55,12 +59,6 @@ const RelatorioMensal = lazy(() => import("./pages/RelatorioMensal"));
 const Auditoria = lazy(() => import("./pages/Auditoria"));
 const AdministracaoSaas = lazy(() => import("./pages/AdministracaoSaas"));
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: dashboardQueryDefaults,
-  },
-});
-
 function ThemeLoader({ children }: { children: React.ReactNode }) {
   const { session, activeTenant, loading } = useAuth();
   const { configuracao } = useConfiguracoesGerais(Boolean(session && activeTenant && !loading));
@@ -75,6 +73,8 @@ const ROUTE_COMPONENTS = {
   "/central": Dashboard,
   "/central/financeiro": DashboardFinanceiro,
   "/central/contas": Contas,
+  "/central/contas-receber": Contas,
+  "/central/contas-pagar": Contas,
   "/central/agenda-eventos": AgendaEventos,
   "/central/relatorios/quilometragem": RelatorioKilometragem,
   "/central/relatorios/mensal": RelatorioMensal,
@@ -118,9 +118,13 @@ const ADMIN_ROUTE_COMPONENTS: Record<AdminRoutePath, LazyExoticComponent<Compone
   "/admin/financeiro": DashboardFinanceiro,
   "/admin/financeiro/lancamentos": Lancamentos,
   "/admin/financeiro/contas": Contas,
+  "/admin/financeiro/contas-receber": Contas,
+  "/admin/financeiro/contas-pagar": Contas,
   "/admin/financeiro/caixas": HistoricoCaixas,
   "/admin/estoque": Estoque,
   "/admin/relatorios": RelatorioMensal,
+  "/admin/relatorios/central": AdminReportsHub,
+  "/admin/relatorios/quilometragem": RelatorioKilometragem,
   "/admin/configuracoes": Configuracoes,
   "/admin/auditoria": Auditoria,
   "/admin/plataforma": AdministracaoSaas,
@@ -146,19 +150,50 @@ const PDV_FRONT_ROUTES = [
 ] as const;
 
 const PDV_OPERATIONAL_ROUTES = [
-  { area: "residencial", path: "/pdv/domestico/clientes", requiredModule: ["clientes"], Page: Clientes },
-  { area: "industrial", path: "/pdv/industrial/clientes", requiredModule: ["clientes"], Page: Clientes },
-  { area: "residencial", path: "/pdv/domestico/produtos", requiredModule: ["produtos"], Page: Produtos },
-  { area: "industrial", path: "/pdv/industrial/produtos", requiredModule: ["produtos"], Page: Produtos },
-  { area: "residencial", path: "/pdv/domestico/agenda", requiredModule: ["agenda"], Page: Agenda },
-  { area: "industrial", path: "/pdv/industrial/agenda", requiredModule: ["agenda"], Page: Agenda },
-  { area: "residencial", path: "/pdv/domestico/ordens", requiredModule: ["ordens"], Page: OrdensServico },
-  { area: "industrial", path: "/pdv/industrial/ordens", requiredModule: ["ordens"], Page: OrdensServico },
-  { area: "residencial", path: "/pdv/domestico/producao", requiredModule: ["producao"], Page: FluxoProducao },
-  { area: "industrial", path: "/pdv/industrial/producao", requiredModule: ["producao"], Page: FluxoProducao },
-  { area: "residencial", path: "/pdv/domestico/lancamentos", requiredModule: ["faturamento"], Page: Lancamentos },
-  { area: "industrial", path: "/pdv/industrial/lancamentos", requiredModule: ["faturamento"], Page: Lancamentos },
+  { area: "residencial", path: "/pdv/domestico/clientes", title: "Clientes", requiredModule: ["clientes"], Page: Clientes },
+  { area: "industrial", path: "/pdv/industrial/clientes", title: "Clientes", requiredModule: ["clientes"], Page: Clientes },
+  { area: "residencial", path: "/pdv/domestico/produtos", title: "Catálogo", requiredModule: ["produtos"], Page: Produtos },
+  { area: "industrial", path: "/pdv/industrial/produtos", title: "Catálogo", requiredModule: ["produtos"], Page: Produtos },
+  { area: "residencial", path: "/pdv/domestico/agenda", title: "Agenda", requiredModule: ["agenda"], Page: Agenda },
+  { area: "industrial", path: "/pdv/industrial/agenda", title: "Agenda", requiredModule: ["agenda"], Page: Agenda },
+  { area: "residencial", path: "/pdv/domestico/ordens", title: "Entregar pedido", requiredModule: ["ordens"], Page: OrdensServico },
+  { area: "industrial", path: "/pdv/industrial/ordens", title: "Entregar pedido", requiredModule: ["ordens"], Page: OrdensServico },
+  { area: "residencial", path: "/pdv/domestico/producao", title: "Produção", requiredModule: ["producao"], Page: FluxoProducao },
+  { area: "industrial", path: "/pdv/industrial/producao", title: "Produção", requiredModule: ["producao"], Page: FluxoProducao },
+  { area: "residencial", path: "/pdv/domestico/estoque", title: "Estoque", requiredModule: ["produtos"], Page: Estoque },
+  { area: "industrial", path: "/pdv/industrial/estoque", title: "Estoque", requiredModule: ["produtos"], Page: Estoque },
+  { area: "residencial", path: "/pdv/domestico/relatorios", title: "Relatórios", requiredModule: ["relatorios"], Page: PdvReportsHub },
+  { area: "industrial", path: "/pdv/industrial/relatorios", title: "Relatórios", requiredModule: ["relatorios"], Page: PdvReportsHub },
+  { area: "residencial", path: "/pdv/domestico/relatorios/caixa", title: "Relatórios de caixa", requiredModule: ["relatorios"], Page: HistoricoCaixas },
+  { area: "industrial", path: "/pdv/industrial/relatorios/caixa", title: "Relatórios de caixa", requiredModule: ["relatorios"], Page: HistoricoCaixas },
+  { area: "residencial", path: "/pdv/domestico/relatorios/quilometragem", title: "Quilometragem", requiredModule: ["relatorios"], Page: RelatorioKilometragem },
+  { area: "industrial", path: "/pdv/industrial/relatorios/quilometragem", title: "Quilometragem", requiredModule: ["relatorios"], Page: RelatorioKilometragem },
+  { area: "residencial", path: "/pdv/domestico/lancamentos", title: "Lançamentos", requiredModule: ["faturamento"], Page: Lancamentos },
+  { area: "industrial", path: "/pdv/industrial/lancamentos", title: "Lançamentos", requiredModule: ["faturamento"], Page: Lancamentos },
 ] as const;
+
+function isPdvWorkbenchLocation(value: unknown, currentPath: string): value is Location {
+  if (!value || typeof value !== "object" || !("pathname" in value) || typeof value.pathname !== "string") return false;
+  const areaSegment = currentPath.startsWith("/pdv/industrial/") ? "industrial" : "domestico";
+  return new RegExp(`^/pdv/${areaSegment}(?:/(?:rol|delivery|orcamento))?/?$`).test(value.pathname);
+}
+
+function PdvRouteLayer({ children, modalRoutes }: { children: ReactNode; modalRoutes: ReactNode }) {
+  const location = useLocation();
+  const locationState = location.state && typeof location.state === "object" ? location.state as Record<string, unknown> : null;
+  const backgroundCandidate = locationState?.pdvBackgroundLocation;
+  const isPdvOperationalModule = PDV_OPERATIONAL_ROUTES.some((route) => route.path === location.pathname);
+  const backgroundLocation = isPdvOperationalModule && isPdvWorkbenchLocation(backgroundCandidate, location.pathname)
+    ? backgroundCandidate
+    : null;
+
+  return (
+    <>
+      <Routes location={backgroundLocation ?? location}>{children}</Routes>
+      {backgroundLocation && <Routes>{modalRoutes}</Routes>}
+    </>
+  );
+}
 
 function requiresPlatformAdmin(route: AppRouteDefinition): boolean {
   return route.platformAdminOnly === true;
@@ -203,7 +238,38 @@ function AuthorizedRouteRedirect({ redirect }: { redirect?: LegacyRouteRedirect 
   return <Navigate to={destination} replace />;
 }
 
-function WorkspaceRootRedirect() {
+function WorkspaceRootRedirect({ preferPdv = false }: { preferPdv?: boolean }) {
+  const { activeArea } = useWorkspace();
+  const { canAccessRoute, isLoading } = useNavigationAccess();
+  const preferredPdvArea = activeArea === "industrial" && canAccessRoute("/industrial/caixa")
+    ? "industrial"
+    : canAccessRoute("/residencial/caixa")
+      ? "residencial"
+      : canAccessRoute("/industrial/caixa")
+        ? "industrial"
+        : null;
+  const { data: caixaAberto, isLoading: isLoadingCaixa, isError: isOpenCashError } = useCaixaAberto(
+    Boolean(preferredPdvArea) && !preferPdv && !isLoading,
+  );
+
+  // A entrada do PDV deve sempre começar no painel operacional. O estado do
+  // caixa muda os indicadores e ações disponíveis, não a página inicial.
+  if (preferPdv && preferredPdvArea) {
+    return <Navigate to={getPdvFrontPath(preferredPdvArea)} replace />;
+  }
+
+  if (preferredPdvArea && isLoadingCaixa) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" role="status">
+        Carregando painel principal…
+      </div>
+    );
+  }
+
+  if (preferredPdvArea && !isLoadingCaixa && !isOpenCashError && caixaAberto) {
+    return <Navigate to={getPdvFrontPath(preferredPdvArea)} replace />;
+  }
+
   return <AuthorizedRouteRedirect />;
 }
 
@@ -218,6 +284,7 @@ const App = () => (
         <ThemeModeProvider>
           <AuthProvider>
             <WorkspaceProvider>
+              <OfflineRuntimeProvider>
               <AdminProvider>
               <OperationalProvider>
                 <ThemeLoader>
@@ -231,9 +298,25 @@ const App = () => (
                 </div>
               )}
             >
-            <Routes>
+            <PdvRouteLayer
+              modalRoutes={PDV_OPERATIONAL_ROUTES.map(({ area, path, requiredModule, Page, title }) => (
+                <Route
+                  key={`modal-${path}`}
+                  path={path}
+                  element={(
+                    <ProtectedRoute requiredArea={area} requiredModule={requiredModule}>
+                      <PdvModuleDialog title={title} operation={area}>
+                        <Page />
+                      </PdvModuleDialog>
+                    </ProtectedRoute>
+                  )}
+                />
+              ))}
+            >
               {/* Auth routes - public */}
               <Route path="/login" element={<Login />} />
+              <Route path="/login/central" element={<Login />} />
+              <Route path="/login/pdv" element={<Login />} />
               <Route path="/mfa" element={<MfaChallenge />} />
               <Route path="/signup" element={<Navigate to="/login" replace />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -296,7 +379,7 @@ const App = () => (
                   path={path}
                   element={(
                     <ProtectedRoute requiredArea={area} requiredModule={["caixa", "faturamento"]}>
-                      <PdvServiceSelector operation={area} />
+                      <CaixaPDV mode="rol" />
                     </ProtectedRoute>
                   )}
                 />
@@ -327,7 +410,7 @@ const App = () => (
                 path="/pdv/painel"
                 element={(
                   <ProtectedRoute>
-                    <LegacyRouteRedirect redirect={{ from: "/pdv", to: "/residencial/caixa" }} />
+                    <WorkspaceRootRedirect preferPdv />
                   </ProtectedRoute>
                 )}
               />
@@ -377,12 +460,13 @@ const App = () => (
               <Route path="/portal/:codigo" element={<PortalCliente />} />
 
               <Route path="*" element={<NotFound />} />
-            </Routes>
+            </PdvRouteLayer>
             </Suspense>
               </SidebarProvider>
               </ThemeLoader>
               </OperationalProvider>
               </AdminProvider>
+              </OfflineRuntimeProvider>
             </WorkspaceProvider>
           </AuthProvider>
         </ThemeModeProvider>

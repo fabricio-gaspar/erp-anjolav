@@ -61,8 +61,7 @@ export function EtapaPagamento({
   const { mutateAsync: createCharge } = useCreateAsaasCharge();
   const { updateFatura } = useFaturas();
 
-  const rawFormaPagamento = configPagamento?.forma_pagamento || "boleto";
-  const formaPagamento = (!BOLETO_ENABLED && rawFormaPagamento === "boleto") ? "pix" : rawFormaPagamento;
+  const formaPagamento = configPagamento?.forma_pagamento || "";
   const diaFechamento = configPagamento?.dia_fechamento ?? null;
   const condicaoPagamento = configPagamento?.condicao_pagamento || null;
   const isLoading = isLoadingGeral;
@@ -243,7 +242,7 @@ export function EtapaPagamento({
           <span className="ml-auto text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">✓ Cadastro</span>
         ) : null}
         <Badge variant="secondary" className={configPagamento?.forma_pagamento ? "" : "ml-auto"}>
-          {formaPagamento}
+          {formaPagamento || "Não definida"}
         </Badge>
         {dados.clienteRegimeTributario && (
           <Badge variant="outline" className="text-xs">
@@ -261,6 +260,13 @@ export function EtapaPagamento({
           <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">
             Configure a forma de pagamento no cadastro do cliente para agilizar o faturamento.
           </AlertDescription>
+        </Alert>
+      )}
+
+      {formaPagamento === "boleto" && !BOLETO_ENABLED && (
+        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+          <AlertCircle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-amber-700 dark:text-amber-400 text-sm">O boleto está indisponível neste fluxo. A forma cadastrada não foi alterada para PIX; use Faturamento → Faturas e documentos para conferir a cobrança.</AlertDescription>
         </Alert>
       )}
 
@@ -481,6 +487,7 @@ export function EtapaPagamento({
           <Button
             onClick={handleNext}
             disabled={
+              !["boleto", "pix", "transferencia"].includes(formaPagamento) ||
               (formaPagamento === "boleto" && !boletoData) ||
               (formaPagamento === "pix" && !pixData && !configGeral?.pix_chave)
             }

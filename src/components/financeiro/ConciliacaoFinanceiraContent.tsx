@@ -45,9 +45,8 @@ export function ConciliacaoFinanceiraContent() {
         .gt("valor_nao_alocado", 0)
         .order("created_at", { ascending: false });
 
-      if (activeArea !== "central") {
-        request = request.eq("ordem.origem", activeArea);
-      }
+      if (activeArea === "industrial") request = request.eq("ordem.origem", "industrial");
+      if (activeArea === "residencial") request = request.in("ordem.origem", ["residencial", "loja"]);
 
       const { data, error } = await request;
       if (error) throw error;

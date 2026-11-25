@@ -11,6 +11,7 @@ interface UseStockDirectoryOptions {
   search: string;
   category: string;
   status: StockDirectoryStatus;
+  enabled?: boolean;
 }
 
 export interface StockDirectoryPage {
@@ -23,6 +24,7 @@ export interface StockDirectoryPage {
     lowCount: number;
     zeroCount: number;
     totalValue: number;
+    totalUnits: number;
   };
 }
 
@@ -37,13 +39,8 @@ function requiredNonNegativeNumber(value: unknown, field: string) {
   return parsed;
 }
 
-export function useStockDirectory({
-  page,
-  pageSize,
-  search,
-  category,
-  status,
-}: UseStockDirectoryOptions) {
+export function useStockDirectory(options: UseStockDirectoryOptions) {
+  const { page, pageSize, search, category, status } = options;
   const { activeTenant, session } = useAuth();
   const { activeArea } = useWorkspace();
 
@@ -59,7 +56,7 @@ export function useStockDirectory({
       category,
       status,
     ],
-    enabled: Boolean(session?.user.id && activeTenant?.id),
+    enabled: options.enabled !== false && Boolean(session?.user.id && activeTenant?.id),
     retry: false,
     queryFn: async (): Promise<StockDirectoryPage> => {
       if (!session?.user.id || !activeTenant?.id) {
@@ -93,6 +90,7 @@ export function useStockDirectory({
           lowCount: requiredNonNegativeNumber(payload.summary.lowCount, "a quantidade abaixo do mínimo"),
           zeroCount: requiredNonNegativeNumber(payload.summary.zeroCount, "a quantidade sem saldo"),
           totalValue: requiredNonNegativeNumber(payload.summary.totalValue, "o valor total"),
+          totalUnits: requiredNonNegativeNumber(payload.summary.totalUnits, "a quantidade total disponível"),
         },
       };
     },

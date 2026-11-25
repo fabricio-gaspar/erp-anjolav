@@ -33,6 +33,7 @@ export interface AppRouteDefinition {
   label: string;
   sidebarLabel?: string;
   navigationGroup: NavigationGroup;
+  showInNavigation?: boolean;
 }
 
 export const APP_ROUTES = [
@@ -41,7 +42,7 @@ export const APP_ROUTES = [
     area: "central",
     requiredModules: ["dashboard"],
     adminOnly: false,
-    label: "Painel Administrativo",
+    label: "Visão geral",
     sidebarLabel: "Visão geral",
     navigationGroup: "central-dashboard",
   },
@@ -50,7 +51,7 @@ export const APP_ROUTES = [
     area: "central",
     requiredModules: ["faturamento"],
     adminOnly: false,
-    label: "Financeiro Global",
+    label: "Painel financeiro",
     navigationGroup: "central-management",
   },
   {
@@ -58,7 +59,24 @@ export const APP_ROUTES = [
     area: "central",
     requiredModules: ["contas_receber", "contas_pagar"],
     adminOnly: false,
-    label: "Contas",
+    label: "Contas financeiras",
+    navigationGroup: "central-management",
+    showInNavigation: false,
+  },
+  {
+    path: "/central/contas-receber",
+    area: "central",
+    requiredModules: ["contas_receber"],
+    adminOnly: false,
+    label: "Contas a receber",
+    navigationGroup: "central-management",
+  },
+  {
+    path: "/central/contas-pagar",
+    area: "central",
+    requiredModules: ["contas_pagar"],
+    adminOnly: false,
+    label: "Contas a pagar",
     navigationGroup: "central-management",
   },
   {
@@ -74,7 +92,7 @@ export const APP_ROUTES = [
     area: "central",
     requiredModules: ["relatorios"],
     adminOnly: false,
-    label: "Relatórios de Quilometragem",
+    label: "Relatório de quilometragem",
     navigationGroup: "central-management",
   },
   {
@@ -82,7 +100,7 @@ export const APP_ROUTES = [
     area: "central",
     requiredModules: ["relatorios"],
     adminOnly: false,
-    label: "Relatório Mensal",
+    label: "Resultado mensal",
     navigationGroup: "central-management",
   },
   {
@@ -98,7 +116,7 @@ export const APP_ROUTES = [
     area: "central",
     requiredModules: ["configuracoes"],
     adminOnly: true,
-    label: "Auditoria",
+    label: "Registro de auditoria",
     navigationGroup: "central-admin",
   },
   {
@@ -107,7 +125,7 @@ export const APP_ROUTES = [
     requiredModules: ["configuracoes"],
     adminOnly: true,
     platformAdminOnly: true,
-    label: "Administração SaaS",
+    label: "Empresas e planos",
     navigationGroup: "central-admin",
   },
   {
@@ -132,8 +150,8 @@ export const APP_ROUTES = [
     area: "industrial",
     requiredModules: ["produtos"],
     adminOnly: false,
-    label: "Produtos/Serviços",
-    sidebarLabel: "Serviços e preços",
+    label: "Catálogo",
+    sidebarLabel: "Catálogo",
     navigationGroup: "industrial-support",
   },
   {
@@ -149,8 +167,8 @@ export const APP_ROUTES = [
     area: "industrial",
     requiredModules: ["agenda"],
     adminOnly: false,
-    label: "Agenda Industrial",
-    sidebarLabel: "Coletas e entregas",
+    label: "Agenda e Delivery",
+    sidebarLabel: "Delivery",
     navigationGroup: "industrial-logistics",
   },
   {
@@ -158,8 +176,8 @@ export const APP_ROUTES = [
     area: "industrial",
     requiredModules: ["ordens"],
     adminOnly: false,
-    label: "Ordens de Serviço",
-    sidebarLabel: "Pedidos",
+    label: "ROLs",
+    sidebarLabel: "ROLs",
     navigationGroup: "industrial-orders",
   },
   {
@@ -185,7 +203,7 @@ export const APP_ROUTES = [
     area: "industrial",
     requiredModules: ["faturamento"],
     adminOnly: false,
-    label: "Faturamento por período",
+    label: "Faturamento",
     sidebarLabel: "Faturamento",
     navigationGroup: "industrial-finance",
   },
@@ -204,7 +222,7 @@ export const APP_ROUTES = [
     requiredModules: ["produtos"],
     adminOnly: false,
     label: "Estoque",
-    sidebarLabel: "Estoque e compras",
+    sidebarLabel: "Estoque",
     navigationGroup: "industrial-support",
   },
   {
@@ -256,8 +274,8 @@ export const APP_ROUTES = [
     area: "residencial",
     requiredModules: ["agenda"],
     adminOnly: false,
-    label: "Agenda Doméstica",
-    sidebarLabel: "Coletas e entregas",
+    label: "Agenda e Delivery",
+    sidebarLabel: "Delivery",
     navigationGroup: "residential-logistics",
   },
   {
@@ -265,8 +283,8 @@ export const APP_ROUTES = [
     area: "residencial",
     requiredModules: ["ordens"],
     adminOnly: false,
-    label: "Ordens de Serviço",
-    sidebarLabel: "Pedidos",
+    label: "ROLs",
+    sidebarLabel: "ROLs",
     navigationGroup: "residential-orders",
   },
   {
@@ -283,7 +301,7 @@ export const APP_ROUTES = [
     area: "residencial",
     requiredModules: ["faturamento"],
     adminOnly: false,
-    label: "Faturamento por período",
+    label: "Faturamento",
     sidebarLabel: "Faturamento",
     navigationGroup: "residential-finance",
   },
@@ -301,8 +319,8 @@ export const APP_ROUTES = [
     area: "residencial",
     requiredModules: ["produtos"],
     adminOnly: false,
-    label: "Produtos/Serviços",
-    sidebarLabel: "Serviços e preços",
+    label: "Catálogo",
+    sidebarLabel: "Catálogo",
     navigationGroup: "residential-support",
   },
   {
@@ -311,7 +329,7 @@ export const APP_ROUTES = [
     requiredModules: ["produtos"],
     adminOnly: false,
     label: "Estoque",
-    sidebarLabel: "Estoque e compras",
+    sidebarLabel: "Estoque",
     navigationGroup: "residential-support",
   },
   {
@@ -347,7 +365,7 @@ const SIDEBAR_GROUP_DEFINITIONS: Readonly<Record<WorkspaceArea, readonly Sidebar
   industrial: [
     { id: "industrial-dashboard", label: null },
     { id: "industrial-pdv", label: "PDV / Caixa" },
-    { id: "industrial-orders", label: "Pedidos e Produção" },
+    { id: "industrial-orders", label: "ROLs e Produção" },
     { id: "industrial-logistics", label: "Coletas e entregas" },
     { id: "industrial-finance", label: "Financeiro" },
     { id: "industrial-support", label: "Apoio" },
@@ -355,7 +373,7 @@ const SIDEBAR_GROUP_DEFINITIONS: Readonly<Record<WorkspaceArea, readonly Sidebar
   residencial: [
     { id: "residential-dashboard", label: null },
     { id: "residential-pdv", label: "PDV / Caixa" },
-    { id: "residential-orders", label: "Pedidos e Produção" },
+    { id: "residential-orders", label: "ROLs e Produção" },
     { id: "residential-logistics", label: "Coletas e entregas" },
     { id: "residential-finance", label: "Financeiro" },
     { id: "residential-support", label: "Apoio" },
@@ -389,9 +407,9 @@ export const LEGACY_ROUTE_REDIRECTS: readonly LegacyRouteRedirect[] = [
   { from: "/relatorios/quilometragem", to: "/central/relatorios/quilometragem" },
   { from: "/relatorios/mensal", to: "/central/relatorios/mensal" },
   { from: "/faturamento", to: "/industrial/lancamentos", search: "?tab=faturas" },
-  { from: "/receber", to: "/central/contas", search: "?tab=receber" },
-  { from: "/pagar", to: "/central/contas", search: "?tab=pagar" },
-  { from: "/asaas", to: "/central/contas", search: "?tab=receber" },
+  { from: "/receber", to: "/central/contas-receber" },
+  { from: "/pagar", to: "/central/contas-pagar" },
+  { from: "/asaas", to: "/central/contas-receber" },
   { from: "/relatorios/financeiro", to: "/central/financeiro" },
 ];
 
@@ -414,7 +432,7 @@ export function getSidebarNavigationGroups(area: WorkspaceArea): readonly Sideba
   return SIDEBAR_GROUP_DEFINITIONS[area]
     .map((group) => ({
       ...group,
-      routes: APP_ROUTES.filter((route) => route.navigationGroup === group.id),
+      routes: APP_ROUTES.filter((route) => route.navigationGroup === group.id && !("showInNavigation" in route && route.showInNavigation === false)),
     }))
     .filter((group) => group.routes.length > 0);
 }

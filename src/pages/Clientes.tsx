@@ -28,15 +28,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Archive, ArrowLeft, Building2, ChevronLeft, ChevronRight, Eye, History, Loader2, Mail, MoreHorizontal, Pencil, Phone, Plus, RotateCcw, Search, User } from "lucide-react";
+import { Archive, ArrowLeft, Building2, ChevronLeft, ChevronRight, Download, Eye, History, Loader2, Mail, MoreHorizontal, Pencil, Phone, Plus, RotateCcw, Search, Trash2, User } from "lucide-react";
 import { ClienteDadosBasicos } from "@/components/clientes/ClienteDadosBasicos";
 import { ClienteEndereco } from "@/components/clientes/ClienteEndereco";
 import { ClienteContrato } from "@/components/clientes/ClienteContrato";
 import { ClienteCondicoes } from "@/components/clientes/ClienteCondicoes";
-import { ClienteResumo } from "@/components/clientes/ClienteResumo";
+import { ClienteHistorico } from "@/components/clientes/ClienteHistorico";
 import { useClientes, useClienteById, type Cliente } from "@/hooks/useClientes";
 import { useClienteDirectory } from "@/hooks/useClienteDirectory";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { BrasilApiCnpjResponse } from "@/services/apiServices";
 import {
   CLIENT_DIRECTORY_PAGE_SIZE,
@@ -54,6 +55,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { getPdvReturnNavigation } from "@/lib/pdvNavigation";
+import { usePdvModuleDialog } from "@/components/layout/PdvModuleDialog";
+import { downloadCsv } from "@/lib/csvExport";
 import "@/styles/pdv-client-registration.css";
 
 const EMPTY_CLIENTES: Cliente[] = [];
@@ -61,15 +65,20 @@ const EMPTY_CLIENTES: Cliente[] = [];
 const Clientes = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const inPdvModuleDialog = usePdvModuleDialog();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("lista");
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [clienteToArchive, setClienteToArchive] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clienteToDelete, setClienteToDelete] = useState<Cliente | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [cnpjData, setCnpjData] = useState<BrasilApiCnpjResponse | null>(null);
 
   const { activeArea } = useWorkspace();
-  const { archiveCliente, updateCliente } = useClientes({ enabled: false });
+  const { security } = useAuth();
+  const { archiveCliente, deleteCliente, updateCliente } = useClientes({ enabled: false });
   const searchTerm = searchParams.get("q") ?? "";
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const page = normalizeClientDirectoryPage(searchParams.get("pagina"));
@@ -113,7 +122,7 @@ const Clientes = () => {
   const handleEditCliente = (clienteId: string) => {
     setSelectedClienteId(clienteId);
     setCnpjData(null);
-    setActiveTab("resumo");
+    setActiveTab("dados");
   };
 
   const handleSelectCliente = (clienteId: string) => {
@@ -141,6 +150,21 @@ const Clientes = () => {
     });
   };
 
+  const handleDeleteCliente = () => {
+    if (!clienteToDelete || deleteConfirmation.trim().toLocaleUpperCase("pt-BR") !== "EXCLUIR") return;
+    deleteCliente.mutate(clienteToDelete.id, {
+      onSuccess: () => {
+        if (selectedClienteId === clienteToDelete.id) {
+          setSelectedClienteId(null);
+          setActiveTab("lista");
+        }
+        setDeleteDialogOpen(false);
+        setClienteToDelete(null);
+        setDeleteConfirmation("");
+      },
+    });
+  };
+
   const handleBackToList = () => {
     setActiveTab("lista");
     setSelectedClienteId(null);
@@ -156,6 +180,7 @@ const Clientes = () => {
   const pageSubtitle = "AnjoLav";
   const isPdvClientWorkspace = location.pathname.startsWith("/pdv/");
   const pdvOperation = activeArea === "industrial" ? "industrial" : "residencial";
+  const pdvReturn = getPdvReturnNavigation(location.state, pdvOperation);
   const isNewClient = activeTab === "dados" && !selectedClienteId;
   const pdvTitle = isNewClient ? "Cadastro de cliente" : activeTab === "lista" ? "Consulta de clientes" : "Cadastro de cliente";
   const pdvBreadcrumb = isNewClient ? "Clientes  ›  Novo cadastro" : selectedCliente ? `Clientes  ›  ${selectedCliente.razao_social}` : "Clientes";
@@ -191,20 +216,31 @@ const Clientes = () => {
     setSearchParams(next, { replace: true });
   }, [isLoading, page, searchParams, setSearchParams, totalClientes, totalPages]);
 
+  const exportCurrentPage = () => {
+    downloadCsv(`clientes-${activeArea}-pagina-${page}.csv`, clientes, [
+      { header: "Nome / razão social", value: (cliente) => cliente.razao_social },
+      { header: "Nome fantasia", value: (cliente) => cliente.nome_fantasia },
+      { header: "CPF/CNPJ", value: (cliente) => cliente.cpf_cnpj },
+      { header: "Telefone", value: (cliente) => cliente.telefone },
+      { header: "E-mail", value: (cliente) => cliente.email },
+      { header: "Operação", value: (cliente) => cliente.classificacao === "industrial" ? "Industrial" : "Doméstico" },
+      { header: "Situação", value: (cliente) => cliente.ativo ? "Ativo" : "Arquivado" },
+    ]);
+  };
+
   const content = (
     <>
       <div className={cn("page-shell", isPdvClientWorkspace && "pdv-client-registration")} data-testid={isPdvClientWorkspace ? "pdv-client-registration" : undefined}>
-        {isPdvClientWorkspace ? (
-          <header className="pdv-client-registration__heading">
-            <button type="button" onClick={() => navigate(pdvOperation === "industrial" ? "/pdv/painel/industrial" : "/pdv/painel/domestico")}>
-              <ArrowLeft className="h-4 w-4" /> Voltar
+        {isPdvClientWorkspace && !inPdvModuleDialog ? (
+          <header className="pdv-client-registration__heading pdv-page-heading">
+            <button type="button" className="pdv-page-heading__back" aria-label={pdvReturn.label} title={pdvReturn.label} onClick={() => navigate(pdvReturn.to)}>
+              <ArrowLeft aria-hidden="true" /> <span>Voltar</span>
             </button>
-            <span aria-hidden="true" />
-            <div>
+            <span className="pdv-page-heading__divider" aria-hidden="true" />
+            <div className="pdv-page-heading__main">
               <h1>{pdvTitle}</h1>
               <button type="button" onClick={handleBackToList}>{pdvBreadcrumb}</button>
             </div>
-            <small>{operationLabel}</small>
           </header>
         ) : (
           <PageHeader
@@ -212,13 +248,18 @@ const Clientes = () => {
           title={pageTitle}
           description={activeArea === "central" ? "Clientes da empresa nas operações doméstica e industrial" : `Clientes da operação ${areaLabel.toLowerCase()}`}
           actions={activeTab === "lista" ? (
-            <Button
-              onClick={handleNovoCliente}
-              className="w-full gap-2 bg-primary font-bold shadow-sm hover:bg-primary/90 sm:w-auto"
-            >
-              <Plus className="h-4 w-4" />
-              Novo Cliente
-            </Button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Button variant="outline" onClick={exportCurrentPage} disabled={clientes.length === 0} className="gap-2">
+                <Download className="h-4 w-4" />Exportar página
+              </Button>
+              <Button
+                onClick={handleNovoCliente}
+                className="w-full gap-2 bg-primary font-bold shadow-sm hover:bg-primary/90 sm:w-auto"
+              >
+                <Plus className="h-4 w-4" />
+                Novo Cliente
+              </Button>
+            </div>
           ) : undefined}
           />
         )}
@@ -263,10 +304,16 @@ const Clientes = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="max-w-full overflow-x-auto pb-1 scrollbar-hide">
-            <TabsList className="page-tabs-list">
+            <TabsList
+              className="page-tabs-list"
+              style={{ gridTemplateColumns: `repeat(${activeTab === "dados" ? 8 : 7}, minmax(110px, 1fr))` }}
+            >
+              {activeTab === "dados" && <TabsTrigger value="dados" className="page-tab-trigger">Dados</TabsTrigger>}
               <TabsTrigger value="lista" className="page-tab-trigger">Clientes</TabsTrigger>
               <TabsTrigger value="endereco" disabled={!selectedClienteId} className="page-tab-trigger">Endereço</TabsTrigger>
-              <TabsTrigger value="condicoes" disabled={!selectedClienteId} className="page-tab-trigger">Condições</TabsTrigger>
+              <TabsTrigger value="condicoes" disabled={!selectedClienteId} className="page-tab-trigger">Tabela de preços</TabsTrigger>
+              <TabsTrigger value="pagamento" disabled={!selectedClienteId} className="page-tab-trigger">Pagamento</TabsTrigger>
+              <TabsTrigger value="configuracao" disabled={!selectedClienteId} className="page-tab-trigger">Configuração</TabsTrigger>
               <TabsTrigger value="contrato" disabled={!selectedClienteId} className="page-tab-trigger">Contrato</TabsTrigger>
               <TabsTrigger value="resumo" disabled={!selectedClienteId} className="page-tab-trigger">Histórico</TabsTrigger>
             </TabsList>
@@ -316,7 +363,7 @@ const Clientes = () => {
                     </Button>
                   )}
                   {isPdvClientWorkspace && (
-                    <Button type="button" className="h-10 shrink-0 gap-2 bg-[#087ed0] font-bold hover:bg-[#0569ad]" onClick={handleNovoCliente}>
+                    <Button type="button" className="h-10 shrink-0 gap-2 font-bold" onClick={handleNovoCliente}>
                       <Plus className="h-4 w-4" />
                       Novo cliente
                     </Button>
@@ -454,6 +501,18 @@ const Clientes = () => {
                                   <RotateCcw className="mr-2 h-4 w-4" /> Reativar
                                 </DropdownMenuItem>
                               )}
+                              {activeArea === "central" && security.isAdmin && (
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => {
+                                    setClienteToDelete(cliente);
+                                    setDeleteConfirmation("");
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Excluir definitivamente
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -525,7 +584,7 @@ const Clientes = () => {
                       <span className={cn("pdv-client-status", selectedCliente.ativo ? "is-active" : "is-inactive")}>{selectedCliente.ativo ? "✓ Ativo" : "◉ Inativo"}</span>
                     </div>
                     <div className="pdv-client-summary-actions">
-                      <Button type="button" className="bg-[#087ed0] font-bold hover:bg-[#0569ad]" onClick={() => setActiveTab("dados")}><Pencil className="h-4 w-4" />Abrir cadastro</Button>
+                      <Button type="button" className="font-bold" onClick={() => setActiveTab("dados")}><Pencil className="h-4 w-4" />Abrir cadastro</Button>
                       <Button type="button" variant="outline" disabled={!selectedCliente.ativo} onClick={() => navigate(`/pdv/${pdvOperation}/rol?cliente=${encodeURIComponent(selectedCliente.id)}`)}><Plus className="h-4 w-4" />Novo rol</Button>
                       <Button type="button" variant="outline" onClick={() => setActiveTab("resumo")}><History className="h-4 w-4" />Histórico</Button>
                     </div>
@@ -542,7 +601,7 @@ const Clientes = () => {
           </TabsContent>
 
           <TabsContent value="resumo" className="pdv-client-tab-panel mt-4 px-1">
-            <ClienteResumo clienteId={selectedClienteId} onOpenTab={setActiveTab} />
+            <ClienteHistorico clienteId={selectedClienteId} />
           </TabsContent>
 
           <TabsContent value="dados" className="pdv-client-tab-panel mt-4 px-1">
@@ -565,7 +624,15 @@ const Clientes = () => {
           </TabsContent>
 
           <TabsContent value="condicoes" className="pdv-client-tab-panel mt-4 px-1">
-            <ClienteCondicoes clienteId={selectedClienteId} />
+            <ClienteCondicoes clienteId={selectedClienteId} section="prices" />
+          </TabsContent>
+
+          <TabsContent value="pagamento" className="pdv-client-tab-panel mt-4 px-1">
+            <ClienteCondicoes clienteId={selectedClienteId} section="payment" />
+          </TabsContent>
+
+          <TabsContent value="configuracao" className="pdv-client-tab-panel mt-4 px-1">
+            <ClienteCondicoes clienteId={selectedClienteId} section="configuration" />
           </TabsContent>
 
           <TabsContent value="contrato" className="pdv-client-tab-panel mt-4 px-1">
@@ -591,10 +658,52 @@ const Clientes = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open && !deleteCliente.isPending) {
+            setClienteToDelete(null);
+            setDeleteConfirmation("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">Excluir cliente definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {clienteToDelete ? <><strong>{clienteToDelete.razao_social}</strong> será removido permanentemente se não houver histórico vinculado.</> : "O cliente será removido permanentemente se não houver histórico vinculado."} Endereços e configurações próprias também serão removidos. ROLs, pagamentos, agenda, faturas, crédito, contratos, preços personalizados e demais históricos bloqueiam a exclusão; nesses casos, use Arquivar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="confirm-delete-client" className="text-sm font-medium">Digite EXCLUIR para confirmar</label>
+            <Input
+              id="confirm-delete-client"
+              autoComplete="off"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              disabled={deleteCliente.isPending}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteCliente.isPending}>Cancelar</AlertDialogCancel>
+            <Button
+              type="button"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteConfirmation.trim().toLocaleUpperCase("pt-BR") !== "EXCLUIR" || deleteCliente.isPending}
+              onClick={handleDeleteCliente}
+            >
+              {deleteCliente.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Excluindo…</> : <><Trash2 className="mr-2 h-4 w-4" /> Excluir definitivamente</>}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 
   if (isPdvClientWorkspace) {
+    if (inPdvModuleDialog) return content;
     return (
       <PdvLayout variant="front" operation={pdvOperation} title={pdvTitle} subtitle={pdvBreadcrumb}>
         {content}

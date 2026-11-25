@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Input } from "@/components/ui/input";
@@ -44,7 +45,9 @@ import {
 import { getNextProductionStage, productionColumns } from "@/lib/productionWorkflow";
 
 const FluxoProducao = () => {
+  const location = useLocation();
   const { activeArea } = useWorkspace();
+  const isPdvWorkspace = location.pathname.startsWith("/pdv/");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOS, setSelectedOS] = useState<{ id: string; status: string; next: string } | null>(null);
   const [filtroPrevisao, setFiltroPrevisao] = useState<Date | null>(null);
@@ -53,7 +56,12 @@ const FluxoProducao = () => {
   const { data: ordensServico = [], isLoading, error } = useFilteredOrdensServico();
   const { data: agendamentosPendentes = [] } = useAgendamentosRetiradaPendentes();
 
-  const osIds = useMemo(() => ordensServico.map((os) => os.id), [ordensServico]);
+  const ordensDoFiltro = useMemo(() => ordensServico.filter((os) => {
+    if (!filtroPrevisao) return true;
+    return Boolean(os.data_previsao_entrega && isSameDay(parseISO(os.data_previsao_entrega), filtroPrevisao));
+  }), [ordensServico, filtroPrevisao]);
+
+  const osIds = useMemo(() => ordensDoFiltro.map((os) => os.id), [ordensDoFiltro]);
   const { data: historicosPorOS = {} } = useHistoricoMultiplasOS(osIds);
 
   const osByStatus = useMemo(() => {
@@ -62,7 +70,7 @@ const FluxoProducao = () => {
       grouped[col.id] = [];
     });
 
-    ordensServico
+    ordensDoFiltro
       .filter((os) => {
         if (os.status === "cancelada" || os.status === "entregue") return false;
         // Workspace filtering is now handled by the hook
@@ -74,11 +82,6 @@ const FluxoProducao = () => {
           os.cliente?.razao_social?.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .filter((os) => {
-        if (!filtroPrevisao) return true;
-        if (!os.data_previsao_entrega) return false;
-        return isSameDay(parseISO(os.data_previsao_entrega), filtroPrevisao);
-      })
-      .filter((os) => {
         if (!filtroPrioridade) return true;
         return os.prioridade === filtroPrioridade;
       })
@@ -88,7 +91,7 @@ const FluxoProducao = () => {
       });
 
     return grouped;
-  }, [ordensServico, searchTerm, filtroPrevisao, filtroPrioridade]);
+  }, [ordensDoFiltro, searchTerm, filtroPrioridade]);
 
   const totalEmProducao = ordensServico.filter(
     (os) => !["entregue", "cancelada", "retirada"].includes(os.status)
@@ -118,15 +121,35 @@ const FluxoProducao = () => {
   const subtitle = `${totalAguardando} aguardando · ${totalEmProducao} em produção · ${totalProntas} prontas`;
 
   return (
-    <AppLayout title="Fluxo de Produção" subtitle={`${subtitle} - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
+    <AppLayout title="Produção" subtitle={activeArea === "central" ? subtitle : `${subtitle} · ${activeArea === "residencial" ? "Doméstico" : "Industrial"}`}>
       <div className="page-shell">
         <PageHeader
-          eyebrow={`Produção ${activeArea === "residencial" ? "doméstica" : "industrial"}`}
-          title="Fluxo de Produção"
+          eyebrow={isPdvWorkspace ? "Fila de produção" : activeArea === "central" ? "Produção da empresa" : `Produção ${activeArea === "residencial" ? "doméstica" : "industrial"}`}
+          title="Produção"
           description="Filas por etapa, prazo e prioridade com operação individual ou em lote"
         />
 
-        <div className="content-panel">
+        <div className="content-panel space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/20 px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Previsão de conclusão</p>
+            <p className="text-xs text-muted-foreground">Filtre as filas e a expedição por dia.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant={filtroPrevisao ? "default" : "outline"} size="sm" className="h-8 gap-2">
+                  <Calendar className="h-4 w-4" />
+                  {filtroPrevisao ? format(filtroPrevisao, "dd/MM/yyyy", { locale: ptBR }) : "Todas as datas"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <CalendarComponent mode="single" selected={filtroPrevisao || undefined} onSelect={(date) => setFiltroPrevisao(date || null)} initialFocus locale={ptBR} />
+              </PopoverContent>
+            </Popover>
+            {filtroPrevisao && <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setFiltroPrevisao(null)}>Limpar</Button>}
+          </div>
+        </div>
         <Tabs defaultValue="filas" className="space-y-3">
           <TabsList className="page-tabs-list">
             <TabsTrigger value="filas" className="page-tab-trigger">Filas</TabsTrigger>
@@ -137,7 +160,7 @@ const FluxoProducao = () => {
 
           <TabsContent value="filas" className="mt-0">
             <ProductionQueueWorkspace
-              orders={ordensServico}
+              orders={ordensDoFiltro}
               isLoading={isLoading}
               onAdvance={handleOrderAdvance}
             />
@@ -156,23 +179,6 @@ const FluxoProducao = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant={filtroPrevisao ? "default" : "outline"} size="sm" className="gap-2 h-9 hidden sm:flex">
-                      <Calendar className="w-4 h-4" />
-                      <span className="hidden md:inline">
-                        {filtroPrevisao ? format(filtroPrevisao, "dd/MM", { locale: ptBR }) : "Previsão"}
-                      </span>
-                      {filtroPrevisao && (
-                        <X className="w-3 h-3 ml-1" onClick={(e) => { e.stopPropagation(); setFiltroPrevisao(null); }} />
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent mode="single" selected={filtroPrevisao || undefined} onSelect={(d) => setFiltroPrevisao(d || null)} initialFocus locale={ptBR} />
-                  </PopoverContent>
-                </Popover>
-
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant={filtroPrioridade ? "default" : "outline"} size="sm" className="gap-2 h-9 hidden sm:flex">
@@ -311,7 +317,7 @@ const FluxoProducao = () => {
 
           <TabsContent value="expedicao" className="mt-0">
             <ExpeditionWorkspace
-              orders={ordensServico}
+              orders={ordensDoFiltro}
               histories={historicosPorOS}
               onAdvance={handleOrderAdvance}
             />

@@ -16,7 +16,7 @@ import { FaturasPeriodoTab } from "@/components/lancamentos/FaturasPeriodoTab";
 const today = new Date();
 const DEFAULT_START = format(startOfMonth(today), "yyyy-MM-dd");
 const DEFAULT_END = format(endOfMonth(today), "yyyy-MM-dd");
-const TITLE = "Faturamento por período";
+const TITLE = "Faturamento";
 
 export default function Lancamentos() {
   const { activeArea } = useWorkspace();

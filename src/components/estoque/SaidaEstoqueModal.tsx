@@ -9,6 +9,8 @@ import { EstoqueProduto } from "@/hooks/useEstoque";
 import { useMovimentacoesEstoque } from "@/hooks/useMovimentacoesEstoque";
 import { createIdempotencyKey } from "@/lib/idempotency";
 import { useEstoqueLocais } from "@/hooks/useCompras";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
@@ -18,6 +20,7 @@ interface Props {
 
 export function SaidaEstoqueModal({ open, onOpenChange, produtos }: Props) {
   const { registrarMovimentacao } = useMovimentacoesEstoque();
+  const { funcionario, user } = useAuth();
   const { locais, saldos } = useEstoqueLocais({ enabled: open });
   const [form, setForm] = useState({ estoque_produto_id: "", estoque_local_id: "", quantidade: "", motivo: "" });
   const commandKey = useRef<string | null>(null);
@@ -27,14 +30,30 @@ export function SaidaEstoqueModal({ open, onOpenChange, produtos }: Props) {
   const saldoLocal = saldos.find((saldo) => saldo.estoque_produto_id === form.estoque_produto_id && saldo.estoque_local_id === localId)?.quantidade || 0;
 
   const salvar = async () => {
-    if (!form.estoque_produto_id || !localId || !form.quantidade) return;
+    const amount = Number(form.quantidade);
+    if (!form.estoque_produto_id || !localId) {
+      toast.error("Selecione o insumo e o local da retirada.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Informe uma quantidade maior que zero.");
+      return;
+    }
+    if (amount > saldoLocal) {
+      toast.error("A quantidade informada excede o saldo disponível neste local.");
+      return;
+    }
+    if (form.motivo.trim().length < 3) {
+      toast.error("Descreva o motivo da retirada.");
+      return;
+    }
     commandKey.current ??= createIdempotencyKey("stock-out");
     await registrarMovimentacao.mutateAsync({
       estoque_produto_id: form.estoque_produto_id,
       tipo: "saida",
       estoque_local_id: localId,
-      quantidade: Number(form.quantidade),
-      motivo: form.motivo || "Consumo",
+      quantidade: amount,
+      motivo: form.motivo.trim(),
       idempotency_key: commandKey.current,
     });
     commandKey.current = null;
@@ -50,6 +69,10 @@ export function SaidaEstoqueModal({ open, onOpenChange, produtos }: Props) {
       <DialogContent className="wide-form-dialog">
         <DialogHeader><DialogTitle>Saída de Estoque</DialogTitle></DialogHeader>
         <div className="space-y-4">
+          <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Retirada registrada para: </span>
+            <strong>{funcionario?.nome || user?.email || "Usuário autenticado"}</strong>
+          </div>
           <div>
             <Label>Produto *</Label>
             <Select value={form.estoque_produto_id} onValueChange={(v) => setForm({ ...form, estoque_produto_id: v })}>
@@ -66,13 +89,13 @@ export function SaidaEstoqueModal({ open, onOpenChange, produtos }: Props) {
           </div>
           <div>
             <Label>Quantidade * {produtoSelecionado && <span className="text-muted-foreground">(neste local: {saldoLocal} {produtoSelecionado.unidade})</span>}</Label>
-            <Input type="number" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} max={saldoLocal} />
+            <Input type="number" min="0.001" step="0.001" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} max={saldoLocal} aria-label="Quantidade a retirar" />
           </div>
-          <div><Label>Motivo</Label><Textarea value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })} rows={2} placeholder="Ex: Consumo produção, descarte..." /></div>
+          <div><Label>Motivo da retirada *</Label><Textarea value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })} rows={2} placeholder="Ex.: consumo na produção, descarte ou uso interno" /></div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={salvar} disabled={registrarMovimentacao.isPending}>Registrar Saída</Button>
+          <Button onClick={salvar} disabled={registrarMovimentacao.isPending || !produtoSelecionado || saldoLocal <= 0}>Registrar retirada</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

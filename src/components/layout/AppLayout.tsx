@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 
 import { AdminLayout } from "./AdminLayout";
 import { PdvLayout } from "./PdvLayout";
+import { usePdvModuleDialog } from "./PdvModuleDialog";
 
 interface AppLayoutProps {
   title?: string;
@@ -27,6 +28,9 @@ function isOperationalPath(pathname: string): boolean {
 export function AppLayout({ title, subtitle, children }: AppLayoutProps) {
   const { pathname } = useLocation();
   const content = children || <Outlet />;
+  const inPdvModuleDialog = usePdvModuleDialog();
+
+  if (inPdvModuleDialog) return <>{content}</>;
 
   if (isOperationalPath(pathname)) {
     return <PdvLayout title={title} subtitle={subtitle}>{content}</PdvLayout>;

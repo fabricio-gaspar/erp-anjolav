@@ -39,8 +39,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { OrdemServico } from "@/hooks/useOrdensServico";
 import type { HistoricoProducao } from "@/hooks/useHistoricoProducao";
-import { useFuncionarios } from "@/hooks/useFuncionarios";
 import { useProductionOperations } from "@/hooks/useProductionOperations";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { createIdempotencyKey } from "@/lib/idempotency";
 import {
@@ -84,12 +84,11 @@ export function ProductionQueueWorkspace({
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [dialogMode, setDialogMode] = useState<"advance" | "incident" | null>(null);
-  const [employeeId, setEmployeeId] = useState("");
   const [resource, setResource] = useState("");
   const [occurrence, setOccurrence] = useState("");
   const [newForecast, setNewForecast] = useState("");
   const [commandKey, setCommandKey] = useState("");
-  const { data: employees = [] } = useFuncionarios();
+  const { funcionario } = useAuth();
   const { operations, processQueue, registerOccurrence } = useProductionOperations();
 
   const activeOrders = useMemo(
@@ -133,7 +132,6 @@ export function ProductionQueueWorkspace({
       && canBatchProductionStage(selectedStage),
   );
   const occurrenceAllowed = Boolean(selectedStage && selectedOrders.length > 0);
-  const activeEmployees = employees.filter((employee) => employee.ativo);
 
   const overdueCount = activeOrders.filter(isOverdue).length;
   const qualityPendingCount = activeOrders.filter((order) =>
@@ -152,7 +150,6 @@ export function ProductionQueueWorkspace({
 
   const openCommand = (mode: "advance" | "incident") => {
     setDialogMode(mode);
-    setEmployeeId("");
     setResource("");
     setOccurrence("");
     setNewForecast("");
@@ -179,7 +176,7 @@ export function ProductionQueueWorkspace({
         })),
         expectedStage: selectedStage,
         nextStage,
-        employeeId,
+        employeeId: funcionario?.id,
         resource,
         occurrence,
         newForecast,
@@ -189,7 +186,7 @@ export function ProductionQueueWorkspace({
       await registerOccurrence.mutateAsync({
         orderIds: selectedIds,
         expectedStage: selectedStage,
-        employeeId,
+        employeeId: funcionario?.id,
         occurrence,
         newForecast,
         idempotencyKey: commandKey,
@@ -402,16 +399,9 @@ export function ProductionQueueWorkspace({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Responsável</Label>
-              <Select value={employeeId} onValueChange={setEmployeeId}>
-                <SelectTrigger><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
-                <SelectContent>
-                  {activeEmployees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>{employee.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="rounded-md border bg-muted/40 p-3 text-sm">
+              <div className="text-muted-foreground">Responsável automático</div>
+              <div className="font-medium">{funcionario?.nome || "Usuário autenticado"}</div>
             </div>
             {dialogMode === "advance" && requiresResource && (
               <div className="space-y-2">

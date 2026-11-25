@@ -22,7 +22,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useOrdensServico } from "@/hooks/useOrdensServico";
 import { useHistoricoProducao } from "@/hooks/useHistoricoProducao";
-import { useFuncionarios } from "@/hooks/useFuncionarios";
 import { useMotoristas } from "@/hooks/useMotoristas";
 import { useVeiculos } from "@/hooks/useVeiculos";
 import { useClientes } from "@/hooks/useClientes";
@@ -30,8 +29,7 @@ import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
 import { buildClientPriceCatalog } from "@/lib/clientPricing";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { dispararNotificacao } from "@/services/notificacaoService";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { createIdempotencyKey } from "@/lib/idempotency";
 
 interface ItemSeparacao {
@@ -82,7 +80,6 @@ export function FormularioEtapa({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const commandKeyRef = useRef<string | null>(null);
   const [observacoes, setObservacoes] = useState("");
-  const [funcionarioId, setFuncionarioId] = useState("");
 
   // Campos específicos por etapa - Separação
   const [itensSeparacao, setItensSeparacao] = useState<ItemSeparacao[]>([]);
@@ -124,11 +121,9 @@ export function FormularioEtapa({
 
   const { ordensServico } = useOrdensServico();
   const { avancarEtapa } = useHistoricoProducao(ordemServicoId);
-  const { data: funcionarios = [] } = useFuncionarios();
+  const { funcionario } = useAuth();
   const { motoristasAtivos } = useMotoristas();
   const { veiculosAtivos } = useVeiculos();
-
-  const funcionariosAtivos = funcionarios.filter((f) => f.ativo);
 
   // Buscar dados da OS para obter o cliente_id
   const osAtual = ordensServico.find(os => os.id === ordemServicoId);
@@ -257,7 +252,7 @@ export function FormularioEtapa({
         ordem_servico_id: ordemServicoId,
         etapa_esperada: etapaAtual,
         proxima_etapa: proximaEtapa,
-        funcionario_id: funcionarioId || undefined,
+        funcionario_id: funcionario?.id || undefined,
         observacoes,
         dados_formulario: dadosFormulario,
         itens: etapaAtual === "separacao"
@@ -267,42 +262,6 @@ export function FormularioEtapa({
       });
 
       toast.success(`ROL avançado para ${etapaLabels[proximaEtapa] || proximaEtapa}`);
-
-      // Disparar notificação ao cliente via WhatsApp (se configurado)
-      const eventoMap: Record<string, string> = {
-        separacao: "os_producao",
-        entregue: "os_entregue",
-      };
-      const eventoNotificacao = eventoMap[proximaEtapa];
-      if (eventoNotificacao && osAtual) {
-        try {
-          // Buscar dados do cliente
-          const { data: cliente } = await supabase
-            .from("clientes")
-            .select("razao_social, nome_fantasia, telefone")
-            .eq("id", osAtual.cliente_id)
-            .single();
-
-          if (cliente?.telefone) {
-            const enviado = await dispararNotificacao(eventoNotificacao, {
-              cliente: cliente.nome_fantasia || cliente.razao_social,
-              telefone: cliente.telefone,
-              numero: osAtual.numero,
-              ordem_servico_id: ordemServicoId,
-              cliente_id: osAtual.cliente_id,
-              idempotencyKey: `whatsapp:ordem:${ordemServicoId}:${eventoNotificacao}`,
-            });
-            if (enviado) {
-              toast.success("WhatsApp confirmado pelo WA-AKG!");
-            } else {
-              toast.error("Etapa salva, mas o WhatsApp não foi confirmado");
-            }
-          }
-        } catch (notifError) {
-          console.error("Erro ao disparar notificação:", notifError);
-          // Não bloqueia o fluxo principal
-        }
-      }
 
       onSuccess();
       commandKeyRef.current = null;
@@ -789,21 +748,10 @@ export function FormularioEtapa({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Funcionário Responsável */}
-          <div className="space-y-2">
-            <Label>Funcionário Responsável</Label>
-            <Select value={funcionarioId} onValueChange={setFuncionarioId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o funcionário" />
-              </SelectTrigger>
-              <SelectContent>
-                {funcionariosAtivos.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>
-                    {f.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* O responsável vem da sessão autenticada, sem seleção manual. */}
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            <div className="text-muted-foreground">Responsável automático</div>
+            <div className="font-medium">{funcionario?.nome || "Usuário autenticado"}</div>
           </div>
 
           {/* Campos Específicos da Etapa */}

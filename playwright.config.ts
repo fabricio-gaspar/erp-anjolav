@@ -1,36 +1,21 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const homologUrl = process.env.E2E_HOMOLOG_URL;
+
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  timeout: 45_000,
+  retries: 0,
+  reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    ...devices["Desktop Chrome"],
+    baseURL: homologUrl || "http://127.0.0.1:8080",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
   },
-  projects: [
-    {
-      name: "desktop-chromium",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
-    },
-    {
-      name: "mobile-chromium",
-      use: {
-        ...devices["Desktop Chrome"],
-        viewport: { width: 390, height: 844 },
-        isMobile: true,
-        hasTouch: true,
-      },
-    },
-  ],
-  webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER ? undefined : {
-    command:
-      "npm run build -- --mode e2e && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort",
-    url: "http://127.0.0.1:4173/login",
+  webServer: homologUrl ? undefined : {
+    command: "npm run dev -- --host 127.0.0.1 --port 8080",
+    url: "http://127.0.0.1:8080/login/pdv",
     reuseExistingServer: false,
     timeout: 120_000,
   },

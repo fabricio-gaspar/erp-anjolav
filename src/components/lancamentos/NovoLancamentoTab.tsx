@@ -45,6 +45,7 @@ import { useCreateManualRol } from "@/hooks/usePendingRolQueue";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { buildClientPriceCatalog } from "@/lib/clientPricing";
 import { createIdempotencyKey } from "@/lib/idempotency";
+import { calculateAreaInSquareMeters, parseMeasurement } from "@/lib/measurementUtils";
 import { toast } from "sonner";
 
 interface LancamentoItem {
@@ -147,8 +148,8 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
   };
 
   const metragemCalculada = useMemo(() => {
-    if (modoMetragem === "direto") return parseFloat(metragemDireta) || 0;
-    return (parseFloat(comprimento) || 0) * (parseFloat(largura) || 0);
+    if (modoMetragem === "direto") return parseMeasurement(metragemDireta);
+    return calculateAreaInSquareMeters(comprimento, largura);
   }, [modoMetragem, metragemDireta, comprimento, largura]);
 
   const handleAdicionarItem = () => {
@@ -158,7 +159,7 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
     if (qtd <= 0) return;
     let descricao = produtoSelecionado.nome;
     if (usaMetro && modoMetragem === "dimensoes" && comprimento && largura) {
-      descricao = `${produtoSelecionado.nome} (${comprimento}m × ${largura}m)`;
+      descricao = `${produtoSelecionado.nome} (${comprimento.replace(",", ".")}m × ${largura.replace(",", ".")}m)`;
     }
     setItems([...items, {
       id: crypto.randomUUID(), produtoId: produtoSelecionado.id, produto: descricao, quantidade: qtd,
@@ -355,13 +356,13 @@ export function NovoLancamentoTab({ onNavigateTab }: NovoLancamentoTabProps) {
               </div>
               {modoMetragem === "direto" ? (
                 <div>
-                  <Input type="number" step="0.01" placeholder="Ex: 12.50" value={metragemDireta} onChange={(e) => setMetragemDireta(e.target.value)} />
+                  <Input type="text" inputMode="decimal" placeholder="Ex: 12,50" value={metragemDireta} onChange={(e) => setMetragemDireta(e.target.value)} />
                   <p className="text-xs text-muted-foreground mt-1">Informe a metragem total em {produtoSelecionado.unidade}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label className="text-xs text-muted-foreground">Comprimento (m)</Label><Input type="number" step="0.01" placeholder="Ex: 2.50" value={comprimento} onChange={(e) => setComprimento(e.target.value)} className="mt-1" /></div>
-                  <div><Label className="text-xs text-muted-foreground">Largura (m)</Label><Input type="number" step="0.01" placeholder="Ex: 1.80" value={largura} onChange={(e) => setLargura(e.target.value)} className="mt-1" /></div>
+                  <div><Label className="text-xs text-muted-foreground">Comprimento (m)</Label><Input type="text" inputMode="decimal" placeholder="Ex: 3,25" value={comprimento} onChange={(e) => setComprimento(e.target.value)} className="mt-1" /></div>
+                  <div><Label className="text-xs text-muted-foreground">Largura (m)</Label><Input type="text" inputMode="decimal" placeholder="Ex: 2,75" value={largura} onChange={(e) => setLargura(e.target.value)} className="mt-1" /></div>
                 </div>
               )}
               {metragemCalculada > 0 && (

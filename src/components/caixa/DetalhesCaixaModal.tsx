@@ -32,6 +32,21 @@ import { CashReportError } from "@/components/caixa/CashReportError";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
+const categoriaMovimentacaoLabel: Record<string, string> = {
+  DEPOSITO_BANCARIO: "Depósito bancário",
+  PAGAMENTO_FORNECEDOR: "Pagamento a fornecedor",
+  DESPESA_OPERACIONAL: "Despesa operacional",
+  ENVIO_AO_COFRE: "Envio ao cofre",
+  RETIRADA_PROPRIETARIO: "Retirada do proprietário",
+  OUTROS: "Outro motivo",
+};
+
+const optionalNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 interface DetalhesCaixaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -59,17 +74,42 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
       PIX: 0,
       CARTAO_CREDITO: 0,
       CARTAO_DEBITO: 0,
+      OUTROS: 0,
     };
 
     movimentacoes
       .filter((m) => m.tipo === "VENDA")
       .forEach((m) => {
-        const forma = (m.forma_pagamento || "DINHEIRO") as keyof typeof totais;
-        totais[forma] += Number(m.valor) || 0;
+        const forma = (m.forma_pagamento || "DINHEIRO").toUpperCase();
+        const formaConhecida = forma in totais ? forma as keyof typeof totais : "OUTROS";
+        totais[formaConhecida] += Number(m.valor) || 0;
       });
 
     return totais;
   }, [movimentacoes]);
+
+  const conferenciaFechamento = useMemo(() => {
+    const resumo = caixa?.fechamento_resumo;
+    if (!resumo || typeof resumo !== "object") return [];
+    const formas = [
+      ["Dinheiro", "dinheiro_esperado", "dinheiro_contado", "diferenca_dinheiro"],
+      ["PIX", "pix_esperado", "pix_conferido", "diferenca_pix"],
+      ["Cartão de crédito", "cartao_credito_esperado", "cartao_credito_conferido", "diferenca_cartao_credito"],
+      ["Cartão de débito", "cartao_debito_esperado", "cartao_debito_conferido", "diferenca_cartao_debito"],
+      ["Outras formas", "outros_esperado", "outros_conferido", "diferenca_outros"],
+    ] as const;
+    return formas.map(([nome, esperadoKey, contadoKey, diferencaKey]) => {
+      const esperado = optionalNumber(resumo[esperadoKey]);
+      const contado = optionalNumber(resumo[contadoKey]);
+      const diferencaSalva = optionalNumber(resumo[diferencaKey]);
+      return {
+        nome,
+        esperado,
+        contado,
+        diferenca: diferencaSalva ?? (esperado !== null && contado !== null ? contado - esperado : null),
+      };
+    }).filter((item) => item.esperado !== null || item.contado !== null);
+  }, [caixa?.fechamento_resumo]);
 
   const handlePrint = () => {
     window.print();
@@ -78,16 +118,26 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
   const handleExportCSV = () => {
     if (!caixa) return;
     
-    const headers = ["Tipo", "Descrição", "Forma Pagamento", "Valor", "Data/Hora"];
+    const headers = ["Tipo", "Descrição", "Categoria", "Responsável pela retirada", "Referência", "Forma Pagamento", "Valor", "Ocorrida em", "Registrada em"];
     const rows = movimentacoes.map((m) => [
       m.tipo,
       m.descricao || "-",
+      m.categoria ? categoriaMovimentacaoLabel[m.categoria] || m.categoria : "-",
+      m.responsavel_nome || "-",
+      m.referencia || "-",
       m.forma_pagamento || "-",
       Number(m.valor).toFixed(2),
+      format(new Date(m.ocorrido_em || m.created_at), "dd/MM/yyyy HH:mm"),
       format(new Date(m.created_at), "dd/MM/yyyy HH:mm"),
     ]);
 
-    const csvContent = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+    const csvCell = (value: string) => {
+      const safeValue = /^[\t\r ]*[=+\-@]/.test(value) ? `'${value}` : value;
+      return `"${safeValue.replace(/"/g, '""')}"`;
+    };
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((value) => csvCell(String(value ?? ""))).join(";"))
+      .join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -210,6 +260,34 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
             </div>
           </Card>
 
+          {caixa.status === "FECHADO" && conferenciaFechamento.length > 0 && (
+            <Card className="p-4">
+              <h3 className="mb-4 font-semibold">Conferência do fechamento</h3>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {conferenciaFechamento.map((forma) => (
+                  <div key={forma.nome} className="rounded-lg border bg-muted/30 p-3">
+                    <p className="mb-2 font-medium">{forma.nome}</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Esperado</p>
+                        <p>{forma.esperado === null ? "—" : formatCurrency(forma.esperado)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Conferido</p>
+                        <p>{forma.contado === null ? "—" : formatCurrency(forma.contado)}</p>
+                      </div>
+                    </div>
+                    {forma.diferenca !== null && (
+                      <p className={cn("mt-2 text-sm font-medium", Math.abs(forma.diferenca) < 0.01 ? "text-emerald-600" : "text-destructive")}>
+                        Diferença: {forma.diferenca > 0 ? "+" : ""}{formatCurrency(forma.diferenca)}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
           {isLoading ? (
             <Card className="flex min-h-36 items-center justify-center" aria-label="Carregando movimentações do caixa">
               <div className="h-7 w-7 animate-spin rounded-full border-b-2 border-primary" />
@@ -221,7 +299,7 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
           {/* Totais por Forma de Pagamento */}
           <Card className="p-4">
             <h3 className="font-semibold mb-4">Vendas por Forma de Pagamento</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                 <Wallet className="w-5 h-5 text-primary" />
                 <div>
@@ -250,6 +328,13 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
                   <p className="font-bold">{formatCurrency(totaisPorFormaPagamento.CARTAO_DEBITO)}</p>
                 </div>
               </div>
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                <Wallet className="w-5 h-5 text-slate-600" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Outros</p>
+                  <p className="font-bold">{formatCurrency(totaisPorFormaPagamento.OUTROS)}</p>
+                </div>
+              </div>
             </div>
           </Card>
 
@@ -263,10 +348,10 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
                     <TableRow>
                       <TableHead className="w-10"></TableHead>
                       <TableHead>Tipo</TableHead>
-                      <TableHead>Descrição</TableHead>
+                      <TableHead>Descrição / auditoria</TableHead>
                       <TableHead>Forma Pgto</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
-                      <TableHead className="text-right">Hora</TableHead>
+                      <TableHead className="text-right">Ocorrida em</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -286,8 +371,15 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
                             {mov.tipo}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {mov.descricao || "-"}
+                        <TableCell className="max-w-sm text-sm">
+                          <p className="text-muted-foreground">{mov.descricao || "-"}</p>
+                          {(mov.categoria || mov.responsavel_nome || mov.referencia) && (
+                            <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                              {mov.categoria && <p>Finalidade: {categoriaMovimentacaoLabel[mov.categoria] || mov.categoria}</p>}
+                              {mov.responsavel_nome && <p>Retirado por: {mov.responsavel_nome}</p>}
+                              {mov.referencia && <p>Referência: {mov.referencia}</p>}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm">
                           {mov.forma_pagamento?.replace("_", " ") || "-"}
@@ -301,7 +393,7 @@ export const DetalhesCaixaModal = ({ open, onOpenChange, caixa }: DetalhesCaixaM
                           {mov.tipo === "SANGRIA" ? "-" : "+"}{formatCurrency(Number(mov.valor))}
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">
-                          {format(new Date(mov.created_at), "HH:mm")}
+                          {format(new Date(mov.ocorrido_em || mov.created_at), "dd/MM HH:mm", { locale: ptBR })}
                         </TableCell>
                       </TableRow>
                     ))}

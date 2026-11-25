@@ -10,6 +10,7 @@ import { gerarAgendamentosDoCliente, Frequencia } from "@/lib/agendamentoUtils";
 import { generatePortalAccessCode } from "@/lib/portalCode";
 import { useAgendamentosRecorrentes } from "@/hooks/useAgendamentosRecorrentes";
 import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { Switch } from "@/components/ui/switch";
 
 interface ClienteConfiguracaoProps {
   clienteId: string | null;
@@ -145,6 +146,8 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
   const [codigoAcesso, setCodigoAcesso] = useState("Não gerado");
   const [linkAcesso, setLinkAcesso] = useState("");
   const [frequencia, setFrequencia] = useState<Frequencia>("semanal");
+  const [retiradaAtiva, setRetiradaAtiva] = useState(false);
+  const [entregaAtiva, setEntregaAtiva] = useState(false);
   const [diasRetirada, setDiasRetirada] = useState<string[]>([]);
   const [diasEntrega, setDiasEntrega] = useState<string[]>([]);
   const [horarioRetirada, setHorarioRetirada] = useState("");
@@ -157,6 +160,8 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
       setCodigoAcesso(configuracao.codigo_acesso || "Não gerado");
       setLinkAcesso(configuracao.link_acesso || "");
       setFrequencia((configuracao.frequencia as Frequencia) || "semanal");
+      setRetiradaAtiva(configuracao.retirada_ativa ?? Boolean(configuracao.dias_retirada?.length));
+      setEntregaAtiva(configuracao.entrega_ativa ?? Boolean(configuracao.dias_entrega?.length));
       setDiasRetirada(configuracao.dias_retirada || []);
       setDiasEntrega(configuracao.dias_entrega || []);
       setHorarioRetirada(configuracao.horario_retirada || "");
@@ -171,6 +176,8 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
       setCodigoAcesso("Não gerado");
       setLinkAcesso("");
       setFrequencia("semanal");
+      setRetiradaAtiva(false);
+      setEntregaAtiva(false);
       setDiasRetirada([]);
       setDiasEntrega([]);
       setHorarioRetirada("");
@@ -195,6 +202,8 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
           link_acesso: link,
           tipo_relatorio: tipoRelatorio,
           frequencia: frequencia,
+          retirada_ativa: retiradaAtiva,
+          entrega_ativa: entregaAtiva,
           dias_retirada: diasRetirada,
           dias_entrega: diasEntrega,
           horario_retirada: horarioRetirada || null,
@@ -230,6 +239,14 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
       toast.error("Salve os dados básicos do cliente primeiro.");
       return;
     }
+    if (canManageAgenda && retiradaAtiva && diasRetirada.length === 0) {
+      toast.error("Selecione ao menos um dia para a retirada ou desative essa programação.");
+      return;
+    }
+    if (canManageAgenda && entregaAtiva && diasEntrega.length === 0) {
+      toast.error("Selecione ao menos um dia para a entrega ou desative essa programação.");
+      return;
+    }
 
     try {
       await upsertConfiguracao.mutateAsync({
@@ -237,6 +254,8 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
         codigo_acesso: codigoAcesso !== "Não gerado" ? codigoAcesso : null,
         link_acesso: linkAcesso || null,
         frequencia: frequencia,
+        retirada_ativa: retiradaAtiva,
+        entrega_ativa: entregaAtiva,
         dias_retirada: diasRetirada,
         dias_entrega: diasEntrega,
         horario_retirada: horarioRetirada || null,
@@ -251,8 +270,8 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
 
       const agendamentos = gerarAgendamentosDoCliente(clienteId, {
         frequencia,
-        dias_retirada: diasRetirada,
-        dias_entrega: diasEntrega,
+        dias_retirada: retiradaAtiva ? diasRetirada : [],
+        dias_entrega: entregaAtiva ? diasEntrega : [],
         horario_retirada: horarioRetirada || null,
         horario_entrega: horarioEntrega || null,
       });
@@ -420,11 +439,12 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
       <fieldset disabled={!canManageAgenda} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Retirada */}
         <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base font-semibold">Configuração de Retirada</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 pb-4">
+            <div><CardTitle className="text-base font-semibold">Configuração de Retirada</CardTitle><p className="mt-1 text-xs text-muted-foreground">Desative para este cliente não aparecer na agenda de coletas.</p></div>
+            <div className="flex items-center gap-2"><span className="text-xs text-muted-foreground">{retiradaAtiva ? "Ativa" : "Desativada"}</span><Switch checked={retiradaAtiva} onCheckedChange={setRetiradaAtiva} aria-label="Ativar retirada programada para este cliente" /></div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2" aria-disabled={!retiradaAtiva}>
               <label className="text-xs text-primary font-medium">Dias de Retirada</label>
               <div className="flex gap-1">
                 {diasSemana.map((dia) => (
@@ -435,6 +455,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
                     size="sm"
                     className="px-3"
                     onClick={() => toggleDiaRetirada(dia.key)}
+                    disabled={!retiradaAtiva}
                   >
                     {dia.label}
                   </Button>
@@ -451,6 +472,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
                   value={horarioRetirada}
                   onChange={(e) => setHorarioRetirada(e.target.value)}
                   className="pl-10"
+                  disabled={!retiradaAtiva}
                 />
               </div>
             </div>
@@ -459,8 +481,9 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
 
         {/* Entrega */}
         <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base font-semibold">Configuração de Entrega</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 pb-4">
+            <div><CardTitle className="text-base font-semibold">Configuração de Entrega</CardTitle><p className="mt-1 text-xs text-muted-foreground">Desative para este cliente não aparecer na agenda de Delivery.</p></div>
+            <div className="flex items-center gap-2"><span className="text-xs text-muted-foreground">{entregaAtiva ? "Ativa" : "Desativada"}</span><Switch checked={entregaAtiva} onCheckedChange={setEntregaAtiva} aria-label="Ativar entrega programada para este cliente" /></div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -474,6 +497,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
                     size="sm"
                     className="px-3"
                     onClick={() => toggleDiaEntrega(dia.key)}
+                    disabled={!entregaAtiva}
                   >
                     {dia.label}
                   </Button>
@@ -490,6 +514,7 @@ export const ClienteConfiguracao = ({ clienteId, onSave }: ClienteConfiguracaoPr
                   value={horarioEntrega}
                   onChange={(e) => setHorarioEntrega(e.target.value)}
                   className="pl-10"
+                  disabled={!entregaAtiva}
                 />
               </div>
             </div>

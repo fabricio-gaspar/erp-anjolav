@@ -1,0 +1,17 @@
+DO $$ BEGIN IF current_database() <> 'financeiro_teste' THEN RAISE EXCEPTION 'Use somente banco descartável financeiro_teste'; END IF; END $$;
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE SCHEMA IF NOT EXISTS private;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF; IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF; END $$;
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULLIF(current_setting('test.user',true),'')::uuid $$;
+CREATE FUNCTION private.current_tenant_id() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULLIF(current_setting('test.tenant',true),'')::uuid $$;
+CREATE FUNCTION private.has_any_module_access(text[]) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT current_setting('test.access',true) = 'yes' $$;
+CREATE FUNCTION private.can_access_client(uuid) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT current_setting('test.access',true) = 'yes' $$;
+CREATE FUNCTION private.can_access_invoice(uuid) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT current_setting('test.access',true) = 'yes' $$;
+CREATE FUNCTION private.can_access_area(text) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT current_setting('test.area',true) IN ('central',$1) $$;
+CREATE TABLE public.asaas_charges(id uuid PRIMARY KEY,tenant_id uuid NOT NULL,status text, value numeric, billing_type text, asaas_id text);
+CREATE TABLE public.faturas(id uuid PRIMARY KEY,tenant_id uuid NOT NULL,cliente_id uuid NOT NULL,valor_total numeric NOT NULL,status text NOT NULL,asaas_charge_id uuid,updated_at timestamptz DEFAULT now());
+CREATE TABLE public.ordens_servico(id uuid PRIMARY KEY,tenant_id uuid NOT NULL,cliente_id uuid NOT NULL,numero text,data_retirada date,origem text,condicao_pagamento text,status text,valor_total numeric,valor_pago numeric,status_pagamento text,updated_at timestamptz DEFAULT now());
+CREATE TABLE public.lancamentos(id uuid PRIMARY KEY,tenant_id uuid NOT NULL,fatura_id uuid,ordem_servico_id uuid,valor_total numeric);
+CREATE TABLE public.lancamentos_fatura(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid,lancamento_id uuid,fatura_id uuid);
+GRANT USAGE ON SCHEMA public,private,auth TO authenticated;
+GRANT SELECT ON public.lancamentos_fatura TO authenticated;
