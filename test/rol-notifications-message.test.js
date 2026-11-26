@@ -21,6 +21,10 @@ async function renderNotification({
   deliveryMode = "balcao",
   template = null,
   itemObservation = "Operação: lavagem_passadoria",
+  orderObservation = null,
+  itemColor = null,
+  itemBrand = null,
+  itemDamage = null,
 } = {}) {
   const reserved = [];
   let handler;
@@ -28,9 +32,9 @@ async function renderNotification({
     quantidade: 1,
     preco_unitario: 125,
     subtotal: 125,
-    cor_item: null,
-    marca_item: null,
-    avarias: null,
+    cor_item: itemColor,
+    marca_item: itemBrand,
+    avarias: itemDamage,
     observacoes: itemObservation,
     posicao_prateleira: "A-1",
     operation_type: "domestico",
@@ -50,7 +54,7 @@ async function renderNotification({
     valor_acrescimo_express: 5,
     taxa_entrega: 0,
     delivery_modelo_snapshot: null,
-    observacoes: null,
+    observacoes: orderObservation,
     status: "aberta",
   };
   const result = (data) => ({ data, error: null });
@@ -162,4 +166,26 @@ test("configured WhatsApp template keeps its own title and receives corrected it
   assert.match(message, /obs\.: Operação: lavagem_passadoria/);
   assert.match(message, /Valor: R\$\s+120,00/);
   assert.match(message, /Recebido: R\$\s+40,00/);
+});
+
+for (const event of ["rol_entrada", "rol_pronto_retirada"]) {
+  test(`${event} includes complete notes and item details even with a custom template`, async () => {
+    const longDetail = `${"detalhe ".repeat(80)}FIM DO DETALHE`;
+    const { message, body } = await renderNotification({
+      event, template: "Olá {cliente}", itemObservation: longDetail,
+      itemColor: "Azul", itemBrand: "Marca teste", itemDamage: "Mancha\nna gola",
+      orderObservation: "Cuidado especial\nEmbalar separado",
+    });
+    assert.equal(body.success, true);
+    for (const expected of [longDetail, "cor: Azul", "marca: Marca teste", "avarias: Mancha\nna gola", "Cuidado especial\nEmbalar separado"]) {
+      assert.ok(message.includes(expected), `missing ${expected}`);
+    }
+  });
+}
+
+test("overlong notices fail explicitly instead of silently truncating", async () => {
+  const { message, body } = await renderNotification({ orderObservation: "x".repeat(4100) });
+  assert.equal(message, undefined);
+  assert.equal(body.success, false);
+  assert.equal(body.reason, "MESSAGE_TOO_LONG");
 });

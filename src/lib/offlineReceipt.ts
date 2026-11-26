@@ -49,12 +49,12 @@ export function generateOfflinePdvReceiptHtml(receipt: OfflinePdvReceipt): strin
         h2 { margin: 4px 0 8px; text-align: center; font-size: 12px; }
         .warning { margin: 10px 0; border: 2px solid #111; padding: 8px; text-align: center; font-weight: 700; }
         .section { border-top: 1px dashed #555; padding: 7px 0; }
-        p { margin: 2px 0; overflow-wrap: anywhere; }
+        p { margin: 2px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 4px 0; border-bottom: 1px dotted #aaa; text-align: left; vertical-align: top; }
         th:last-child, td:last-child { text-align: right; }
         td:first-child { width: 54px; }
-        small { display: block; color: #555; font-size: 9px; }
+        small { display: block; color: #555; font-size: 9px; white-space: pre-wrap; overflow-wrap: anywhere; }
         .total { display: flex; justify-content: space-between; margin-top: 5px; font-size: 15px; font-weight: 800; }
         .footer { margin-top: 10px; text-align: center; font-size: 9px; }
       </style>

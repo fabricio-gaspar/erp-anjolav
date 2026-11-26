@@ -175,6 +175,11 @@ function plainText(value: unknown, limit = 280) {
     : "";
 }
 
+// Preserve the complete, multiline text supplied by the attendant.
+function writtenDetails(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function formatCurrency(value: unknown) {
   const amount = Number(value);
   if (value === null || value === undefined || !Number.isFinite(amount)) return "";
@@ -435,10 +440,10 @@ Deno.serve(async (req) => {
         `qtd.: ${formatQuantity(item.quantidade)}`,
         `unit.: ${formatCurrency(item.preco_unitario) || "não informado"}`,
         `total: ${formatCurrency(item.subtotal) || "não informado"}`,
-        plainText(item.cor_item, 80) && `cor: ${plainText(item.cor_item, 80)}`,
-        plainText(item.marca_item, 80) && `marca: ${plainText(item.marca_item, 80)}`,
-        plainText(item.avarias, 120) && `avarias: ${plainText(item.avarias, 120)}`,
-        plainText(item.observacoes, 160) && `obs.: ${plainText(item.observacoes, 160)}`,
+        plainText(item.cor_item, 100) && `cor: ${plainText(item.cor_item, 100)}`,
+        plainText(item.marca_item, 100) && `marca: ${plainText(item.marca_item, 100)}`,
+        writtenDetails(item.avarias) && `avarias: ${writtenDetails(item.avarias)}`,
+        writtenDetails(item.observacoes) && `obs.: ${writtenDetails(item.observacoes)}`,
         evento !== "rol_entrada" && plainText(item.posicao_prateleira, 120) && `local: ${plainText(item.posicao_prateleira, 120)}`,
       ].filter(Boolean).join(" · ");
       return `${index + 1}. ${plainText(item.produto?.nome || "Peça", 120)}\n   ${details}`;
@@ -465,7 +470,11 @@ Deno.serve(async (req) => {
         ]),
       ].join("\n")
       : "";
-    let message = fillTemplate(templateConfig?.template || DEFAULT_TEMPLATES[evento as AutomaticEvent], {
+    let template = templateConfig?.template || DEFAULT_TEMPLATES[evento as AutomaticEvent];
+    // Templates personalizados não podem omitir os detalhes informados no ROL.
+    if (!template.includes("{itens}")) template += "\n\n*PEÇAS*\n{itens}";
+    if (!template.includes("{observacoes}")) template += "\n\nObservações do ROL: {observacoes}";
+    let message = fillTemplate(template, {
       empresa: plainText(rolConfig?.nome_completo || rolConfig?.nome_curto, 160) || "ANJOLAV LAVANDERIA",
       endereco_empresa: plainText(rolConfig?.endereco, 220),
       telefone_empresa: plainText(rolConfig?.telefone, 80),
@@ -492,9 +501,12 @@ Deno.serve(async (req) => {
       modalidade: deliveryMode,
       delivery_details: deliveryDetails,
       localizacao,
-      observacoes: plainText(order.observacoes, 500),
+      observacoes: writtenDetails(order.observacoes),
       rodape: plainText(rolConfig?.texto_rodape, 240) || "AnjoLav · comprovante do ROL",
     }).trim();
+    if (itemSummary && !message.includes(itemSummary)) message += `\n\n*PEÇAS*\n${itemSummary}`;
+    const orderNotes = writtenDetails(order.observacoes);
+    if (orderNotes && !message.includes(orderNotes)) message += `\n\nObservações do ROL: ${orderNotes}`;
     if (deliveryDetails && !message.includes(deliveryDetails)) message = `${message}\n\n${deliveryDetails}`;
     if (expressSurcharge > 0 && !/lavagem\s+expressa/i.test(message)) {
       const expressLine = `Lavagem Expressa: + ${formatCurrency(expressSurcharge)}`;
@@ -502,9 +514,8 @@ Deno.serve(async (req) => {
       if (totalLine.test(message)) message = message.replace(totalLine, `${expressLine}\n$1`);
       else message = `${message}\n${expressLine}`;
     }
-    if (!message || message.length > 4_000 || /\{[a-z_]+\}/i.test(message)) {
-      return json(req, { error: "A mensagem automática excede o limite de 4.000 caracteres" }, 422);
-    }
+    if (message.length > 4_000) return json(req, { success: false, skipped: true, reason: "MESSAGE_TOO_LONG" });
+    if (!message || /\{[a-z_]+\}/i.test(message)) return json(req, { error: "Não foi possível montar a mensagem automática" }, 422);
     const phoneInputs = [
       { raw: client.telefone || "", slot: "primary" as const },
       { raw: client.telefone2 || "", slot: "secondary" as const },

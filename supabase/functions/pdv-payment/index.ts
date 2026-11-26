@@ -483,6 +483,14 @@ function boundedText(value: unknown, maxLength: number): string | undefined {
   return text && text.length <= maxLength ? text : undefined;
 }
 
+function optionalItemText(value: unknown, maxLength: number, field: string): string | undefined {
+  if (value == null || value === "") return undefined;
+  if (typeof value !== "string" || value.trim().length > maxLength) {
+    throw new RequestError(`${field} deve ter no máximo ${maxLength} caracteres`);
+  }
+  return value.trim() || undefined;
+}
+
 function requireUuid(value: unknown, field: string): string {
   if (typeof value !== "string" || !UUID_PATTERN.test(value)) {
     throw new RequestError(`${field} inválido`);
@@ -589,11 +597,11 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
     return {
       produto_id: requireUuid(item.produto_id, "Produto"),
       quantidade,
-      cor_item: boundedText(item.cor_item, 100),
-      marca_item: boundedText(item.marca_item, 100),
-      avarias: boundedText(item.avarias, 1_000),
+      cor_item: optionalItemText(item.cor_item, 100, "Cor do item"),
+      marca_item: optionalItemText(item.marca_item, 100, "Marca do item"),
+      avarias: optionalItemText(item.avarias, 1_000, "Avarias do item"),
       posicao_prateleira: boundedText(item.posicao_prateleira, 100),
-      observacoes: boundedText(item.observacoes, 1_000),
+      observacoes: optionalItemText(item.observacoes, 1_000, "Detalhes do item"),
     };
   });
 

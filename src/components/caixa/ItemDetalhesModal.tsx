@@ -361,6 +361,7 @@ export function ItemDetalhesModal({
             {corSelecionada === "Outra" && (
               <Input
                 placeholder="Digite a cor..."
+                maxLength={100}
                 value={corOutra}
                 onChange={(e) => setCorOutra(e.target.value)}
               />
@@ -397,6 +398,7 @@ export function ItemDetalhesModal({
               <div className="flex gap-2 mt-2">
                 <Input
                   placeholder="Digite a marca..."
+                  maxLength={100}
                   value={marcaOutra}
                   onChange={(e) => setMarcaOutra(e.target.value)}
                   onBlur={handleCustomMarcaConfirm}
@@ -431,6 +433,7 @@ export function ItemDetalhesModal({
             </Label>
             <Textarea
               placeholder="Descreva manchas, rasgos, desgastes ou outras condições observadas na peça..."
+              maxLength={1000}
               value={avarias}
               onChange={(e) => setAvarias(e.target.value)}
               rows={3}
@@ -458,6 +461,7 @@ export function ItemDetalhesModal({
             <Label>Complemento</Label>
             <Input
               placeholder="Ex.: dobrar separado, embalar individualmente..."
+              maxLength={500}
               value={complemento}
               onChange={(event) => setComplemento(event.target.value)}
             />

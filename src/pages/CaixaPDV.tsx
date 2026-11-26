@@ -99,6 +99,7 @@ import { usePdvCommercialRules } from "@/hooks/usePdvCommercialRules";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { calculateDeliveryFee, calculateDistanceKm } from "@/lib/deliveryPricing";
 import { clearScopedDraft, readScopedDraft, restoreDraftDate, scopedDraftKey, writeScopedDraft } from "@/lib/scopedDraft";
+import { formatRolItemDetails } from "@/lib/rolItemDetails";
 
 
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -1100,6 +1101,9 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         idempotencyKey: saleKey,
       };
       const receiptCreatedAt = new Date().toISOString();
+      if (saleRequest.items.some((item) => (item.observacoes?.length ?? 0) > 1000)) {
+        throw new Error("Os detalhes de um item excedem 1.000 caracteres. Revise o complemento e os serviços para salvar o ROL.");
+      }
       const offlineSaleReceipt: OfflinePdvReceipt = {
         localReference: createOfflineLocalReference(saleKey, receiptCreatedAt),
         createdAt: receiptCreatedAt,
@@ -1118,16 +1122,14 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         urgencyAmount: dados.urgente ? Math.max(0, (totalValue - dados.valorDesconto) * dados.percentualUrgencia / 100) : 0,
         deliveryFee: dados.deliveryMode === "entrega" ? Math.max(0, fulfillment.deliveryFee) : 0,
         total: dados.valorTotal,
-        items: cart.map((item) => ({
+        items: cart.map((item, index) => ({
           productId: item.id,
           name: item.nome,
           quantity: item.quantidade,
           unit: item.unidade,
           unitPrice: item.preco,
           subtotal: getLineTotal(item),
-          details: [item.cor_item && `Cor: ${item.cor_item}`, item.marca_item && `Marca: ${item.marca_item}`, item.metragem_m2 && `Área: ${formatSquareMetres(item.metragem_m2)} m²`, item.largura_m && item.comprimento_m && `Medidas: ${formatMetres(item.largura_m)} m × ${formatMetres(item.comprimento_m)} m`, item.lacre && `Lacre: ${item.lacre}`, item.observacoes]
-            .filter(Boolean)
-            .join(" · ") || null,
+          details: formatRolItemDetails(saleRequest.items[index]),
         })),
       };
       pendingOfflineRequest = saleRequest;
@@ -1191,7 +1193,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         } else if (notification.success && !notification.skipped && !notification.idempotent) {
           toast.success(`Aviso de entrada do ROL ${result.order.number} aceito pelo WhatsApp.`);
         } else if (!notification.success) {
-          toast.message(`ROL ${result.order.number} criado; o envio automático não foi concluído. Verifique o WhatsApp do cliente.`);
+          toast.message(`ROL ${result.order.number} criado; aviso não enviado. ${notificationFailureMessage(notification.reason)}`);
         }
       });
       setShowImpressaoModal(true);
@@ -1526,6 +1528,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       CLIENT_INACTIVE: "O cadastro do cliente está inativo. Ative o cadastro antes de avisar.",
       CLIENT_OPT_OUT: "O cliente desativou mensagens pelo WhatsApp.",
       PHONE_INVALID: "Nenhum telefone válido está cadastrado no cliente.",
+      MESSAGE_TOO_LONG: "O aviso ultrapassa o limite de 4.000 caracteres. Consulte o ROL impresso para conferir os detalhes.",
       PHONE_CHANGED: "O telefone mudou durante o envio. Confira o cadastro e gere um novo aviso.",
       PROVIDER_DISABLED: "O envio WA-AKG está desativado nas configurações da empresa.",
       PROVIDER_UNCONFIGURED: "Falta configurar a conexão WA-AKG desta empresa.",

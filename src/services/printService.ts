@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ROLPreviewConfig } from "@/components/configuracoes/ROLPreview";
 import { generateROLHTMLWithData, generateROLDisponibilidadeHTMLWithData, buildRolOrderDetails, type PrintOSData, type RolOrderCommercialSnapshot } from "@/lib/rolPrint";
+import { formatRolItemDetails } from "@/lib/rolItemDetails";
 export { generateROLHTMLWithData, generateROLDisponibilidadeHTMLWithData, type PrintOSData } from "@/lib/rolPrint";
 import { generateCode128BPattern } from "@/lib/code128";
 import { buildItemScanCode, buildOrderScanCode } from "@/lib/orderScanner";
@@ -126,7 +127,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       precoUnitario: Number(item.preco_unitario),
       subtotal: Number(item.subtotal),
       posicaoPrateleira: item.posicao_prateleira || null,
-      detalhes: item.observacoes || null,
+      detalhes: formatRolItemDetails(item),
     }));
 
     const [atendenteResult, enderecoResult] = await Promise.all([

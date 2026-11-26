@@ -345,7 +345,7 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
         .item-name { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
         .item-unit { flex: 0 0 18%; text-align: right; overflow-wrap: anywhere; }
         .item-total { flex: 0 0 18%; text-align: right; overflow-wrap: anywhere; }
-        .item-details { padding: 1px 0 3px 18%; font-size: 8px; color: #666; overflow-wrap: anywhere; }
+        .item-details { padding: 1px 0 3px 18%; font-size: 8px; color: #666; white-space: pre-wrap; overflow-wrap: anywhere; }
         .commercial-terms { overflow-wrap: anywhere; break-inside: avoid; }
         .totals { border-top: 1px dashed #666; padding-top: 8px; margin-bottom: 8px; }
         .total-row { display: flex; justify-content: space-between; font-size: 10px; }
@@ -526,7 +526,7 @@ export function generateROLDisponibilidadeHTMLWithData(config: ROLPreviewConfig,
       <div class="section">
         <div class="section-title">PEÇAS DISPONÍVEIS</div>
         <table><thead><tr><th>ROL</th><th>ENTRADA</th><th>PEÇA</th><th>LOCAL</th><th>QTD.</th></tr></thead>
-          <tbody>${data.itens.map((item) => `<tr><td>${osNumero}</td><td>${formatRolDate(data.dataEmissao)}</td><td>${escapeHtml(item.nome)}</td><td>${escapeHtml(item.posicaoPrateleira || "—")}</td><td>${escapeHtml(`${formatRolQuantity(item.quantidade)} ${formatRolUnit(item.unidade)}`)}</td></tr>`).join("")}</tbody>
+          <tbody>${data.itens.map((item) => `<tr><td>${osNumero}</td><td>${formatRolDate(data.dataEmissao)}</td><td>${escapeHtml(item.nome)}${item.detalhes ? `<div style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(item.detalhes)}</div>` : ""}</td><td>${escapeHtml(item.posicaoPrateleira || "—")}</td><td>${escapeHtml(`${formatRolQuantity(item.quantidade)} ${formatRolUnit(item.unidade)}`)}</td></tr>`).join("")}</tbody>
         </table>
         <div class="row total" style="margin-top: 5px;"><span>VOLUMES DISPONÍVEIS:</span><span>${escapeHtml(formatRolQuantitySummary(data.itens))}</span></div>
       </div>
