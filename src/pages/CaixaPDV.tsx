@@ -1753,6 +1753,13 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                       <p className="p-3 text-center text-sm text-muted-foreground">Digite a primeira letra para buscar um cliente.</p>
                     ) : isLoadingClientes ? (
                       <p className="p-3 text-center text-sm text-muted-foreground">Carregando clientes…</p>
+                    ) : clientsError && offlineRuntime.isOperationalOnline ? (
+                      <div className="space-y-2 p-3 text-center text-sm text-destructive">
+                        <p>Não foi possível carregar os clientes.</p>
+                        <Button type="button" size="sm" variant="outline" onClick={() => void refetchClients()}>Tentar novamente</Button>
+                      </div>
+                    ) : !offlineRuntime.isOperationalOnline && clientes.length === 0 ? (
+                      <p className="p-3 text-center text-sm text-muted-foreground">Sem conexão e sem clientes disponíveis neste dispositivo. Reconecte o PDV e atualize os dados locais.</p>
                     ) : filteredClientes.length === 0 ? (
                       <div className="space-y-2 p-3 text-center text-sm text-muted-foreground">
                         <p>Cliente não encontrado nesta operação.</p>

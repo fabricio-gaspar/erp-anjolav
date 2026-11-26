@@ -176,16 +176,23 @@ export function useClientes({ enabled = true }: { enabled?: boolean } = {}) {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para listar clientes");
       }
-      let query = supabase
-        .from("clientes")
-        .select("*")
-        .filter("tenant_id", "eq", activeTenant.id)
-        .order("razao_social");
-      if (activeArea !== "central") query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Cliente[];
+      const clients: Cliente[] = [];
+      const pageSize = 500;
+      for (let page = 0; page < 200; page += 1) {
+        let query = supabase
+          .from("clientes")
+          .select("*")
+          .filter("tenant_id", "eq", activeTenant.id)
+          .order("razao_social")
+          .order("id")
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        if (activeArea !== "central") query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
+        const { data, error } = await query;
+        if (error) throw error;
+        clients.push(...(data as Cliente[]));
+        if (data.length < pageSize) return clients;
+      }
+      throw new Error("A lista de clientes excedeu o limite de consulta. Refine a busca.");
     },
   });
 

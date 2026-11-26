@@ -45,6 +45,13 @@ export function isOfflineLikeError(error: unknown): boolean {
   ].some((fragment) => message.includes(fragment));
 }
 
+// A resposta 57014 veio do banco: a consulta demorou, mas o servidor respondeu.
+export function isDatabaseStatementTimeout(error: unknown): boolean {
+  const source = error as { code?: unknown; message?: unknown } | null;
+  return source?.code === "57014"
+    || String(source?.message ?? "").toLowerCase().includes("canceling statement due to statement timeout");
+}
+
 export interface OfflineSyncFailure {
   retryable: boolean;
   message: string;

@@ -31,6 +31,7 @@ import {
 } from "@/lib/offlineStore";
 import {
   classifyOfflineSyncFailure,
+  isDatabaseStatementTimeout,
   isOfflineLikeError,
   isOfflineReferenceFresh,
   OFFLINE_REFERENCE_REFRESH_MS,
@@ -160,7 +161,8 @@ export function OfflineRuntimeProvider({ children }: { children: ReactNode }) {
         setBackendAvailable(true);
       })
       .catch((error) => {
-        reportBackendFailure(error);
+        if (navigator.onLine && isDatabaseStatementTimeout(error)) setBackendAvailable(true);
+        else reportBackendFailure(error);
         console.warn("Não foi possível atualizar o pacote offline do PDV", error);
         if (force) toast.error(error instanceof Error ? error.message : "Não foi possível atualizar os dados offline");
       })

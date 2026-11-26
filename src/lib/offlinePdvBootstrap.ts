@@ -17,7 +17,7 @@ export interface OfflinePdvPackageStatus {
   addresses: number;
 }
 
-type PageResult<T> = PromiseLike<{ data: T[] | null; error: { message?: string } | null }>;
+type PageResult<T> = PromiseLike<{ data: T[] | null; error: { message?: string; code?: string } | null }>;
 
 interface OfflineQuery<T> extends PageResult<T> {
   select(columns?: string): OfflineQuery<T>;
@@ -39,7 +39,7 @@ async function fetchAllPages<T>(load: (from: number, to: number) => PageResult<T
   for (let page = 0; page < 200; page += 1) {
     const from = page * PAGE_SIZE;
     const { data, error } = await load(from, from + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message || "Não foi possível preparar os dados offline");
+    if (error) throw Object.assign(new Error(error.message || "Não foi possível preparar os dados offline"), { code: error.code });
     const rows = data ?? [];
     result.push(...rows);
     if (rows.length < PAGE_SIZE) return result;
@@ -66,7 +66,7 @@ export async function refreshOfflinePdvPackage(input: {
   const { queryClient, userId, tenantId, area } = input;
   const allowedUnits = getAllowedProductUnits(area);
 
-  const [clients, products, specialPrices, paymentConfigurations, addresses] = await Promise.all([
+  const [clients, products, specialPrices, paymentConfigurations] = await Promise.all([
     fetchAllPages<Cliente>((from, to) => offlineDb
       .from<Cliente>("clientes")
       .select("*")
@@ -93,17 +93,27 @@ export async function refreshOfflinePdvPackage(input: {
       .select("*")
       .eq("tenant_id", tenantId)
       .range(from, to) as unknown as PageResult<ConfiguracaoPagamentoCliente>),
-    fetchAllPages<EnderecoCliente>((from, to) => offlineDb
-      .from<EnderecoCliente>("enderecos_clientes")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .order("ativo", { ascending: false })
-      .order("principal", { ascending: false })
-      .order("updated_at", { ascending: false })
-      .range(from, to) as unknown as PageResult<EnderecoCliente>),
   ]);
 
   const activeClients = clients.filter((client) => client.ativo);
+  // Cada consulta avalia a política de acesso apenas para um grupo pequeno de
+  // clientes desta operação, evitando varrer todos os endereços a cada página.
+  const addresses: EnderecoCliente[] = [];
+  for (let start = 0; start < activeClients.length; start += 200) {
+    const groups = Array.from({ length: 4 }, (_, group) =>
+      activeClients.slice(start + group * 50, start + (group + 1) * 50).map((client) => client.id),
+    ).filter((ids) => ids.length > 0);
+    const pages = await Promise.all(groups.map((ids) => fetchAllPages<EnderecoCliente>((from, to) => offlineDb
+      .from<EnderecoCliente>("enderecos_clientes")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .in("cliente_id", ids)
+      .order("ativo", { ascending: false })
+      .order("principal", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .range(from, to) as unknown as PageResult<EnderecoCliente>)));
+    addresses.push(...pages.flat());
+  }
   const allowedClientIds = new Set(activeClients.map((client) => client.id));
   const scopedPrices = specialPrices.filter((price) => allowedClientIds.has(price.cliente_id));
   const scopedConfigurations = paymentConfigurations.filter((configuration) => allowedClientIds.has(configuration.cliente_id));
