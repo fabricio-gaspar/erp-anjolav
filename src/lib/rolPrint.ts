@@ -351,7 +351,7 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
         .total-row { display: flex; justify-content: space-between; font-size: 10px; }
         .grand-total { font-size: ${tamanhoTotal}px; font-weight: bold; color: ${corPrimaria}; margin-top: 4px; }
         .loyalty { border: 1px dashed ${corSecundaria}; color: #444; font-size: 9px; margin-top: 8px; padding: 6px; text-align: center; }
-        .obs { font-size: 9px; color: #666; }
+        .obs { font-size: 9px; color: #666; white-space: pre-wrap; overflow-wrap: anywhere; }
         .bloco { font-size: 9px; text-align: center; color: #888; }
         .signature { padding-top: 20px; margin-bottom: 8px; }
         .signature-line { border-bottom: 1px solid #666; margin: 0 20px 4px 20px; }
@@ -428,9 +428,9 @@ export function generateROLHTMLWithData(config: ROLPreviewConfig, data: PrintOSD
 
       ${renderRolLoyaltyBlock(data)}
 
-      ${config.observacoes && data.observacoes ? `
+      ${data.observacoes ? `
         <div class="section">
-          <div class="obs"><strong>Obs:</strong> ${escapeHtml(data.observacoes)}</div>
+          <div class="obs"><strong>Observações do ROL:</strong> ${escapeHtml(data.observacoes)}</div>
         </div>
       ` : ''}
 

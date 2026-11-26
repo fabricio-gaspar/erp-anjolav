@@ -279,11 +279,9 @@ export const generateROLHTML = (config: ROLPreviewConfig) => {
         </div>
       ` : ''}
 
-      ${config.observacoes ? `
         <div class="section">
           <div class="obs"><strong>Obs:</strong> OBSERVAÇÃO DE EXEMPLO.</div>
         </div>
-      ` : ''}
 
       ${config.bloco ? `
         <div class="section">
@@ -461,7 +459,7 @@ export function ROLPreview({ config }: ROLPreviewProps) {
       </div>
 
       {/* Observações */}
-      {config.observacoes && (
+      {(
         <div className="border-t border-dashed border-gray-400 pt-2 mb-2">
           <p className="text-[9px] text-gray-600">
             <strong>Obs:</strong> OBSERVAÇÃO DE EXEMPLO.

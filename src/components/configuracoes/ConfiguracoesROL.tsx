@@ -595,11 +595,8 @@ export function ConfiguracoesROL() {
               />
             </div>
             <div className="flex items-center justify-between">
-              <Label className="text-sm text-blue-600">Observações</Label>
-              <Switch 
-                checked={config.observacoes}
-                onCheckedChange={(checked) => updateLocalConfig("observacoes", checked)}
-              />
+              <Label className="text-sm text-blue-600">Observações do ROL</Label>
+              <span className="text-xs text-muted-foreground">Sempre exibidas quando preenchidas</span>
             </div>
 
             <div className="flex items-center justify-between">
