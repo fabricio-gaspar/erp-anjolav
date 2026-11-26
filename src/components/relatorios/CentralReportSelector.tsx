@@ -43,6 +43,7 @@ export function CentralReportSelector() {
 
   const options: ReportOption[] = [
     { value: "rols", label: "Todos os ROLs", allowed: orders.allowed, render: () => <ConsultaRols key="rols" selectedKind="rols" /> },
+    { value: "a_retirar", label: "ROLs a retirar", allowed: orders.allowed, render: () => <ConsultaRols key="a_retirar" selectedKind="a_retirar" /> },
     { value: "abertos", label: "ROLs não entregues", allowed: orders.allowed, render: () => <ConsultaRols key="abertos" selectedKind="abertos" /> },
     { value: "producao", label: "Produção por prazo", allowed: orders.allowed, render: () => <ConsultaRols key="producao" selectedKind="producao" /> },
     { value: "delivery", label: "Entregas agendadas", allowed: orders.allowed, render: () => <ConsultaDelivery /> },

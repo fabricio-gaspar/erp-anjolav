@@ -1574,8 +1574,6 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   const panelPath = area === "industrial" ? "/pdv/painel/industrial" : "/pdv/painel/domestico";
   const quickModuleOptions: PdvShortcutModule[] = [
     { id: "clientes", title: "Clientes", icon: UserRound, permissionPath: `/${area}/clientes`, path: `${selectorPath}/clientes` },
-    { id: "entregar", title: "Entregar pedido", icon: CheckCircle2, permissionPath: `/${area}/ordens`, path: `${selectorPath}/ordens?situacao=a_retirar` },
-    { id: "agenda", title: "Agenda", icon: CalendarDays, permissionPath: `/${area}/agenda`, path: `${selectorPath}/agenda` },
     { id: "producao", title: "Produção", icon: Wrench, permissionPath: `/${area}/producao`, path: `${selectorPath}/producao` },
     { id: "delivery", title: "Delivery", icon: Truck, permissionPath: `/${area}/agenda`, path: `${selectorPath}/agenda?tipo=entrega&view=rotas` },
     { id: "catalogo", title: "Catálogo", icon: PackageCheck, permissionPath: area === "industrial" ? "/industrial/produtos" : "/residencial/produtos", path: `${selectorPath}/produtos` },
@@ -1694,16 +1692,10 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
 
               <section className="pdv-tools-group" aria-label="Operação">
                 <h2><Wrench aria-hidden="true" /><span>Operação</span></h2>
-                {quickModuleOptions.filter((module) => module.id === "agenda").map(renderSidebarModule)}
                 {quickModuleOptions.filter((module) => module.id === "producao").map(renderSidebarModule)}
                 <button type="button" className="pdv-sidebar-link" aria-label="Disponibilização" title="Disponibilização" disabled={!canViewDayList} onClick={() => setShowDisponibilizacaoDia(true)}><PackageCheck aria-hidden="true" /><span>Disponibilização</span></button>
                 {quickModuleOptions.filter((module) => module.id === "delivery").map(renderSidebarModule)}
                 {quickModuleOptions.filter((module) => ["catalogo", "estoque"].includes(module.id)).map(renderSidebarModule)}
-              </section>
-
-              <section className="pdv-tools-group" aria-label="Entrega">
-                <h2><CheckCircle2 aria-hidden="true" /><span>Entrega</span></h2>
-                {quickModuleOptions.filter((module) => module.id === "entregar").map(renderSidebarModule)}
               </section>
 
               <section className="pdv-tools-group" aria-label="Caixa">

@@ -19,9 +19,10 @@ function addressLabel(value: unknown) {
   const address = value as Record<string, unknown>;
   return [address.logradouro, address.numero, address.bairro, address.cidade, address.uf].filter(part => typeof part === "string" && part.trim()).join(", ") || "—";
 }
-export type RolsReportKind = "rols" | "abertos" | "producao" | "delivery" | "taxas";
+export type RolsReportKind = "rols" | "a_retirar" | "abertos" | "producao" | "delivery" | "taxas";
 const REPORT_LABELS: Record<RolsReportKind, string> = {
   rols: "Todos os ROLs",
+  a_retirar: "ROLs a retirar",
   abertos: "ROLs não entregues",
   producao: "Produção por prazo",
   delivery: "Entregas agendadas",
@@ -43,8 +44,8 @@ export function ConsultaRols({ selectedKind }: { selectedKind: RolsReportKind })
   const location = useLocation();
   const ordersPermission = usePermissaoModulo("ordens");
   const kind = selectedKind;
-  const [start, setStart] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
-  const [end, setEnd] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [start, setStart] = useState(selectedKind === "a_retirar" ? "" : format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [end, setEnd] = useState(selectedKind === "a_retirar" ? "" : format(new Date(), "yyyy-MM-dd"));
   const [field, setField] = useState<Criteria["field"]>(selectedKind === "delivery" || selectedKind === "producao" || selectedKind === "taxas" ? "data_previsao_entrega" : "data_retirada");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("todos");
@@ -60,9 +61,12 @@ export function ConsultaRols({ selectedKind }: { selectedKind: RolsReportKind })
       const pageSize = 500;
       for (let offset = 0; offset < 10000; offset += pageSize) {
         let q = supabase.from("ordens_servico").select("id,numero,data_retirada,data_previsao_entrega,status,status_pagamento,entrega_modalidade,taxa_entrega,valor_total,endereco_atendimento_snapshot,delivery_modelo_snapshot,delivery_distancia_km_snapshot,delivery_taxa_base_snapshot,delivery_taxa_km_snapshot,cliente:clientes!ordens_servico_cliente_id_fkey(razao_social,nome_fantasia)")
-          .eq("tenant_id", activeTenant.id).gte(criteria.field, criteria.start).lte(criteria.field, criteria.end)
+          .eq("tenant_id", activeTenant.id)
           .order(criteria.field, { ascending: true }).order("id", { ascending: true }).range(offset, offset + pageSize - 1);
+        if (criteria.start) q = q.gte(criteria.field, criteria.start);
+        if (criteria.end) q = q.lte(criteria.field, criteria.end);
         if (origins) q = q.in("origem", [...origins]);
+        if (criteria.kind === "a_retirar") q = q.eq("status", "expedicao");
         if (criteria.kind === "abertos" || criteria.kind === "producao") q = q.not("status", "in", '("entregue","cancelada","cancelado")');
         if (criteria.kind === "delivery" || criteria.kind === "taxas") q = q.eq("entrega_modalidade", "entrega").not("status", "in", '("cancelada","cancelado")');
         if (criteria.status !== "todos") q = q.eq("status", criteria.status);
@@ -101,17 +105,18 @@ export function ConsultaRols({ selectedKind }: { selectedKind: RolsReportKind })
   if (ordersPermission.isLoading) return <p>Verificando permissões…</p>;
   if (!ordersPermission.allowed) return null;
   return <div className="space-y-4">
-    <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 className="text-base font-semibold">{REPORT_LABELS[kind]}</h2><p className="text-sm text-muted-foreground">Defina período e filtros para esta consulta.</p></div>
+    <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 className="text-base font-semibold">{REPORT_LABELS[kind]}</h2><p className="text-sm text-muted-foreground">{kind === "a_retirar" ? "Defina os filtros que desejar." : "Defina período e filtros para esta consulta."}</p></div>
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <div className="space-y-1"><Label htmlFor="cr-field">Considerar data de</Label><select id="cr-field" value={field} onChange={e => setField(e.target.value as Criteria["field"])} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="data_retirada">Entrada</option><option value="data_previsao_entrega">Previsão de entrega</option></select></div>
       <div className="space-y-1"><Label htmlFor="cr-start">De</Label><Input id="cr-start" type="date" value={start} onChange={e => setStart(e.target.value)} /></div>
       <div className="space-y-1"><Label htmlFor="cr-end">Até</Label><Input id="cr-end" type="date" value={end} onChange={e => setEnd(e.target.value)} /></div>
       <div className="space-y-1"><Label htmlFor="cr-search">Cliente ou ROL</Label><Input id="cr-search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Nome ou número" /></div>
-      <div className="space-y-1"><Label htmlFor="cr-status">Etapa do ROL</Label><select id="cr-status" value={status} onChange={e => setStatus(e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="todos">Todas as etapas</option><option value="retirada">Recebido</option><option value="separacao">Separação</option><option value="lavagem">Lavagem</option><option value="secagem">Secagem</option><option value="passadoria">Passadoria</option><option value="embalagem">Embalagem</option><option value="expedicao">Expedição</option><option value="entregue">Entregue</option><option value="cancelada">Cancelado</option></select></div>
+      {kind !== "a_retirar" && <div className="space-y-1"><Label htmlFor="cr-status">Etapa do ROL</Label><select id="cr-status" value={status} onChange={e => setStatus(e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="todos">Todas as etapas</option><option value="retirada">Recebido</option><option value="separacao">Separação</option><option value="lavagem">Lavagem</option><option value="secagem">Secagem</option><option value="passadoria">Passadoria</option><option value="embalagem">Embalagem</option><option value="expedicao">Expedição</option><option value="entregue">Entregue</option><option value="cancelada">Cancelado</option></select></div>}
       <div className="space-y-1"><Label htmlFor="cr-payment">Pagamento</Label><select id="cr-payment" value={payment} onChange={e => setPayment(e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="todos">Todos</option><option value="pendente">Pendente</option><option value="parcial">Parcial</option><option value="pago">Pago</option></select></div>
     </div>
-    <div className="flex flex-wrap items-center gap-3"><Button disabled={!start || !end || start > end} onClick={() => setCriteria({kind,start,end,field,search,status,payment})}><Search className="mr-2 h-4 w-4" />Consultar</Button>{query.data && !query.data.truncated && <Button variant="outline" onClick={exportCsv} disabled={!rows.length}><Download className="mr-2 h-4 w-4" />Exportar CSV</Button>}</div>
-    {start > end && <p role="alert" className="text-sm text-destructive">A data inicial deve ser anterior à data final.</p>}
+    {kind === "a_retirar" && <p className="text-sm text-muted-foreground">Mostra ROLs em expedição, incluindo retirada no balcão e delivery. O período é opcional; abra o ROL para continuar o atendimento.</p>}
+    <div className="flex flex-wrap items-center gap-3"><Button disabled={(kind !== "a_retirar" && (!start || !end)) || Boolean(start && end && start > end)} onClick={() => setCriteria({kind,start,end,field,search,status,payment})}><Search className="mr-2 h-4 w-4" />Consultar</Button>{query.data && !query.data.truncated && <Button variant="outline" onClick={exportCsv} disabled={!rows.length}><Download className="mr-2 h-4 w-4" />Exportar CSV</Button>}</div>
+    {start && end && start > end && <p role="alert" className="text-sm text-destructive">A data inicial deve ser anterior à data final.</p>}
     {criteria?.kind === "taxas" && <p className="text-sm text-muted-foreground">Taxas lançadas em ROLs de delivery; o total não corresponde necessariamente ao valor recebido. A distância cobrada é calculada em linha reta e é diferente dos quilômetros rodados pelo veículo. Pedidos anteriores podem não conter os dados da tarifa por KM.</p>}
     {criteria?.kind === "taxas" && query.data && !query.data.truncated && !query.isFetching && <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-lg border p-3"><p className="text-sm text-muted-foreground">Distância registrada</p><p className="font-semibold">{kmRows.length ? `${recordedKm.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km` : "Não registrada"}</p></div><div className="rounded-lg border p-3"><p className="text-sm text-muted-foreground">Parcela cobrada por KM</p><p className="font-semibold">{kmRows.length ? money(kmAmount) : "Não registrada"}</p></div><div className="rounded-lg border p-3"><p className="text-sm text-muted-foreground">Sem dados históricos do modelo</p><p className="font-semibold">{historicalWithoutModel} ROL(s)</p></div></div>}
     {query.isFetching && <p role="status">Carregando relatório…</p>}
