@@ -20,10 +20,12 @@ export type Database = {
           created_at: string
           data: string
           frequencia: string | null
+          gerado_por_configuracao_cliente: boolean
           horario: string | null
           id: string
           motorista_id: string | null
           observacoes: string | null
+          operation_type: Database["public"]["Enums"]["operation_type"] | null
           recorrente: boolean | null
           status: string | null
           tenant_id: string
@@ -35,10 +37,12 @@ export type Database = {
           created_at?: string
           data: string
           frequencia?: string | null
+          gerado_por_configuracao_cliente?: boolean
           horario?: string | null
           id?: string
           motorista_id?: string | null
           observacoes?: string | null
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           recorrente?: boolean | null
           status?: string | null
           tenant_id?: string
@@ -50,10 +54,12 @@ export type Database = {
           created_at?: string
           data?: string
           frequencia?: string | null
+          gerado_por_configuracao_cliente?: boolean
           horario?: string | null
           id?: string
           motorista_id?: string | null
           observacoes?: string | null
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           recorrente?: boolean | null
           status?: string | null
           tenant_id?: string
@@ -110,14 +116,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "agenda_recorrencia_operacoes_cliente_id_fkey"
-            columns: ["cliente_id"]
+            foreignKeyName: "agenda_recorrencia_operacoes_cliente_fk"
+            columns: ["cliente_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "clientes"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
-            foreignKeyName: "agenda_recorrencia_operacoes_tenant_id_fkey"
+            foreignKeyName: "agenda_recorrencia_operacoes_tenant_fk"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -424,6 +430,7 @@ export type Database = {
           evento_pagamento: string | null
           forma_pagamento: string | null
           id: string
+          operation_type: Database["public"]["Enums"]["operation_type"] | null
           idempotency_key: string | null
           ordem_servico_id: string | null
           pdv_pagamento_id: string | null
@@ -432,6 +439,7 @@ export type Database = {
           categoria: string | null
           referencia: string | null
           tipo: string
+          tenant_id: string
           valor: number
         }
         Insert: {
@@ -446,6 +454,7 @@ export type Database = {
           evento_pagamento?: string | null
           forma_pagamento?: string | null
           id?: string
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           idempotency_key?: string | null
           ordem_servico_id?: string | null
           pdv_pagamento_id?: string | null
@@ -454,6 +463,7 @@ export type Database = {
           categoria?: string | null
           referencia?: string | null
           tipo: string
+          tenant_id?: string
           valor: number
         }
         Update: {
@@ -468,6 +478,7 @@ export type Database = {
           evento_pagamento?: string | null
           forma_pagamento?: string | null
           id?: string
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           idempotency_key?: string | null
           ordem_servico_id?: string | null
           pdv_pagamento_id?: string | null
@@ -476,6 +487,7 @@ export type Database = {
           categoria?: string | null
           referencia?: string | null
           tipo?: string
+          tenant_id?: string
           valor?: number
         }
         Relationships: [
@@ -538,6 +550,7 @@ export type Database = {
           fechamento_resumo: Json
           id: string
           identificador_caixa: string
+          modelo: string
           observacoes: string | null
           operador: string
           operador_id: string | null
@@ -564,6 +577,7 @@ export type Database = {
           fechamento_resumo?: Json
           id?: string
           identificador_caixa?: string
+          modelo?: string
           observacoes?: string | null
           operador: string
           operador_id?: string | null
@@ -590,6 +604,7 @@ export type Database = {
           fechamento_resumo?: Json
           id?: string
           identificador_caixa?: string
+          modelo?: string
           observacoes?: string | null
           operador?: string
           operador_id?: string | null
@@ -754,6 +769,7 @@ export type Database = {
           created_at: string
           dias_entrega: string[] | null
           dias_retirada: string[] | null
+          entrega_ativa: boolean
           frequencia: string | null
           horario_entrega: string | null
           horario_retirada: string | null
@@ -762,6 +778,7 @@ export type Database = {
           tenant_id: string
           tipo_relatorio: string | null
           updated_at: string
+          retirada_ativa: boolean
         }
         Insert: {
           cliente_id: string
@@ -769,6 +786,7 @@ export type Database = {
           created_at?: string
           dias_entrega?: string[] | null
           dias_retirada?: string[] | null
+          entrega_ativa?: boolean
           frequencia?: string | null
           horario_entrega?: string | null
           horario_retirada?: string | null
@@ -777,6 +795,7 @@ export type Database = {
           tenant_id?: string
           tipo_relatorio?: string | null
           updated_at?: string
+          retirada_ativa?: boolean
         }
         Update: {
           cliente_id?: string
@@ -784,6 +803,7 @@ export type Database = {
           created_at?: string
           dias_entrega?: string[] | null
           dias_retirada?: string[] | null
+          entrega_ativa?: boolean
           frequencia?: string | null
           horario_entrega?: string | null
           horario_retirada?: string | null
@@ -792,6 +812,7 @@ export type Database = {
           tenant_id?: string
           tipo_relatorio?: string | null
           updated_at?: string
+          retirada_ativa?: boolean
         }
         Relationships: [
           {
@@ -813,17 +834,25 @@ export type Database = {
           codigo_municipio_ibge: string | null
           codigo_servico: string | null
           created_at: string
+          credencial_ref: string | null
+          credencial_status: string
           csc_dados: Json | null
+          emitir_automaticamente: boolean
           endereco: Json | null
+          homologado_em: string | null
+          homologado_por: string | null
           id: string
           inscricao_estadual: string | null
           inscricao_municipal: string | null
           modo_emissao: string | null
           nome: string
+          operation_type: Database["public"]["Enums"]["operation_type"] | null
+          provedor_nfse: string
           razao_social: string | null
           regime_tributario: string | null
           senha_certificado_encrypted: string | null
           series_numeracao: Json | null
+          tenant_id: string
           updated_at: string
           url_api_nfse: string | null
           urls_webservice: Json | null
@@ -838,17 +867,25 @@ export type Database = {
           codigo_municipio_ibge?: string | null
           codigo_servico?: string | null
           created_at?: string
+          credencial_ref?: string | null
+          credencial_status?: string
           csc_dados?: Json | null
+          emitir_automaticamente?: boolean
           endereco?: Json | null
+          homologado_em?: string | null
+          homologado_por?: string | null
           id?: string
           inscricao_estadual?: string | null
           inscricao_municipal?: string | null
           modo_emissao?: string | null
           nome: string
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
+          provedor_nfse?: string
           razao_social?: string | null
           regime_tributario?: string | null
           senha_certificado_encrypted?: string | null
           series_numeracao?: Json | null
+          tenant_id?: string
           updated_at?: string
           url_api_nfse?: string | null
           urls_webservice?: Json | null
@@ -863,17 +900,25 @@ export type Database = {
           codigo_municipio_ibge?: string | null
           codigo_servico?: string | null
           created_at?: string
+          credencial_ref?: string | null
+          credencial_status?: string
           csc_dados?: Json | null
+          emitir_automaticamente?: boolean
           endereco?: Json | null
+          homologado_em?: string | null
+          homologado_por?: string | null
           id?: string
           inscricao_estadual?: string | null
           inscricao_municipal?: string | null
           modo_emissao?: string | null
           nome?: string
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
+          provedor_nfse?: string
           razao_social?: string | null
           regime_tributario?: string | null
           senha_certificado_encrypted?: string | null
           series_numeracao?: Json | null
+          tenant_id?: string
           updated_at?: string
           url_api_nfse?: string | null
           urls_webservice?: Json | null
@@ -883,6 +928,12 @@ export type Database = {
       }
       configuracoes_gerais: {
         Row: {
+          faturamento_limite_rols: number
+          faturamento_relatorios_ativo: boolean
+          faturamento_nfse_ativo: boolean
+          faturamento_boleto_ativo: boolean
+          faturamento_email_ativo: boolean
+          faturamento_whatsapp_ativo: boolean
           banco_agencia: string | null
           banco_conta: string | null
           banco_nome: string | null
@@ -911,6 +962,12 @@ export type Database = {
           whatsapp_numero: string | null
         }
         Insert: {
+          faturamento_limite_rols?: number
+          faturamento_relatorios_ativo?: boolean
+          faturamento_nfse_ativo?: boolean
+          faturamento_boleto_ativo?: boolean
+          faturamento_email_ativo?: boolean
+          faturamento_whatsapp_ativo?: boolean
           banco_agencia?: string | null
           banco_conta?: string | null
           banco_nome?: string | null
@@ -939,6 +996,12 @@ export type Database = {
           whatsapp_numero?: string | null
         }
         Update: {
+          faturamento_limite_rols?: number
+          faturamento_relatorios_ativo?: boolean
+          faturamento_nfse_ativo?: boolean
+          faturamento_boleto_ativo?: boolean
+          faturamento_email_ativo?: boolean
+          faturamento_whatsapp_ativo?: boolean
           banco_agencia?: string | null
           banco_conta?: string | null
           banco_nome?: string | null
@@ -970,6 +1033,7 @@ export type Database = {
       }
       configuracoes_pagamento_cliente: {
         Row: {
+          faturamento_data_base: string | null
           cliente_id: string
           cnpj_emissor_id: string | null
           condicao_pagamento: string | null
@@ -985,6 +1049,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          faturamento_data_base?: string | null
           cliente_id: string
           cnpj_emissor_id?: string | null
           condicao_pagamento?: string | null
@@ -1000,6 +1065,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          faturamento_data_base?: string | null
           cliente_id?: string
           cnpj_emissor_id?: string | null
           condicao_pagamento?: string | null
@@ -1629,11 +1695,11 @@ export type Database = {
           centro_custo_id: string | null
           chave_acesso: string | null
           cliente_id: string
+          configuracao_fiscal_id: string | null
           created_at: string
           dados_transferencia: Json | null
           data_emissao_nf: string | null
           data_envio: string | null
-          data_ultimo_pagamento: string | null
           data_vencimento: string | null
           descricao_servico: string | null
           destinatario_envio: string | null
@@ -1647,8 +1713,10 @@ export type Database = {
           link_pdf_nf: string | null
           mensagem_enviada: string | null
           natureza_operacao: string | null
+          nfse_status: string
           numero_nf: string | null
           observacao_fatura: string | null
+          operation_type: Database["public"]["Enums"]["operation_type"] | null
           periodo_fim: string
           periodo_inicio: string
           pix_copia_cola: string | null
@@ -1683,11 +1751,11 @@ export type Database = {
           centro_custo_id?: string | null
           chave_acesso?: string | null
           cliente_id: string
+          configuracao_fiscal_id?: string | null
           created_at?: string
           dados_transferencia?: Json | null
           data_emissao_nf?: string | null
           data_envio?: string | null
-          data_ultimo_pagamento?: string | null
           data_vencimento?: string | null
           descricao_servico?: string | null
           destinatario_envio?: string | null
@@ -1701,8 +1769,10 @@ export type Database = {
           link_pdf_nf?: string | null
           mensagem_enviada?: string | null
           natureza_operacao?: string | null
+          nfse_status?: string
           numero_nf?: string | null
           observacao_fatura?: string | null
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           periodo_fim: string
           periodo_inicio: string
           pix_copia_cola?: string | null
@@ -1737,11 +1807,11 @@ export type Database = {
           centro_custo_id?: string | null
           chave_acesso?: string | null
           cliente_id?: string
+          configuracao_fiscal_id?: string | null
           created_at?: string
           dados_transferencia?: Json | null
           data_emissao_nf?: string | null
           data_envio?: string | null
-          data_ultimo_pagamento?: string | null
           data_vencimento?: string | null
           descricao_servico?: string | null
           destinatario_envio?: string | null
@@ -1755,8 +1825,10 @@ export type Database = {
           link_pdf_nf?: string | null
           mensagem_enviada?: string | null
           natureza_operacao?: string | null
+          nfse_status?: string
           numero_nf?: string | null
           observacao_fatura?: string | null
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           periodo_fim?: string
           periodo_inicio?: string
           pix_copia_cola?: string | null
@@ -1808,11 +1880,20 @@ export type Database = {
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "faturas_configuracao_fiscal_tenant_fkey"
+            columns: ["configuracao_fiscal_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "configuracoes_fiscais"
+            referencedColumns: ["id", "tenant_id"]
+          },
         ]
       }
       fidelidade_configuracoes: {
         Row: {
           ativo: boolean
+          ativo_domestico: boolean
+          ativo_industrial: boolean
           created_at: string
           id: string
           portal_exibir_fidelidade: boolean
@@ -1825,6 +1906,8 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          ativo_domestico?: boolean
+          ativo_industrial?: boolean
           created_at?: string
           id?: string
           portal_exibir_fidelidade?: boolean
@@ -1837,6 +1920,8 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          ativo_domestico?: boolean
+          ativo_industrial?: boolean
           portal_exibir_fidelidade?: boolean
           pontos_minimos_resgate?: number
           reais_por_ponto?: number
@@ -3411,6 +3496,105 @@ export type Database = {
           },
         ]
       }
+      nfse_documentos: {
+        Row: {
+          ambiente: string
+          atualizado_por: string | null
+          autorizado_em: string | null
+          cancelado_em: string | null
+          cancelamento_motivo: string | null
+          chave_acesso: string | null
+          configuracao_fiscal_id: string
+          created_at: string
+          criado_por: string | null
+          danfse_storage_path: string | null
+          erros: Json
+          fatura_id: string
+          id: string
+          idempotency_key: string
+          numero: string | null
+          payload_resumo: Json
+          protocolo: string | null
+          provedor: string
+          request_fingerprint: string
+          solicitado_em: string | null
+          status: string
+          tenant_id: string
+          tentativas: number
+          updated_at: string
+          xml_storage_path: string | null
+        }
+        Insert: {
+          ambiente: string
+          atualizado_por?: string | null
+          autorizado_em?: string | null
+          cancelado_em?: string | null
+          cancelamento_motivo?: string | null
+          chave_acesso?: string | null
+          configuracao_fiscal_id: string
+          created_at?: string
+          criado_por?: string | null
+          danfse_storage_path?: string | null
+          erros?: Json
+          fatura_id: string
+          id?: string
+          idempotency_key: string
+          numero?: string | null
+          payload_resumo?: Json
+          protocolo?: string | null
+          provedor?: string
+          request_fingerprint: string
+          solicitado_em?: string | null
+          status?: string
+          tenant_id: string
+          tentativas?: number
+          updated_at?: string
+          xml_storage_path?: string | null
+        }
+        Update: {
+          ambiente?: string
+          atualizado_por?: string | null
+          autorizado_em?: string | null
+          cancelado_em?: string | null
+          cancelamento_motivo?: string | null
+          chave_acesso?: string | null
+          configuracao_fiscal_id?: string
+          created_at?: string
+          criado_por?: string | null
+          danfse_storage_path?: string | null
+          erros?: Json
+          fatura_id?: string
+          id?: string
+          idempotency_key?: string
+          numero?: string | null
+          payload_resumo?: Json
+          protocolo?: string | null
+          provedor?: string
+          request_fingerprint?: string
+          solicitado_em?: string | null
+          status?: string
+          tenant_id?: string
+          tentativas?: number
+          updated_at?: string
+          xml_storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfse_documentos_config_tenant_fkey"
+            columns: ["configuracao_fiscal_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "configuracoes_fiscais"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "nfse_documentos_fatura_tenant_fkey"
+            columns: ["fatura_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "faturas"
+            referencedColumns: ["id", "tenant_id"]
+          },
+        ]
+      }
       notificacoes_config: {
         Row: {
           ativo: boolean | null
@@ -3485,7 +3669,10 @@ export type Database = {
       }
       orcamentos: {
         Row: {
+          area_operacao: string | null
           cliente_id: string
+          codigo: string
+          criado_por: string | null
           created_at: string
           id: string
           itens_snapshot: Json
@@ -3496,7 +3683,10 @@ export type Database = {
           valor_total: number
         }
         Insert: {
+          area_operacao?: string | null
           cliente_id: string
+          codigo?: never
+          criado_por?: string | null
           created_at?: string
           id?: string
           itens_snapshot?: Json
@@ -3507,7 +3697,10 @@ export type Database = {
           valor_total?: number
         }
         Update: {
+          area_operacao?: string | null
           cliente_id?: string
+          codigo?: never
+          criado_por?: string | null
           created_at?: string
           id?: string
           itens_snapshot?: Json
@@ -3765,7 +3958,12 @@ export type Database = {
       }
       ordens_servico: {
         Row: {
+          delivery_modelo_snapshot: string | null
+          delivery_distancia_km_snapshot: number | null
+          delivery_taxa_base_snapshot: number | null
+          delivery_taxa_km_snapshot: number | null
           agendamento_id: string | null
+          atendente_id: string | null
           capacidade_excecao: boolean
           capacidade_limite_snapshot: number | null
           capacidade_reservada: number
@@ -3781,6 +3979,7 @@ export type Database = {
           id: string
           motorista_id: string | null
           numero: string
+          operation_type: Database["public"]["Enums"]["operation_type"] | null
           observacoes: string | null
           origem: string
           pago_na_entrada: boolean | null
@@ -3793,11 +3992,13 @@ export type Database = {
           status_logistica: string
           status_pagamento: string | null
           status_qualidade: string
+          taxa_entrega: number
           tabela_preco_tipo_snapshot: string
           tenant_id: string
           updated_at: string
           urgente: boolean | null
           valor_desconto: number | null
+          valor_acrescimo_express: number
           valor_pago: number | null
           valor_total: number | null
           veiculo_id: string | null
@@ -3805,6 +4006,7 @@ export type Database = {
         }
         Insert: {
           agendamento_id?: string | null
+          atendente_id?: string | null
           capacidade_excecao?: boolean
           capacidade_limite_snapshot?: number | null
           capacidade_reservada?: number
@@ -3820,6 +4022,7 @@ export type Database = {
           id?: string
           motorista_id?: string | null
           numero: string
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           observacoes?: string | null
           origem?: string
           pago_na_entrada?: boolean | null
@@ -3832,11 +4035,13 @@ export type Database = {
           status_logistica?: string
           status_pagamento?: string | null
           status_qualidade?: string
+          taxa_entrega?: number
           tabela_preco_tipo_snapshot?: string
           tenant_id?: string
           updated_at?: string
           urgente?: boolean | null
           valor_desconto?: number | null
+          valor_acrescimo_express?: number
           valor_pago?: number | null
           valor_total?: number | null
           veiculo_id?: string | null
@@ -3844,6 +4049,7 @@ export type Database = {
         }
         Update: {
           agendamento_id?: string | null
+          atendente_id?: string | null
           capacidade_excecao?: boolean
           capacidade_limite_snapshot?: number | null
           capacidade_reservada?: number
@@ -3859,6 +4065,7 @@ export type Database = {
           id?: string
           motorista_id?: string | null
           numero?: string
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           observacoes?: string | null
           origem?: string
           pago_na_entrada?: boolean | null
@@ -3871,11 +4078,13 @@ export type Database = {
           status_logistica?: string
           status_pagamento?: string | null
           status_qualidade?: string
+          taxa_entrega?: number
           tabela_preco_tipo_snapshot?: string
           tenant_id?: string
           updated_at?: string
           urgente?: boolean | null
           valor_desconto?: number | null
+          valor_acrescimo_express?: number
           valor_pago?: number | null
           valor_total?: number | null
           veiculo_id?: string | null
@@ -4072,6 +4281,44 @@ export type Database = {
           },
         ]
       }
+      pdv_capacidade_configuracoes: {
+        Row: {
+          id: string
+          tenant_id: string
+          area: string
+          limite_carga: number
+          ativo: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          area: string
+          limite_carga: number
+          ativo?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          area?: string
+          limite_carga?: number
+          ativo?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdv_capacidade_configuracoes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pdv_pagamentos: {
         Row: {
           asaas_charge_id: string | null
@@ -4089,6 +4336,7 @@ export type Database = {
           metodo: string
           momento: string
           nsu: string | null
+          operation_type: Database["public"]["Enums"]["operation_type"] | null
           ordem_servico_id: string
           parcelas: number
           provedor: string
@@ -4120,6 +4368,7 @@ export type Database = {
           metodo: string
           momento?: string
           nsu?: string | null
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           ordem_servico_id: string
           parcelas?: number
           provedor: string
@@ -4151,6 +4400,7 @@ export type Database = {
           metodo?: string
           momento?: string
           nsu?: string | null
+          operation_type?: Database["public"]["Enums"]["operation_type"] | null
           ordem_servico_id?: string
           parcelas?: number
           provedor?: string
@@ -4455,6 +4705,7 @@ export type Database = {
           km_inicial: number | null
           motorista_id: string | null
           observacoes: string | null
+          operation_type: string | null
           status: string
           tenant_id: string
           updated_at: string
@@ -4471,6 +4722,7 @@ export type Database = {
           km_inicial?: number | null
           motorista_id?: string | null
           observacoes?: string | null
+          operation_type?: string | null
           status?: string
           tenant_id: string
           updated_at?: string
@@ -4487,6 +4739,7 @@ export type Database = {
           km_inicial?: number | null
           motorista_id?: string | null
           observacoes?: string | null
+          operation_type?: string | null
           status?: string
           tenant_id?: string
           updated_at?: string
@@ -4728,6 +4981,10 @@ export type Database = {
         Args: { _cliente_id: string; _endereco_id: string }
         Returns: Json
       }
+      excluir_endereco_cliente: {
+        Args: { _cliente_id: string; _endereco_id: string }
+        Returns: Json
+      }
       atualizar_folha_aberta: {
         Args: {
           _campo: string
@@ -4752,6 +5009,19 @@ export type Database = {
       }
       cancelar_ordem_servico: {
         Args: { _motivo: string; _ordem_servico_id: string }
+        Returns: Json
+      }
+      editar_ordem_servico_pdv: {
+        Args: {
+          _itens: Json
+          _motivo: string
+          _ordem: Json
+          _ordem_servico_id: string
+        }
+        Returns: Json
+      }
+      cotar_entrega_edicao_rol: {
+        Args: { _ordem_servico_id: string; _endereco_id: string }
         Returns: Json
       }
       cancelar_intencao_pagamento_pdv: {
@@ -4802,9 +5072,12 @@ export type Database = {
         Args: {
           _area: string
           _ativo?: boolean
-          _data: string
           _limite_carga: number
         }
+        Returns: Json
+      }
+      configurar_capacidade_pdv_data: {
+        Args: { _area: string; _ativo?: boolean; _data: string; _limite_carga: number }
         Returns: Json
       }
       consultar_metricas_producao: {
@@ -4861,6 +5134,10 @@ export type Database = {
           _telefone: string | null
           _telefone2: string | null
         }
+        Returns: Json
+      }
+      excluir_cliente_sem_historico: {
+        Args: { _cliente_id: string }
         Returns: Json
       }
       consultar_ficha_cliente: {
@@ -5027,6 +5304,86 @@ export type Database = {
         Args: { _area: string; _data: string; _tenant_id: string }
         Returns: Json
       }
+      consultar_configuracao_capacidade_pdv_data: {
+        Args: { _area: string; _data: string }
+        Returns: Json
+      }
+      consultar_regras_comerciais_pdv: {
+        Args: { _area: string }
+        Returns: Json
+      }
+      consultar_posicoes_pdv: {
+        Args: { _area: string; _somente_ativas?: boolean }
+        Returns: {
+          id: string
+          tenant_id: string
+          area: string
+          tipo: string
+          codigo: string
+          nome_exibicao: string
+          ordem: number
+          ativo: boolean
+          created_at: string
+          updated_at: string
+        }[]
+      }
+      salvar_regras_comerciais_pdv: {
+        Args: { _area: string; _percentual_urgencia: number; _taxa_entrega_padrao: number }
+        Returns: Json
+      }
+      salvar_regras_comerciais_pdv_v2: {
+        Args: {
+          _area: string
+          _percentual_urgencia: number
+          _modelo_delivery: string
+          _taxa_base_delivery: number
+          _taxa_por_km: number
+        }
+        Returns: Json
+      }
+      salvar_posicao_pdv: {
+        Args: {
+          _id: string | null
+          _area: string
+          _tipo: string
+          _codigo: string
+          _nome_exibicao: string
+          _ordem?: number
+          _ativo?: boolean
+        }
+        Returns: {
+          id: string
+          tenant_id: string
+          area: string
+          tipo: string
+          codigo: string
+          nome_exibicao: string
+          ordem: number
+          ativo: boolean
+          created_at: string
+          updated_at: string
+        }
+      }
+      excluir_posicao_pdv: {
+        Args: { _id: string }
+        Returns: boolean
+      }
+      preencher_posicoes_padrao_pdv: {
+        Args: { _area: string }
+        Returns: number
+      }
+      aplicar_reajuste_produtos_pdv: {
+        Args: { _area: string; _percentual: number; _produto_id?: string | null; _apenas_ativos?: boolean }
+        Returns: Json
+      }
+      dar_baixa_rol_pdv: {
+        Args: { _ordem_servico_id: string }
+        Returns: Json
+      }
+      abater_credito_cliente_pdv: {
+        Args: { _tenant_id: string; _cliente_id: string; _caixa_id: string; _valor: number; _motivo: string; _idempotency_key: string; _ator: string }
+        Returns: Json
+      }
       consultar_resumo_folha_pagamento: {
         Args: { _competencia: string }
         Returns: Json
@@ -5085,6 +5442,7 @@ export type Database = {
           _km_inicial: number | null
           _motorista_id: string | null
           _observacoes: string | null
+          _operacao: string
           _veiculo_id: string | null
         }
         Returns: Json
@@ -5123,6 +5481,30 @@ export type Database = {
           _permitir_excecao_capacidade?: boolean
           _percentual_urgencia: number
           _recebimento_modalidade: string
+          _urgente: boolean
+          _valor_desconto: number
+          _veiculo_id: string | null
+        }
+        Returns: Json
+      }
+      criar_pedido_atendimento_v2: {
+        Args: {
+          _caixa_id: string | null
+          _cliente_id: string
+          _criado_por: string
+          _data_previsao_entrega: string
+          _data_retirada: string | null
+          _endereco_snapshot: Json
+          _entrega_modalidade: string
+          _idempotency_key: string
+          _itens: Json
+          _motorista_id: string | null
+          _observacoes: string | null
+          _pagamento: Json | null
+          _permitir_excecao_capacidade?: boolean
+          _percentual_urgencia: number
+          _recebimento_modalidade: string
+          _taxa_entrega: number
           _urgente: boolean
           _valor_desconto: number
           _veiculo_id: string | null
@@ -5349,6 +5731,38 @@ export type Database = {
         }
         Returns: Json
       }
+      preparar_documento_nfse: {
+        Args: {
+          _configuracao_fiscal_id?: string | null
+          _descricao_servico?: string | null
+          _fatura_id: string
+          _natureza_operacao?: string | null
+        }
+        Returns: Json
+      }
+      registrar_nfse_autorizada: {
+        Args: {
+          _chave_acesso: string
+          _configuracao_fiscal_id: string
+          _danfse_storage_path?: string | null
+          _fatura_id: string
+          _idempotency_key: string
+          _numero: string
+          _protocolo?: string | null
+          _tenant_id: string
+          _xml_storage_path?: string | null
+        }
+        Returns: Json
+      }
+      registrar_nfse_cancelada: {
+        Args: {
+          _fatura_id: string
+          _motivo: string
+          _protocolo?: string | null
+          _tenant_id: string
+        }
+        Returns: Json
+      }
       registrar_movimentacao_caixa: {
         Args: {
           _caixa_id: string
@@ -5366,6 +5780,21 @@ export type Database = {
           _descricao: string
           _idempotency_key: string
           _ocorrido_em: string
+          _referencia: string | null
+          _responsavel_nome: string | null
+          _tipo: string
+          _valor: number
+        }
+        Returns: Json
+      }
+      registrar_movimentacao_caixa_auditada_v2: {
+        Args: {
+          _caixa_id: string
+          _categoria: string | null
+          _descricao: string
+          _idempotency_key: string
+          _ocorrido_em: string
+          _operation_type: Database["public"]["Enums"]["operation_type"]
           _referencia: string | null
           _responsavel_nome: string | null
           _tipo: string
@@ -5563,6 +5992,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "operador" | "producao"
+      operation_type: "industrial" | "domestico"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5691,6 +6121,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "operador", "producao"],
+      operation_type: ["industrial", "domestico"],
     },
   },
 } as const

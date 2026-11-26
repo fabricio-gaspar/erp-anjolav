@@ -17,6 +17,7 @@ export const dashboardQueryKeyPrefixes = [
   ["eventos_agenda"],
   ["estoque_produtos"],
   ["rols_loja"],
+  ["central-pending-rol-summary"],
 ] as const;
 
 const dashboardProductionAdvanceQueryKeyPrefixes = [

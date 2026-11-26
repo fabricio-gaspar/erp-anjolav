@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -6,6 +7,7 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  CalendarDays,
   Camera,
   ChevronLeft,
   ChevronRight,
@@ -30,6 +32,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useRotasDoDia, useRotaOperacoes, useRotasEntregaMutations } from "@/hooks/useRotasEntrega";
 import type { AddressSnapshot, ParadaRota, RotaEntrega, RouteEventType } from "@/hooks/useRotasEntrega";
+import { useDeliveryDayStops } from "@/hooks/useDeliveryDayStops";
+import { DeliveryDayMap } from "@/components/delivery/DeliveryDayMap";
 import { NovaRotaModal } from "@/components/delivery/NovaRotaModal";
 import { SignaturePad } from "@/components/delivery/SignaturePad";
 import { Badge } from "@/components/ui/badge";
@@ -51,10 +55,13 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { getCanonicalPdvPath } from "@/lib/authorization";
 import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
+import { clientClassificationMatchesArea } from "@/lib/operations";
 
 interface RouteWorkspaceProps {
   date: string;
+  onSearchDate: (date: string) => void;
   onPreviousDay: () => void;
   onNextDay: () => void;
 }
@@ -69,9 +76,12 @@ interface RouteCandidate {
   suggestedTime: string | null;
 }
 
-interface ReadyDeliveryRol {
+interface DeliveryRolInProgress {
   id: string;
   numero: string;
+  data_previsao_entrega: string | null;
+  status: string;
+  status_logistica: string | null;
   cliente: {
     razao_social: string;
     nome_fantasia: string | null;
@@ -118,8 +128,34 @@ function timeText(time: string | null) {
   return time ? time.slice(0, 5) : null;
 }
 
-export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspaceProps) {
-  const { data: routes = [], isLoading, isFetching, refetch } = useRotasDoDia(date);
+function deliveryRolStatusLabel(rol: DeliveryRolInProgress) {
+  if (rol.status_logistica === "em_rota") return "Em rota";
+  if (rol.status_logistica === "entrega_parcial") return "Entrega parcial";
+  if (rol.status_logistica === "tentativa_falha") return "Nova tentativa";
+  if (rol.status_logistica === "aguardando_entrega") return "Pronto para rota";
+  if (rol.status_logistica === "aguardando_coleta") return "Aguardando coleta";
+  if (rol.status === "expedicao") return "Aguardando disponibilização";
+  return "Em produção";
+}
+
+function deliveryRolStatusClass(rol: DeliveryRolInProgress) {
+  if (["aguardando_entrega", "entrega_parcial", "tentativa_falha"].includes(rol.status_logistica || "")) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+  if (rol.status_logistica === "em_rota") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (rol.status_logistica === "aguardando_coleta") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-slate-200 bg-slate-100 text-slate-700";
+}
+
+export function RouteWorkspace({ date, onSearchDate, onPreviousDay, onNextDay }: RouteWorkspaceProps) {
+  const { data: routes = [], isLoading, isError: routesError, isFetching, refetch } = useRotasDoDia(date);
+  const {
+    data: deliveryDayStops = [],
+    isLoading: isLoadingDayStops,
+    isError: dayStopsError,
+    refetch: refetchDayStops,
+  } = useDeliveryDayStops(date);
+  const navigate = useNavigate();
   const { activeTenant, session } = useAuth();
   const { activeArea } = useWorkspace();
   const mutations = useRotasEntregaMutations();
@@ -128,10 +164,16 @@ export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspac
   const [addStopOpen, setAddStopOpen] = useState(false);
   const [eventState, setEventState] = useState<{ stop: ParadaRota; type: RouteEventType } | null>(null);
   const [odometerMode, setOdometerMode] = useState<"start" | "finish" | null>(null);
+  const [dateDraft, setDateDraft] = useState(date);
   const isPastDate = date < format(new Date(), "yyyy-MM-dd");
   const allowedOrigins = getAllowedOrderOrigins(activeArea);
-  const { data: readyDeliveryRols = [] } = useQuery<ReadyDeliveryRol[]>({
-    queryKey: ["delivery-ready-rols", session?.user.id, activeTenant?.id, activeArea],
+  const {
+    data: deliveryRols = [],
+    isLoading: isLoadingDeliveryRols,
+    isError: deliveryRolsError,
+    refetch: refetchDeliveryRols,
+  } = useQuery<DeliveryRolInProgress[]>({
+    queryKey: ["delivery-rols-in-progress", session?.user.id, activeTenant?.id, activeArea],
     queryFn: async () => {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar deliveries prontos");
@@ -139,20 +181,25 @@ export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspac
 
       let query = supabase
         .from("ordens_servico")
-        .select("id, numero, cliente:clientes(razao_social, nome_fantasia)")
+        .select("id, numero, data_previsao_entrega, status, status_logistica, cliente:clientes!ordens_servico_cliente_id_fkey!inner(razao_social, nome_fantasia, classificacao, tenant_id)")
         .filter("tenant_id", "eq", activeTenant.id)
-        .in("status_logistica", ["aguardando_entrega", "entrega_parcial", "tentativa_falha"])
+        .filter("cliente.tenant_id", "eq", activeTenant.id)
+        .eq("entrega_modalidade", "entrega")
+        .neq("status", "cancelada")
+        .neq("status", "entregue")
         .order("data_previsao_entrega", { ascending: true });
 
       if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as unknown as ReadyDeliveryRol[];
+      return (data || []) as unknown as DeliveryRolInProgress[];
     },
     enabled: Boolean(session?.user.id && activeTenant?.id),
     staleTime: 15_000,
   });
+
+  useEffect(() => setDateDraft(date), [date]);
 
   useEffect(() => {
     if (!routes.length) {
@@ -165,6 +212,16 @@ export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspac
   }, [routes, selectedRouteId]);
 
   const selectedRoute = routes.find((route) => route.id === selectedRouteId) || null;
+  const routeFlowStep = !selectedRoute
+    ? 0
+    : selectedRoute.status === "concluida"
+      ? 4
+      : selectedRoute.status === "em_rota"
+        ? 3
+        : selectedRoute.paradas?.length
+          ? 2
+          : 1;
+  const routeFlowSteps = ["Criar rota", "Adicionar paradas", "Ordenar e conferir", "Executar entregas", "Finalizar rota"];
 
   const moveStop = async (stopId: string, direction: -1 | 1) => {
     if (!selectedRoute?.paradas) return;
@@ -178,7 +235,7 @@ export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspac
 
   return (
     <section className="space-y-4" data-testid="route-workspace">
-      <div className="rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 via-white to-cyan-50 p-4 shadow-sm sm:p-5">
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-primary">
@@ -196,7 +253,7 @@ export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspac
             <Button variant="outline" size="icon" onClick={onNextDay} aria-label="Próximo dia">
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={() => refetch()} aria-label="Atualizar rotas">
+            <Button variant="outline" size="icon" onClick={() => { void refetch(); void refetchDeliveryRols(); void refetchDayStops(); }} aria-label="Atualizar rotas e paradas de Delivery">
               <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
             </Button>
             <Button className="flex-1 gap-2 font-bold sm:flex-none" onClick={() => setNewRouteOpen(true)} disabled={isPastDate}>
@@ -204,20 +261,83 @@ export function RouteWorkspace({ date, onPreviousDay, onNextDay }: RouteWorkspac
             </Button>
           </div>
         </div>
+        <div className="mt-4 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-end">
+          <div className="w-full space-y-2 sm:max-w-xs">
+            <Label htmlFor="delivery-route-date" className="flex items-center gap-2 text-xs font-semibold text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />Data das rotas e entregas</Label>
+            <Input id="delivery-route-date" type="date" value={dateDraft} onChange={(event) => setDateDraft(event.target.value)} />
+          </div>
+          <Button
+            className="gap-2 sm:min-w-28"
+            disabled={!dateDraft}
+            onClick={() => {
+              onSearchDate(dateDraft);
+              if (dateDraft === date) {
+                void refetch();
+                void refetchDeliveryRols();
+                void refetchDayStops();
+              }
+            }}
+          >
+            <CalendarDays className="h-4 w-4" /> Buscar
+          </Button>
+        </div>
+        <ol className="mt-4 grid grid-cols-2 gap-2 border-t pt-3 sm:grid-cols-5" aria-label="Etapas da rota">
+          {routeFlowSteps.map((label, index) => (
+            <li key={label} aria-current={index === routeFlowStep ? "step" : undefined} className={cn(
+              "flex min-w-0 items-center gap-2 rounded-lg px-2 py-2 text-xs font-semibold",
+              index === routeFlowStep ? "bg-primary/10 text-primary" : "text-muted-foreground",
+              index < routeFlowStep && "text-success",
+            )}>
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-current text-[11px]">{index + 1}</span>
+              <span className="leading-tight">{label}</span>
+            </li>
+          ))}
+        </ol>
       </div>
 
-      {readyDeliveryRols.length > 0 && (
-        <div role="status" className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="rounded-xl bg-emerald-600 p-2 text-white"><Truck className="h-5 w-5" /></div>
-            <div>
-              <p className="font-black">{readyDeliveryRols.length} ROL{readyDeliveryRols.length === 1 ? "" : "s"} pronto{readyDeliveryRols.length === 1 ? "" : "s"} para delivery</p>
-              <p className="mt-0.5 text-sm text-emerald-800">Aguardando inclusão em uma rota de Entregas e Coletas. {readyDeliveryRols.slice(0, 3).map((rol) => `ROL ${rol.numero}`).join(" · ")}{readyDeliveryRols.length > 3 ? " · …" : ""}</p>
-            </div>
+      <DeliveryDayMap
+        routes={routes}
+        stops={deliveryDayStops}
+        isLoading={isLoading || isLoadingDayStops}
+        isError={routesError || dayStopsError}
+        onRetry={() => { void refetch(); void refetchDayStops(); }}
+      />
+
+      <section className="rounded-2xl border bg-card p-4 shadow-sm" aria-labelledby="delivery-orders-title">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-3">
+          <div>
+            <h3 id="delivery-orders-title" className="font-black">ROLs de Delivery em acompanhamento</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Pedidos com entrega no endereço, da produção à rota. Só ROLs liberados entram em uma rota.</p>
           </div>
-          <Badge className="w-fit bg-emerald-700 text-white hover:bg-emerald-700">Disponível para rota</Badge>
+          <Badge variant="outline">{deliveryRols.length} ROL{deliveryRols.length === 1 ? "" : "s"}</Badge>
         </div>
-      )}
+
+        {isLoadingDeliveryRols ? (
+          <div className="flex items-center gap-2 py-5 text-sm text-muted-foreground" role="status"><Loader2 className="h-4 w-4 animate-spin" />Carregando ROLs de Delivery…</div>
+        ) : deliveryRolsError ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm text-destructive" role="alert">
+            <span>Não foi possível carregar os ROLs de Delivery.</span>
+            <Button size="sm" variant="outline" onClick={() => void refetchDeliveryRols()}>Tentar novamente</Button>
+          </div>
+        ) : deliveryRols.length === 0 ? (
+          <p className="py-5 text-sm text-muted-foreground">Nenhum ROL ativo com modalidade Delivery neste setor.</p>
+        ) : (
+          <ul className="divide-y">
+            {deliveryRols.map((rol) => (
+              <li key={rol.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-4 last:pb-1">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold">ROL {rol.numero} <span className="font-normal text-muted-foreground">· {rol.cliente?.nome_fantasia || rol.cliente?.razao_social || "Cliente"}</span></p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Previsão: {rol.data_previsao_entrega ? format(new Date(`${rol.data_previsao_entrega}T12:00:00`), "dd/MM/yyyy", { locale: ptBR }) : "Sem data"}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={cn("font-semibold", deliveryRolStatusClass(rol))}>{deliveryRolStatusLabel(rol)}</Badge>
+                  <Button size="sm" variant="ghost" onClick={() => navigate(`${getCanonicalPdvPath(activeArea === "industrial" ? "industrial" : "residencial")}/ordens?id=${encodeURIComponent(rol.id)}`)}>Abrir ROL</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {isLoading ? (
         <div className="flex min-h-64 items-center justify-center rounded-2xl border bg-card">
@@ -377,40 +497,42 @@ function StopCard({ stop, routeStatus: currentRouteStatus, first, last, onMove, 
 function AddStopDialog({ open, onOpenChange, route, date }: { open: boolean; onOpenChange: (open: boolean) => void; route: RotaEntrega; date: string }) {
   const { addParada } = useRotasEntregaMutations();
   const { activeTenant, session } = useAuth();
-  const { activeArea } = useWorkspace();
-  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const routeArea = route.operation_type === "industrial" ? "industrial" : "residencial";
+  const allowedOrigins = getAllowedOrderOrigins(routeArea);
   const [candidateKey, setCandidateKey] = useState("");
   const [windowStart, setWindowStart] = useState("");
   const [windowEnd, setWindowEnd] = useState("");
   const [notes, setNotes] = useState("");
   const { data: candidates = [], isLoading } = useQuery({
-    queryKey: ["route-stop-candidates", session?.user.id, activeTenant?.id, activeArea, date],
+    queryKey: ["route-stop-candidates", session?.user.id, activeTenant?.id, route.operation_type, date],
     queryFn: async () => {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para montar a rota");
       }
       let appointmentsQuery = supabase
         .from("agendamentos")
-        .select("id, cliente_id, tipo, horario, status, cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao, tenant_id)")
+        .select("id, cliente_id, tipo, horario, status, operation_type, cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao, tenant_id)")
         .filter("tenant_id", "eq", activeTenant.id)
         .filter("cliente.tenant_id", "eq", activeTenant.id)
         .eq("data", date)
         .neq("status", "cancelado");
-      if (activeArea !== "central") appointmentsQuery = appointmentsQuery.eq("cliente.classificacao", activeArea);
+      appointmentsQuery = appointmentsQuery.or(`operation_type.eq.${route.operation_type},operation_type.is.null`);
       let ordersQuery = supabase
         .from("ordens_servico")
-        .select("id, numero, cliente_id, status_logistica, cliente:clientes(razao_social)")
+        .select("id, numero, cliente_id, status_logistica, entrega_modalidade, data_previsao_entrega, cliente:clientes!ordens_servico_cliente_id_fkey(razao_social)")
         .filter("tenant_id", "eq", activeTenant.id)
+        .eq("entrega_modalidade", "entrega")
+        .lte("data_previsao_entrega", date)
         .in("status_logistica", ["aguardando_entrega", "entrega_parcial", "tentativa_falha"]);
       if (allowedOrigins) ordersQuery = ordersQuery.in("origem", [...allowedOrigins]);
       const [appointments, orders] = await Promise.all([appointmentsQuery, ordersQuery]);
       if (appointments.error) throw appointments.error;
       if (orders.error) throw orders.error;
-      const appointmentOptions = (appointments.data || []).map((item) => ({ key: `appointment:${item.id}`, type: item.tipo as "retirada" | "entrega", label: `${item.tipo === "retirada" ? "Retirada" : "Entrega"} · ${item.cliente?.razao_social || "Cliente"}${item.horario ? ` · ${item.horario.slice(0, 5)}` : ""}`, customerId: item.cliente_id, appointmentId: item.id, orderId: null, suggestedTime: item.horario }));
+        const appointmentOptions = (appointments.data || []).filter(item => item.operation_type || clientClassificationMatchesArea(item.cliente?.classificacao, routeArea)).map((item) => ({ key: `appointment:${item.id}`, type: item.tipo as "retirada" | "entrega", label: `${item.tipo === "retirada" ? "Retirada" : "Entrega"} · ${item.cliente?.razao_social || "Cliente"}${item.horario ? ` · ${item.horario.slice(0, 5)}` : ""}`, customerId: item.cliente_id, appointmentId: item.id, orderId: null, suggestedTime: item.horario }));
       const orderOptions = (orders.data || []).map((item) => ({ key: `order:${item.id}`, type: "entrega" as const, label: `Entrega · ROL ${item.numero} · ${item.cliente?.razao_social || "Cliente"}`, customerId: item.cliente_id, appointmentId: null, orderId: item.id, suggestedTime: null }));
       return [...appointmentOptions, ...orderOptions] satisfies RouteCandidate[];
     },
-    enabled: open && Boolean(session?.user.id && activeTenant?.id),
+    enabled: open && Boolean(session?.user.id && activeTenant?.id && route.operation_type),
   });
   const candidate = candidates.find((item) => item.key === candidateKey);
   useEffect(() => { if (open) { setCandidateKey(""); setWindowStart(""); setWindowEnd(""); setNotes(""); } }, [open]);
@@ -501,7 +623,6 @@ function RouteEventDialog({ state, onOpenChange }: { state: { stop: ParadaRota; 
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [deliveryId, setDeliveryId] = useState("");
   const [address, setAddress] = useState<AddressSnapshot>(stop.endereco_snapshot || {});
   const existingPhoto = isDeliveryEvidencePath(stop.foto_comprovante_url) ? stop.foto_comprovante_url : null;
   const existingSignature = isDeliveryEvidencePath(stop.assinatura_url) ? stop.assinatura_url : null;
@@ -509,22 +630,6 @@ function RouteEventDialog({ state, onOpenChange }: { state: { stop: ParadaRota; 
   useEffect(() => () => {
     if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
   }, [photoPreviewUrl]);
-
-  const { data: deliveryProofs = [] } = useQuery({
-    queryKey: ["delivery-proofs", stop.ordem_servico_id],
-    queryFn: async () => {
-      if (!stop.ordem_servico_id) return [];
-      const { data, error } = await supabase
-        .from("entregas_pedido")
-        .select("id, created_at, nome_recebedor")
-        .eq("ordem_servico_id", stop.ordem_servico_id)
-        .eq("status", "confirmada")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: type === "CONCLUIDA" && stop.tipo === "entrega" && Boolean(stop.ordem_servico_id),
-  });
 
   const selectPhoto = (file: File | undefined) => {
     if (!file) return;
@@ -593,7 +698,7 @@ function RouteEventDialog({ state, onOpenChange }: { state: { stop: ParadaRota; 
         recebedorDocumento: document || null,
         fotoComprovanteUrl: photoPath,
         assinaturaUrl: signaturePath,
-        entregaId: deliveryId || null,
+        entregaId: null,
         enderecoCorrigido: type === "ENDERECO_CORRIGIDO" ? address : null,
       });
       onOpenChange(false);
@@ -609,7 +714,7 @@ function RouteEventDialog({ state, onOpenChange }: { state: { stop: ParadaRota; 
   const hasPhysicalEvidence = Boolean(document.trim() || photoFile || signatureFile || existingPhoto || existingSignature);
   const valid = type === "CHEGADA"
     || (needsReason && reason.trim().length >= 3 && (type !== "REAGENDAMENTO" || Boolean(rescheduledAt)))
-    || (type === "CONCLUIDA" && receiver.trim().length >= 2 && hasPhysicalEvidence && (stop.tipo === "retirada" || Boolean(deliveryId)))
+    || (type === "CONCLUIDA" && receiver.trim().length >= 2 && hasPhysicalEvidence)
     || (type === "ENDERECO_CORRIGIDO" && Boolean(address.logradouro && address.cidade));
   const pending = uploading || registrarEvento.isPending;
 
@@ -651,7 +756,7 @@ function RouteEventDialog({ state, onOpenChange }: { state: { stop: ParadaRota; 
                 <Label>Assinatura do recebedor</Label>
                 <SignaturePad disabled={pending} onChange={setSignatureFile} />
               </div>
-              {stop.tipo === "entrega" && <div className="space-y-2"><Label htmlFor={`delivery-proof-${stop.id}`}>Comprovante de itens do pedido</Label><Select value={deliveryId} onValueChange={setDeliveryId}><SelectTrigger id={`delivery-proof-${stop.id}`}><SelectValue placeholder="Selecione a entrega confirmada" /></SelectTrigger><SelectContent>{deliveryProofs.map((proof) => <SelectItem key={proof.id} value={proof.id}>{format(new Date(proof.created_at), "dd/MM HH:mm")} · {proof.nome_recebedor}</SelectItem>)}</SelectContent></Select>{deliveryProofs.length === 0 && <p className="text-xs text-amber-700">Registre primeiro a entrega dos itens na tela do pedido.</p>}</div>}
+              {stop.tipo === "entrega" && stop.ordem_servico_id && <p className="text-sm text-muted-foreground">Ao confirmar, o sistema registra a entrega dos itens disponibilizados do ROL e atualiza sua situação.</p>}
             </>
           )}
           {type === "ENDERECO_CORRIGIDO" && (

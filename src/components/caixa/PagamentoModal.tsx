@@ -10,27 +10,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { parseCurrencyToNumber } from "@/lib/currencyUtils";
+import { formatNumberToCurrency, parseCurrencyToNumber } from "@/lib/currencyUtils";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { 
   Loader2, 
   Banknote, 
   Smartphone, 
   CreditCard, 
   Percent,
-  Calculator,
   Gift,
   MapPin,
   UserRound,
   Check,
   AlertTriangle,
+  Wallet,
+  Plus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CARD_BRANDS } from "@/lib/pdvPayment";
-import { validarCpfCnpj } from "@/lib/validacoesFiscais";
-import type { PdvLoyaltySummary } from "@/hooks/usePdvPayments";
+import type { PdvCustomerCreditSummary, PdvLoyaltySummary } from "@/hooks/usePdvPayments";
 import type { ConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
 import type { PdvFulfillmentSettings } from "@/components/caixa/PdvFulfillmentPanel";
 
@@ -50,12 +48,27 @@ interface CartItem {
   observacoes?: string;
 }
 
+const formatPaymentQuantity = (item: CartItem) => {
+  const quantity = new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: ["Kg", "Mt"].includes(item.unidade) ? 4 : 0,
+  }).format(item.quantidade);
+  const unit = item.unidade === "Mt"
+    ? "m²"
+    : item.unidade === "Kg"
+      ? "kg"
+      : item.unidade === "Un"
+        ? "un."
+        : item.quantidade === 1 ? "peça" : "peças";
+
+  return `${quantity} ${unit}`;
+};
+
 interface Cliente {
   id: string;
   razao_social: string;
   nome_fantasia: string | null;
   cpf_cnpj: string | null;
-  classificacao?: "industrial" | "residencial";
+  classificacao?: "industrial" | "domestico" | "residencial";
 }
 
 interface PagamentoModalProps {
@@ -64,16 +77,20 @@ interface PagamentoModalProps {
   cart: CartItem[];
   cliente: Cliente | null;
   totalOriginal: number;
-  totalItems: number;
   loyalty: PdvLoyaltySummary | null;
   loyaltyLoading?: boolean;
+  customerCredit?: PdvCustomerCreditSummary | null;
+  customerCreditLoading?: boolean;
   configuracaoPagamento?: ConfiguracaoPagamentoCliente | null;
   canManageCommercialTerms?: boolean;
   /** The parent must pass false whenever the cash register is unavailable. */
   canReceivePayments?: boolean;
+  /** Offline accepts only a ROL without immediate payment or cash movement. */
+  offlineMode?: boolean;
   termsLoading?: boolean;
   termsError?: boolean;
   fulfillment: PdvFulfillmentSettings;
+  urgencyPercentage?: number;
   fulfillmentAddressSnapshot?: DadosPagamento["addressSnapshot"];
   fulfillmentBlockReason?: string | null;
   /** A escolha rápida é só uma preferência visual; as regras comerciais ainda são validadas neste modal e no servidor. */
@@ -81,13 +98,17 @@ interface PagamentoModalProps {
     pagoAgora: boolean;
     formaPagamento: PdvPaymentMethod | null;
   } | null;
+  /** When true, this dialog only applies the commercial adjustment; sale finalization stays on the main PDV. */
+  adjustmentOnly?: boolean;
+  initialDiscountAmount?: number;
+  onApplyDiscount?: (discountAmount: number) => Promise<void> | void;
   onConfirm: (dados: DadosPagamento) => Promise<void>;
   isLoading?: boolean;
 }
 
 export interface DadosPagamento {
   pagoAgora: boolean;
-  formaPagamento: "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE" | null;
+  formaPagamento: "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE" | "CREDITO_CLIENTE" | null;
   urgente: boolean;
   percentualUrgencia: number;
   valorDesconto: number;
@@ -109,15 +130,18 @@ export interface DadosPagamento {
   veiculoId?: string;
   // Novos campos de parcelamento e troco
   parcelas?: number;
+  valorPagamento?: number;
   valorRecebido?: number;
   troco?: number;
   bandeira?: string;
   nsu?: string;
   codigoAutorizacao?: string;
   pontosResgate?: number;
+  valorCreditoAplicar?: number;
+  pagamentos?: Array<{ method: Exclude<PdvPaymentMethod, "FIDELIDADE" | "CREDITO_CLIENTE">; amount: number; amountReceived?: number }>;
 }
 
-export type PdvPaymentMethod = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE";
+export type PdvPaymentMethod = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "FIDELIDADE" | "CREDITO_CLIENTE";
 type FormaPagamento = PdvPaymentMethod;
 
 const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; icon: React.ReactNode }[] = [
@@ -126,11 +150,8 @@ const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string; icon: React.Reac
   { value: "CARTAO_CREDITO", label: "Crédito", icon: <CreditCard className="w-5 h-5" /> },
   { value: "CARTAO_DEBITO", label: "Débito", icon: <CreditCard className="w-5 h-5" /> },
   { value: "FIDELIDADE", label: "Pontos", icon: <Gift className="w-5 h-5" /> },
+  { value: "CREDITO_CLIENTE", label: "Crédito disponível", icon: <Wallet className="w-5 h-5" /> },
 ];
-
-const PARCELAS_OPCOES = [1, 2, 3, 4, 5, 6, 10, 12];
-
-const PERCENTUAL_URGENCIA_PADRAO = 30;
 
 export function PagamentoModal(props: PagamentoModalProps) {
   // Reset payment evidence and adjustments whenever the customer or terms change.
@@ -140,7 +161,9 @@ export function PagamentoModal(props: PagamentoModalProps) {
     config?.cliente_id, config?.condicao_pagamento, config?.forma_pagamento,
     config?.tipo_faturamento, config?.dia_fechamento, config?.dia_vencimento,
     props.canReceivePayments, props.canManageCommercialTerms,
+    props.offlineMode,
     props.initialSelection?.pagoAgora, props.initialSelection?.formaPagamento,
+    props.adjustmentOnly, props.initialDiscountAmount,
   ]);
   return <PagamentoModalForm key={formKey} {...props} />;
 }
@@ -151,18 +174,24 @@ function PagamentoModalForm({
   cart,
   cliente,
   totalOriginal,
-  totalItems,
   loyalty,
   loyaltyLoading = false,
+  customerCredit = null,
+  customerCreditLoading = false,
   configuracaoPagamento = null,
   canManageCommercialTerms = false,
   canReceivePayments = true,
+  offlineMode = false,
   termsLoading = false,
   termsError = false,
   fulfillment,
+  urgencyPercentage = 30,
   fulfillmentAddressSnapshot,
   fulfillmentBlockReason = null,
   initialSelection = null,
+  adjustmentOnly = false,
+  initialDiscountAmount = 0,
+  onApplyDiscount,
   onConfirm,
   isLoading = false,
 }: PagamentoModalProps) {
@@ -171,7 +200,9 @@ function PagamentoModalForm({
   const isBilled = terms.condition === "faturado";
   const isEntry = terms.condition === "entrada";
   const customerInitialPayment = initialCustomerPayment(terms);
-  const initialPayment = initialSelection && !isBilled
+  const initialPayment = offlineMode
+    ? { pagoAgora: false, formaPagamento: null }
+    : initialSelection && !isBilled
     ? {
         pagoAgora: initialSelection.pagoAgora,
         formaPagamento: initialSelection.pagoAgora ? initialSelection.formaPagamento : null,
@@ -179,22 +210,21 @@ function PagamentoModalForm({
     : customerInitialPayment;
   const [pagoAgora, setPagoAgora] = useState(initialPayment.pagoAgora);
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | null>(initialPayment.formaPagamento);
-  const [descontoTipo, setDescontoTipo] = useState<"percentual" | "valor">("percentual");
-  const [descontoInput, setDescontoInput] = useState("");
+  const [descontoTipo, setDescontoTipo] = useState<"percentual" | "valor">(initialDiscountAmount > 0 ? "valor" : "percentual");
+  const [descontoInput, setDescontoInput] = useState(initialDiscountAmount > 0 ? formatNumberToCurrency(initialDiscountAmount) : "");
   // Novos estados para parcelamento e troco
-  const [parcelas, setParcelas] = useState(1);
+  const parcelas = 1;
+  const [valorPagamento, setValorPagamento] = useState("");
   const [valorRecebido, setValorRecebido] = useState("");
   const [bandeira, setBandeira] = useState("");
   const [nsu, setNsu] = useState("");
   const [codigoAutorizacao, setCodigoAutorizacao] = useState("");
   const [pontosResgate, setPontosResgate] = useState("");
-  const { deliveryDate: previsaoEntrega, urgent: urgente, receiptMode, deliveryMode, driverId: motoristaId, vehicleId: veiculoId } = fulfillment;
+  const [valorCredito, setValorCredito] = useState("");
+  const [formasAdicionais, setFormasAdicionais] = useState<Array<{ id: string; method: Exclude<PdvPaymentMethod, "FIDELIDADE" | "CREDITO_CLIENTE">; amount: string }>>([]);
+  const { deliveryDate: previsaoEntrega, urgent: urgente, receiptMode, deliveryMode, deliveryFee, driverId: motoristaId, vehicleId: veiculoId } = fulfillment;
 
-  // Reset parcelas when payment method changes
   useEffect(() => {
-    if (formaPagamento !== "CARTAO_CREDITO") {
-      setParcelas(1);
-    }
     if (formaPagamento !== "CARTAO_CREDITO" && formaPagamento !== "CARTAO_DEBITO") {
       setBandeira("");
       setNsu("");
@@ -220,28 +250,55 @@ function PagamentoModalForm({
     }
 
     const subtotalComDesconto = totalOriginal - valorDesconto;
-    const valorUrgencia = urgente ? (subtotalComDesconto * PERCENTUAL_URGENCIA_PADRAO) / 100 : 0;
-    const valorTotal = subtotalComDesconto + valorUrgencia;
+    const valorUrgencia = urgente ? (subtotalComDesconto * urgencyPercentage) / 100 : 0;
+    const taxaEntrega = deliveryMode === "entrega" ? Math.max(0, Number(deliveryFee) || 0) : 0;
+    const valorTotal = subtotalComDesconto + valorUrgencia + taxaEntrega;
 
     return {
       subtotal: totalOriginal,
       valorDesconto,
       valorUrgencia,
+      taxaEntrega,
       valorTotal: Math.max(0, valorTotal),
     };
-  }, [totalOriginal, descontoInput, descontoTipo, urgente]);
+  }, [deliveryFee, deliveryMode, descontoInput, descontoTipo, totalOriginal, urgente, urgencyPercentage]);
+
+  const valorPagamentoNumerico = parseCurrencyToNumber(valorPagamento);
+  const pagamentosCombinados = useMemo(() => {
+    if (!formaPagamento || formaPagamento === "FIDELIDADE" || formaPagamento === "CREDITO_CLIENTE") return [];
+    return [
+      { method: formaPagamento, amount: valorPagamentoNumerico, amountReceived: formaPagamento === "DINHEIRO" ? parseCurrencyToNumber(valorRecebido) : undefined },
+      ...formasAdicionais.map((row) => ({ method: row.method, amount: parseCurrencyToNumber(row.amount), amountReceived: undefined })),
+    ];
+  }, [formaPagamento, formasAdicionais, valorPagamentoNumerico, valorRecebido]);
+  const totalCombinado = pagamentosCombinados.reduce((sum, row) => sum + (Number.isFinite(row.amount) ? row.amount : 0), 0);
+  const loyaltyBelowMinimum = Boolean(
+    loyalty?.programaAtivo && loyalty.saldoPontos < loyalty.pontosMinimosResgate,
+  );
+  const valorCreditoNumerico = parseCurrencyToNumber(valorCredito);
+  const valorAbatidoAgora = formaPagamento === "CREDITO_CLIENTE" ? valorCreditoNumerico : valorPagamentoNumerico;
+  const valorRestante = Math.max(0, calculos.valorTotal - (formasAdicionais.length ? totalCombinado : (Number.isFinite(valorAbatidoAgora) ? valorAbatidoAgora : 0)));
+
+  useEffect(() => {
+    if (!open || !pagoAgora) {
+      if (!pagoAgora) setValorPagamento("");
+      return;
+    }
+    if (!valorPagamento) setValorPagamento(formatNumberToCurrency(calculos.valorTotal));
+  }, [calculos.valorTotal, open, pagoAgora, valorPagamento]);
+
+  useEffect(() => {
+    if (formaPagamento === "DINHEIRO" && !valorRecebido && valorPagamento) {
+      setValorRecebido(valorPagamento);
+    }
+  }, [formaPagamento, valorPagamento, valorRecebido]);
 
   // Calcular troco
   const troco = useMemo(() => {
     if (formaPagamento !== "DINHEIRO" || !valorRecebido) return 0;
     const recebido = parseCurrencyToNumber(valorRecebido);
-    return Math.max(0, recebido - calculos.valorTotal);
-  }, [valorRecebido, calculos.valorTotal, formaPagamento]);
-
-  // Valor da parcela
-  const valorParcela = useMemo(() => {
-    return calculos.valorTotal / parcelas;
-  }, [calculos.valorTotal, parcelas]);
+    return Math.max(0, recebido - valorPagamentoNumerico);
+  }, [valorRecebido, valorPagamentoNumerico, formaPagamento]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -263,24 +320,20 @@ function PagamentoModalForm({
       if (pagoAgora && !formaPagamento) return "Escolha a forma de pagamento.";
       return "O pagamento escolhido não é permitido pela condição comercial deste cliente.";
     }
-    if (isBilled && (urgente || calculos.valorDesconto > 0)) return "Pedidos faturados não aceitam urgência ou desconto neste fluxo.";
+    if (isBilled && (urgente || calculos.valorDesconto > 0)) return "Pedidos faturados não aceitam Lavagem Expressa ou desconto neste fluxo.";
     if (!canManageCommercialTerms && calculos.valorDesconto > 0) return "Seu perfil não permite conceder desconto.";
     if (!Number.isFinite(calculos.valorTotal) || !Number.isFinite(calculos.valorDesconto)) return "Revise os valores da venda.";
     if (calculos.valorDesconto > totalOriginal) return "O desconto não pode ser maior que o subtotal.";
     if (calculos.valorTotal <= 0) return "O total da venda deve ser maior que zero.";
+    if (pagoAgora && formaPagamento && formaPagamento !== "FIDELIDADE" && formaPagamento !== "CREDITO_CLIENTE") {
+      if (!Number.isFinite(valorPagamentoNumerico) || valorPagamentoNumerico <= 0) return "Informe quanto será pago agora.";
+      if (formasAdicionais.some((row) => !Number.isFinite(parseCurrencyToNumber(row.amount)) || parseCurrencyToNumber(row.amount) <= 0)) return "Informe um valor válido para cada forma de pagamento.";
+      if (totalCombinado > calculos.valorTotal + 0.009) return "A soma dos pagamentos não pode ultrapassar o total do ROL.";
+      if (pagamentosCombinados.some((row) => row.method === "DINHEIRO" && (row.amountReceived ?? row.amount) < row.amount)) return "O valor recebido em dinheiro precisa cobrir essa forma de pagamento.";
+    }
     if (pagoAgora && formaPagamento === "DINHEIRO") {
       const recebido = parseCurrencyToNumber(valorRecebido);
-      if (!Number.isFinite(recebido) || recebido < calculos.valorTotal) return "Informe um valor recebido igual ou maior que o total.";
-    }
-    if (pagoAgora && formaPagamento === "PIX") {
-      if (!cliente.cpf_cnpj || !validarCpfCnpj(cliente.cpf_cnpj).valid) return "Cadastre um CPF/CNPJ válido no cliente para gerar o PIX.";
-    }
-    if (pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO")) {
-      if (!bandeira || (!nsu.trim() && !codigoAutorizacao.trim())) {
-        return !bandeira
-          ? "Selecione a bandeira do cartão."
-          : "Informe o NSU ou o código de autorização da maquininha.";
-      }
+      if (!Number.isFinite(recebido) || recebido < valorPagamentoNumerico) return "Informe um valor recebido igual ou maior que o pagamento.";
     }
     if (pagoAgora && formaPagamento === "FIDELIDADE") {
       const pontos = Number(pontosResgate);
@@ -290,9 +343,32 @@ function PagamentoModalForm({
       if (!Number.isInteger(pontos) || pontos < loyalty.pontosMinimosResgate || pontos > loyalty.saldoPontos) return "Informe uma quantidade válida de pontos dentro do saldo disponível.";
       if (valorResgate <= 0 || valorResgate > calculos.valorTotal + 0.009) return "O resgate não pode ultrapassar o total da venda.";
     }
+    if (pagoAgora && formaPagamento === "CREDITO_CLIENTE") {
+      const amount = parseCurrencyToNumber(valorCredito);
+      if (customerCreditLoading) return "Aguarde a consulta do crédito disponível do cliente.";
+      if (!Number.isFinite(amount) || amount <= 0 || amount > calculos.valorTotal + 0.009) return "Informe um valor de crédito maior que zero e até o total do ROL.";
+      if (amount > Number(customerCredit?.saldo ?? 0) + 0.009) return "O crédito informado supera o saldo disponível do cliente.";
+    }
     return null;
   })();
   const canSubmit = submitBlockReason === null;
+
+  const discountBlockReason = (() => {
+    if (!onApplyDiscount) return "A aplicação de desconto não está disponível neste fluxo.";
+    if (isLoading) return "Aguarde o processamento atual.";
+    if (!cliente) return "Selecione um cliente antes de aplicar o desconto.";
+    if (isBilled) return "Pedidos faturados não aceitam desconto neste fluxo.";
+    if (!canManageCommercialTerms) return "Seu perfil não permite conceder desconto.";
+    if (!Number.isFinite(calculos.valorDesconto) || calculos.valorDesconto <= 0) return "Informe um desconto maior que zero.";
+    if (calculos.valorDesconto > totalOriginal) return "O desconto não pode ser maior que o subtotal.";
+    return null;
+  })();
+  const canApplyDiscount = discountBlockReason === null;
+
+  const handleApplyDiscount = async () => {
+    if (!canApplyDiscount || !onApplyDiscount) return;
+    await onApplyDiscount(calculos.valorDesconto);
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -303,7 +379,7 @@ function PagamentoModalForm({
       pagoAgora,
       formaPagamento: pagoAgora ? formaPagamento : null,
       urgente,
-      percentualUrgencia: urgente ? PERCENTUAL_URGENCIA_PADRAO : 0,
+      percentualUrgencia: urgente ? urgencyPercentage : 0,
       valorDesconto: calculos.valorDesconto,
       valorTotal: calculos.valorTotal,
       previsaoEntrega,
@@ -313,6 +389,9 @@ function PagamentoModalForm({
       motoristaId: requiresAddress && motoristaId ? motoristaId : undefined,
       veiculoId: requiresAddress && veiculoId ? veiculoId : undefined,
       parcelas: pagoAgora && formaPagamento === "CARTAO_CREDITO" ? parcelas : 1,
+      valorPagamento: pagoAgora && formaPagamento && formaPagamento !== "FIDELIDADE" && formaPagamento !== "CREDITO_CLIENTE"
+        ? valorPagamentoNumerico
+        : undefined,
       valorRecebido: pagoAgora && formaPagamento === "DINHEIRO" ? recebido : undefined,
       troco: pagoAgora && formaPagamento === "DINHEIRO" ? troco : undefined,
       bandeira: pagoAgora && formaPagamento?.startsWith("CARTAO_") ? bandeira : undefined,
@@ -321,117 +400,120 @@ function PagamentoModalForm({
         ? codigoAutorizacao.trim() || undefined
         : undefined,
       pontosResgate: pagoAgora && formaPagamento === "FIDELIDADE" ? Number(pontosResgate) : undefined,
+      valorCreditoAplicar: pagoAgora && formaPagamento === "CREDITO_CLIENTE" ? parseCurrencyToNumber(valorCredito) : undefined,
+      pagamentos: formasAdicionais.length ? pagamentosCombinados : undefined,
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-[1200px] xl:max-w-[1320px] max-h-[calc(100vh-1rem)] overflow-y-auto rounded-2xl border-strong bg-card p-4 sm:p-6">
-        <DialogHeader className="mb-1">
-          <DialogTitle className="text-2xl font-black tracking-tight sm:text-3xl">Finalizar Venda</DialogTitle>
+      <DialogContent className="pdv-compact-dialog pdv-payment-dialog border-strong bg-card">
+        <DialogHeader className="pdv-payment-header">
+          <DialogTitle className="font-black tracking-tight">Finalizar Venda</DialogTitle>
           <DialogDescription className="sr-only">Revise valores e a forma de pagamento antes de confirmar o ROL. Prazo, capacidade e logística foram definidos no atendimento.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="pdv-payment-body">
           {/* Resumo superior: cliente e itens */}
-          <div className="grid gap-3 lg:grid-cols-[1.05fr_1fr]">
-            <div className="rounded-xl border border-strong bg-card p-4">
-              <div className="flex items-start justify-between gap-4">
+          <div className="pdv-payment-order-summary">
+            <div className="rounded-lg border border-strong bg-card p-2">
+              <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <UserRound className="h-6 w-6" />
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <UserRound className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">Cliente</p>
-                    <p className="truncate text-xl font-black tracking-tight">
+                    <p className="text-xs text-muted-foreground">Cliente</p>
+                    <p className="truncate text-base font-black tracking-tight">
                       {cliente?.nome_fantasia || cliente?.razao_social || "Cliente não selecionado"}
                     </p>
-                    {cliente?.cpf_cnpj && <p className="text-sm text-muted-foreground">{cliente.cpf_cnpj}</p>}
+                    {cliente?.cpf_cnpj && <p className="text-xs text-muted-foreground">{cliente.cpf_cnpj}</p>}
                     {loyaltyLoading ? (
-                      <p className="mt-1 text-sm text-muted-foreground">Consultando fidelidade...</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Consultando fidelidade...</p>
                     ) : loyalty?.programaAtivo ? (
-                      <p className="mt-1 text-sm font-medium text-primary">Fidelidade: {loyalty.saldoPontos} pontos ({formatCurrency(loyalty.valorSaldo)})</p>
+                      <p className="mt-1 text-xs font-medium text-primary">Fidelidade: {loyalty.saldoPontos} pontos ({formatCurrency(loyalty.valorSaldo)})</p>
                     ) : null}
                   </div>
                 </div>
-                <div className="shrink-0 border-l pl-4 text-right">
-                  <p className="text-sm text-muted-foreground">{totalItems} {totalItems === 1 ? "peça" : "peças"}</p>
-                  <p className="text-2xl font-black text-primary">{formatCurrency(totalOriginal)}</p>
+                <div className="shrink-0 border-l pl-3 text-right">
+                  <p className="text-xl font-black text-primary">{formatCurrency(totalOriginal)}</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-xl border border-strong bg-card p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="rounded-lg border border-strong bg-card p-2">
+              <div className="mb-1 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <CreditCard className="h-6 w-6 text-primary" />
-                  <p className="text-lg font-black">Itens do lançamento</p>
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <p className="text-sm font-black">Itens do lançamento</p>
                 </div>
-                <span className="text-sm text-muted-foreground">{cart.length} {cart.length === 1 ? "item" : "itens"}</span>
+                <span className="text-xs text-muted-foreground">{cart.length} {cart.length === 1 ? "item" : "itens"}</span>
               </div>
-              <div className="space-y-2">
+              <div className="pdv-payment-order-items">
                 {cart.map((item) => (
-                  <div key={`${item.id}-${item.nome}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-strong bg-background px-3 py-2.5">
-                    <span className="flex h-10 min-w-12 items-center justify-center rounded-lg bg-primary px-2 text-sm font-black text-primary-foreground">{item.quantidade}x</span>
+                  <div key={`${item.id}-${item.nome}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-strong bg-background px-2 py-1.5">
+                    <span className="flex h-8 min-w-10 items-center justify-center rounded-md bg-primary px-2 text-xs font-black text-primary-foreground">{formatPaymentQuantity(item)}</span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black uppercase">{item.nome}</p>
-                      <p className="flex items-center gap-1 truncate text-sm text-muted-foreground"><MapPin className="h-3.5 w-3.5 shrink-0" />{item.posicao_prateleira || "Sem posição informada"}</p>
+                      <p className="truncate text-xs font-black uppercase">{item.nome}</p>
+                      <p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="h-3 w-3 shrink-0" />{item.posicao_prateleira || "Sem posição informada"}</p>
                     </div>
-                    <span className="text-base font-black tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
+                    <span className="text-sm font-black tabular-nums">{formatCurrency(item.preco * item.quantidade)}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
+          <div className="pdv-payment-notices">
           {termsLoading && <p role="status" className="text-sm text-muted-foreground">Carregando condições de pagamento. Aguarde para finalizar.</p>}
           {(termsError || termsMismatch) && <p role="alert" className="text-sm text-destructive">Não foi possível validar as condições deste cliente. Recarregue os dados antes de finalizar.</p>}
-          {isBilled && <p className="text-sm text-muted-foreground">Será gerada uma pendência para fechamento no faturamento, sem recebimento imediato. Desconto e urgência estão indisponíveis neste fluxo para manter o valor do ROL igual ao lançamento. Nenhum boleto ou nota é emitido automaticamente aqui.</p>}
+          {isBilled && <p className="text-sm text-muted-foreground">Será gerada uma pendência para fechamento no faturamento, sem recebimento imediato. Desconto e Lavagem Expressa estão indisponíveis neste fluxo para manter o valor do ROL igual ao lançamento. Nenhum boleto ou nota é emitido automaticamente aqui.</p>}
           {!canManageCommercialTerms && <p className="text-xs text-muted-foreground">Alterar configurações e conceder desconto exige permissão para gerenciar condições comerciais.</p>}
-          {!canReceivePayments && <p role="alert" className="text-sm text-warning">Recebimentos indisponíveis: é necessário caixa disponível e permissão para receber. {isEntry ? "A condição de entrada exige recebimento; a finalização está bloqueada." : "Você pode finalizar sem recebimento imediato conforme a condição do cliente."}</p>}
+          {offlineMode && <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">Modo offline: somente ROL sem recebimento. PIX, cartões, dinheiro, crédito do cliente e fidelidade serão liberados depois da reconexão.</p>}
+          {!canReceivePayments && !offlineMode && <p role="alert" className="text-sm text-warning">Recebimentos indisponíveis: é necessário caixa disponível e permissão para receber. {isEntry ? "A condição de entrada exige recebimento; a finalização está bloqueada." : "Você pode finalizar sem recebimento imediato conforme a condição do cliente."}</p>}
+          {offlineMode && isEntry && <p role="alert" className="text-sm text-destructive">Este cliente exige pagamento de entrada e, por segurança, o ROL só pode ser finalizado online.</p>}
           {isEntry && <p className="text-sm text-muted-foreground">Entrada exige o pagamento integral. Fidelidade está desabilitada porque o resgate pode deixar saldo pendente.</p>}
+          </div>
 
-          <div className="space-y-2 rounded-xl border border-strong bg-muted/20 p-3">
-            <Label className="flex items-center gap-2 text-base font-bold"><Percent className="h-5 w-5 text-primary" /> Desconto</Label>
-            <p className="text-xs text-muted-foreground">O prazo, capacidade, urgência e logística foram definidos antes deste resumo.</p>
+          <div className="pdv-payment-discount rounded-lg border border-strong bg-muted/20 p-2.5">
+            <Label className="flex items-center gap-2 text-sm font-bold"><Percent className="h-4 w-4 text-primary" /> Desconto</Label>
             <div className="flex gap-2">
               <div className="flex shrink-0 overflow-hidden rounded-lg border border-strong">
-                <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("percentual")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "percentual" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>%</button>
-                <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("valor")} className={cn("px-4 py-2 text-base font-bold transition-colors", descontoTipo === "valor" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>R$</button>
+                <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("percentual")} className={cn("px-3 py-1 text-sm font-bold transition-colors", descontoTipo === "percentual" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>%</button>
+                <button disabled={!canManageCommercialTerms || isBilled} type="button" onClick={() => setDescontoTipo("valor")} className={cn("px-3 py-1 text-sm font-bold transition-colors", descontoTipo === "valor" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80")}>R$</button>
               </div>
               {descontoTipo === "valor" ? (
-                <CurrencyInput disabled={!canManageCommercialTerms || isBilled} value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} className="h-12 flex-1" />
+                <CurrencyInput disabled={!canManageCommercialTerms || isBilled} value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} className="h-9 flex-1" />
               ) : (
-                <Input disabled={!canManageCommercialTerms || isBilled} type="text" value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} placeholder="0" className="h-12 flex-1" />
+                <Input disabled={!canManageCommercialTerms || isBilled} type="text" value={descontoInput} onChange={(e) => setDescontoInput(e.target.value)} placeholder="0" className="h-9 flex-1" />
               )}
             </div>
           </div>
 
-          <Separator className="my-1" />
-          {!isBilled && <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-lg font-black">
-              <CreditCard className="h-5 w-5 text-primary" />
+          {!isBilled && <div className="pdv-payment-timing">
+            <Label className="flex items-center gap-2 text-sm font-black">
+              <CreditCard className="h-4 w-4 text-primary" />
               Momento do pagamento
             </Label>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="pdv-payment-timing-options">
               <button
                 type="button"
                 disabled={isEntry}
                 onClick={() => { setPagoAgora(false); setFormaPagamento(null); }}
                 className={cn(
-                  "flex items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50",
+                  "flex items-center justify-between gap-2 rounded-lg border-2 px-3 py-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50",
                   !pagoAgora
                     ? "border-primary bg-primary/5"
                     : "border-muted hover:border-muted-foreground/30",
                 )}
               >
-                <span className="flex items-center gap-3">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Banknote className="h-6 w-6" />
+                <span className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Banknote className="h-4 w-4" />
                   </span>
                   <span>
-                    <span className="block text-base font-black">Pagamento na retirada</span>
-                    <span className="block text-sm text-muted-foreground">Quando retirar o pedido</span>
+                    <span className="block text-sm font-black">Pagamento na retirada</span>
+                    <span className="block text-xs text-muted-foreground">Quando retirar o pedido</span>
                   </span>
                 </span>
                 <span className={cn(
@@ -446,19 +528,19 @@ function PagamentoModalForm({
                 disabled={!canReceivePayments}
                 onClick={() => setPagoAgora(true)}
                 className={cn(
-                  "flex items-center justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50",
+                  "flex items-center justify-between gap-2 rounded-lg border-2 px-3 py-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50",
                   pagoAgora
                     ? "border-primary bg-primary/5"
                     : "border-muted hover:border-muted-foreground/30",
                 )}
               >
-                <span className="flex items-center gap-3">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <CreditCard className="h-6 w-6" />
+                <span className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <CreditCard className="h-4 w-4" />
                   </span>
                   <span>
-                    <span className="block text-base font-black">Pagar agora</span>
-                    <span className="block text-sm text-muted-foreground">No balcão agora</span>
+                    <span className="block text-sm font-black">Pagar agora</span>
+                    <span className="block text-xs text-muted-foreground">No balcão agora</span>
                   </span>
                 </span>
                 <span className={cn(
@@ -473,17 +555,22 @@ function PagamentoModalForm({
 
           {/* Forma de Pagamento (se pagar agora) */}
           {!isBilled && pagoAgora && (
-            <div className="space-y-3">
-              <Label>Forma de Pagamento</Label>
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
-                {FORMAS_PAGAMENTO.filter((forma) => forma.value !== "FIDELIDADE" || (cliente?.classificacao !== "industrial" && loyalty?.programaAtivo)).map((forma) => (
+            <div className="pdv-payment-method-picker">
+              <Label>Forma de pagamento</Label>
+              <div className="pdv-payment-method-options">
+                {FORMAS_PAGAMENTO.filter((forma) => forma.value !== "FIDELIDADE" || loyalty?.programaAtivo).map((forma) => (
                   <button
                     key={forma.value}
                     type="button"
-                    disabled={!canReceivePayments || (isEntry && forma.value === "FIDELIDADE")}
-                    onClick={() => setFormaPagamento(forma.value)}
+                    disabled={!canReceivePayments || (isEntry && forma.value === "FIDELIDADE") || (forma.value === "FIDELIDADE" && (loyaltyLoading || loyaltyBelowMinimum)) || (forma.value === "CREDITO_CLIENTE" && (customerCreditLoading || Number(customerCredit?.saldo ?? 0) <= 0))}
+                    onClick={() => {
+                      setFormaPagamento(forma.value);
+                      if (forma.value === "CREDITO_CLIENTE") {
+                        setValorCredito(formatNumberToCurrency(Math.min(Number(customerCredit?.saldo ?? 0), calculos.valorTotal)));
+                      }
+                    }}
                     className={cn(
-                      "flex flex-col items-center gap-1 rounded-lg border-2 p-2 transition-all disabled:cursor-not-allowed disabled:opacity-50",
+                      "flex items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 transition-all disabled:cursor-not-allowed disabled:opacity-50",
                       formaPagamento === forma.value
                         ? "border-primary bg-primary/5 text-primary"
                         : "border-muted hover:border-muted-foreground/30"
@@ -494,97 +581,65 @@ function PagamentoModalForm({
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Parcelamento (apenas para crédito) */}
-          {!isBilled && pagoAgora && formaPagamento === "CARTAO_CREDITO" && (
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2">
-                <Calculator className="w-4 h-4" />
-                Parcelas
-              </Label>
-              <div className="grid grid-cols-4 gap-2">
-                {PARCELAS_OPCOES.map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setParcelas(n)}
-                    className={cn(
-                      "p-2 rounded-lg border-2 text-center transition-all",
-                      parcelas === n
-                        ? "border-primary bg-primary/5"
-                        : "border-muted hover:border-muted-foreground/30"
-                    )}
-                  >
-                    <p className="font-bold text-sm">{n}x</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {formatCurrency(calculos.valorTotal / n)}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!isBilled && pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO") && (
-            <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-              <div>
-                <Label>Bandeira</Label>
-                <Select value={bandeira} onValueChange={setBandeira}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione a bandeira" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CARD_BRANDS.map((brand) => (
-                      <SelectItem key={brand.value} value={brand.value}>{brand.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="pdv-nsu">NSU</Label>
-                  <Input
-                    id="pdv-nsu"
-                    value={nsu}
-                    onChange={(event) => setNsu(event.target.value)}
-                    maxLength={100}
-                    placeholder="Número do comprovante"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="pdv-autorizacao">Código de autorização</Label>
-                  <Input
-                    id="pdv-autorizacao"
-                    value={codigoAutorizacao}
-                    onChange={(event) => setCodigoAutorizacao(event.target.value)}
-                    maxLength={100}
-                    placeholder="Código da maquininha"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Confirme a aprovação na maquininha e informe ao menos o NSU ou o código de autorização.
-                O sistema não solicita nem armazena número, validade ou CVV do cartão.
-              </p>
-            </div>
-          )}
-
-          {!isBilled && pagoAgora && formaPagamento === "PIX" && (
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-              {cliente?.cpf_cnpj && validarCpfCnpj(cliente.cpf_cnpj).valid ? (
-                <p>Será gerado um QR Code dinâmico com a conta e o valor exato. A baixa ocorrerá somente após a confirmação do provedor.</p>
-              ) : (
-                <p className="text-destructive">Cadastre um CPF/CNPJ válido no cliente para gerar o PIX dinâmico.</p>
+              {loyaltyBelowMinimum && (
+                <p className="mt-2 text-xs text-muted-foreground" role="status">
+                  Resgate liberado a partir de {loyalty?.pontosMinimosResgate} pontos. Saldo atual: {loyalty?.saldoPontos} pontos.
+                </p>
               )}
             </div>
           )}
 
+          <div className="pdv-payment-details">
+          {!isBilled && pagoAgora && formaPagamento && formaPagamento !== "FIDELIDADE" && formaPagamento !== "CREDITO_CLIENTE" && (
+            <div className="pdv-payment-amount rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+              <Label htmlFor="pdv-payment-amount">Valor da entrada / pago agora</Label>
+              <CurrencyInput
+                id="pdv-payment-amount"
+                value={valorPagamento}
+                onChange={(event) => {
+                  setValorPagamento(event.target.value);
+                  if (formaPagamento === "DINHEIRO") setValorRecebido(event.target.value);
+                }}
+                className="h-9 text-base font-bold"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Informe quanto o cliente pagará agora. O saldo restante ficará pendente no ROL para recebimento posterior.
+              </p>
+              <p className="mt-1 text-xs font-semibold text-primary">
+                Saldo restante do ROL: {formatCurrency(valorRestante)}
+              </p>
+              <div className="mt-2 space-y-2 border-t border-primary/20 pt-2">
+                  {formasAdicionais.map((row, index) => (
+                    <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_minmax(120px,0.8fr)_auto] items-end gap-2">
+                      <div className="space-y-1"><Label>Outra forma</Label><select aria-label={`Forma adicional ${index + 1}`} className="h-9 w-full rounded-md border border-strong bg-background px-2 text-sm" value={row.method} onChange={(event) => setFormasAdicionais((rows) => rows.map((item) => item.id === row.id ? { ...item, method: event.target.value as typeof item.method } : item))}><option value="DINHEIRO">Dinheiro</option><option value="PIX">PIX</option><option value="CARTAO_CREDITO">Crédito</option><option value="CARTAO_DEBITO">Débito</option></select></div>
+                      <div className="space-y-1"><Label>Valor</Label><CurrencyInput value={row.amount} onChange={(event) => setFormasAdicionais((rows) => rows.map((item) => item.id === row.id ? { ...item, amount: event.target.value } : item))} className="h-9" /></div>
+                      <Button type="button" size="icon" variant="outline" aria-label="Remover forma adicional" onClick={() => setFormasAdicionais((rows) => rows.filter((item) => item.id !== row.id))}><X className="h-4 w-4" /></Button>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between gap-2">
+                    <Button type="button" size="sm" variant="outline" disabled={formasAdicionais.length >= 3} onClick={() => setFormasAdicionais((rows) => [...rows, { id: crypto.randomUUID(), method: "PIX", amount: formatNumberToCurrency(0) }])}><Plus className="mr-1 h-4 w-4" />Adicionar forma</Button>
+                    {formasAdicionais.length > 0 && <span className="text-xs font-semibold">Total dividido: {formatCurrency(totalCombinado)}</span>}
+                  </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cartão é apenas a classificação do recebimento; detalhes da maquininha ficam fora do ERP. */}
+
+          {!isBilled && pagoAgora && (formaPagamento === "CARTAO_CREDITO" || formaPagamento === "CARTAO_DEBITO") && (
+            <p className="pdv-payment-card-note rounded-lg border border-primary/30 bg-primary/5 p-2 text-xs text-muted-foreground">
+              Cartão registrado somente como forma de pagamento. Confirme a aprovação na maquininha; nenhum dado do cartão é solicitado ou armazenado.
+            </p>
+          )}
+
+          {!isBilled && pagoAgora && formaPagamento === "PIX" && (
+            <div className="pdv-payment-pix-note rounded-lg border border-primary/30 bg-primary/5 p-2 text-xs">
+              <p>Confirme o pagamento PIX na maquininha. O PDV registrará o valor e a forma de pagamento no caixa e no financeiro; não será gerada cobrança online nem QR Code.</p>
+            </div>
+          )}
+
           {!isBilled && pagoAgora && formaPagamento === "FIDELIDADE" && (
-            <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <div className="pdv-payment-loyalty space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5">
               <Label htmlFor="sale-loyalty-points" className="flex items-center gap-2"><Gift className="h-4 w-4" /> Pontos para resgatar</Label>
               {loyaltyLoading ? (
                 <p className="text-sm text-muted-foreground">Consultando saldo de pontos...</p>
@@ -609,20 +664,20 @@ function PagamentoModalForm({
 
           {/* Gaveta de Troco (apenas para dinheiro) */}
           {!isBilled && pagoAgora && formaPagamento === "DINHEIRO" && (
-            <div className="rounded-lg border border-success/30 bg-success/5 p-3 space-y-2">
-              <Label className="flex items-center gap-2 text-success">
+            <div className="pdv-payment-cash rounded-lg border border-success/30 bg-success/5 p-2.5 space-y-1.5">
+              <Label className="flex items-center gap-2 text-xs text-success">
                 <Banknote className="w-4 h-4" />
                 Valor Recebido
               </Label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                 <div>
                   <CurrencyInput
                     value={valorRecebido}
                     onChange={(e) => setValorRecebido(e.target.value)}
-                    className="text-lg font-bold h-12"
+                    className="h-9 text-base font-bold"
                     autoFocus
                   />
-                  <div className="flex gap-1 mt-2">
+                  <div className="mt-1 flex gap-1">
                     {[10, 20, 50, 100].map((v) => (
                       <Button
                         key={v}
@@ -641,10 +696,10 @@ function PagamentoModalForm({
                     ))}
                   </div>
                 </div>
-                <div className="flex flex-col items-center justify-center bg-success/10 rounded-lg p-3">
+                <div className="flex min-w-[100px] flex-col items-center justify-center rounded-md bg-success/10 px-3 py-1.5">
                   <p className="text-xs text-muted-foreground">TROCO</p>
                   <p className={cn(
-                    "text-2xl font-bold",
+                    "text-lg font-bold",
                     troco > 0 ? "text-success" : "text-muted-foreground"
                   )}>
                     {formatCurrency(troco)}
@@ -654,33 +709,48 @@ function PagamentoModalForm({
             </div>
           )}
 
-          <Separator className="my-1" />
+          {!isBilled && pagoAgora && formaPagamento === "CREDITO_CLIENTE" && (
+            <div className="pdv-payment-credit space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 font-medium text-primary"><Wallet className="h-4 w-4" /> Crédito disponível para abater</span>
+                <strong>{customerCreditLoading ? "Consultando…" : formatCurrency(Number(customerCredit?.saldo ?? 0))}</strong>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="pdv-credit-amount">Valor do crédito para abater neste ROL</Label>
+                <CurrencyInput id="pdv-credit-amount" value={valorCredito} onChange={(event) => setValorCredito(event.target.value)} />
+              </div>
+              <p className="text-xs text-muted-foreground">O valor utilizado reduz o saldo do cliente e registra o abatimento neste ROL.</p>
+              <p className="text-xs font-semibold text-primary">Saldo restante do ROL: {formatCurrency(valorRestante)}</p>
+            </div>
+          )}
+          </div>
 
           {/* Resumo de Valores */}
-          <div className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-[1fr_1fr_1.25fr] sm:items-center">
+          <div className="pdv-payment-value-summary">
             <div>
-              <p className="text-sm text-muted-foreground">Subtotal</p>
-              <p className="text-lg font-black">{formatCurrency(calculos.subtotal)}</p>
+              <p className="text-xs text-muted-foreground">Subtotal</p>
+              <p className="text-base font-black">{formatCurrency(calculos.subtotal)}</p>
             </div>
-            <div className="border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0">
-              <p className="text-sm text-muted-foreground">Desconto</p>
-              <p className="text-lg font-black text-success">-{formatCurrency(calculos.valorDesconto)}</p>
+            <div>
+              <p className="text-xs text-muted-foreground">Desconto</p>
+              <p className="text-base font-black text-success">-{formatCurrency(calculos.valorDesconto)}</p>
               {calculos.valorUrgencia > 0 && (
-                <p className="text-xs font-semibold text-warning">Urgência +{formatCurrency(calculos.valorUrgencia)}</p>
+                <p className="text-xs font-semibold text-warning">Lavagem Expressa +{formatCurrency(calculos.valorUrgencia)}</p>
               )}
-              {!isBilled && pagoAgora && formaPagamento === "CARTAO_CREDITO" && parcelas > 1 && (
-                <p className="text-xs text-muted-foreground">{parcelas}x de {formatCurrency(valorParcela)}</p>
+              {calculos.taxaEntrega > 0 && (
+                <p className="text-xs font-semibold text-muted-foreground">Taxa de delivery +{formatCurrency(calculos.taxaEntrega)}</p>
               )}
+              {!isBilled && pagoAgora && formaPagamento?.startsWith("CARTAO_") && <p className="text-xs text-muted-foreground">Cartão registrado como forma de pagamento.</p>}
             </div>
-            <div className="rounded-lg bg-primary/10 px-4 py-2 sm:text-right">
-              <p className="text-sm font-black tracking-wide text-muted-foreground">TOTAL</p>
-              <p className="text-2xl font-black text-primary">{formatCurrency(calculos.valorTotal)}</p>
+            <div className="rounded-md bg-primary/10 px-3 py-1.5 text-right">
+              <p className="text-xs font-black tracking-wide text-muted-foreground">TOTAL</p>
+              <p className="text-xl font-black text-primary">{formatCurrency(calculos.valorTotal)}</p>
             </div>
           </div>
         </div>
 
-        <div className="sticky -bottom-4 -mx-4 mt-1 border-t bg-card/95 px-4 pb-4 pt-3 backdrop-blur sm:-bottom-6 sm:-mx-6 sm:px-6 sm:pb-6">
-          {submitBlockReason && !isLoading && (
+        <div className="pdv-payment-footer border-t bg-card/95 pt-2 backdrop-blur">
+          {!adjustmentOnly && submitBlockReason && !isLoading && (
             <p role="alert" className="mb-3 flex items-start gap-2 text-sm font-medium text-destructive">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               {submitBlockReason}
@@ -692,14 +762,14 @@ function PagamentoModalForm({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
-            className="h-12 px-6 text-base font-bold"
+            className="h-9 px-4 text-sm font-bold"
           >
             Cancelar
           </Button>
           <Button 
-            onClick={handleSubmit} 
-            disabled={!canSubmit || isLoading}
-            className="h-12 min-w-[220px] gap-2 bg-success px-6 text-base font-bold text-success-foreground hover:bg-success/90"
+            onClick={adjustmentOnly ? handleApplyDiscount : handleSubmit}
+            disabled={adjustmentOnly ? !canApplyDiscount : !canSubmit || isLoading}
+            className="h-9 min-w-[180px] gap-2 bg-success px-4 text-sm font-bold text-success-foreground hover:bg-success/90"
           >
             {isLoading ? (
               <>
@@ -709,7 +779,7 @@ function PagamentoModalForm({
             ) : (
               <>
                 <Check className="h-5 w-5" />
-                {isBilled ? "Gerar pendência para fechamento" : pagoAgora && formaPagamento === "PIX" ? "Criar ROL e gerar PIX" : "Finalizar Venda"}
+                {adjustmentOnly ? "Aplicar alteração" : offlineMode ? "Salvar ROL offline" : isBilled ? "Gerar pendência para fechamento" : "Finalizar Venda"}
               </>
             )}
           </Button>

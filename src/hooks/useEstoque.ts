@@ -44,7 +44,7 @@ export function useEstoque(options: UseEstoqueOptions = {}) {
       }
       const { data, error } = await supabase
         .from("estoque_produtos")
-        .select("*, fornecedores(id, nome)")
+        .select("*, fornecedores!estoque_produtos_fornecedor_id_fkey(id, nome)")
         .filter("tenant_id", "eq", activeTenant.id)
         .order("nome");
       if (error) throw error;

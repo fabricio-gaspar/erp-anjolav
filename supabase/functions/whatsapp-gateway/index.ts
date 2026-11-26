@@ -35,9 +35,12 @@ Deno.serve(async (req) => {
     const orderId = typeof body.ordem_servico_id === "string" ? body.ordem_servico_id : null;
     const invoiceId = typeof body.fatura_id === "string" ? body.fatura_id : null;
     const scoped = action === "send" && Boolean(orderId || invoiceId);
+    const canManageDevice = action === "connect" || action === "status";
     const auth = scoped
       ? await requireModule(req, db, orderId ? "ordens" : "faturamento")
-      : await requireAdmin(req, db);
+      : canManageDevice
+        ? await requireModule(req, db, "caixa")
+        : await requireAdmin(req, db);
     if (!auth.ok) return auth.response;
 
     if (["retry", "resolve"].includes(action)) {
@@ -142,7 +145,7 @@ Deno.serve(async (req) => {
         .update({ status, qr_code: connected ? null : instance.qr_code })
         .eq("tenant_id", auth.tenantId).eq("id", instance.id);
       if (updateError) throw updateError;
-      return jsonResponse(req, { success: true, connected, status });
+      return jsonResponse(req, { success: true, connected, status, qr_code: connected ? null : instance.qr_code });
     }
     if (action === "disconnect") {
       const result = await waAkgRequest(baseUrl, apiKey, `sessions/${sessionId}/logout`, { method: "POST" });

@@ -4,6 +4,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { clientClassificationValuesForArea } from "@/lib/operations";
 
 export interface AgendamentoPendente {
   id: string;
@@ -47,9 +48,9 @@ export function useAgendamentosRetiradaPendentes() {
         .in("status", ["agendado", "confirmado"]);
 
       if (activeArea === "industrial") {
-        query = query.filter("cliente.classificacao", "eq", "industrial");
+        query = query.in("cliente.classificacao", clientClassificationValuesForArea("industrial"));
       } else if (activeArea === "residencial") {
-        query = query.filter("cliente.classificacao", "eq", "residencial");
+        query = query.in("cliente.classificacao", clientClassificationValuesForArea("residencial"));
       }
 
       const { data, error } = await query
@@ -62,14 +63,14 @@ export function useAgendamentosRetiradaPendentes() {
 }
 
 /**
- * Confirma a retirada: cria a OS no status "retirada", marca o agendamento como
- * realizado; o histórico inicial é registrado pelo gatilho da própria OS.
+ * Confirma a retirada: cria um ROL em separação e marca o agendamento como
+ * realizado na mesma transação. O RPC registra o histórico inicial.
  */
 export function useConfirmarRetiradaAgendamento() {
   const { activeTenant, session } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (agendamento: AgendamentoPendente) => {
+    mutationFn: async (agendamento: Pick<AgendamentoPendente, "id" | "status">) => {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para confirmar a retirada");
       }
@@ -86,9 +87,13 @@ export function useConfirmarRetiradaAgendamento() {
     },
     onSuccess: (os) => {
       qc.invalidateQueries({ queryKey: ["ordens_servico"] });
+      qc.invalidateQueries({ queryKey: ["order-directory"] });
+      qc.invalidateQueries({ queryKey: ["historico_producao"] });
       qc.invalidateQueries({ queryKey: ["agendamentos_retirada_pendentes"] });
       qc.invalidateQueries({ queryKey: ["agendamentos"] });
-      toast.success(`Retirada confirmada — ROL ${os.numero} enviado para separação`);
+      toast.success(os.idempotent
+        ? `Retirada já confirmada — ROL ${os.numero}`
+        : `Retirada confirmada — ROL ${os.numero} enviado para separação`);
     },
     onError: (e: Error) => toast.error("Erro ao confirmar retirada: " + e.message),
   });

@@ -130,6 +130,69 @@ export function usePendingRolQueue(filters: PendingRolFilters) {
   });
 }
 
+export function useCentralPendingRolSummary(startDate: string, endDate: string, enabled = true) {
+  const { activeArea } = useWorkspace();
+  const { activeTenant, user } = useAuth();
+  const isCentralSummaryEnabled = enabled && activeArea === "central";
+
+  const query = useQuery({
+    queryKey: ["central-pending-rol-summary", activeTenant?.id, user?.id, startDate, endDate],
+    enabled: Boolean(isCentralSummaryEnabled && activeTenant && user),
+    retry: false,
+    staleTime: 15_000,
+    queryFn: async () => {
+      const pageSize = 100;
+      const fetchPage = async (page: number) => {
+        const { data, error } = await supabase.rpc("consultar_clientes_faturamento_periodo", {
+          _area: "central",
+          _inicio: startDate,
+          _fim: endDate,
+          _pagina: page,
+          _tamanho: pageSize,
+        });
+        if (error) throw error;
+        if (!data || typeof data !== "object" || Array.isArray(data)) {
+          throw new Error("A consulta de faturamento retornou dados inválidos.");
+        }
+        const result = data as { total?: unknown; items?: unknown };
+        if (!Number.isFinite(Number(result.total)) || !Array.isArray(result.items)) {
+          throw new Error("A consulta de faturamento retornou dados incompletos.");
+        }
+        return {
+          total: Number(result.total),
+          items: result.items as Array<{ faturaveis?: number; valor_faturavel?: number }>,
+        };
+      };
+
+      const firstPage = await fetchPage(1);
+      const pages = [firstPage];
+      const pageCount = Math.ceil(firstPage.total / pageSize);
+      for (let page = 2; page <= pageCount; page += 5) {
+        const batch = await Promise.all(
+          Array.from({ length: Math.min(5, pageCount - page + 1) }, (_, offset) => fetchPage(page + offset)),
+        );
+        pages.push(...batch);
+      }
+
+      return pages.flatMap((page) => page.items).reduce<PendingRolSummary>((total, client) => {
+        const quantity = Number(client.faturaveis ?? 0);
+        return {
+          ...total,
+          quantidade: total.quantidade + quantity,
+          clientes: total.clientes + (quantity > 0 ? 1 : 0),
+          valor_total: total.valor_total + Number(client.valor_faturavel ?? 0),
+        };
+      }, { ...EMPTY_SUMMARY });
+    },
+  });
+
+  return {
+    ...query,
+    isLoading: query.isLoading,
+    isError: query.isError,
+  };
+}
+
 export function usePendingRolBillingSelection(ids: string[]) {
   const { activeArea } = useWorkspace();
   const { activeTenant, user } = useAuth();

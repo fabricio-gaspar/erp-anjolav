@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
-import { AlertCircle, ChevronLeft, ChevronRight, FileDown, FileText, Loader2, Receipt } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, CircleDollarSign, FileDown, FileText, Loader2, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useCreateAsaasCharge } from "@/hooks/useAsaas";
+import { getFaturaSaldo, getFaturaStatusPagamento, getFaturaValorRecebido, type Fatura } from "@/hooks/useFaturas";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { useDadosFaturamentoCompletos } from "@/hooks/useDadosFaturamento";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { escapeHtml, openExternalHttpsUrl, openPrintDocument, printDocumentWhenReady, safeHttpsUrl } from "@/lib/safePrint";
 import { csvSafeCell } from "@/lib/faturamentoUtils";
+import { NfseEmissionPanel } from "@/components/faturamento/NfseEmissionPanel";
+import { RegistrarRecebimentoFaturaModal } from "@/components/faturamento/RegistrarRecebimentoFaturaModal";
+import { nfseStatusLabel, type FiscalOperation } from "@/lib/nfsePolicy";
+import { clientClassificationLabel } from "@/lib/operations";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 
 interface SnapshotItem {
   id: string;
@@ -30,16 +37,37 @@ interface SnapshotItem {
 interface Invoice {
   id: string;
   cliente_id: string;
+  configuracao_fiscal_id: string | null;
   periodo_inicio: string;
   periodo_fim: string;
   valor_total: number;
   status: string;
+  status_pagamento: Fatura["status_pagamento"];
+  valor_pago: number;
+  versao_financeira: number;
+  data_pagamento: string | null;
+  unidade_id: string | null;
   tipo_relatorio: string | null;
   itens_snapshot: unknown;
   numero_nf: string | null;
+  nfse_status: string;
+  operation_type: FiscalOperation | null;
+  nfse: {
+    id: string;
+    status: string;
+    ambiente: string;
+    numero: string | null;
+    chave_acesso: string | null;
+    protocolo: string | null;
+    tentativas: number;
+    autorizado_em: string | null;
+    cancelado_em: string | null;
+    erros: unknown;
+  } | null;
   link_pdf_nf: string | null;
   protocolo_nfse: string | null;
   asaas_charge_id: string | null;
+  asaas_charge: { status: string; paid_at: string | null } | null;
   boleto_url: string | null;
   boleto_linha_digitavel: string | null;
   forma_pagamento: string | null;
@@ -66,6 +94,15 @@ function readInvoices(value: unknown): { total: number; items: Invoice[] } {
     throw new Error("Resposta de consulta incompleta.");
   }
   return { total: Number(payload.total), items: payload.items as Invoice[] };
+}
+
+function paymentLabel(invoice: Invoice): string {
+  switch (getFaturaStatusPagamento(invoice)) {
+    case "pago": return "quitada";
+    case "parcial": return "parcial";
+    case "cancelado": return "cancelada";
+    default: return invoice.asaas_charge_id ? "aguardando Asaas" : "a receber";
+  }
 }
 
 function itemsFromSnapshot(value: unknown): SnapshotItem[] {
@@ -140,16 +177,21 @@ export function FaturasPeriodoTab({
 }: { start?: string; end?: string } = {}) {
   const { activeArea } = useWorkspace();
   const { activeTenant, user } = useAuth();
+  const { allowed: canUseCash } = usePermissaoModulo("caixa");
   const queryClient = useQueryClient();
   const createCharge = useCreateAsaasCharge();
+  const { configuracao: billingConfig, error: billingConfigError } = useConfiguracoesGerais();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Invoice | null>(null);
+  const [receiptTarget, setReceiptTarget] = useState<Invoice | null>(null);
   const [dueDate, setDueDate] = useState("");
   const [creatingBoleto, setCreatingBoleto] = useState(false);
   const [documents, setDocuments] = useState({ relatorio: true, nota: false, boleto: false });
   const { dados: customerData, error: customerError, isLoading: customerLoading } = useDadosFaturamentoCompletos(selected?.cliente_id ?? null);
   const validPeriod = /^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end)
     && end >= start && (Date.parse(end) - Date.parse(start)) / 86400000 <= 366;
+  const selectedReceived = selected ? getFaturaValorRecebido(selected) : 0;
+  const selectedBalance = selected ? getFaturaSaldo(selected) : 0;
 
   useEffect(() => setPage(1), [start, end, activeArea, activeTenant?.id]);
   useEffect(() => setSelected(null), [start, end, activeArea, activeTenant?.id]);
@@ -189,8 +231,18 @@ export function FaturasPeriodoTab({
     setDocuments({ relatorio: true, nota: false, boleto: false });
   };
 
+  const refreshSelectedInvoice = async () => {
+    const result = await invoices.refetch();
+    const updated = result.data?.items.find(invoice => invoice.id === selected?.id);
+    if (updated) setSelected(updated);
+  };
+
   const generateBoleto = async () => {
     if (!selected || !activeTenant) return;
+    if (billingConfigError || billingConfig?.faturamento_boleto_ativo !== true) {
+      toast.error("Boleto está desabilitado nas configurações de faturamento.");
+      return;
+    }
     const payment = customerData.configPagamento;
     if (payment?.condicao_pagamento !== "faturado" || payment.forma_pagamento !== "boleto") {
       toast.error("Configure boleto e condição Faturado no cadastro do cliente.");
@@ -202,6 +254,15 @@ export function FaturasPeriodoTab({
     }
     setCreatingBoleto(true);
     try {
+      const { data: current, error: currentError } = await supabase.from("faturas")
+        .select("valor_pago, status, asaas_charge_id")
+        .eq("id", selected.id)
+        .single();
+      if (currentError) throw currentError;
+      if (current.status === "cancelado" || Number(current.valor_pago || 0) > 0
+          || current.asaas_charge_id) {
+        throw new Error("Fatura cancelada, já recebida ou com cobrança Asaas não aceita novo boleto.");
+      }
       const { data: health, error: healthError } = await supabase.functions.invoke("create-asaas-charge", {
         body: { action: "health" },
       });
@@ -240,6 +301,7 @@ export function FaturasPeriodoTab({
   if (!validPeriod) return <p role="alert" className="text-sm text-destructive">Corrija o período antes de consultar as faturas.</p>;
 
   return <div className="space-y-4">
+    {billingConfigError && <p role="alert" className="text-sm text-destructive">Não foi possível carregar as opções de faturamento. A emissão está bloqueada até reconectar.</p>}
     <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
       Faturas com ROLs da operação selecionada cujo período cruza o intervalo. O relatório pode ser reaberto; nota, boleto e envio mostram apenas confirmações reais.
     </div>
@@ -248,8 +310,9 @@ export function FaturasPeriodoTab({
       : invoices.error ? <div role="alert" className="space-y-2"><p>Não foi possível carregar as faturas: {invoices.error.message}</p><Button variant="outline" onClick={() => void invoices.refetch()}>Tentar novamente</Button></div>
       : invoices.data?.items.length === 0 ? <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground"><Receipt className="mx-auto mb-2 h-8 w-8" /><p>Nenhuma fatura neste período.</p></div>
       : <div className="grid gap-3">{invoices.data?.items.map(invoice => <div key={invoice.id} className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1"><p className="font-semibold">{invoice.cliente.razao_social}</p><p className="text-xs text-muted-foreground">{dateLabel(invoice.periodo_inicio)} a {dateLabel(invoice.periodo_fim)} · cadastro: {invoice.cliente.classificacao}</p>
-            <p className="text-sm">Relatório {itemsFromSnapshot(invoice.itens_snapshot).length ? "pronto" : "indisponível"} · NFS-e {invoice.numero_nf && safeHttpsUrl(invoice.link_pdf_nf) ? "emitida" : "pendente"} · Boleto {safeHttpsUrl(invoice.boleto_url) ? "gerado" : "pendente"}</p></div>
+          <div className="space-y-1"><p className="font-semibold">{invoice.cliente.razao_social}</p><p className="text-xs text-muted-foreground">{dateLabel(invoice.periodo_inicio)} a {dateLabel(invoice.periodo_fim)} · cadastro: {clientClassificationLabel(invoice.cliente.classificacao)}</p>
+            <p className="text-sm">Relatório {itemsFromSnapshot(invoice.itens_snapshot).length ? "pronto" : "indisponível"} · NFS-e {nfseStatusLabel(invoice.nfse_status)} · Boleto {safeHttpsUrl(invoice.boleto_url) ? "gerado" : "pendente"}</p>
+            <p className="text-sm">Recebido {money.format(getFaturaValorRecebido(invoice))} · saldo {money.format(getFaturaSaldo(invoice))} · {paymentLabel(invoice)}</p></div>
           <div className="flex items-center gap-3"><strong>{money.format(Number(invoice.valor_total))}</strong><Button variant="outline" onClick={() => openInvoice(invoice)}>Abrir fatura</Button></div>
         </div>)}</div>}
     <div className="flex items-center justify-between gap-2 text-sm"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(value => value - 1)}><ChevronLeft className="mr-1 h-4 w-4" />Anterior</Button>
@@ -260,23 +323,36 @@ export function FaturasPeriodoTab({
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         {selected && <><DialogHeader><DialogTitle>Fatura de {selected.cliente.razao_social}</DialogTitle>
           <DialogDescription>{dateLabel(selected.periodo_inicio)} a {dateLabel(selected.periodo_fim)} · {money.format(Number(selected.valor_total))}</DialogDescription></DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+            <span>Recebido <strong>{money.format(selectedReceived)}</strong> · saldo <strong>{money.format(selectedBalance)}</strong></span>
+            {selectedBalance > 0 && getFaturaStatusPagamento(selected) !== "cancelado" && !selected.asaas_charge_id && canUseCash && (
+              <Button size="sm" onClick={() => { setReceiptTarget(selected); setSelected(null); }}>
+                <CircleDollarSign className="mr-1 h-4 w-4" />Registrar recebimento
+              </Button>
+            )}
+            {selectedBalance > 0 && selected.asaas_charge_id && <span className="text-muted-foreground">Cobrança Asaas: aguarde a conciliação.</span>}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2 rounded-lg border p-3"><FileText className="h-5 w-5 text-primary" /><h3 className="font-semibold">1. Relatório</h3>
               <p className="text-xs text-muted-foreground">Dados dos ROLs aprovados no fechamento.</p>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" disabled={!itemsFromSnapshot(selected.itens_snapshot).length} onClick={() => printInvoiceReport(selected)}><FileDown className="mr-1 h-4 w-4" />Abrir / PDF</Button>
-                <Button size="sm" variant="outline" disabled={!itemsFromSnapshot(selected.itens_snapshot).length} onClick={() => downloadInvoiceCsv(selected)}>Planilha CSV</Button>
+                <Button size="sm" variant="outline" disabled={!billingConfig?.faturamento_relatorios_ativo || !itemsFromSnapshot(selected.itens_snapshot).length} onClick={() => printInvoiceReport(selected)}><FileDown className="mr-1 h-4 w-4" />Abrir / PDF</Button>
+                <Button size="sm" variant="outline" disabled={!billingConfig?.faturamento_relatorios_ativo || !itemsFromSnapshot(selected.itens_snapshot).length} onClick={() => downloadInvoiceCsv(selected)}>Planilha CSV</Button>
               </div></div>
-            <div className="space-y-2 rounded-lg border p-3"><Receipt className="h-5 w-5 text-primary" /><h3 className="font-semibold">2. NFS-e</h3>
-              {selected.numero_nf && safeHttpsUrl(selected.link_pdf_nf)
-                ? <><p className="text-xs">Nº {selected.numero_nf}</p><Button size="sm" variant="outline" onClick={() => openExternalHttpsUrl(selected.link_pdf_nf)}>Abrir nota</Button></>
-                : <p className="text-xs text-muted-foreground">Emissão indisponível até homologar o adaptador fiscal conforme regime e competência. Nenhuma nota foi simulada.</p>}</div>
             <div className="space-y-2 rounded-lg border p-3"><Receipt className="h-5 w-5 text-primary" /><h3 className="font-semibold">3. Boleto</h3>
               {safeHttpsUrl(selected.boleto_url)
                 ? <><p className="text-xs">Vence em {selected.data_vencimento ? dateLabel(selected.data_vencimento) : "—"}</p><Button size="sm" variant="outline" onClick={() => openExternalHttpsUrl(selected.boleto_url)}>Abrir boleto</Button></>
                 : <p className="text-xs text-muted-foreground">A cobrança só será criada após confirmação no Asaas.</p>}</div>
           </div>
-          {!selected.asaas_charge_id && <div className="space-y-3 rounded-lg border p-4">
+          {billingConfig?.faturamento_nfse_ativo ? <NfseEmissionPanel
+            faturaId={selected.id}
+            configuracaoFiscalId={selected.configuracao_fiscal_id}
+            preferredEmitterId={customerData.configPagamento?.cnpj_emissor_id}
+            operationType={selected.operation_type}
+            nfseStatus={selected.nfse_status}
+            onChanged={refreshSelectedInvoice}
+          /> : <p className="rounded-lg border p-3 text-sm text-muted-foreground">NFS-e desabilitada nas configurações de faturamento. Documentos anteriores continuam registrados.</p>}
+          {billingConfig?.faturamento_boleto_ativo && selected.status !== "cancelado" && !selected.asaas_charge_id && Number(selected.valor_pago || 0) === 0 && <div className="space-y-3 rounded-lg border p-4">
             <h3 className="font-semibold">Gerar boleto conforme cadastro do cliente</h3>
             {customerLoading ? <p role="status" className="text-sm">Consultando configuração...</p>
               : customerError ? <p role="alert" className="text-sm text-destructive">Não foi possível conferir a configuração do cliente.</p>
@@ -287,14 +363,19 @@ export function FaturasPeriodoTab({
           </div>}
           <div className="space-y-3 rounded-lg border p-4"><h3 className="font-semibold">4. Documentos para envio</h3>
             <p className="text-sm text-muted-foreground">Selecione os documentos disponíveis. O envio automático com anexos exige um provedor de e-mail e WhatsApp com mídia configurados; esta fatura não será marcada como enviada sem confirmação.</p>
-            <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={documents.relatorio} onCheckedChange={value => setDocuments(current => ({ ...current, relatorio: value === true }))} disabled={!itemsFromSnapshot(selected.itens_snapshot).length} />Relatório</label>
-              <label className="flex items-center gap-2"><Checkbox checked={documents.nota} onCheckedChange={value => setDocuments(current => ({ ...current, nota: value === true }))} disabled={!selected.numero_nf || !safeHttpsUrl(selected.link_pdf_nf)} />Nota fiscal</label>
-              <label className="flex items-center gap-2"><Checkbox checked={documents.boleto} onCheckedChange={value => setDocuments(current => ({ ...current, boleto: value === true }))} disabled={!safeHttpsUrl(selected.boleto_url)} />Boleto</label></div>
+            <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><Checkbox checked={documents.relatorio && billingConfig?.faturamento_relatorios_ativo === true} onCheckedChange={value => setDocuments(current => ({ ...current, relatorio: value === true }))} disabled={!billingConfig?.faturamento_relatorios_ativo || !itemsFromSnapshot(selected.itens_snapshot).length} />Relatório</label>
+              <label className="flex items-center gap-2"><Checkbox checked={documents.nota && billingConfig?.faturamento_nfse_ativo === true} onCheckedChange={value => setDocuments(current => ({ ...current, nota: value === true }))} disabled={!billingConfig?.faturamento_nfse_ativo || selected.nfse_status !== "autorizada"} />Nota fiscal</label>
+              <label className="flex items-center gap-2"><Checkbox checked={documents.boleto && billingConfig?.faturamento_boleto_ativo === true} onCheckedChange={value => setDocuments(current => ({ ...current, boleto: value === true }))} disabled={!billingConfig?.faturamento_boleto_ativo || !safeHttpsUrl(selected.boleto_url)} />Boleto</label></div>
             <p className="text-xs text-muted-foreground">E-mail: {selected.cliente.email || "não cadastrado"} · WhatsApp: {selected.cliente.telefone || "não cadastrado"}</p>
-            <p role="status" className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-300"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />Envio com anexos pendente da integração dos canais. Você pode abrir os arquivos disponíveis acima para envio manual.</p>
+            <p role="status" className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-300"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />E-mail {billingConfig?.faturamento_email_ativo ? "habilitado" : "desabilitado"} · WhatsApp {billingConfig?.faturamento_whatsapp_ativo ? "habilitado" : "desabilitado"}. O envio automático com anexos ainda depende da integração dos canais; abra os documentos disponíveis para envio manual.</p>
           </div>
         </>}
       </DialogContent>
     </Dialog>
+    <RegistrarRecebimentoFaturaModal
+      fatura={receiptTarget}
+      open={!!receiptTarget}
+      onOpenChange={open => { if (!open) setReceiptTarget(null); }}
+    />
   </div>;
 }

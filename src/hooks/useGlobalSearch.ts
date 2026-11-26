@@ -9,6 +9,7 @@ import {
   type SearchResultType,
   type WorkspaceArea,
 } from "@/lib/appRoutes";
+import { clientClassificationValuesForArea } from "@/lib/operations";
 
 export interface GlobalSearchResult {
   id: string;
@@ -192,7 +193,7 @@ export const useGlobalSearch = (term: string) => {
           .from("clientes")
           .select("id,razao_social,nome_fantasia,cpf_cnpj,telefone,telefone2,classificacao")
           .filter("tenant_id", "eq", tenantId);
-        if (activeArea !== "central") query = query.eq("classificacao", activeArea);
+        if (activeArea !== "central") query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
         const { data, error } = await query.or(clientFilter).limit(5);
         if (error) throw error;
         return data ?? [];
@@ -243,7 +244,7 @@ export const useGlobalSearch = (term: string) => {
           .from("clientes")
           .select("id")
           .filter("tenant_id", "eq", tenantId);
-        if (activeArea !== "central") query = query.eq("classificacao", activeArea);
+        if (activeArea !== "central") query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
         const { data, error } = await query.or(clientNameFilter).limit(20);
         if (error) throw error;
         return (data ?? []).map((client) => client.id);

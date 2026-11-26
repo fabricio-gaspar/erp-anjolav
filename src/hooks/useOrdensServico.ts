@@ -41,7 +41,7 @@ export interface OrdemServico {
   // Relacionamentos
   cliente?: {
     razao_social: string;
-    classificacao: "industrial" | "residencial";
+    classificacao: "industrial" | "domestico" | "residencial";
   };
   motorista?: {
     nome: string;
@@ -95,9 +95,9 @@ export function useOrdensServico({ enabled = true }: { enabled?: boolean } = {})
         .from("ordens_servico")
         .select(`
           *,
-          cliente:clientes(razao_social, classificacao),
-          motorista:motoristas(nome),
-          veiculo:veiculos(placa, modelo)
+          cliente:clientes!ordens_servico_cliente_id_fkey(razao_social, classificacao),
+          motorista:motoristas!ordens_servico_motorista_id_fkey(nome),
+          veiculo:veiculos!ordens_servico_veiculo_id_fkey(placa, modelo)
         `)
         .filter("tenant_id", "eq", activeTenant.id)
         .order("created_at", { ascending: false });
@@ -120,9 +120,9 @@ export function useOrdensServico({ enabled = true }: { enabled?: boolean } = {})
         .insert(scopedOrder) // Trigger irá gerar o número
         .select(`
           *,
-          cliente:clientes(razao_social, classificacao),
-          motorista:motoristas(nome),
-          veiculo:veiculos(placa, modelo)
+          cliente:clientes!ordens_servico_cliente_id_fkey(razao_social, classificacao),
+          motorista:motoristas!ordens_servico_motorista_id_fkey(nome),
+          veiculo:veiculos!ordens_servico_veiculo_id_fkey(placa, modelo)
         `)
         .single();
       if (error) throw error;
@@ -220,8 +220,8 @@ export function useItensOrdemServico(ordemServicoId: string | null) {
         .from("itens_ordem_servico")
         .select(`
           *,
-          produto:produtos(nome, unidade),
-          ordem:ordens_servico!inner(origem, tenant_id)
+          produto:produtos!itens_ordem_servico_produto_id_fkey(nome, unidade),
+          ordem:ordens_servico!itens_ordem_servico_ordem_servico_id_fkey!inner(origem, tenant_id)
         `)
         .eq("ordem_servico_id", ordemServicoId)
         .filter("ordem.tenant_id", "eq", activeTenant.id);
@@ -267,7 +267,7 @@ export function useItensOrdemServico(ordemServicoId: string | null) {
       if (!activeTenant?.id) throw new Error("Empresa ativa não encontrada");
       let scopeQuery = supabase
         .from("itens_ordem_servico")
-        .select("id, ordem:ordens_servico!inner(origem, tenant_id)")
+        .select("id, ordem:ordens_servico!itens_ordem_servico_ordem_servico_id_fkey!inner(origem, tenant_id)")
         .eq("id", id)
         .filter("ordem.tenant_id", "eq", activeTenant.id);
       if (allowedOrigins) scopeQuery = scopeQuery.in("ordem.origem", [...allowedOrigins]);

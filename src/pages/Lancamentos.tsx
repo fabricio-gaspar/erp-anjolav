@@ -16,7 +16,7 @@ import { FaturasPeriodoTab } from "@/components/lancamentos/FaturasPeriodoTab";
 const today = new Date();
 const DEFAULT_START = format(startOfMonth(today), "yyyy-MM-dd");
 const DEFAULT_END = format(endOfMonth(today), "yyyy-MM-dd");
-const TITLE = "Faturamento por período";
+const TITLE = "Faturamento";
 
 export default function Lancamentos() {
   const { activeArea } = useWorkspace();
@@ -41,6 +41,12 @@ export default function Lancamentos() {
     const next = new URLSearchParams(current);
     next.set("inicio", format(startOfMonth(month), "yyyy-MM-dd"));
     next.set("fim", format(endOfMonth(month), "yyyy-MM-dd"));
+    return next;
+  }, { replace: true });
+  const setPeriod = (inicio: string, fim: string) => setSearchParams(current => {
+    const next = new URLSearchParams(current);
+    next.set("inicio", inicio);
+    next.set("fim", fim);
     return next;
   }, { replace: true });
 
@@ -68,7 +74,7 @@ export default function Lancamentos() {
             <TabsTrigger value="faturas" className="page-tab-trigger gap-2"><Receipt className="h-4 w-4" />Faturas e documentos</TabsTrigger>
           </TabsList>
           <TabsContent value="periodo" className="mt-5">
-            <FaturamentoPeriodoTab start={start} end={end} onClosed={() => setField("tab", "faturas")} />
+            <FaturamentoPeriodoTab start={start} end={end} onPeriodChange={setPeriod} onClosed={() => setField("tab", "faturas")} />
           </TabsContent>
           <TabsContent value="faturas" className="mt-5">
             <FaturasPeriodoTab start={start} end={end} />

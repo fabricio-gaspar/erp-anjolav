@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 const inputClass =
-  "flex h-9 w-full rounded-md border border-input bg-white px-3 py-2 text-base ring-offset-background placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60 md:text-sm";
+  "flex h-9 w-full rounded-md border border-input bg-card px-3 py-2 text-base text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-80 md:text-sm";
 
 const ResetPassword = () => {
   const { session, loading, updatePassword, signOut } = useAuth();
@@ -23,8 +23,8 @@ const ResetPassword = () => {
     event.preventDefault();
     setFormError(null);
 
-    if (password.length < 12) {
-      setFormError("A nova senha deve ter pelo menos 12 caracteres.");
+    if (password.length < 6) {
+      setFormError("A nova senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
@@ -75,7 +75,7 @@ const ResetPassword = () => {
     <AuthShell
       badge="Recuperação de senha"
       title="Defina sua nova senha"
-      subtitle="Use pelo menos 12 caracteres e não reutilize uma senha antiga."
+      subtitle="Use pelo menos 6 caracteres e não reutilize uma senha antiga."
     >
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
         {formError && (
@@ -96,7 +96,7 @@ const ResetPassword = () => {
               onChange={(event) => setPassword(event.target.value)}
               className={cn(inputClass, "pr-10")}
               disabled={isSubmitting}
-              minLength={12}
+              minLength={6}
               required
             />
             <button
@@ -120,7 +120,7 @@ const ResetPassword = () => {
             onChange={(event) => setConfirmation(event.target.value)}
             className={inputClass}
             disabled={isSubmitting}
-            minLength={12}
+            minLength={6}
             required
           />
         </div>

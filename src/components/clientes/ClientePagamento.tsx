@@ -18,6 +18,7 @@ import {
 } from "@/lib/customerPaymentTerms";
 import { Textarea } from "@/components/ui/textarea";
 import { useContratoCliente } from "@/hooks/useContratosAluguel";
+import { formatCnpj } from "@/lib/nfsePolicy";
 
 interface ClientePagamentoProps {
   clienteId: string | null;
@@ -41,6 +42,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
   const [condicao, setCondicao] = useState<PaymentCondition | null>(null);
   const [tipoFechamento, setTipoFechamento] = useState<BillingFrequency>("avulso");
   const [diaFechamento, setDiaFechamento] = useState<number | null>(null);
+  const [dataBase, setDataBase] = useState<string>("");
   const [diaVencimento, setDiaVencimento] = useState<number>(10);
   const [cnpjEmissorId, setCnpjEmissorId] = useState<string>("");
   const [descricaoNfId, setDescricaoNfId] = useState<string>("");
@@ -57,6 +59,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
     setFormaPagamento(terms.preferredMethod);
     setTipoFechamento(terms.frequency);
     setDiaFechamento(terms.closingDay);
+    setDataBase(terms.baseDate ?? "");
     setDiaVencimento(terms.dueDay ?? 10);
     setCnpjEmissorId(current?.cnpj_emissor_id || "");
     setDescricaoNfId(current?.descricao_nf_id || "");
@@ -79,8 +82,17 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
       toast.error(paymentMethodError);
       return;
     }
-    if (condicao === "faturado" && tipoFechamento !== "avulso" && (!Number.isInteger(diaFechamento) || diaFechamento < 1 || diaFechamento > 31)) {
+    const rollingCycle = tipoFechamento === "a_cada_10_dias" || tipoFechamento === "a_cada_20_dias";
+    if (condicao === "faturado" && rollingCycle && !/^\d{4}-\d{2}-\d{2}$/.test(dataBase)) {
+      toast.error("Informe a data inicial do ciclo de faturamento.");
+      return;
+    }
+    if (condicao === "faturado" && !rollingCycle && tipoFechamento !== "avulso" && (!Number.isInteger(diaFechamento) || diaFechamento < 1 || diaFechamento > (tipoFechamento === "quinzenal" ? 16 : 31))) {
       toast.error("Informe um dia de fechamento entre 1 e 31.");
+      return;
+    }
+    if (cnpjEmissorId && !configuracoesFiscais.some(config => config.id === cnpjEmissorId && config.ativo)) {
+      toast.error("O CNPJ emissor selecionado está inativo ou indisponível.");
       return;
     }
 
@@ -89,7 +101,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
         cliente_id: clienteId,
         ...customerPaymentTermsToConfig({
           condition: condicao, conditionConfigured: true, preferredMethod: formaPagamento,
-          frequency: tipoFechamento, closingDay: diaFechamento, dueDay: diaVencimento,
+          frequency: tipoFechamento, closingDay: diaFechamento, dueDay: diaVencimento, baseDate: dataBase || null,
         }),
         cnpj_emissor_id: cnpjEmissorId || null,
         descricao_nf_id: descricaoNfId || null,
@@ -107,6 +119,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
   const isSaving = upsertConfiguracao.isPending;
   const isLoadingAll = isLoading || isLoadingFiscal || isLoadingDescricoes;
   const descricoesAtivas = descricoes?.filter(d => d.ativo) || [];
+  const configuracoesFiscaisAtivas = configuracoesFiscais.filter(config => config.ativo);
   const cnpjEmissorSelecionado = configuracoesFiscais.find(c => c.id === cnpjEmissorId);
   const descricaoSelecionada = descricoesAtivas.find(d => d.id === descricaoNfId);
 
@@ -190,16 +203,21 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
             <Label>Periodicidade do faturamento</Label>
             <Select disabled={!canEditPaymentTerms || isSaving} value={tipoFechamento} onValueChange={(value) => {
               setTipoFechamento(value as BillingFrequency);
-              setDiaFechamento(value === "avulso" ? null : value === "quinzenal" ? 16 : 1);
+              setDiaFechamento(value === "mensal" ? 1 : value === "quinzenal" ? 16 : null);
             }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.entries(BILLING_FREQUENCY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
               </SelectContent>
             </Select>
-            {tipoFechamento !== "avulso" && <>
+            {(tipoFechamento === "mensal" || tipoFechamento === "quinzenal") && <>
               <Label htmlFor="cliente-dia-fechamento">Dia de fechamento</Label>
                 <Input disabled={!canEditPaymentTerms || isSaving} id="cliente-dia-fechamento" type="number" min={1} max={tipoFechamento === "quinzenal" ? 16 : 31} step={1} value={diaFechamento ?? ""} onChange={(event) => setDiaFechamento(event.target.value === "" ? null : Number(event.target.value))} />
+            </>}
+            {(tipoFechamento === "a_cada_10_dias" || tipoFechamento === "a_cada_20_dias") && <>
+              <Label htmlFor="cliente-data-base">Início do primeiro ciclo</Label>
+              <Input id="cliente-data-base" type="date" value={dataBase} onChange={(event) => setDataBase(event.target.value)} disabled={!canEditPaymentTerms || isSaving} />
+              <p className="text-xs text-muted-foreground">Os períodos sucessivos começam nesta data e duram {tipoFechamento === "a_cada_10_dias" ? 10 : 20} dias corridos.</p>
             </>}
             <p className="text-xs text-muted-foreground">Referência para o fechamento das pendências. A emissão deve ser realizada no fluxo de faturamento.</p>
           </div>
@@ -242,7 +260,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
           <h3 className="font-semibold text-foreground">Configurações Fiscais para Faturamento</h3>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Defina os valores padrão que serão usados automaticamente ao faturar este cliente.
+          Defina qual dos CNPJs emitirá as notas deste cliente. Esta escolha tem prioridade sobre o padrão do PDV doméstico ou industrial.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -253,15 +271,24 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
                 <SelectValue placeholder="Selecione o CNPJ emissor..." />
               </SelectTrigger>
               <SelectContent className="bg-background">
-                <SelectItem value="none">Nenhum (escolher na hora)</SelectItem>
-                {configuracoesFiscais.map((config) => (
+                <SelectItem value="none">Usar o padrão da operação</SelectItem>
+                {configuracoesFiscaisAtivas.map((config) => (
                   <SelectItem key={config.id} value={config.id}>
-                    {config.nome} - {config.cnpj}
+                    {config.nome} · {formatCnpj(config.cnpj)}
+                    {config.operation_type === "domestico" ? " · doméstico" : config.operation_type === "industrial" ? " · industrial" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">CNPJ da empresa que emitirá a NF para este cliente</p>
+            <p className="text-xs text-muted-foreground">
+              Sem seleção, o sistema usa o único CNPJ padrão da operação. Se houver dois emitentes sem regra, exigirá escolha antes de emitir.
+            </p>
+            {cnpjEmissorId && cnpjEmissorSelecionado && !cnpjEmissorSelecionado.ativo && (
+              <p role="alert" className="text-xs text-destructive">O CNPJ salvo neste cliente está inativo. Escolha outro emitente antes de salvar.</p>
+            )}
+            {configuracoesFiscaisAtivas.length === 0 && (
+              <p role="alert" className="text-xs text-amber-700 dark:text-amber-300">Cadastre e ative os CNPJs em Configurações &gt; Fiscal.</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -363,7 +390,7 @@ const ClientePagamentoForm = ({ clienteId, onBack, onSave }: ClientePagamentoPro
           <Separator className="my-2" />
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">CNPJ Emissor:</span>
-            <span className="font-medium">{cnpjEmissorSelecionado ? cnpjEmissorSelecionado.nome : "Não definido"}</span>
+            <span className="font-medium">{cnpjEmissorSelecionado ? `${cnpjEmissorSelecionado.nome} · ${formatCnpj(cnpjEmissorSelecionado.cnpj)}` : "Padrão da operação"}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Descrição NF:</span>

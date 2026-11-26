@@ -3,10 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { clientClassificationValuesForArea } from "@/lib/operations";
 
 export interface Fatura {
   id: string;
   cliente_id: string;
+  configuracao_fiscal_id: string | null;
   periodo_inicio: string;
   periodo_fim: string;
   valor_total: number;
@@ -14,12 +16,12 @@ export interface Fatura {
   status_pagamento: "pendente" | "parcial" | "pago" | "cancelado";
   valor_pago: number;
   versao_financeira: number;
-  data_ultimo_pagamento: string | null;
   cancelado_em: string | null;
   cancelado_por: string | null;
   cancelamento_motivo: string | null;
   numero_nf: string | null;
   asaas_charge_id: string | null;
+  asaas_charge?: { status: string; paid_at: string | null } | null;
   created_at: string;
   updated_at: string;
   // Etapa 1 - Relatório
@@ -42,6 +44,9 @@ export interface Fatura {
   status_sefaz: string | null;
   erros_sefaz: Json | null;
   natureza_operacao: string | null;
+  nfse_status: string;
+  operation_type: "domestico" | "industrial" | null;
+  unidade_id?: string | null;
   // Etapa 3 - Pagamento
   forma_pagamento: string | null;
   data_vencimento: string | null;
@@ -66,9 +71,24 @@ export interface Fatura {
   };
 }
 
+export interface FaturaReceiptTarget {
+  id: string;
+  cliente?: { razao_social: string } | null;
+  valor_total: number;
+  valor_pago: number;
+  status: string;
+  status_pagamento: Fatura["status_pagamento"];
+  versao_financeira: number;
+  asaas_charge_id: string | null;
+  asaas_charge?: { status: string; paid_at: string | null } | null;
+  operation_type: "domestico" | "industrial" | null;
+  unidade_id?: string | null;
+}
+
 export interface FaturaUpdate {
   status?: string;
   numero_nf?: string | null;
+  configuracao_fiscal_id?: string | null;
   asaas_charge_id?: string | null;
   valor_total?: number;
   // Etapa 1
@@ -91,6 +111,8 @@ export interface FaturaUpdate {
   status_sefaz?: string | null;
   erros_sefaz?: Json | null;
   natureza_operacao?: string | null;
+  nfse_status?: string;
+  operation_type?: "domestico" | "industrial" | null;
   // Etapa 3
   forma_pagamento?: string | null;
   data_vencimento?: string | null;
@@ -107,10 +129,11 @@ export interface FaturaUpdate {
   mensagem_enviada?: string | null;
 }
 
-export type FormaRecebimentoFatura = "PIX" | "TRANSFERENCIA" | "BOLETO" | "CARTAO" | "DINHEIRO" | "OUTRO";
+export type FormaRecebimentoFatura = "PIX" | "TRANSFERENCIA" | "BOLETO" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "DINHEIRO" | "OUTRO";
 
 export interface RegistrarPagamentoFaturaInput {
   id: string;
+  caixaId: string;
   valor: number;
   dataPagamento: string;
   formaPagamento: FormaRecebimentoFatura;
@@ -201,6 +224,24 @@ export function criarChaveOperacaoFatura(prefixo: string) {
   return `${prefixo}:${crypto.randomUUID()}`;
 }
 
+export function getFaturaValorRecebido(fatura: FaturaReceiptTarget): number {
+  if (fatura.status === "cancelado" || fatura.status_pagamento === "cancelado") return 0;
+  if (fatura.asaas_charge?.status === "RECEIVED") return Number(fatura.valor_total);
+  return Number(fatura.valor_pago || 0);
+}
+
+export function getFaturaStatusPagamento(fatura: FaturaReceiptTarget): Fatura["status_pagamento"] {
+  if (fatura.status === "cancelado" || fatura.status_pagamento === "cancelado") return "cancelado";
+  const recebido = getFaturaValorRecebido(fatura);
+  if (Number(fatura.valor_total) > 0 && recebido >= Number(fatura.valor_total)) return "pago";
+  return recebido > 0 ? "parcial" : "pendente";
+}
+
+export function getFaturaSaldo(fatura: FaturaReceiptTarget): number {
+  if (getFaturaStatusPagamento(fatura) === "cancelado") return 0;
+  return Math.max(Number(fatura.valor_total) - getFaturaValorRecebido(fatura), 0);
+}
+
 function readFaturaCommandResult(data: unknown): FaturaCommandResult {
   if (!data || typeof data !== "object" || !("id" in data)) {
     throw new Error("A operação da fatura não retornou um resultado válido");
@@ -283,6 +324,7 @@ export function useCreateFaturaComLancamentos() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["faturas"] });
       queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
+      queryClient.invalidateQueries({ queryKey: ["demonstrativo-industrial"] });
     },
   });
 }
@@ -300,12 +342,17 @@ export function useFaturas(
   const invalidateInvoiceQueries = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["faturas"] }),
+      queryClient.invalidateQueries({ queryKey: ["demonstrativo-industrial"] }),
       queryClient.invalidateQueries({ queryKey: ["fatura"] }),
       queryClient.invalidateQueries({ queryKey: ["lancamentos"] }),
       queryClient.invalidateQueries({ queryKey: ["ordens-servico"] }),
       queryClient.invalidateQueries({ queryKey: ["fluxo_caixa"] }),
       queryClient.invalidateQueries({ queryKey: ["financeiro-agregado"] }),
       queryClient.invalidateQueries({ queryKey: ["relatorio-financeiro"] }),
+      queryClient.invalidateQueries({ queryKey: ["accounts-receivable-directory"] }),
+      queryClient.invalidateQueries({ queryKey: ["period-invoices"] }),
+      queryClient.invalidateQueries({ queryKey: ["caixa-aberto"] }),
+      queryClient.invalidateQueries({ queryKey: ["caixa-resumo"] }),
     ]);
   };
 
@@ -315,20 +362,21 @@ export function useFaturas(
       .from("faturas")
       .select("id, cliente:clientes!faturas_cliente_id_fkey!inner(classificacao)")
       .eq("id", id)
-      .eq("cliente.classificacao", activeArea)
+      .in("cliente.classificacao", clientClassificationValuesForArea(activeArea))
       .maybeSingle();
     if (error) throw error;
     if (!data) throw new Error("Fatura não encontrada neste painel");
   };
 
-  const { data: faturas = [], isLoading, error } = useQuery({
+  const { data: faturas = [], isLoading, error, refetch } = useQuery({
     queryKey: ["faturas", activeArea, periodoInicio, periodoFim, incluirPeriodosSobrepostos, clienteId],
     queryFn: async () => {
       let query = supabase
         .from("faturas")
         .select(`
           *,
-          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao),
+          asaas_charge:asaas_charges!faturas_asaas_charge_id_fkey(status, paid_at)
         `)
         .order("created_at", { ascending: false });
 
@@ -343,7 +391,7 @@ export function useFaturas(
         }
       }
       if (activeArea !== "central") {
-        query = query.eq("cliente.classificacao", activeArea);
+        query = query.in("cliente.classificacao", clientClassificationValuesForArea(activeArea));
       }
       if (clienteId) {
         query = query.eq("cliente_id", clienteId);
@@ -373,6 +421,7 @@ export function useFaturas(
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["faturas"] });
+      queryClient.invalidateQueries({ queryKey: ["demonstrativo-industrial"] });
       toast.success("Fatura atualizada!");
     },
     onError: (error) => {
@@ -385,6 +434,7 @@ export function useFaturas(
       await assertFaturaInScope(input.id);
       const { data, error } = await supabase.rpc("registrar_pagamento_fatura", {
         _fatura_id: input.id,
+        _caixa_id: input.caixaId,
         _valor: input.valor,
         _data_pagamento: input.dataPagamento,
         _forma_pagamento: input.formaPagamento,
@@ -446,7 +496,6 @@ export function useFaturas(
     onSuccess: async (result) => {
       await invalidateInvoiceQueries();
       queryClient.invalidateQueries({ queryKey: ["fatura", "previa-refaturamento"] });
-      queryClient.invalidateQueries({ queryKey: ["demonstrativo-industrial"] });
       toast.success(
         result.quantidadeAjustes
           ? "Fatura substituta criada com ajuste auditável"
@@ -460,14 +509,16 @@ export function useFaturas(
 
   // Summary calculations
   const summary = {
-    totalPrevisto: faturas.reduce((sum, f) => sum + Number(f.valor_total), 0),
+    totalPrevisto: faturas
+      .filter((f) => getFaturaStatusPagamento(f) !== "cancelado")
+      .reduce((sum, f) => sum + Number(f.valor_total), 0),
     pendente: faturas
-      .filter((f) => f.status_pagamento !== "pago" && f.status_pagamento !== "cancelado")
-      .reduce((sum, f) => sum + Math.max(Number(f.valor_total) - Number(f.valor_pago || 0), 0), 0),
+      .filter((f) => !["pago", "cancelado"].includes(getFaturaStatusPagamento(f)))
+      .reduce((sum, f) => sum + getFaturaSaldo(f), 0),
     notaEmitida: faturas
       .filter((f) => f.status === "nota_emitida")
       .reduce((sum, f) => sum + Number(f.valor_total), 0),
-    pago: faturas.reduce((sum, f) => sum + Number(f.valor_pago || 0), 0),
+    pago: faturas.reduce((sum, f) => sum + getFaturaValorRecebido(f), 0),
     enviado: faturas
       .filter((f) => f.status === "enviada")
       .reduce((sum, f) => sum + Number(f.valor_total), 0),
@@ -479,6 +530,7 @@ export function useFaturas(
     summary,
     isLoading,
     error,
+    refetch,
     updateFatura,
     registrarPagamento,
     cancelarFatura,
@@ -496,10 +548,11 @@ export function useFaturaById(faturaId: string | null) {
         .from("faturas")
         .select(`
           *,
-          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao)
+          cliente:clientes!faturas_cliente_id_fkey!inner(razao_social, cpf_cnpj, email, telefone, classificacao),
+          asaas_charge:asaas_charges!faturas_asaas_charge_id_fkey(status, paid_at)
         `)
         .eq("id", faturaId);
-      if (activeArea !== "central") query = query.eq("cliente.classificacao", activeArea);
+      if (activeArea !== "central") query = query.in("cliente.classificacao", clientClassificationValuesForArea(activeArea));
       const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data as Fatura | null;

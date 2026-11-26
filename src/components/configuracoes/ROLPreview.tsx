@@ -469,7 +469,7 @@ export function ROLPreview({ config }: ROLPreviewProps) {
         </div>
       )}
 
-      {config.exibirFidelidade && (
+      {(
         <div className="border border-dashed border-primary/60 rounded p-2 mb-2 text-[9px] text-center text-gray-600">
           <strong>FIDELIDADE</strong><br />
           Você ganhou 12 pontos nesta compra.<br />

@@ -6,11 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { ClientDuplicateCandidate, ClientIdentityDraft } from "@/lib/clientIdentity";
 import type { ClientAddressDraft, ClientAddressType } from "@/lib/clientAddress";
 import type { ClientPriceMode } from "@/lib/clientPricing";
+import { clientClassificationValuesForArea, normalizeClientClassification, type ClientClassification } from "@/lib/operations";
 
 export interface Cliente {
   id: string;
   tipo_pessoa: "cpf" | "cnpj";
-  classificacao: "residencial" | "industrial";
+  classificacao: ClientClassification;
   cpf_cnpj: string | null;
   razao_social: string;
   nome_fantasia: string | null;
@@ -57,6 +58,7 @@ export interface ConfiguracaoPagamentoCliente {
   forma_pagamento: string | null;
   dia_vencimento: number | null;
   dia_fechamento: number | null;
+  faturamento_data_base: string | null;
   condicao_pagamento: string | null;
   cnpj_emissor_id: string | null;
   descricao_nf_id: string | null;
@@ -72,6 +74,8 @@ export interface ConfiguracaoCliente {
   codigo_acesso: string | null;
   link_acesso: string | null;
   frequencia: string | null;
+  retirada_ativa: boolean;
+  entrega_ativa: boolean;
   dias_retirada: string[];
   dias_entrega: string[];
   horario_retirada: string | null;
@@ -90,7 +94,7 @@ function clientIdentityRpcArgs(input: ClientIdentityDraft) {
   return {
     _cliente_id: input.clientId ?? null,
     _tipo_pessoa: input.personType,
-    _classificacao: input.classification,
+    _classificacao: normalizeClientClassification(input.classification) ?? input.classification,
     _cpf_cnpj: input.document || null,
     _razao_social: input.legalName,
     _nome_fantasia: input.tradeName || null,
@@ -114,7 +118,7 @@ export function useReviewClientDuplicates() {
       }
       const { data, error } = await supabase.rpc("consultar_clientes_similares", {
         _cliente_id: input.clientId ?? null,
-        _classificacao: input.classification,
+        _classificacao: normalizeClientClassification(input.classification) ?? input.classification,
         _cpf_cnpj: input.document || null,
         _email: input.email || null,
         _telefone: input.phone || null,
@@ -163,7 +167,7 @@ export function useSaveClientIdentity() {
 export function useClientes({ enabled = true }: { enabled?: boolean } = {}) {
   const queryClient = useQueryClient();
   const { activeArea } = useWorkspace();
-  const { activeTenant, session } = useAuth();
+  const { activeTenant, session, security } = useAuth();
 
   const { data: clientes = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["clientes", session?.user.id, activeTenant?.id, activeArea],
@@ -177,7 +181,7 @@ export function useClientes({ enabled = true }: { enabled?: boolean } = {}) {
         .select("*")
         .filter("tenant_id", "eq", activeTenant.id)
         .order("razao_social");
-      if (activeArea !== "central") query = query.eq("classificacao", activeArea);
+      if (activeArea !== "central") query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
 
       const { data, error } = await query;
       if (error) throw error;
@@ -189,7 +193,9 @@ export function useClientes({ enabled = true }: { enabled?: boolean } = {}) {
     mutationFn: async (cliente: ClienteInsert) => {
       const scopedCliente = {
         ...cliente,
-        classificacao: activeArea === "central" ? cliente.classificacao : activeArea,
+        classificacao: activeArea === "central"
+          ? normalizeClientClassification(cliente.classificacao) ?? cliente.classificacao
+          : normalizeClientClassification(activeArea) ?? cliente.classificacao,
       };
       const { data, error } = await supabase
         .from("clientes")
@@ -215,17 +221,20 @@ export function useClientes({ enabled = true }: { enabled?: boolean } = {}) {
       if (
         activeArea !== "central" &&
         updates.classificacao &&
-        updates.classificacao !== activeArea
+        !clientClassificationValuesForArea(activeArea).includes(updates.classificacao)
       ) {
         throw new Error("Não é permitido mover o cliente para outra unidade por este painel");
       }
 
+      const normalizedUpdates = updates.classificacao
+        ? { ...updates, classificacao: normalizeClientClassification(updates.classificacao) ?? updates.classificacao }
+        : updates;
       let query = supabase
         .from("clientes")
-        .update(updates)
+        .update(normalizedUpdates)
         .eq("id", id)
         .filter("tenant_id", "eq", activeTenant.id);
-      if (activeArea !== "central") query = query.eq("classificacao", activeArea);
+      if (activeArea !== "central") query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
       const { data, error } = await query.select().single();
       if (error) throw error;
       return data;
@@ -248,7 +257,7 @@ export function useClientes({ enabled = true }: { enabled?: boolean } = {}) {
         .update({ ativo: false })
         .eq("id", id)
         .filter("tenant_id", "eq", activeTenant.id);
-      if (activeArea !== "central") query = query.eq("classificacao", activeArea);
+      if (activeArea !== "central") query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
       const { data, error } = await query.select("id, ativo").maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Cliente não encontrado neste painel");
@@ -264,6 +273,36 @@ export function useClientes({ enabled = true }: { enabled?: boolean } = {}) {
     },
   });
 
+  const deleteCliente = useMutation({
+    mutationFn: async (id: string) => {
+      if (activeArea !== "central") {
+        throw new Error("A exclusão definitiva só está disponível no Painel Administrativo");
+      }
+      if (!security.isAdmin) {
+        throw new Error("Somente um administrador autenticado com MFA pode excluir clientes definitivamente");
+      }
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para excluir o cliente");
+      }
+
+      const { data, error } = await supabase.rpc("excluir_cliente_sem_historico", {
+        _cliente_id: id,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clientes"] });
+      queryClient.invalidateQueries({ queryKey: ["client-directory"] });
+      queryClient.invalidateQueries({ queryKey: ["client-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["cliente"] });
+      toast.success("Cliente excluído definitivamente. A ação foi registrada na auditoria.");
+    },
+    onError: (error) => {
+      toast.error("Não foi possível excluir o cliente: " + error.message);
+    },
+  });
+
   return {
     clientes,
     isLoading,
@@ -273,6 +312,7 @@ export function useClientes({ enabled = true }: { enabled?: boolean } = {}) {
     createCliente,
     updateCliente,
     archiveCliente,
+    deleteCliente,
   };
 }
 
@@ -288,7 +328,7 @@ export function useClienteById(clienteId: string | null) {
         .select("*")
         .eq("id", clienteId)
         .filter("tenant_id", "eq", activeTenant.id);
-      if (activeArea !== "central") query = query.eq("classificacao", activeArea);
+      if (activeArea !== "central") query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
       const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data as Cliente | null;
@@ -297,7 +337,7 @@ export function useClienteById(clienteId: string | null) {
   });
 }
 
-function useClientAddressesQuery(clienteId: string | null) {
+function useClientAddressesQuery(clienteId: string | null, enabled = true) {
   const { activeTenant, session } = useAuth();
   return useQuery({
     queryKey: ["endereco_cliente", session?.user.id, activeTenant?.id, clienteId],
@@ -314,12 +354,12 @@ function useClientAddressesQuery(clienteId: string | null) {
       if (error) throw error;
       return (data ?? []) as EnderecoCliente[];
     },
-    enabled: Boolean(clienteId && session?.user.id && activeTenant?.id),
+    enabled: enabled && Boolean(clienteId && session?.user.id && activeTenant?.id),
   });
 }
 
-// Agenda de endereços do cliente. As mutações usam comandos de banco para
-// manter a seleção principal e o arquivamento atômicos.
+// Agenda de endereços do cliente. As mutações mantêm a seleção principal e a
+// exclusão definitiva atômicas no banco.
 export function useEnderecosCliente(clienteId: string | null) {
   const queryClient = useQueryClient();
   const { activeTenant, session } = useAuth();
@@ -365,12 +405,12 @@ export function useEnderecosCliente(clienteId: string | null) {
     },
   });
 
-  const archiveAddress = useMutation({
+  const deleteAddress = useMutation({
     mutationFn: async (addressId: string) => {
       if (!activeTenant?.id || !session?.user.id || !clienteId) {
-        throw new Error("Sessão, empresa e cliente são obrigatórios para arquivar o endereço");
+        throw new Error("Sessão, empresa e cliente são obrigatórios para excluir o endereço");
       }
-      const { data, error } = await supabase.rpc("arquivar_endereco_cliente", {
+      const { data, error } = await supabase.rpc("excluir_endereco_cliente", {
         _endereco_id: addressId,
         _cliente_id: clienteId,
       });
@@ -381,10 +421,10 @@ export function useEnderecosCliente(clienteId: string | null) {
       queryClient.invalidateQueries({ queryKey: ["endereco_cliente"] });
       queryClient.invalidateQueries({ queryKey: ["enderecos_clientes_todos"] });
       queryClient.invalidateQueries({ queryKey: ["client-profile"] });
-      toast.success("Endereço arquivado. Pedidos e rotas anteriores mantêm o endereço registrado.");
+      toast.success("Endereço excluído definitivamente. Os históricos anteriores foram preservados.");
     },
     onError: (error) => {
-      toast.error("Erro ao arquivar endereço: " + error.message);
+      toast.error("Erro ao excluir endereço: " + error.message);
     },
   });
 
@@ -395,14 +435,14 @@ export function useEnderecosCliente(clienteId: string | null) {
     error: query.error,
     refetch: query.refetch,
     saveAddress,
-    archiveAddress,
+    deleteAddress,
   };
 }
 
 // Compatibilidade para pedidos, faturamento e logística: todos passam a usar
 // explicitamente o endereço ativo principal, sem depender de maybeSingle.
-export function useEnderecoCliente(clienteId: string | null) {
-  const query = useClientAddressesQuery(clienteId);
+export function useEnderecoCliente(clienteId: string | null, enabled = true) {
+  const query = useClientAddressesQuery(clienteId, enabled);
   const addresses = query.data ?? [];
   const endereco = addresses.find((address) => address.ativo && address.principal)
     ?? addresses.find((address) => address.ativo)
@@ -417,7 +457,7 @@ export function useEnderecoCliente(clienteId: string | null) {
 }
 
 // Configurações de Pagamento
-export function useConfiguracaoPagamentoCliente(clienteId: string | null) {
+export function useConfiguracaoPagamentoCliente(clienteId: string | null, enabled = true) {
   const queryClient = useQueryClient();
   const { activeTenant, session } = useAuth();
 
@@ -434,7 +474,7 @@ export function useConfiguracaoPagamentoCliente(clienteId: string | null) {
       if (error) throw error;
       return data as ConfiguracaoPagamentoCliente | null;
     },
-    enabled: Boolean(clienteId && session?.user.id && activeTenant?.id),
+    enabled: enabled && Boolean(clienteId && session?.user.id && activeTenant?.id),
   });
 
   const upsertConfiguracao = useMutation({

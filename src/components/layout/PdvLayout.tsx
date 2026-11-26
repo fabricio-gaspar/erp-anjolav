@@ -4,6 +4,7 @@ import {
   Building2,
   CalendarDays,
   ChevronDown,
+  CloudUpload,
   Clock3,
   Factory,
   LogOut,
@@ -14,6 +15,8 @@ import {
   Sun,
   UserRound,
   WalletCards,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -29,13 +32,14 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useOperationalContext } from "@/contexts/OperationalContext";
+import { useOfflineRuntime } from "@/contexts/OfflineRuntimeContext";
 import { useThemeMode } from "@/contexts/ThemeModeContext";
 import { useCaixaAberto } from "@/hooks/useCaixa";
-import { useOperationalAccessContext } from "@/hooks/useOperationalAccessContext";
 import { useNavigationAccess } from "@/hooks/usePermissoesUsuario";
 import { getCanonicalPdvOperationPath, operationFromLegacyArea } from "@/lib/operations";
 import { getPdvFrontPath, type PdvArea } from "@/lib/authorization";
 import { cn } from "@/lib/utils";
+import "@/styles/pdv-layout.css";
 
 interface PdvLayoutProps {
   title?: string;
@@ -57,18 +61,6 @@ function HangerMark({ className }: { className?: string }) {
   );
 }
 
-function getUnitLabel(
-  units: Array<{ name: string }> | undefined,
-  isLoading: boolean,
-  hasError: boolean,
-): string {
-  if (isLoading) return "Carregando…";
-  if (hasError) return "Indisponível";
-  if (!units?.length) return "Não definida";
-  if (units.length === 1) return units[0].name;
-  return `${units.length} unidades autorizadas`;
-}
-
 function formatOperationalDate(value: Date): string {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -86,7 +78,6 @@ function formatOperationalTime(value: Date): string {
 
 export function PdvLayout({
   title,
-  subtitle,
   children,
   variant = "standard",
   operation: requestedOperation,
@@ -104,40 +95,37 @@ export function PdvLayout({
     switchTenant,
   } = useAuth();
   const { canAccessRoute } = useNavigationAccess();
-  const operationalAccess = useOperationalAccessContext();
   const { isDark, toggleMode } = useThemeMode();
+  const offlineRuntime = useOfflineRuntime();
   const [now, setNow] = useState(() => new Date());
   const [frontSearch, setFrontSearch] = useState("");
 
   const operationArea = requestedOperation ?? (activeArea === "industrial" ? "industrial" : "residencial");
   const canUseCash = canAccessRoute(`/${operationArea}/caixa`);
-  const { data: caixaAberto, isLoading: isLoadingCash } = useCaixaAberto(canUseCash);
+  const isCashReport = pathname.includes("/relatorios/caixa");
+  const { data: caixaAberto, isLoading: isLoadingCash } = useCaixaAberto(canUseCash && !isCashReport);
   const accessiblePdvAreas = PDV_AREAS.filter((area) => canAccessRoute(`/${area}/caixa`));
   const areaLabel = operationArea === "industrial" ? "Industrial" : "Doméstico";
   const displayName = funcionario?.nome || user?.email?.split("@")[0] || "Usuário";
   const currentPdvPath = getCanonicalPdvOperationPath(operationFromLegacyArea(operationArea));
-  const isPdvCashier = pathname === currentPdvPath || pathname.startsWith(`${currentPdvPath}/`);
   const isPdvFront = variant === "front" || pathname.startsWith("/pdv/painel");
   const isLegacyOperationalLanding = pathname === "/industrial" || pathname === "/residencial";
-  const isPdvRoute = pathname.startsWith("/pdv/");
-  const operationalHomePath = `/${operationArea}`;
-  const navigationTarget = isPdvRoute ? getPdvFrontPath(operationArea) : operationalHomePath;
-  const navigationLabel = isPdvRoute ? "Voltar ao painel principal" : "Voltar ao painel operacional";
-  const shellBadge = isPdvCashier ? "Atendimento" : "Operação";
-  const unitLabel = getUnitLabel(
-    operationalAccess.data?.units,
-    operationalAccess.isLoading,
-    operationalAccess.isError,
-  );
   const cashLabel = !canUseCash
     ? "Acesso restrito"
     : isLoadingCash
       ? "Verificando…"
       : caixaAberto
-        ? caixaAberto.identificador_caixa
-          ? `Caixa ${caixaAberto.identificador_caixa} Aberto`
-          : "Caixa aberto"
-        : "Fechado";
+        ? "Caixa aberto"
+        : "Caixa fechado";
+  const connectionLabel = offlineRuntime.reviewCount > 0
+    ? `${offlineRuntime.reviewCount} para revisar`
+    : offlineRuntime.isSyncing
+      ? "Sincronizando"
+      : offlineRuntime.pendingCount > 0
+        ? `${offlineRuntime.pendingCount} pendente${offlineRuntime.pendingCount > 1 ? "s" : ""}`
+        : offlineRuntime.isOperationalOnline
+          ? "Online"
+          : "Offline";
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -151,7 +139,7 @@ export function PdvLayout({
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/login", { replace: true });
+    navigate("/login/pdv", { replace: true });
   };
 
   const handleFrontSearch = (event: React.FormEvent<HTMLFormElement>) => {
@@ -162,59 +150,42 @@ export function PdvLayout({
   };
 
   return (
-    <div className={cn("flex min-h-screen w-full flex-col overflow-x-hidden", isPdvFront ? "bg-[#edf4f9]" : "bg-[#edf3f8]")}>
-      <header className="sticky top-0 z-40 border-b border-white/15 bg-[#062443] text-white shadow-lg shadow-slate-950/20">
-        <div className={cn("flex items-center justify-between gap-4 px-3 sm:px-5 lg:px-6", isPdvFront ? "min-h-[48px]" : "min-h-[64px]")}>
-          <div className={cn("flex min-w-0 items-center", isPdvFront ? "gap-3" : "gap-6")}>
+    <div className="pdv-app-shell flex min-h-screen w-full flex-col overflow-x-hidden" data-pdv-template="oceano">
+      <header className="pdv-app-header sticky top-0 z-40 border-b border-white/15 text-white shadow-lg shadow-slate-950/20" aria-label={title || "AnjoLav PDV"}>
+        <div className="pdv-app-header__inner flex min-h-[64px] items-center justify-between gap-4 px-3 sm:px-5 lg:px-6">
+          <div className="pdv-app-header__brand-area flex min-w-0 items-center gap-5">
             <button
               type="button"
-              className="flex shrink-0 items-center gap-2.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-white/90"
+              className="pdv-app-brand flex shrink-0 items-center gap-2.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-white/90"
               aria-label="AnjoLav"
               title="Abrir painel principal"
               onClick={() => navigate(getPdvFrontPath(operationArea))}
             >
-              <HangerMark className={cn("text-white", isPdvFront ? "h-7 w-8" : "h-9 w-10")} />
-              <span className={cn("font-black tracking-[-0.05em] text-white", isPdvFront ? "text-[18px] uppercase tracking-[-0.02em]" : "hidden text-[30px] sm:inline")}>
-                Anjo<span className={cn(!isPdvFront && "text-emerald-300")}>Lav</span>
+              <HangerMark className="h-8 w-9 text-white" />
+              <span className="font-black text-[26px] tracking-[-0.05em] text-white">
+                Anjo<span className="text-blue-300">Lav</span>
               </span>
             </button>
-            {!isPdvFront && (
-              <>
-                <span className="hidden h-8 w-px bg-white/25 md:block" aria-hidden="true" />
-                <h1 className="truncate text-lg font-black tracking-[-0.045em] text-white sm:text-[25px]">
-                  {title || "PDV / Caixa"}
-                </h1>
-                <span className="hidden rounded-full border border-emerald-300/25 bg-emerald-300/15 px-4 py-2 text-sm font-bold text-emerald-100 lg:inline">
-                  {shellBadge}
-                </span>
-              </>
-            )}
+            <span className="hidden h-8 w-px bg-white/25 lg:block" aria-hidden="true" />
+            <form onSubmit={handleFrontSearch} className="pdv-app-search relative hidden w-[220px] xl:block 2xl:w-[300px]">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
+              <input
+                value={frontSearch}
+                onChange={(event) => setFrontSearch(event.target.value)}
+                placeholder="Buscar cliente..."
+                aria-label="Buscar cliente"
+                className="h-9 w-full rounded border border-white/20 bg-white/10 pl-9 pr-3 text-xs text-white placeholder:text-slate-300 outline-none transition focus:border-blue-200 focus:bg-white/15"
+              />
+            </form>
           </div>
 
-          <div aria-label="Contexto operacional" className="scrollbar-hide flex min-w-0 items-center justify-end gap-2 overflow-x-auto text-sm">
-            {isPdvFront && (
-              <form onSubmit={handleFrontSearch} className="relative hidden w-[240px] lg:block xl:w-[310px]">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-300" />
-                <input
-                  value={frontSearch}
-                  onChange={(event) => setFrontSearch(event.target.value)}
-                  placeholder="Buscar módulo, cliente ou ROL..."
-                  aria-label="Buscar cliente ou ROL"
-                  className="h-7 w-full rounded border border-white/20 bg-white/10 pl-8 pr-2 text-[11px] text-white placeholder:text-slate-300 outline-none transition focus:border-sky-200 focus:bg-white/15"
-                />
-              </form>
-            )}
-            <span className="hidden shrink-0 items-center gap-2 border-r border-white/20 pr-4 text-slate-100 xl:inline-flex" title={subtitle || `${activeTenant?.name ?? "Empresa"} · ${areaLabel}`}>
-              <Building2 className="h-4 w-4 text-[#78c8f6]" />
-              <span><span className="text-slate-300">{isPdvFront ? "Unidade" : "Unidade:"}</span> <strong className="text-white">{unitLabel}</strong></span>
-            </span>
-
+          <div aria-label="Contexto operacional" className="pdv-app-header__context scrollbar-hide flex min-w-0 items-center justify-end gap-2 overflow-x-auto text-sm">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={cn("hidden shrink-0 gap-1.5 px-2 text-white hover:bg-white/10 hover:text-white md:inline-flex", isPdvFront ? "h-8 text-[11px]" : "h-9 text-sm")}
+                  className="pdv-app-operation hidden h-9 shrink-0 gap-1.5 px-2 text-sm text-white hover:bg-white/10 hover:text-white md:inline-flex"
                   aria-label={`Operação ${areaLabel}`}
                   disabled={isOperationSwitchLocked || accessiblePdvAreas.length < 2}
                   title={isOperationSwitchLocked
@@ -223,8 +194,8 @@ export function PdvLayout({
                       ? "Seu perfil possui somente esta operação autorizada."
                       : undefined}
                 >
-                  <Settings2 className="h-4 w-4 text-[#78c8f6]" />
-                  <span><span className="text-slate-300">Operação:</span> <strong>{areaLabel}</strong></span>
+                  <Settings2 className="h-4 w-4 text-blue-200" />
+                  <span><strong>{areaLabel}</strong></span>
                   {accessiblePdvAreas.length > 1 && <ChevronDown className="h-3.5 w-3.5 opacity-60" />}
                 </Button>
               </DropdownMenuTrigger>
@@ -250,23 +221,43 @@ export function PdvLayout({
               )}
             </DropdownMenu>
 
-            {canUseCash && (
+            {canUseCash && !isCashReport && (
               <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-300/15 px-3 py-1.5 font-bold text-emerald-100 lg:inline-flex">
                 <WalletCards className="h-4 w-4" />
                 {cashLabel}
               </span>
             )}
 
-            {isPdvFront && (
-              <span className="hidden h-8 w-8 shrink-0 items-center justify-center text-white md:inline-flex" aria-label="Notificações">
-                <Bell className="h-4 w-4" />
-              </span>
-            )}
+            <button
+              type="button"
+              onClick={offlineRuntime.openQueue}
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
+                offlineRuntime.reviewCount > 0
+                  ? "border-red-200/50 bg-red-500/25 text-red-50 hover:bg-red-500/35"
+                  : offlineRuntime.isOperationalOnline
+                    ? "border-emerald-200/35 bg-emerald-400/15 text-emerald-50 hover:bg-emerald-400/25"
+                    : "border-amber-200/45 bg-amber-400/20 text-amber-50 hover:bg-amber-400/30",
+              )}
+              aria-label={`${connectionLabel}. Abrir Central de sincronização`}
+              aria-live="polite"
+            >
+              {offlineRuntime.isSyncing || offlineRuntime.pendingCount > 0
+                ? <CloudUpload className={cn("h-4 w-4", offlineRuntime.isSyncing && "animate-pulse")} />
+                : offlineRuntime.isOperationalOnline
+                  ? <Wifi className="h-4 w-4" />
+                  : <WifiOff className="h-4 w-4" />}
+              <span>{connectionLabel}</span>
+            </button>
+
+            <span className="hidden h-9 w-9 shrink-0 items-center justify-center text-white md:inline-flex" aria-label="Notificações" title="Notificações">
+              <Bell className="h-4 w-4" />
+            </span>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-9 shrink-0 gap-1.5 px-2 text-white hover:bg-white/10 hover:text-white" aria-label={`Usuário: ${displayName}`}>
-                  <UserRound className="h-4 w-4 text-[#78c8f6]" />
+                  <UserRound className="h-4 w-4 text-blue-200" />
                   <span className="hidden max-w-48 truncate text-sm font-bold lg:inline"><span className="font-medium text-slate-300">Usuário:</span> {displayName}</span>
                   <ChevronDown className="hidden h-3.5 w-3.5 opacity-60 lg:block" />
                 </Button>
@@ -286,6 +277,7 @@ export function PdvLayout({
                       <DropdownMenuItem
                         key={tenant.id}
                         className={cn(tenant.id === activeTenant.id && "bg-muted font-bold")}
+                        disabled={!offlineRuntime.isOperationalOnline}
                         onClick={() => void handleTenantChange(tenant.id)}
                       >
                         <Building2 className="mr-2 h-4 w-4" />
@@ -306,37 +298,25 @@ export function PdvLayout({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <time className={cn("hidden min-w-[208px] shrink-0 items-center gap-2 border-l border-white/20 pl-4 font-semibold text-white md:inline-flex", isPdvFront && "!hidden")} dateTime={now.toISOString()}>
-              <CalendarDays className="h-4 w-4 text-[#78c8f6]" />
+            <time className="hidden min-w-[208px] shrink-0 items-center gap-2 border-l border-white/20 pl-4 font-semibold text-white 2xl:inline-flex" dateTime={now.toISOString()}>
+              <CalendarDays className="h-4 w-4 text-blue-200" />
               <span>{formatOperationalDate(now)}</span>
-              <Clock3 className="ml-1 h-4 w-4 text-[#78c8f6]" />
+              <Clock3 className="ml-1 h-4 w-4 text-blue-200" />
               <strong className="text-sm">{formatOperationalTime(now)}</strong>
             </time>
           </div>
         </div>
       </header>
 
-      {!isPdvCashier && !isPdvFront && !isLegacyOperationalLanding && (
-        <div className="border-b bg-muted/30 px-3 py-2 sm:px-5">
-          <Button type="button" variant="ghost" size="sm" onClick={() => navigate(navigationTarget)}>
-            {navigationLabel}
-          </Button>
-        </div>
-      )}
-
       <main className={cn(
-        "mx-auto w-full max-w-[1920px] flex-1",
-        isPdvFront || isLegacyOperationalLanding ? "max-w-none p-0" : "p-3 xl:px-6 xl:pt-[25px] xl:pb-[21px]",
+        "pdv-layout-main mx-auto w-full max-w-[1920px] flex-1",
+        isPdvFront || isLegacyOperationalLanding
+          ? "pdv-layout-main--front max-w-none p-0"
+          : "pdv-layout-main--workspace px-3 py-3 sm:px-4 xl:px-6 xl:py-5",
       )}>
         {children}
       </main>
 
-      {!isPdvFront && (
-        <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-white/15 bg-[#062443] px-4 py-2 text-[11px] font-medium text-slate-300 sm:px-6 min-h-11">
-          <span>AnjoLav ERP · Ambiente operacional</span>
-          <span>{areaLabel} · Acesso controlado por permissões</span>
-        </footer>
-      )}
     </div>
   );
 }

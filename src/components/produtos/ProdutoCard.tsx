@@ -21,9 +21,9 @@ export function ProdutoCard({ produto, onEdit, onArchive, onReactivate, onDuplic
   const unitLabel = produto.unidade === "kg"
     ? "kg"
     : produto.unidade === "metro"
-      ? "metro"
+      ? "m²"
       : produto.unidade === "unidade"
-        ? "un."
+        ? "unidade"
         : "peça";
   const sizeLabel = produto.porte === "pequeno"
     ? "Pequeno"

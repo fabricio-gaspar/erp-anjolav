@@ -16,7 +16,6 @@ import {
   Store,
   TrendingDown,
   TrendingUp,
-  WalletCards,
 } from "lucide-react";
 import {
   createDefaultFinancialPeriod,
@@ -27,15 +26,13 @@ import {
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { FinanceiroWidgetState } from "@/components/financeiro/FinanceiroWidgetState";
 import ContasReceberContent from "@/components/contas/ContasReceberContent";
-import ContasPagarContent from "@/components/contas/ContasPagarContent";
 import { ConciliacaoFinanceiraContent } from "@/components/financeiro/ConciliacaoFinanceiraContent";
-import { FaturasTab } from "@/components/lancamentos/FaturasTab";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 const setorLabels: Record<SetorFinanceiro, { title: string; subtitle: string }> = {
-  todos: { title: "Dashboard Financeiro", subtitle: "Visão consolidada — Industrial + Doméstico" },
+  todos: { title: "Painel financeiro", subtitle: "Receitas, contas e conciliação das duas operações" },
   industrial: { title: "Financeiro Industrial", subtitle: "Faturas e recebimentos do PDV — setor industrial" },
   loja: { title: "Financeiro Doméstico", subtitle: "Faturas e recebimentos do PDV — setor doméstico" },
 };
@@ -49,8 +46,9 @@ const DashboardFinanceiro = () => {
   const [periodo, setPeriodo] = useState<PeriodoFinanceiro>(createDefaultFinancialPeriod);
   const [periodoDraft, setPeriodoDraft] = useState<PeriodoFinanceiro>(createDefaultFinancialPeriod);
   const setor = activeArea === "central" ? setorSelecionado : defaultSetor;
+  const billingPath = activeArea === "central" ? "/admin/financeiro/lancamentos" : `/${activeArea}/lancamentos`;
   const availableTabs = activeArea === "central"
-    ? ["resumo", "receber", "pagar", "conciliacao", "faturamento"]
+    ? ["resumo", "conciliacao", "faturamento"]
     : ["resumo", "receber", "conciliacao", "faturamento"];
   const requestedTab = searchParams.get("tab") ?? "resumo";
   const activeTab = availableTabs.includes(requestedTab) ? requestedTab : "resumo";
@@ -97,8 +95,8 @@ const DashboardFinanceiro = () => {
       <div className="page-shell">
         <PageHeader
           eyebrow="Gestão financeira"
-          title={setor === "todos" ? "Dashboard Financeiro" : title}
-          description="Monitoramento de fluxo de caixa, receitas e despesas"
+          title={title}
+          description="Acompanhe receitas, contas e conciliação por período"
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -107,12 +105,9 @@ const DashboardFinanceiro = () => {
               <TabsTrigger value="resumo" className="page-tab-trigger gap-2">
                 <LayoutDashboard className="h-4 w-4" /> Resumo
               </TabsTrigger>
-              <TabsTrigger value="receber" className="page-tab-trigger gap-2">
-                <TrendingUp className="h-4 w-4" /> A receber
-              </TabsTrigger>
-              {activeArea === "central" && (
-                <TabsTrigger value="pagar" className="page-tab-trigger gap-2">
-                  <WalletCards className="h-4 w-4" /> A pagar
+              {activeArea !== "central" && (
+                <TabsTrigger value="receber" className="page-tab-trigger gap-2">
+                  <TrendingUp className="h-4 w-4" /> A receber
                 </TabsTrigger>
               )}
               <TabsTrigger value="conciliacao" className="page-tab-trigger gap-2">
@@ -381,13 +376,9 @@ const DashboardFinanceiro = () => {
         </div>
           </TabsContent>
 
-          <TabsContent value="receber" className="mt-0">
-            <ContasReceberContent />
-          </TabsContent>
-
-          {activeArea === "central" && (
-            <TabsContent value="pagar" className="mt-0">
-              <ContasPagarContent />
+          {activeArea !== "central" && (
+            <TabsContent value="receber" className="mt-0">
+              <ContasReceberContent />
             </TabsContent>
           )}
 
@@ -396,7 +387,16 @@ const DashboardFinanceiro = () => {
           </TabsContent>
 
           <TabsContent value="faturamento" className="mt-0">
-            <FaturasTab />
+            <Card className="space-y-3 p-5">
+              <h2 className="font-semibold">Faturas e documentos</h2>
+              <p className="text-sm text-muted-foreground">
+                Consulte faturas por período, abra relatórios e acompanhe notas fiscais e boletos no faturamento.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild><Link to={`${billingPath}?tab=faturas`}>Abrir faturas</Link></Button>
+                <Button asChild variant="outline"><Link to={`${billingPath}?tab=periodo`}>Conferir e fechar ROLs</Link></Button>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

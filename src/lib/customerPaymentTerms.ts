@@ -17,6 +17,8 @@ export const BILLING_FREQUENCY_LABELS = {
   avulso: "Avulso",
   mensal: "Mensal",
   quinzenal: "Quinzenal",
+  a_cada_10_dias: "A cada 10 dias",
+  a_cada_20_dias: "A cada 20 dias",
 } as const;
 
 export type PaymentCondition = keyof typeof PAYMENT_CONDITION_LABELS;
@@ -40,6 +42,7 @@ export interface CustomerPaymentConfig {
   forma_pagamento?: string | null;
   dia_fechamento?: number | null;
   dia_vencimento?: number | null;
+  faturamento_data_base?: string | null;
 }
 
 export interface CustomerPaymentTerms {
@@ -49,6 +52,7 @@ export interface CustomerPaymentTerms {
   frequency: BillingFrequency;
   closingDay: number | null;
   dueDay: number | null;
+  baseDate: string | null;
 }
 
 function member<T extends string>(value: unknown, labels: Record<T, string>): value is T {
@@ -72,6 +76,8 @@ export function parseCustomerPaymentTerms(config?: CustomerPaymentConfig | null)
     frequency,
     closingDay: billed && frequency !== "avulso" ? day(config?.dia_fechamento) : null,
     dueDay: billed ? day(config?.dia_vencimento) : null,
+    baseDate: billed && (frequency === "a_cada_10_dias" || frequency === "a_cada_20_dias")
+      ? config?.faturamento_data_base ?? null : null,
   };
 }
 
@@ -103,7 +109,7 @@ export function isCustomerPaymentAllowed(
   if (terms.condition === "faturado") return !payment.pagoAgora && payment.formaPagamento === null;
   if (!payment.pagoAgora) return terms.condition === "retirada" && payment.formaPagamento === null;
   if (payment.canReceivePayments === false) return false;
-  const methods: string[] = ["DINHEIRO", "PIX", "CARTAO_CREDITO", "CARTAO_DEBITO"];
+  const methods: string[] = ["DINHEIRO", "PIX", "CARTAO_CREDITO", "CARTAO_DEBITO", "CREDITO_CLIENTE"];
   if (terms.condition === "retirada") methods.push("FIDELIDADE");
   return methods.includes(payment.formaPagamento ?? "");
 }
@@ -116,5 +122,7 @@ export function customerPaymentTermsToConfig(terms: CustomerPaymentTerms): Requi
     tipo_faturamento: billed ? terms.frequency : "avulso",
     dia_fechamento: billed && terms.frequency !== "avulso" ? day(terms.closingDay) : null,
     dia_vencimento: billed ? day(terms.dueDay) : null,
+    faturamento_data_base: billed && (terms.frequency === "a_cada_10_dias" || terms.frequency === "a_cada_20_dias")
+      ? terms.baseDate : null,
   };
 }

@@ -1,1 +1,0 @@
-ALTER TABLE public.lancamentos ADD COLUMN etapa TEXT NOT NULL DEFAULT 'em_processo';

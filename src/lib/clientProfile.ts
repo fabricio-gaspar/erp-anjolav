@@ -79,7 +79,7 @@ export interface ClientProfile {
   customer: {
     id: string;
     personType: "cpf" | "cnpj";
-    classification: "residencial" | "industrial";
+    classification: "domestico" | "residencial" | "industrial";
     document: string | null;
     legalName: string;
     tradeName: string | null;

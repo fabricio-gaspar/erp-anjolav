@@ -12,6 +12,8 @@ import {
   Settings,
   ShieldCheck,
   ShoppingCart,
+  TrendingDown,
+  TrendingUp,
   Users,
   Wrench,
 } from "lucide-react";
@@ -30,9 +32,13 @@ export type AdminRoutePath =
   | "/admin/financeiro"
   | "/admin/financeiro/lancamentos"
   | "/admin/financeiro/contas"
+  | "/admin/financeiro/contas-receber"
+  | "/admin/financeiro/contas-pagar"
   | "/admin/financeiro/caixas"
   | "/admin/estoque"
   | "/admin/relatorios"
+  | "/admin/relatorios/central"
+  | "/admin/relatorios/quilometragem"
   | "/admin/configuracoes"
   | "/admin/auditoria"
   | "/admin/plataforma";
@@ -45,6 +51,7 @@ export interface AdminRouteDefinition {
   requiredModules: RoutePermissionRequirement;
   adminOnly?: boolean;
   platformAdminOnly?: boolean;
+  hiddenFromNavigation?: boolean;
 }
 
 const central = (modules: ModulePermissionKey | ModulePermissionKey[]): RoutePermissionRequirement => (
@@ -54,20 +61,24 @@ const central = (modules: ModulePermissionKey | ModulePermissionKey[]): RoutePer
 export const ADMIN_ROUTES: readonly AdminRouteDefinition[] = [
   { path: "/admin/visao-geral", label: "Visão geral", section: "Painel", icon: LayoutDashboard, requiredModules: central("dashboard") },
   { path: "/admin/cadastros/clientes", label: "Clientes", section: "Cadastros", icon: Users, requiredModules: central("clientes") },
-  { path: "/admin/cadastros/produtos", label: "Produtos e serviços", section: "Cadastros", icon: ShoppingCart, requiredModules: central("produtos") },
+  { path: "/admin/cadastros/produtos", label: "Catálogo", section: "Cadastros", icon: ShoppingCart, requiredModules: central("produtos") },
   { path: "/admin/cadastros/fornecedores", label: "Fornecedores", section: "Cadastros", icon: Building2, requiredModules: central("produtos") },
-  { path: "/admin/operacoes/agenda", label: "Agenda, coletas e rotas", section: "Operações", icon: CalendarDays, requiredModules: central("agenda") },
-  { path: "/admin/operacoes/ordens", label: "ROLS e pedidos", section: "Operações", icon: ClipboardList, requiredModules: central("ordens") },
+  { path: "/admin/operacoes/agenda", label: "Agenda e Delivery", section: "Operações", icon: CalendarDays, requiredModules: central("agenda") },
+  { path: "/admin/operacoes/ordens", label: "ROLs", section: "Operações", icon: ClipboardList, requiredModules: central("ordens"), hiddenFromNavigation: true },
   { path: "/admin/operacoes/producao", label: "Produção", section: "Operações", icon: Wrench, requiredModules: central("producao") },
-  { path: "/admin/financeiro", label: "Visão financeira", section: "Financeiro", icon: Landmark, requiredModules: central("faturamento") },
-  { path: "/admin/financeiro/lancamentos", label: "Faturamento por período", section: "Financeiro", icon: FileText, requiredModules: central("faturamento") },
-  { path: "/admin/financeiro/contas", label: "Contas a pagar e receber", section: "Financeiro", icon: FileText, requiredModules: central(["contas_receber", "contas_pagar"]) },
-  { path: "/admin/financeiro/caixas", label: "Caixas", section: "Financeiro", icon: Archive, requiredModules: central(["caixa", "faturamento"]) },
-  { path: "/admin/estoque", label: "Estoque e compras", section: "Gestão", icon: Package, requiredModules: central("produtos") },
-  { path: "/admin/relatorios", label: "Relatórios", section: "Gestão", icon: BarChart3, requiredModules: central("relatorios") },
+  { path: "/admin/estoque", label: "Estoque", section: "Operações", icon: Package, requiredModules: central("produtos") },
+  { path: "/admin/financeiro", label: "Painel financeiro", section: "Financeiro", icon: Landmark, requiredModules: central("faturamento") },
+  { path: "/admin/financeiro/lancamentos", label: "Faturamento", section: "Financeiro", icon: FileText, requiredModules: central("faturamento") },
+  { path: "/admin/financeiro/contas", label: "Contas financeiras", section: "Financeiro", icon: FileText, requiredModules: central(["contas_receber", "contas_pagar"]), hiddenFromNavigation: true },
+  { path: "/admin/financeiro/contas-receber", label: "Contas a receber", section: "Financeiro", icon: TrendingUp, requiredModules: central("contas_receber") },
+  { path: "/admin/financeiro/contas-pagar", label: "Contas a pagar", section: "Financeiro", icon: TrendingDown, requiredModules: central("contas_pagar") },
+  { path: "/admin/financeiro/caixas", label: "Relatórios de caixa", section: "Relatórios", icon: Archive, requiredModules: central(["caixa", "faturamento"]) },
+  { path: "/admin/relatorios/central", label: "Central de relatórios", section: "Relatórios", icon: BarChart3, requiredModules: central("relatorios") },
+  { path: "/admin/relatorios", label: "Resultado mensal", section: "Relatórios", icon: BarChart3, requiredModules: central("relatorios") },
+  { path: "/admin/relatorios/quilometragem", label: "Relatório de quilometragem", section: "Relatórios", icon: BarChart3, requiredModules: central("relatorios") },
   { path: "/admin/configuracoes", label: "Configurações", section: "Administração", icon: Settings, requiredModules: central("configuracoes"), adminOnly: true },
-  { path: "/admin/auditoria", label: "Auditoria", section: "Administração", icon: ShieldCheck, requiredModules: central("configuracoes"), adminOnly: true },
-  { path: "/admin/plataforma", label: "Administração SaaS", section: "Administração", icon: ShieldCheck, requiredModules: central("configuracoes"), adminOnly: true, platformAdminOnly: true },
+  { path: "/admin/auditoria", label: "Registro de auditoria", section: "Administração", icon: ShieldCheck, requiredModules: central("configuracoes"), adminOnly: true },
+  { path: "/admin/plataforma", label: "Empresas e planos", section: "Administração", icon: ShieldCheck, requiredModules: central("configuracoes"), adminOnly: true, platformAdminOnly: true },
 ];
 
 export function toAdminPermissionRoute(route: AdminRouteDefinition): AppRouteDefinition {

@@ -255,7 +255,7 @@ export function ConfiguracoesWhatsApp() {
             </div>
             <p className="mt-2 text-xs text-muted-foreground">O envio ocorre somente ao clicar. Exige WA_AKG_ENABLED=true no servidor.</p>
           </div>
-          <p className="text-xs text-muted-foreground">O ROL é enviado como relação textual. PDF só será anexado quando houver documento persistido e acesso seguro para o cliente.</p>
+          <p className="text-xs text-muted-foreground">Os avisos de entrada, disponibilidade para retirada e delivery do ROL são enviados pelo WA-AKG como mensagens de texto. Os modelos e eventos ativos ficam em Empresa e dados gerais → Notificações automáticas.</p>
         </CardContent>
       </Card>
 

@@ -1,60 +1,47 @@
 # AnjoLav ERP
 
-ERP web para as operações industrial e residencial da AnjoLav, com painéis separados, portal do cliente, produção, ordens de serviço, estoque, caixa, financeiro e integrações externas.
+ERP web para lavanderias com operação Doméstica e Industrial, painel
+administrativo, PDV, produção, delivery, caixa, faturamento e integrações.
 
-> Estado em 11/11/2026: o projeto Supabase está ativo, e as migrations e funções da integração WA-AKG foram publicadas. A branch passa em TypeScript, 180 testes, lint sem erros, checagem das Edge Functions e build. O envio real de WhatsApp permanece desativado até configurar credenciais, conectar a sessão, assinar o webhook e realizar um teste autorizado. A prontidão comercial do ERP exige homologação dos demais fluxos; consulte [Prontidão comercial](docs/COMMERCIAL_READINESS.md) e [WA-AKG](docs/WA_AKG.md).
+## Acesso
 
-## Stack
+- [Painel Administrativo](https://anjolav-erp.fabriciogasparr.chatgpt.site/admin/visao-geral)
+- [PDV Doméstico](https://anjolav-erp.fabriciogasparr.chatgpt.site/pdv/domestico)
+- [PDV Industrial](https://anjolav-erp.fabriciogasparr.chatgpt.site/pdv/industrial)
 
-- React 18, TypeScript e Vite
-- Tailwind CSS e shadcn/ui
-- TanStack Query
-- Supabase Auth, Postgres, Storage e Edge Functions
-- Asaas, WA-AKG e webhooks n8n
+Os painéis exigem autenticação, vínculo ativo com a empresa e permissões de
+área e módulo. O projeto usa Supabase Auth, Postgres com RLS e Edge Functions.
 
-## Desenvolvimento local
+## Desenvolvimento
 
-Requisitos: Node.js 24 ou superior e npm.
+Requer Node.js 24 ou superior. Copie `.env.example` para `.env.local` e
+configure somente as chaves públicas do frontend. Segredos de provedores
+pertencem ao ambiente das Edge Functions.
 
 ```bash
 npm ci
-cp .env.example .env.local
 npm run dev
 ```
-
-Preencha `.env.local` com os valores públicos do projeto Supabase. Secrets de provedores nunca devem usar o prefixo `VITE_` nem entrar no frontend; use o cofre de secrets das Edge Functions conforme `supabase/.env.example`.
 
 ## Verificação
 
 ```bash
-npm run typecheck
-npm test
-npm run lint
-npm run build
+npm run preflight:production
+npx playwright install chromium
+npm run test:e2e
 ```
 
-O comando `npm run check` executa toda a sequência. A integração contínua repete essas verificações em pushes e pull requests.
+O pré-voo executa verificações locais de contratos, MFA, Edge Functions,
+TypeScript, testes, lint, desempenho estático e build. O teste E2E completo
+exige ambiente de homologação e contas fictícias nas variáveis descritas em
+`e2e/homologation-journey.spec.ts`. A aprovação comercial exige ainda
+ensaios de dois tenants e perfis restritos, restauração de backup, impressão
+física e integrações externas habilitadas.
 
-Para uma publicação estática, as variáveis públicas `VITE_SUPABASE_URL` e
-`VITE_SUPABASE_PUBLISHABLE_KEY` precisam estar disponíveis no processo de build;
-o Vite incorpora esses valores no bundle e não os lê depois da publicação.
+## Publicação
 
-## Painéis e acesso
-
-- `/central/*`: administração e visão consolidada
-- `/industrial/*`: operação industrial
-- `/residencial/*`: loja e PDV
-- `/portal/:codigo`: portal público com código criptograficamente forte
-
-Rotas protegidas exigem sessão, área e permissão de módulo. A migration comercial acrescenta isolamento por tenant, módulo e área de negócio também no Postgres; a proteção só passa a valer no ambiente real depois da aplicação e dos testes de RLS.
-
-## Documentação operacional
-
-- [Prontidão comercial](docs/COMMERCIAL_READINESS.md)
-- [Segurança](docs/SECURITY.md)
-- [Implantação](docs/DEPLOYMENT.md)
-- [Preparação do ambiente real](docs/PRODUCTION_PREPARATION.md)
-- [Checklist de go-live](docs/GO_LIVE_CHECKLIST.md)
-- [Integração WhatsApp WA-AKG](docs/WA_AKG.md)
-
-Repositório: [fabricio-gaspar/erp-anjolav](https://github.com/fabricio-gaspar/erp-anjolav)
+O frontend é publicado no projeto Sites identificado em
+`.openai/hosting.json`. Migrações e Edge Functions são aplicadas no projeto
+Supabase correspondente e validadas antes do frontend. Nunca execute
+migrações somente porque o build passou. O boleto e a NFS-e dependem de
+configuração e homologação do provedor antes de habilitar.

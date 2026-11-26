@@ -8,6 +8,7 @@ import { invalidateDashboardQueriesAfterProductionAdvance } from "@/lib/queryDef
 import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 import type { Json } from "@/integrations/supabase/types";
 import { createIdempotencyKey } from "@/lib/idempotency";
+import { clientClassificationValuesForArea } from "@/lib/operations";
 
 export interface HistoricoProducao {
   id: string;
@@ -73,7 +74,7 @@ export function useHistoricoProducao(ordemServicoId: string | null) {
         .from("historico_producao")
         .select(`
           *,
-          funcionario:funcionarios(nome),
+          funcionario:funcionarios!historico_producao_funcionario_id_fkey(nome),
           ordem:ordens_servico!historico_producao_ordem_servico_id_fkey!inner(origem, tenant_id)
         `)
         .eq("ordem_servico_id", ordemServicoId)
@@ -185,11 +186,18 @@ export function useMetricasProducao(enabled = true) {
 }
 
 // Hook para agenda do dia
-export function useAgendaDia(enabled = true) {
+export function useAgendaDia(enabled = true, requestedDate?: string, requestedEndDate?: string) {
   const { activeArea } = useWorkspace();
   const allowedOrigins = getAllowedOrderOrigins(activeArea);
   const { activeTenant, session } = useAuth();
-  const hoje = format(new Date(), "yyyy-MM-dd");
+  const today = format(new Date(), "yyyy-MM-dd");
+  const diaSelecionado = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+    ? requestedDate
+    : today;
+  const fimSelecionado = requestedEndDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedEndDate)
+    && requestedEndDate >= diaSelecionado
+    ? requestedEndDate
+    : diaSelecionado;
 
   const {
     data: retiradas = [],
@@ -197,7 +205,7 @@ export function useAgendaDia(enabled = true) {
     error: retiradasError,
     refetch: refetchRetiradas,
   } = useQuery({
-    queryKey: ["agenda_retiradas", session?.user.id, activeTenant?.id, hoje, activeArea],
+    queryKey: ["agenda_retiradas", session?.user.id, activeTenant?.id, diaSelecionado, fimSelecionado, activeArea],
     queryFn: async () => {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para resumir a agenda");
@@ -205,15 +213,16 @@ export function useAgendaDia(enabled = true) {
       let query = supabase
         .from("agendamentos")
         .select(`
-          id, cliente_id, horario, status,
+          id, cliente_id, horario, status, data,
           cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao, tenant_id)
         `)
         .filter("tenant_id", "eq", activeTenant.id)
         .filter("cliente.tenant_id", "eq", activeTenant.id)
         .eq("tipo", "retirada")
-        .eq("data", hoje)
+        .gte("data", diaSelecionado)
+        .lte("data", fimSelecionado)
         .order("horario");
-      if (activeArea !== "central") query = query.eq("cliente.classificacao", activeArea);
+      if (activeArea !== "central") query = query.in("cliente.classificacao", clientClassificationValuesForArea(activeArea));
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -227,7 +236,7 @@ export function useAgendaDia(enabled = true) {
     error: entregasError,
     refetch: refetchEntregas,
   } = useQuery({
-    queryKey: ["agenda_entregas", session?.user.id, activeTenant?.id, hoje, activeArea],
+    queryKey: ["agenda_entregas", session?.user.id, activeTenant?.id, diaSelecionado, fimSelecionado, activeArea],
     queryFn: async () => {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para resumir a agenda");
@@ -236,16 +245,17 @@ export function useAgendaDia(enabled = true) {
       let agendamentosQuery = supabase
         .from("agendamentos")
         .select(`
-          id, cliente_id, horario, status,
+          id, cliente_id, horario, status, data,
           cliente:clientes!fk_agendamentos_cliente!inner(razao_social, classificacao, tenant_id)
         `)
         .filter("tenant_id", "eq", activeTenant.id)
         .filter("cliente.tenant_id", "eq", activeTenant.id)
         .eq("tipo", "entrega")
-        .eq("data", hoje)
+        .gte("data", diaSelecionado)
+        .lte("data", fimSelecionado)
         .neq("status", "realizado")
         .order("horario");
-      if (activeArea !== "central") agendamentosQuery = agendamentosQuery.eq("cliente.classificacao", activeArea);
+      if (activeArea !== "central") agendamentosQuery = agendamentosQuery.in("cliente.classificacao", clientClassificationValuesForArea(activeArea));
 
       // 2. Buscar OS prontas para entrega (status: expedicao)
       let osProntasQuery = supabase
@@ -259,6 +269,13 @@ export function useAgendaDia(enabled = true) {
         .eq("entrega_modalidade", "entrega")
         .order("created_at");
       if (allowedOrigins) osProntasQuery = osProntasQuery.in("origem", [...allowedOrigins]);
+      // For another selected day, show ready ROLs classified for that date.
+      // The default today view keeps all ready deliveries, including overdue ones.
+      if (diaSelecionado !== today || fimSelecionado !== today) {
+        osProntasQuery = osProntasQuery
+          .gte("data_previsao_entrega", diaSelecionado)
+          .lte("data_previsao_entrega", fimSelecionado);
+      }
       const [
         { data: agendamentosEntrega, error: errAgend },
         { data: osProntasEntrega, error: errOS },
@@ -280,7 +297,7 @@ export function useAgendaDia(enabled = true) {
         cliente: os.cliente,
         cliente_id: os.cliente_id,
         horario: null,
-        data: hoje,
+        data: os.data_previsao_entrega || diaSelecionado,
         tipo: 'entrega',
         status: 'agendado',
         origem: 'producao' as const,
@@ -303,7 +320,7 @@ export function useAgendaDia(enabled = true) {
     error: rolsProgramadosError,
     refetch: refetchRolsProgramados,
   } = useQuery({
-    queryKey: ["agenda-rols-programados", session?.user.id, activeTenant?.id, hoje, activeArea],
+    queryKey: ["agenda-rols-programados", session?.user.id, activeTenant?.id, diaSelecionado, fimSelecionado, activeArea],
     queryFn: async () => {
       if (!session?.user.id || !activeTenant?.id) {
         throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para resumir a agenda");
@@ -311,18 +328,18 @@ export function useAgendaDia(enabled = true) {
       let query = supabase
         .from("ordens_servico")
         .select(`
-          id, cliente_id, numero, data_previsao_entrega, entrega_modalidade, status,
+          id, cliente_id, numero, data_previsao_entrega, entrega_modalidade, status, valor_total, observacoes, created_at,
           cliente:clientes!ordens_servico_cliente_id_fkey!inner(razao_social, classificacao, tenant_id)
         `)
         .filter("tenant_id", "eq", activeTenant.id)
         .filter("cliente.tenant_id", "eq", activeTenant.id)
-        .eq("data_previsao_entrega", hoje)
+        .gte("data_previsao_entrega", diaSelecionado)
+        .lte("data_previsao_entrega", fimSelecionado)
         .neq("status", "cancelada")
         .neq("status", "entregue")
-        .neq("status", "retirada")
         .order("created_at");
       if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
-      if (activeArea !== "central") query = query.eq("cliente.classificacao", activeArea);
+      if (activeArea !== "central") query = query.in("cliente.classificacao", clientClassificationValuesForArea(activeArea));
 
       const { data, error } = await query;
       if (error) throw error;
@@ -340,6 +357,7 @@ export function useAgendaDia(enabled = true) {
     .filter((rol) => rol.entrega_modalidade !== "entrega")
     .map((rol) => ({
       id: `rol-${rol.id}`,
+      data: rol.data_previsao_entrega,
       cliente: rol.cliente,
       cliente_id: rol.cliente_id,
       horario: null,
@@ -353,6 +371,7 @@ export function useAgendaDia(enabled = true) {
     .filter((rol) => rol.entrega_modalidade === "entrega" && !ordemProntaIds.has(rol.id))
     .map((rol) => ({
       id: `rol-${rol.id}`,
+      data: rol.data_previsao_entrega,
       cliente: rol.cliente,
       cliente_id: rol.cliente_id,
       horario: null,
@@ -372,6 +391,166 @@ export function useAgendaDia(enabled = true) {
       await Promise.all([refetchRetiradas(), refetchEntregas(), refetchRolsProgramados()]);
     },
   };
+}
+
+// Produção do dia: todos os ROLs com prazo na data selecionada, junto de suas peças.
+export function useRolsProgramadosDia(enabled = true, requestedDate?: string, requestedEndDate?: string) {
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const { activeTenant, session } = useAuth();
+  const today = format(new Date(), "yyyy-MM-dd");
+  const diaSelecionado = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+    ? requestedDate
+    : today;
+  const fimSelecionado = requestedEndDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedEndDate)
+    && requestedEndDate >= diaSelecionado
+    ? requestedEndDate
+    : diaSelecionado;
+
+  return useQuery({
+    queryKey: ["producao-rols-do-dia", session?.user.id, activeTenant?.id, diaSelecionado, fimSelecionado, activeArea],
+    queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar a produção do dia");
+      }
+      let query = supabase
+        .from("ordens_servico")
+        .select(`
+          id, cliente_id, numero, data_previsao_entrega, entrega_modalidade, status,
+          cliente:clientes!ordens_servico_cliente_id_fkey!inner(razao_social, classificacao, tenant_id),
+          itens:itens_ordem_servico!itens_ordem_servico_ordem_servico_id_fkey(
+            id, quantidade, cor_item, observacoes,
+            produto:produtos!itens_ordem_servico_produto_id_fkey(nome, unidade)
+          )
+        `)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("cliente.tenant_id", "eq", activeTenant.id)
+        .gte("data_previsao_entrega", diaSelecionado)
+        .lte("data_previsao_entrega", fimSelecionado)
+        .neq("status", "cancelada")
+        .neq("status", "entregue")
+        .order("created_at");
+      if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
+      if (activeArea !== "central") query = query.in("cliente.classificacao", clientClassificationValuesForArea(activeArea));
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
+  });
+}
+
+export type DisponibilizacaoFilter = "todos" | "pendentes" | "disponiveis";
+
+export interface ItemDisponibilizacaoDia {
+  id: string;
+  ordemId: string;
+  numeroRol: string;
+  clienteNome: string;
+  entregaModalidade: string;
+  dataPrevisaoEntrega: string | null;
+  statusRol: string;
+  nomeProduto: string;
+  unidade: string | null;
+  quantidade: number;
+  corItem: string | null;
+  observacoes: string | null;
+  posicaoPrateleira: string | null;
+  disponivel: boolean;
+}
+
+/**
+ * Lista as peças dos ROLs prometidos no período, separando o que já possui
+ * posição de armazenamento do que ainda precisa ser disponibilizado.
+ */
+export function useItensDisponibilizacaoDia(
+  enabled = true,
+  requestedDate?: string,
+  requestedEndDate?: string,
+  filter: DisponibilizacaoFilter = "todos",
+) {
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
+  const { activeTenant, session } = useAuth();
+  const today = format(new Date(), "yyyy-MM-dd");
+  const dataInicial = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : today;
+  const dataFinal = requestedEndDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedEndDate) && requestedEndDate >= dataInicial
+    ? requestedEndDate
+    : dataInicial;
+
+  return useQuery({
+    queryKey: ["itens-disponibilizacao-dia", session?.user.id, activeTenant?.id, activeArea, dataInicial, dataFinal, filter],
+    queryFn: async () => {
+      if (!session?.user.id || !activeTenant?.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar a disponibilização");
+      }
+
+      let query = supabase
+        .from("ordens_servico")
+        .select(`
+          id, numero, data_previsao_entrega, entrega_modalidade, status, origem,
+          cliente:clientes!ordens_servico_cliente_id_fkey!inner(razao_social, nome_fantasia, classificacao, tenant_id),
+          itens:itens_ordem_servico!itens_ordem_servico_ordem_servico_id_fkey(
+            id, quantidade, cor_item, observacoes, posicao_prateleira,
+            produto:produtos!itens_ordem_servico_produto_id_fkey(nome, unidade)
+          )
+        `)
+        .filter("tenant_id", "eq", activeTenant.id)
+        .filter("cliente.tenant_id", "eq", activeTenant.id)
+        .gte("data_previsao_entrega", dataInicial)
+        .lte("data_previsao_entrega", dataFinal)
+        .neq("status", "cancelada")
+        .neq("status", "entregue")
+        .order("data_previsao_entrega", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (allowedOrigins) query = query.in("origem", [...allowedOrigins]);
+      if (activeArea !== "central") query = query.in("cliente.classificacao", clientClassificationValuesForArea(activeArea));
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const rows = (data ?? []).flatMap((order) => {
+        const rawOrder = order as unknown as {
+          id: string;
+          numero: string;
+          data_previsao_entrega: string | null;
+          entrega_modalidade: string;
+          status: string;
+          cliente: { razao_social: string; nome_fantasia: string | null } | null;
+          itens: Array<{
+            id: string;
+            quantidade: number;
+            cor_item: string | null;
+            observacoes: string | null;
+            posicao_prateleira: string | null;
+            produto: { nome: string; unidade: string | null } | null;
+          }>;
+        };
+        return (rawOrder.itens ?? []).map((item) => ({
+          id: item.id,
+          ordemId: rawOrder.id,
+          numeroRol: rawOrder.numero,
+          clienteNome: rawOrder.cliente?.nome_fantasia || rawOrder.cliente?.razao_social || "Cliente não identificado",
+          entregaModalidade: rawOrder.entrega_modalidade,
+          dataPrevisaoEntrega: rawOrder.data_previsao_entrega,
+          statusRol: rawOrder.status,
+          nomeProduto: item.produto?.nome || "Produto não identificado",
+          unidade: item.produto?.unidade || null,
+          quantidade: item.quantidade,
+          corItem: item.cor_item,
+          observacoes: item.observacoes,
+          posicaoPrateleira: item.posicao_prateleira,
+          disponivel: Boolean(item.posicao_prateleira?.trim()),
+        } satisfies ItemDisponibilizacaoDia));
+      });
+
+      if (filter === "pendentes") return rows.filter((row) => !row.disponivel);
+      if (filter === "disponiveis") return rows.filter((row) => row.disponivel);
+      return rows;
+    },
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id),
+  });
 }
 
 // Hook para resumo de processamento

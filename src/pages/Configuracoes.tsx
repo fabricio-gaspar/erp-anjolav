@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users, Shield, FileText, Tag, Receipt, Database, Wrench,
   Settings as SettingsIcon, MessageSquare, Building2, FolderTree, Gift, LockKeyhole,
-  Gauge,
+  Gauge, Palette,
+  MapPin, CreditCard, Bell, UserRound, Image as ImageIcon,
 } from "lucide-react";
 import { ConfiguracoesEquipe } from "@/components/configuracoes/ConfiguracoesEquipe";
 import { ConfiguracoesPermissoes } from "@/components/configuracoes/ConfiguracoesPermissoes";
@@ -22,199 +23,158 @@ import { ConfiguracoesCentrosCusto } from "@/components/configuracoes/Configurac
 import { ConfiguracoesFidelidade } from "@/components/configuracoes/ConfiguracoesFidelidade";
 import { ConfiguracoesSeguranca } from "@/components/configuracoes/ConfiguracoesSeguranca";
 import { ConfiguracoesCapacidadePdv } from "@/components/configuracoes/ConfiguracoesCapacidadePdv";
+import { ConfiguracoesTemaPdv } from "@/components/configuracoes/ConfiguracoesTemaPdv";
+import { ConfiguracoesPdvComerciais } from "@/components/configuracoes/ConfiguracoesPdvComerciais";
+import { ConfiguracoesPosicoesPdv } from "@/components/configuracoes/ConfiguracoesPosicoesPdv";
+import { ConfiguracoesFaturamento } from "@/components/configuracoes/ConfiguracoesFaturamento";
+
+const sections = [
+  { value: "empresa", title: "Empresa e acesso", description: "Identidade, endereço, usuários, acessos e segurança", icon: Building2, tabs: [
+    { value: "geral", label: "Identidade da empresa", icon: ImageIcon },
+    { value: "endereco", label: "Endereço", icon: MapPin },
+    { value: "equipe", label: "Equipe e usuários", icon: Users },
+    { value: "permissoes", label: "Acessos e permissões", icon: Shield },
+    { value: "seguranca", label: "Segurança", icon: LockKeyhole },
+  ] },
+  { value: "operacao", title: "Operação do PDV", description: "Impressão, etiquetas, capacidade, preços e regras do atendimento", icon: SettingsIcon, tabs: [
+    { value: "rol", label: "ROL", icon: FileText },
+    { value: "capacidade", label: "Capacidade", icon: Gauge },
+    { value: "etiquetas", label: "Etiquetas", icon: Tag },
+    { value: "fidelidade", label: "Fidelidade", icon: Gift },
+    { value: "visual-pdv", label: "Visual do PDV", icon: Palette },
+    { value: "regras-pdv", label: "Regras comerciais", icon: Gauge },
+    { value: "posicoes-pdv", label: "Posições do PDV", icon: MapPin },
+  ] },
+  { value: "financeiro", title: "Financeiro e fiscal", description: "Recebimentos, mensagens de cobrança, classificação e emissão fiscal", icon: Receipt, tabs: [
+    { value: "pagamentos", label: "Dados de pagamento", icon: CreditCard },
+    { value: "faturamento", label: "Faturamento", icon: Receipt },
+    { value: "mensagens-cobranca", label: "Mensagens de cobrança", icon: MessageSquare },
+    { value: "categorias", label: "Categorias", icon: FolderTree },
+    { value: "centros-custo", label: "Centros de custo", icon: Building2 },
+    { value: "fiscal", label: "Fiscal", icon: Receipt },
+  ] },
+  { value: "integracoes", title: "Integrações e sistema", description: "Canais de comunicação, portal do cliente, dados e diagnóstico técnico", icon: MessageSquare, tabs: [
+    { value: "whatsapp", label: "WhatsApp · conexão", icon: MessageSquare },
+    { value: "whatsapp-cloud", label: "WhatsApp Cloud API", icon: MessageSquare },
+    { value: "notificacoes", label: "Notificações", icon: Bell },
+    { value: "portal-cliente", label: "Portal do cliente", icon: UserRound },
+    { value: "dados", label: "Backup e dados", icon: Database },
+    { value: "sistema", label: "Sistema", icon: Wrench },
+  ] },
+] as const;
+
+const validTabs = new Set<string>(sections.flatMap((section) => section.tabs.map((tab) => tab.value)));
+const sectionForTab = (tab: string) => sections.find((section) => section.tabs.some((item) => item.value === tab));
 
 const Configuracoes = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState(tabFromUrl || "equipe");
+  const initialTab = tabFromUrl && validTabs.has(tabFromUrl) ? tabFromUrl : "geral";
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeSection, setActiveSection] = useState(sectionForTab(initialTab)?.value ?? sections[0].value);
 
   useEffect(() => {
-    if (tabFromUrl) {
+    if (tabFromUrl && validTabs.has(tabFromUrl)) {
       setActiveTab(tabFromUrl);
+      setActiveSection(sectionForTab(tabFromUrl)?.value ?? sections[0].value);
     }
   }, [tabFromUrl]);
 
+  const selectModule = (value: string) => {
+    setActiveTab(value);
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set("tab", value);
+      return next;
+    }, { replace: true });
+  };
+
+  const selectSection = (value: string) => {
+    const section = sections.find((item) => item.value === value) ?? sections[0];
+    const nextTab = section.tabs.some((item) => item.value === activeTab) ? activeTab : section.tabs[0].value;
+    setActiveSection(section.value);
+    selectModule(nextTab);
+  };
+
+  const renderTabContent = (value: string) => {
+    switch (value) {
+      case "equipe": return <ConfiguracoesEquipe />;
+      case "permissoes": return <ConfiguracoesPermissoes />;
+      case "seguranca": return <ConfiguracoesSeguranca />;
+      case "endereco": return <ConfiguracoesGeral section="endereco" />;
+      case "pagamentos": return <ConfiguracoesGeral section="pagamentos" />;
+      case "faturamento": return <ConfiguracoesFaturamento />;
+      case "mensagens-cobranca": return <ConfiguracoesGeral section="mensagens-cobranca" />;
+      case "rol": return <ConfiguracoesROL />;
+      case "capacidade": return <ConfiguracoesCapacidadePdv />;
+      case "fidelidade": return <ConfiguracoesFidelidade />;
+      case "visual-pdv": return <ConfiguracoesTemaPdv />;
+      case "regras-pdv": return <ConfiguracoesPdvComerciais />;
+      case "posicoes-pdv": return <ConfiguracoesPosicoesPdv />;
+      case "categorias": return <ConfiguracoesCategorias />;
+      case "centros-custo": return <ConfiguracoesCentrosCusto />;
+      case "etiquetas": return <ConfiguracoesEtiquetas />;
+      case "fiscal": return <ConfiguracoesFiscal />;
+      case "dados": return <ConfiguracoesDados />;
+      case "sistema": return <ConfiguracoesSistema />;
+      case "whatsapp": return <ConfiguracoesWhatsApp />;
+      case "whatsapp-cloud": return <ConfiguracoesGeral section="whatsapp-cloud" />;
+      case "notificacoes": return <ConfiguracoesGeral section="notificacoes" />;
+      case "portal-cliente": return <ConfiguracoesGeral section="portal-cliente" />;
+      case "geral": return <ConfiguracoesGeral section="identidade" />;
+      default: return null;
+    }
+  };
+
   return (
-    <AppLayout title="Central de Configuração" subtitle="Controle completo da empresa ativa">
+    <AppLayout title="Configurações" subtitle="Empresa, operação, financeiro e integrações">
       <div className="page-shell">
         <PageHeader
           eyebrow="Sistema e parâmetros"
-          title="Central de Configuração"
-          description="Configure empresa, usuários, acessos, operação, fiscal, integrações e segurança em um único painel."
+          title="Configurações"
+          description="Escolha uma área abaixo para configurar a empresa, os acessos e a operação."
         />
 
         <div className="content-panel">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
-            <TabsList className="page-tabs-list">
-              <TabsTrigger
-                value="equipe"
-                aria-label="Equipe"
-                className="page-tab-trigger gap-2"
-              >
-                <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">Equipe</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="permissoes"
-                aria-label="Permissões"
-                className="page-tab-trigger gap-2"
-              >
-                <Shield className="w-4 h-4" />
-                <span className="hidden sm:inline">Permissões</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="seguranca"
-                aria-label="Segurança"
-                className="page-tab-trigger gap-2"
-              >
-                <LockKeyhole className="w-4 h-4" />
-                <span className="hidden sm:inline">Segurança</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="rol"
-                aria-label="ROL"
-                className="page-tab-trigger gap-2"
-              >
-                <FileText className="w-4 h-4" />
-                <span className="hidden sm:inline">ROL</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="capacidade"
-                aria-label="Capacidade do PDV"
-                className="page-tab-trigger gap-2"
-              >
-                <Gauge className="w-4 h-4" />
-                <span className="hidden sm:inline">Capacidade</span>
-              </TabsTrigger>
-              <TabsTrigger value="fidelidade" aria-label="Fidelidade" className="page-tab-trigger gap-2">
-                <Gift className="w-4 h-4" />
-                <span className="hidden sm:inline">Fidelidade</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="categorias"
-                aria-label="Categorias financeiras"
-                className="page-tab-trigger gap-2"
-              >
-                <FolderTree className="w-4 h-4" />
-                <span className="hidden sm:inline">Categorias</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="centros-custo"
-                aria-label="Centros de custo"
-                className="page-tab-trigger gap-2"
-              >
-                <Building2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Centros de custo</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="etiquetas"
-                aria-label="Etiquetas"
-                className="page-tab-trigger gap-2"
-              >
-                <Tag className="w-4 h-4" />
-                <span className="hidden sm:inline">Etiquetas</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="fiscal"
-                aria-label="Fiscal"
-                className="page-tab-trigger gap-2"
-              >
-                <Receipt className="w-4 h-4" />
-                <span className="hidden sm:inline">Fiscal</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="dados"
-                aria-label="Dados"
-                className="page-tab-trigger gap-2"
-              >
-                <Database className="w-4 h-4" />
-                <span className="hidden sm:inline">Dados</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="sistema"
-                aria-label="Sistema"
-                className="page-tab-trigger gap-2"
-              >
-                <Wrench className="w-4 h-4" />
-                <span className="hidden sm:inline">Sistema</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="geral"
-                aria-label="Geral"
-                className="page-tab-trigger gap-2"
-              >
-                <SettingsIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Geral</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="whatsapp"
-                aria-label="WhatsApp"
-                className="page-tab-trigger gap-2"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">WhatsApp</span>
-              </TabsTrigger>
+          <Tabs value={activeSection} onValueChange={selectSection} className="w-full">
+            <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-2 xl:grid-cols-4">
+              {sections.map(({ value, title, icon: Icon }) => (
+                <TabsTrigger key={value} value={value} className="min-h-14 justify-start gap-3 rounded-xl border bg-card px-4 py-3 text-left data-[state=active]:border-primary data-[state=active]:bg-primary/10">
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{title}</span>
+                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{sections.find((section) => section.value === value)?.tabs.length} módulos</span>
+                  </span>
+                </TabsTrigger>
+              ))}
             </TabsList>
-          </div>
 
-          <TabsContent value="equipe" className="mt-4">
-            <ConfiguracoesEquipe />
-          </TabsContent>
-
-          <TabsContent value="permissoes" className="mt-4">
-            <ConfiguracoesPermissoes />
-          </TabsContent>
-
-          <TabsContent value="seguranca" className="mt-4">
-            <ConfiguracoesSeguranca />
-          </TabsContent>
-
-          <TabsContent value="rol" className="mt-4">
-            <ConfiguracoesROL />
-          </TabsContent>
-
-          <TabsContent value="capacidade" className="mt-4">
-            <ConfiguracoesCapacidadePdv />
-          </TabsContent>
-
-          <TabsContent value="fidelidade" className="mt-4">
-            <ConfiguracoesFidelidade />
-          </TabsContent>
-
-          <TabsContent value="categorias" className="mt-4">
-            <ConfiguracoesCategorias />
-          </TabsContent>
-
-          <TabsContent value="centros-custo" className="mt-4">
-            <ConfiguracoesCentrosCusto />
-          </TabsContent>
-
-          <TabsContent value="etiquetas" className="mt-4">
-            <ConfiguracoesEtiquetas />
-          </TabsContent>
-
-          <TabsContent value="fiscal" className="mt-4">
-            <ConfiguracoesFiscal />
-          </TabsContent>
-
-          <TabsContent value="dados" className="mt-4">
-            <ConfiguracoesDados />
-          </TabsContent>
-
-          <TabsContent value="sistema" className="mt-4">
-            <ConfiguracoesSistema />
-          </TabsContent>
-
-          <TabsContent value="geral" className="mt-4">
-            <ConfiguracoesGeral />
-          </TabsContent>
-
-          <TabsContent value="whatsapp" className="mt-4">
-            <ConfiguracoesWhatsApp />
-          </TabsContent>
-        </Tabs>
-      </div>
+            {sections.map((section) => (
+              <TabsContent key={section.value} value={section.value} className="mt-5">
+                <div className="rounded-xl border bg-card p-4 sm:p-5">
+                  <div className="mb-4 flex flex-col gap-1 border-b pb-4">
+                    <h2 className="font-semibold text-foreground">{section.title}</h2>
+                    <p className="text-sm text-muted-foreground">{section.description}</p>
+                  </div>
+                  <Tabs value={section.tabs.some((item) => item.value === activeTab) ? activeTab : section.tabs[0].value} onValueChange={selectModule} className="w-full">
+                    <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-muted/40 p-2">
+                      {section.tabs.map(({ value, label, icon: Icon }) => (
+                        <TabsTrigger key={value} value={value} className="h-10 gap-2 rounded-md border bg-background px-3 data-[state=active]:border-primary data-[state=active]:bg-primary/10">
+                          <Icon className="h-4 w-4" />{label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {section.tabs.map((tab) => (
+                      <TabsContent key={tab.value} value={tab.value} className="mt-5">
+                        {renderTabContent(tab.value)}
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </div>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
       </div>
     </AppLayout>
   );

@@ -1,7 +1,7 @@
 import { validarCNPJ, validarCPF } from "./validacoesFiscais.ts";
 
 export type ClientPersonType = "cpf" | "cnpj";
-export type ClientClassification = "residencial" | "industrial";
+export type ClientClassification = "domestico" | "residencial" | "industrial";
 
 export interface ClientIdentityDraft {
   clientId?: string | null;

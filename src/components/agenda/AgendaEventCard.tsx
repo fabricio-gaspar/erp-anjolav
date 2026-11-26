@@ -5,7 +5,7 @@ import { AgendaEventMenu } from "./AgendaEventMenu";
 
 interface AgendaEventCardProps {
   agendamento: Agendamento;
-  onMarkCompleted: (id: string) => void;
+  onMarkCompleted: (agendamento: Agendamento) => void;
   onCancel: (agendamento: Agendamento) => void;
   onReschedule: (agendamento: Agendamento) => void;
   onAssignDriver: (agendamento: Agendamento) => void;
@@ -86,6 +86,11 @@ export function AgendaEventCard({
                 {agendamento.horario.slice(0, 5)}
               </Badge>
             )}
+            {agendamento.isConfiguredSchedule && (
+              <Badge variant="outline" className="text-xs border-primary/20 bg-primary/10 text-primary">
+                Do cadastro
+              </Badge>
+            )}
           </div>
           {agendamento.motorista && (
             <p className="text-xs text-muted-foreground mt-1 truncate">
@@ -93,14 +98,16 @@ export function AgendaEventCard({
             </p>
           )}
         </div>
-        <AgendaEventMenu
-          agendamento={agendamento}
-          onMarkCompleted={onMarkCompleted}
-          onCancel={onCancel}
-          onReschedule={onReschedule}
-          onAssignDriver={onAssignDriver}
-          onAddObservation={onAddObservation}
-        />
+        {!agendamento.id.startsWith("config-") && (
+          <AgendaEventMenu
+            agendamento={agendamento}
+            onMarkCompleted={onMarkCompleted}
+            onCancel={onCancel}
+            onReschedule={onReschedule}
+            onAssignDriver={onAssignDriver}
+            onAddObservation={onAddObservation}
+          />
+        )}
       </div>
     </div>
   );

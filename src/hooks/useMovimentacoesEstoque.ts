@@ -36,6 +36,7 @@ export function useMovimentacoesEstoque() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["estoque_produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-directory"] });
       queryClient.invalidateQueries({ queryKey: ["movimentacoes_estoque"] });
       queryClient.invalidateQueries({ queryKey: ["stock-movement-directory"] });
       toast.success("Movimentação registrada!");

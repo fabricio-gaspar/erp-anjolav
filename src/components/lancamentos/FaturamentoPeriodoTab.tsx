@@ -14,6 +14,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { escapeHtml, openPrintDocument, printDocumentWhenReady } from "@/lib/safePrint";
 import { csvSafeCell } from "@/lib/faturamentoUtils";
+import { clientClassificationLabel } from "@/lib/operations";
+import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { useConfiguracaoPagamentoCliente } from "@/hooks/useClientes";
+import { parseCustomerPaymentTerms, BILLING_FREQUENCY_LABELS } from "@/lib/customerPaymentTerms";
+import { suggestBillingPeriod } from "@/lib/billingCycles";
 
 interface BillingClient {
   cliente_id: string;
@@ -130,19 +135,25 @@ function printReport(draft: ReportDraft, start: string, end: string) {
 }
 
 export function FaturamentoPeriodoTab({
-  start, end, onClosed,
+  start, end, onClosed, onPeriodChange,
 }: {
   start: string;
   end: string;
   onClosed: () => void;
+  onPeriodChange: (start: string, end: string) => void;
 }) {
   const { activeArea } = useWorkspace();
   const { activeTenant, user } = useAuth();
   const queryClient = useQueryClient();
+  const { configuracao: billingConfig, error: billingConfigError } = useConfiguracoesGerais();
   const [clientPage, setClientPage] = useState(1);
   const [rollPage, setRollPage] = useState(1);
   const [search, setSearch] = useState("");
   const [client, setClient] = useState<BillingClient | null>(null);
+  const { configuracao: customerPayment, isLoading: loadingCustomerPayment } = useConfiguracaoPagamentoCliente(client?.cliente_id ?? null);
+  const customerTerms = parseCustomerPaymentTerms(customerPayment);
+  const suggestedPeriod = suggestBillingPeriod(customerTerms, format(new Date(), "yyyy-MM-dd"));
+  const maxRolls = billingConfig?.faturamento_limite_rols ?? 200;
   const [selected, setSelected] = useState<Record<string, BillingRol>>({});
   const [draft, setDraft] = useState<ReportDraft | null>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -154,6 +165,9 @@ export function FaturamentoPeriodoTab({
 
   useEffect(() => {
     setClient(null);
+  }, [activeArea, activeTenant?.id]);
+
+  useEffect(() => {
     setSelected({});
     setClientPage(1);
     setRollPage(1);
@@ -191,6 +205,33 @@ export function FaturamentoPeriodoTab({
   ), [clients.data?.items, search]);
   const selectedRows = useMemo(() => Object.values(selected), [selected]);
   const selectedTotal = selectedRows.reduce((sum, row) => sum + Number(row.valor_total), 0);
+  const selectableRows = useMemo(
+    () => (rolls.data?.items ?? []).filter((row) => Boolean(row.lancamento_id) && !row.motivo_bloqueio),
+    [rolls.data?.items],
+  );
+  const selectionOperation = selectedRows[0]?.operacao ?? selectableRows[0]?.operacao;
+  const selectablePageRows = selectableRows.filter((row) => !selectionOperation || row.operacao === selectionOperation);
+  const selectedOnPage = selectablePageRows.filter((row) => Boolean(row.lancamento_id && selected[row.lancamento_id]));
+  const pageSelectionState = selectedOnPage.length === 0
+    ? false
+    : selectedOnPage.length === selectablePageRows.length ? true : "indeterminate";
+
+  const togglePageSelection = () => {
+    const ids = selectablePageRows.map((row) => row.lancamento_id as string);
+    if (!ids.length) return;
+    if (pageSelectionState === true) {
+      setSelected((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !ids.includes(id))));
+      return;
+    }
+    const availableSlots = Math.max(0, maxRolls - selectedRows.length);
+    const rowsToAdd = selectablePageRows.filter((row) => !selected[row.lancamento_id as string]);
+    if (rowsToAdd.length > availableSlots) toast.error(`A fatura aceita no máximo ${maxRolls} ROLs. Selecione até esse limite.`);
+    setSelected((current) => {
+      const next = { ...current };
+      rowsToAdd.slice(0, availableSlots).forEach((row) => { next[row.lancamento_id as string] = row; });
+      return next;
+    });
+  };
 
   const closeBilling = useMutation({
     mutationFn: async (current: ReportDraft) => {
@@ -217,6 +258,7 @@ export function FaturamentoPeriodoTab({
         queryClient.invalidateQueries({ queryKey: ["billing-period-clients"] }),
         queryClient.invalidateQueries({ queryKey: ["billing-period-rolls"] }),
         queryClient.invalidateQueries({ queryKey: ["faturas"] }),
+        queryClient.invalidateQueries({ queryKey: ["central-pending-rol-summary"] }),
       ]);
       toast.success("Fatura criada com os ROLs conferidos.");
       onClosed();
@@ -225,7 +267,7 @@ export function FaturamentoPeriodoTab({
   });
 
   const prepareReport = async () => {
-    if (!client || selectedRows.length === 0 || selectedRows.length > 100 || !activeTenant) return;
+    if (!client || selectedRows.length === 0 || selectedRows.length > maxRolls || !activeTenant || billingConfigError || !billingConfig) return;
     setPreparing(true);
     try {
       const ids = selectedRows.map(row => row.lancamento_id as string);
@@ -267,8 +309,8 @@ export function FaturamentoPeriodoTab({
         delete next[row.lancamento_id!];
         return next;
       }
-      if (Object.keys(current).length >= 100) {
-        toast.error("Feche no máximo 100 ROLs por fatura.");
+      if (Object.keys(current).length >= maxRolls) {
+        toast.error(`Feche no máximo ${maxRolls} ROLs por fatura.`);
         return current;
       }
       if (Object.values(current).some(selectedRow => selectedRow.operacao !== row.operacao)) {
@@ -282,6 +324,7 @@ export function FaturamentoPeriodoTab({
   if (!validPeriod) return <p role="alert" className="text-sm text-destructive">Informe um intervalo válido de até 366 dias.</p>;
 
   return <div className="space-y-5">
+    {billingConfigError && <p role="alert" className="text-sm text-destructive">Não foi possível ler o limite de faturamento. Confira a conexão antes de fechar uma fatura.</p>}
     <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
       Período baseado na <strong className="text-foreground">data de abertura do ROL</strong>. A operação é a registrada no ROL; somente ROLs com condição “Faturado”, sem pagamento e sem fatura podem ser selecionados. Cada fatura reúne uma operação.
     </div>
@@ -294,11 +337,9 @@ export function FaturamentoPeriodoTab({
           : clients.data?.total === 0 ? <p className="rounded-lg border p-4 text-sm text-muted-foreground">Nenhum ROL aberto neste período.</p>
           : visibleClients.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma empresa corresponde ao filtro nesta página.</p>
           : visibleClients.map(row => <button key={row.cliente_id} type="button" onClick={() => selectClient(row)}
-              className={`w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted/50 ${client?.cliente_id === row.cliente_id ? "border-primary bg-primary/5" : "bg-card"}`}>
-              <span className="block font-semibold text-foreground">{row.razao_social}</span>
-              <span className="block text-xs text-muted-foreground">Cadastro: {row.classificacao} · {row.cpf_cnpj || "sem documento"} · {row.movimentos} ROL(s) no filtro</span>
-              <span className="mt-2 block text-sm"><strong>{row.faturaveis}</strong> faturável(is) · {money.format(Number(row.valor_faturavel))}</span>
-              {row.nao_faturaveis > 0 && <span className="block text-xs text-muted-foreground">{row.nao_faturaveis} fora deste fechamento</span>}
+              className={`w-full rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/50 ${client?.cliente_id === row.cliente_id ? "border-primary bg-primary/5" : "bg-card"}`}>
+              <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"><span className="font-semibold text-foreground">{row.razao_social}</span><span className="text-xs font-medium text-muted-foreground">{clientClassificationLabel(row.classificacao)} · {row.movimentos} ROL(s)</span></span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">{row.cpf_cnpj || "Sem documento"} · <strong className="text-foreground">{row.faturaveis} faturáveis</strong> · {money.format(Number(row.valor_faturavel))}{row.nao_faturaveis > 0 ? ` · ${row.nao_faturaveis} bloqueado(s)` : ""}</span>
             </button>)}
         <div className="flex items-center justify-between gap-2 text-sm">
           <Button variant="outline" size="sm" disabled={clientPage <= 1} onClick={() => setClientPage(page => page - 1)}><ChevronLeft className="mr-1 h-4 w-4" />Anterior</Button>
@@ -310,15 +351,27 @@ export function FaturamentoPeriodoTab({
       <section className="space-y-3" aria-label="ROLs do cliente selecionado">
         <div><h2 className="font-semibold">Conferência de ROLs</h2><p className="text-sm text-muted-foreground">{client ? client.razao_social : "Selecione uma empresa para ver seus ROLs."}</p></div>
         {client && <>
-          <p className="rounded-lg border bg-card p-3 text-sm">Relatório: <strong>{client.tipo_relatorio || "detalhado"}</strong> · Pagamento cadastrado: <strong>{client.forma_pagamento || "não definido"}</strong></p>
+          <div className="rounded-lg border bg-card p-3 text-sm space-y-2">
+            <p>Relatório: <strong>{client.tipo_relatorio || "detalhado"}</strong> · Pagamento cadastrado: <strong>{client.forma_pagamento || "não definido"}</strong></p>
+            {loadingCustomerPayment ? <p>Consultando ciclo do cliente...</p> : <p>Ciclo: <strong>{customerTerms.condition === "faturado" ? BILLING_FREQUENCY_LABELS[customerTerms.frequency] : "Pagamento no PDV"}</strong>{suggestedPeriod ? ` · último período completo: ${dateLabel(suggestedPeriod.start)} a ${dateLabel(suggestedPeriod.end)}` : ""}</p>}
+            {suggestedPeriod && (suggestedPeriod.start !== start || suggestedPeriod.end !== end) && <Button type="button" size="sm" variant="outline" onClick={() => onPeriodChange(suggestedPeriod.start, suggestedPeriod.end)}>Usar período sugerido</Button>}
+          </div>
           {rolls.isLoading ? <p role="status" className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Carregando ROLs...</p>
             : rolls.error ? <div role="alert" className="space-y-2 text-sm"><p>Falha ao consultar ROLs: {rolls.error.message}</p><Button variant="outline" onClick={() => void rolls.refetch()}>Tentar novamente</Button></div>
             : rolls.data?.items.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum ROL desta empresa no intervalo.</p>
-            : <div className="space-y-2">{rolls.data?.items.map(row => <label key={row.ordem_id}
-                className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${row.motivo_bloqueio ? "bg-muted/30" : "bg-card"}`}>
+            : <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-3 py-2">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                  <Checkbox checked={pageSelectionState} onCheckedChange={togglePageSelection} disabled={selectablePageRows.length === 0 || rolls.isFetching} aria-label="Selecionar ROLs faturáveis desta página" />
+                  Selecionar elegíveis desta página
+                </label>
+                <span className="text-xs text-muted-foreground">{selectablePageRows.length} elegível(is) · até {maxRolls} por fatura</span>
+              </div>
+              {rolls.data?.items.map(row => <label key={row.ordem_id}
+                className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2 ${row.motivo_bloqueio || !row.lancamento_id ? "bg-muted/30" : "bg-card"}`}>
                 <Checkbox checked={Boolean(row.lancamento_id && selected[row.lancamento_id])} onCheckedChange={() => toggleRol(row)} disabled={Boolean(row.motivo_bloqueio || !row.lancamento_id)} aria-label={`Selecionar ROL ${row.numero}`} />
                 <span className="min-w-0 flex-1"><span className="block font-medium">ROL {row.numero} · {dateLabel(row.data_retirada)} · {row.operacao === "industrial" ? "Industrial" : "Doméstico"}</span>
-                  <span className="block text-xs text-muted-foreground">{row.motivo_bloqueio || "Pronto para conferência"} · {row.status}</span></span>
+                  <span className="block text-xs text-muted-foreground">{row.motivo_bloqueio || (!row.lancamento_id ? "Lançamento do PDV ausente" : "Pronto para conferência")} · {row.status}</span></span>
                 <strong className="whitespace-nowrap text-sm">{money.format(Number(row.valor_total))}</strong>
               </label>)}</div>}
           <div className="flex items-center justify-between gap-2 text-sm">
@@ -328,7 +381,7 @@ export function FaturamentoPeriodoTab({
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4">
             <div><p className="font-semibold">{selectedRows.length} ROL(s) selecionado(s)</p><p className="text-sm text-muted-foreground">Total {money.format(selectedTotal)}</p></div>
-            <Button disabled={!selectedRows.length || preparing || !["detalhado", "mapa"].includes(client.tipo_relatorio || "detalhado")} onClick={() => void prepareReport()}>
+            <Button disabled={!selectedRows.length || preparing || !billingConfig || Boolean(billingConfigError) || !["detalhado", "mapa"].includes(client.tipo_relatorio || "detalhado")} onClick={() => void prepareReport()}>
               {preparing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileCheck2 className="mr-2 h-4 w-4" />}Conferir relatório
             </Button>
           </div>
@@ -346,7 +399,7 @@ export function FaturamentoPeriodoTab({
               <tr key={item.id} className="border-t"><td className="p-2">{roll.numero}</td><td className="p-2">{item.produto_nome}</td><td className="p-2 text-right">{item.quantidade} {item.unidade}</td><td className="p-2 text-right">{money.format(Number(item.subtotal))}</td></tr>
             ))}</tbody></table></div>
           <p className="text-right text-lg font-bold">Total a faturar: {money.format(draft.total)}</p>
-          <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => printReport(draft, start, end)}><FileDown className="mr-2 h-4 w-4" />Abrir relatório / salvar PDF</Button><Button variant="outline" onClick={() => downloadCsv(draft, start, end)}>Baixar planilha CSV</Button></div>
+          {billingConfig?.faturamento_relatorios_ativo && <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => printReport(draft, start, end)}><FileDown className="mr-2 h-4 w-4" />Abrir relatório / salvar PDF</Button><Button variant="outline" onClick={() => downloadCsv(draft, start, end)}>Baixar planilha CSV</Button></div>}
           <div className="space-y-2"><Label htmlFor="billing-note">Observação da fatura (opcional)</Label><Textarea id="billing-note" maxLength={2000} value={note} onChange={event => setNote(event.target.value)} /></div>
           <label className="flex items-start gap-3 text-sm"><Checkbox checked={reviewed} onCheckedChange={value => setReviewed(value === true)} /><span>Conferi os ROLs, itens, período e valor. Aprovo a criação da fatura com estes dados.</span></label>
           <div className="flex justify-end"><Button disabled={!reviewed || closeBilling.isPending} onClick={() => void closeBilling.mutateAsync(draft).catch(() => undefined)}>

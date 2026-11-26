@@ -59,7 +59,7 @@ export const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputPro
           onBlur={onBlur}
           placeholder={placeholder}
           className={cn(
-            "flex h-10 w-full rounded-md border border-input bg-background py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+            "flex h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-base text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-80 md:text-sm",
             showPrefix ? "pl-10 pr-3" : "px-3",
             className,
           )}

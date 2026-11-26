@@ -278,6 +278,19 @@ Deno.serve(async (req) => {
     }
     const baseUrl = getAsaasBaseUrl();
     const body = validateCharge(rawBody);
+    if (body.billing_type === "BOLETO") {
+      const { data: billingSettings, error: settingsError } = await supabase
+        .from("configuracoes_gerais")
+        .select("faturamento_boleto_ativo")
+        .eq("tenant_id", authorization.tenantId)
+        .maybeSingle();
+      if (settingsError) {
+        return jsonResponse(req, { error: "Não foi possível consultar as regras de faturamento" }, 503);
+      }
+      if (billingSettings?.faturamento_boleto_ativo !== true) {
+        return jsonResponse(req, { error: "Boleto desabilitado nas configurações de faturamento" }, 403);
+      }
+    }
 
     if (body.cliente_id) {
       const { data: client, error: clientError } = await supabase
@@ -460,3 +473,4 @@ Deno.serve(async (req) => {
     );
   }
 });
+

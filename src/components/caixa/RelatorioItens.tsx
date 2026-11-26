@@ -28,7 +28,9 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getAllowedOrderOrigins } from "@/lib/workspaceScope";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -45,6 +47,7 @@ import {
   Legend,
 } from "recharts";
 import { CashReportError } from "./CashReportError";
+import { downloadCsv } from "@/lib/csvExport";
 
 interface RelatorioItensProps {
   startDate: Date;
@@ -52,7 +55,9 @@ interface RelatorioItensProps {
 }
 
 interface ItemResumo {
+  produto_id: string;
   produto_nome: string;
+  unidade: string;
   quantidade: number;
   valor_total: number;
   preco_medio: number;
@@ -61,7 +66,9 @@ interface ItemResumo {
 
 interface ItemDetalhado {
   id: string;
+  produto_id: string;
   produto_nome: string;
+  unidade: string;
   quantidade: number;
   preco_unitario: number;
   subtotal: number;
@@ -75,22 +82,31 @@ interface ItemDetalhado {
 }
 
 const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"];
+const unidadeLabel = (value: string | null | undefined) => {
+  const normalized = (value || "").trim().toLowerCase();
+  if (["mt", "m", "metro", "metros", "m²", "m2"].includes(normalized)) return "m²";
+  if (normalized === "peca") return "peça";
+  return value || "unidade não informada";
+};
 
 export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
   const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
+  const allowedOrigins = getAllowedOrderOrigins(activeArea);
   const [viewMode, setViewMode] = useState<"resumo" | "detalhado">("resumo");
   const [filterProduto, setFilterProduto] = useState("todos");
 
   // Buscar itens do período
   const itemsQuery = useQuery({
-    queryKey: ["relatorio-itens", activeTenant?.id, session?.user.id, startDate.toISOString(), endDate.toISOString()],
+    queryKey: ["relatorio-itens", activeTenant?.id, session?.user.id, activeArea, startDate.toISOString(), endDate.toISOString()],
     queryFn: async () => {
       if (!activeTenant?.id || !session?.user.id) return [] as ItemDetalhado[];
-      const { data, error } = await supabase
+      let query = supabase
         .from("itens_ordem_servico")
         .select(`
           id,
-          produto_nome,
+          produto_id,
+          produto:produtos!itens_ordem_servico_produto_id_fkey(nome,unidade),
           quantidade,
           preco_unitario,
           subtotal,
@@ -98,22 +114,37 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
           marca_item,
           avarias,
           posicao_prateleira,
-          ordens_servico!inner(
+          ordens_servico!itens_ordem_servico_ordem_servico_id_fkey!inner(
             numero,
             data_retirada,
-            clientes(razao_social, nome_fantasia)
+            status,
+            clientes!ordens_servico_cliente_id_fkey(razao_social, nome_fantasia)
           )
         `)
         .filter("tenant_id", "eq", activeTenant.id)
         .gte("ordens_servico.data_retirada", format(startDate, "yyyy-MM-dd"))
         .lte("ordens_servico.data_retirada", format(endDate, "yyyy-MM-dd"))
-        .order("created_at", { ascending: false });
+        .not("ordens_servico.status", "in", '("cancelada","cancelado")');
 
-      if (error) throw error;
+      if (allowedOrigins) query = query.in("ordens_servico.origem", [...allowedOrigins]);
+      query = query.order("created_at", { ascending: false }).order("id", { ascending: true });
+      const allItems: any[] = [];
+      const pageSize = 500;
+      for (let offset = 0; offset <= 10000; offset += pageSize) {
+        const { data, error } = await query.range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        if (offset === 10000 && (data?.length ?? 0) > 0) {
+          throw new Error("O período contém mais de 10.000 itens; reduza o intervalo para consultar um resultado completo.");
+        }
+        allItems.push(...(data || []));
+        if (!data || data.length < pageSize) break;
+      }
 
-      return (data || []).map((item: any) => ({
+      return allItems.map((item: any) => ({
         id: item.id,
-        produto_nome: item.produto_nome,
+        produto_id: item.produto_id || `sem-produto:${item.id}`,
+        produto_nome: item.produto?.nome || "Produto não identificado",
+        unidade: unidadeLabel(item.produto?.unidade),
         quantidade: Number(item.quantidade) || 0,
         preco_unitario: Number(item.preco_unitario) || 0,
         subtotal: Number(item.subtotal) || 0,
@@ -137,15 +168,17 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
     const map = new Map<string, ItemResumo>();
 
     itens.forEach((item) => {
-      const existing = map.get(item.produto_nome);
+      const existing = map.get(item.produto_id);
       if (existing) {
         existing.quantidade += item.quantidade;
         existing.valor_total += item.subtotal;
         existing.qtd_os += 1;
         existing.preco_medio = existing.valor_total / existing.quantidade;
       } else {
-        map.set(item.produto_nome, {
+        map.set(item.produto_id, {
+          produto_id: item.produto_id,
           produto_nome: item.produto_nome,
+          unidade: item.unidade,
           quantidade: item.quantidade,
           valor_total: item.subtotal,
           preco_medio: item.preco_unitario,
@@ -154,19 +187,19 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
       }
     });
 
-    return Array.from(map.values()).sort((a, b) => b.quantidade - a.quantidade);
+    return Array.from(map.values()).sort((a, b) => b.valor_total - a.valor_total);
   }, [itens]);
 
   // Filtrar itens detalhados
   const itensFiltrados = useMemo(() => {
     if (filterProduto === "todos") return itens;
-    return itens.filter((item) => item.produto_nome === filterProduto);
+    return itens.filter((item) => item.produto_id === filterProduto);
   }, [itens, filterProduto]);
 
   // Estatísticas gerais
   const stats = useMemo(() => {
     return {
-      totalPecas: itens.reduce((acc, i) => acc + i.quantidade, 0),
+      totalPecas: itens.length,
       totalValor: itens.reduce((acc, i) => acc + i.subtotal, 0),
       totalProdutos: resumoPorProduto.length,
       comAvarias: itens.filter((i) => i.avarias).length,
@@ -188,11 +221,11 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
   const pieData = useMemo(() => {
     const top5 = resumoPorProduto.slice(0, 5);
     const outros = resumoPorProduto.slice(5);
-    const outrosTotal = outros.reduce((acc, i) => acc + i.quantidade, 0);
+    const outrosTotal = outros.reduce((acc, i) => acc + i.valor_total, 0);
 
     const data = top5.map((item, index) => ({
       name: item.produto_nome,
-      value: item.quantidade,
+      value: item.valor_total,
       fill: COLORS[index % COLORS.length],
     }));
 
@@ -215,31 +248,31 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
   };
 
   const handleExportCSV = () => {
-    const csvRows: string[] = [];
-    
+    const filename = `relatorio_itens_${format(startDate, "yyyy-MM-dd")}_${format(endDate, "yyyy-MM-dd")}.csv`;
     if (viewMode === "resumo") {
-      csvRows.push("Produto,Quantidade,Valor Total,Preço Médio,Qtd ROL");
-      resumoPorProduto.forEach((item) => {
-        csvRows.push(
-          `"${item.produto_nome}",${item.quantidade},${item.valor_total.toFixed(2)},${item.preco_medio.toFixed(2)},${item.qtd_os}`
-        );
-      });
+      downloadCsv(filename, resumoPorProduto, [
+        { header: "Produto", value: item => item.produto_nome },
+        { header: "Unidade", value: item => item.unidade },
+        { header: "Quantidade", value: item => item.quantidade },
+        { header: "Valor total", value: item => item.valor_total },
+        { header: "Preço médio", value: item => item.preco_medio },
+        { header: "Linhas", value: item => item.qtd_os },
+      ]);
     } else {
-      csvRows.push("Data,ROL,Cliente,Produto,Qtd,Valor,Cor,Marca,Avarias,Prateleira");
-      itensFiltrados.forEach((item) => {
-        csvRows.push(
-          `${item.data},${item.os_numero},"${item.cliente_nome}","${item.produto_nome}",${item.quantidade},${item.subtotal.toFixed(2)},"${item.cor_item || ""}","${item.marca_item || ""}","${item.avarias || ""}","${item.posicao_prateleira || ""}"`
-        );
-      });
+      downloadCsv(filename, itensFiltrados, [
+        { header: "Data", value: item => item.data },
+        { header: "ROL", value: item => item.os_numero },
+        { header: "Cliente", value: item => item.cliente_nome },
+        { header: "Produto", value: item => item.produto_nome },
+        { header: "Unidade", value: item => item.unidade },
+        { header: "Quantidade", value: item => item.quantidade },
+        { header: "Valor", value: item => item.subtotal },
+        { header: "Cor", value: item => item.cor_item },
+        { header: "Marca", value: item => item.marca_item },
+        { header: "Avarias", value: item => item.avarias },
+        { header: "Prateleira", value: item => item.posicao_prateleira },
+      ]);
     }
-
-    const csvContent = csvRows.join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `relatorio_itens_${format(startDate, "yyyy-MM-dd")}_${format(endDate, "yyyy-MM-dd")}.csv`;
-    link.click();
   };
 
   const handlePrint = () => {
@@ -254,6 +287,9 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
     );
   }
   if (itemsQuery.isError) {
+    if (itemsQuery.error instanceof Error && itemsQuery.error.message.startsWith("O período contém mais de 10.000")) {
+      return <Card role="alert" className="p-4 text-destructive">O período contém mais de 10.000 itens. Reduza o intervalo para consultar um resultado completo.</Card>;
+    }
     return <CashReportError onRetry={() => void itemsQuery.refetch()} />;
   }
 
@@ -282,7 +318,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
               <SelectContent>
                 <SelectItem value="todos">Todos os produtos</SelectItem>
                 {resumoPorProduto.map((item) => (
-                  <SelectItem key={item.produto_nome} value={item.produto_nome}>
+                  <SelectItem key={item.produto_id} value={item.produto_id}>
                     {item.produto_nome}
                   </SelectItem>
                 ))}
@@ -309,7 +345,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
           <div className="flex items-center gap-2">
             <Package className="w-5 h-5 text-primary" />
             <div>
-              <p className="text-xs text-muted-foreground">Total Peças</p>
+              <p className="text-xs text-muted-foreground">Linhas de itens</p>
               <p className="text-xl font-bold">{stats.totalPecas.toLocaleString()}</p>
             </div>
           </div>
@@ -345,7 +381,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
           <div className="flex items-center gap-2">
             <Package className="w-5 h-5 text-purple-500" />
             <div>
-              <p className="text-xs text-muted-foreground">Mais Vendido</p>
+              <p className="text-xs text-muted-foreground">Maior valor</p>
               <p className="text-sm font-bold truncate max-w-[120px]">{stats.topProduto}</p>
             </div>
           </div>
@@ -357,14 +393,14 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Bar Chart */}
           <Card className="p-4">
-            <h3 className="font-semibold mb-4">Top 10 Produtos por Quantidade</h3>
+            <h3 className="font-semibold mb-4">Top 10 Produtos por Valor</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={chartData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" />
                 <YAxis dataKey="nome" type="category" width={100} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value: number) => [value, "Quantidade"]} />
-                <Bar dataKey="quantidade" fill="#3B82F6" radius={[0, 4, 4, 0]} />
+                <Tooltip formatter={(value: number) => [formatCurrency(value), "Valor"]} />
+                <Bar dataKey="valor" fill="#3B82F6" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -389,7 +425,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [value, "Peças"]} />
+                <Tooltip formatter={(value: number) => [formatCurrency(value), "Valor"]} />
               </PieChart>
             </ResponsiveContainer>
           </Card>
@@ -406,7 +442,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
                 <TableHead className="text-right">Quantidade</TableHead>
                 <TableHead className="text-right">Valor Total</TableHead>
                 <TableHead className="text-right">Preço Médio</TableHead>
-                <TableHead className="text-right">Qtd ROL</TableHead>
+                <TableHead className="text-right">Linhas</TableHead>
               </TableRow>
             ) : (
               <TableRow>
@@ -423,7 +459,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
           <TableBody>
             {viewMode === "resumo" ? (
               resumoPorProduto.map((item, index) => (
-                <TableRow key={item.produto_nome}>
+                <TableRow key={item.produto_id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
@@ -432,7 +468,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
                       {item.produto_nome}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right font-bold">{item.quantidade}</TableCell>
+                  <TableCell className="text-right font-bold">{item.quantidade} {item.unidade}</TableCell>
                   <TableCell className="text-right text-success">{formatCurrency(item.valor_total)}</TableCell>
                   <TableCell className="text-right">{formatCurrency(item.preco_medio)}</TableCell>
                   <TableCell className="text-right">{item.qtd_os}</TableCell>
@@ -445,7 +481,7 @@ export function RelatorioItens({ startDate, endDate }: RelatorioItensProps) {
                   <TableCell className="font-medium">{item.os_numero}</TableCell>
                   <TableCell className="max-w-[150px] truncate">{item.cliente_nome}</TableCell>
                   <TableCell>{item.produto_nome}</TableCell>
-                  <TableCell className="text-right">{item.quantidade}</TableCell>
+                  <TableCell className="text-right">{item.quantidade} {item.unidade}</TableCell>
                   <TableCell className="text-right">{formatCurrency(item.subtotal)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">

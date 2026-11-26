@@ -63,6 +63,7 @@ export function PixPagamentoModal({
         cashRegisterId,
         moment,
         idempotencyKey,
+        amount,
       });
       setPix(created);
     } catch (error) {
@@ -124,7 +125,7 @@ export function PixPagamentoModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => next ? onOpenChange(true) : closeAsPending()}>
-      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
+      <DialogContent className="pdv-compact-dialog pdv-pix-dialog border-strong bg-card">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5 text-primary" />
@@ -132,30 +133,30 @@ export function PixPagamentoModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="rounded-lg border bg-muted/40 p-4 text-center">
+        <div className="pdv-pix-body">
+          <div className="pdv-pix-amount rounded-lg border bg-muted/40 p-2.5 text-center">
             <p className="text-sm text-muted-foreground">Valor exato da cobrança</p>
-            <p className="text-3xl font-black text-primary">{formatCurrency(pix?.amount ?? amount)}</p>
+            <p className="text-2xl font-black text-primary">{formatCurrency(pix?.amount ?? amount)}</p>
           </div>
 
           {(createPix.isPending || (!pix && !message)) && (
-            <div className="flex min-h-64 flex-col items-center justify-center gap-3 text-muted-foreground">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <div className="flex min-h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p>Gerando QR Code dinâmico…</p>
             </div>
           )}
 
           {pix?.copyPaste && !isPixTerminal(pix.paymentStatus) && (
             <>
-              <div className="mx-auto flex w-fit items-center justify-center rounded-xl bg-white p-4 shadow-sm">
+              <div className="pdv-pix-qr mx-auto flex w-fit items-center justify-center rounded-lg bg-white p-2 shadow-sm">
                 {pix.qrCode ? (
                   <img
                     src={`data:image/png;base64,${pix.qrCode}`}
                     alt={`QR Code PIX do ROL ${orderNumber}`}
-                    className="h-56 w-56"
+                    className="h-40 w-40"
                   />
                 ) : (
-                  <QRCodeSVG value={pix.copyPaste} size={224} level="M" />
+                  <QRCodeSVG value={pix.copyPaste} size={160} level="M" />
                 )}
               </div>
               <Button type="button" variant="outline" className="w-full" onClick={copyCode}>
@@ -206,14 +207,14 @@ export function PixPagamentoModal({
           )}
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
+        <DialogFooter className="pdv-pix-footer flex-col gap-2 sm:flex-row">
           {pix?.paymentId && !isPixTerminal(pix.paymentStatus) && (
             <Button type="button" variant="destructive" onClick={cancel} disabled={cancelPix.isPending}>
               {cancelPix.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Cancelar cobrança PIX
             </Button>
           )}
-          <Button type="button" variant="outline" onClick={closeAsPending}>
+          <Button type="button" className="h-9" variant="outline" onClick={closeAsPending}>
             {pix && isPixTerminal(pix.paymentStatus) ? "Fechar" : "Concluir depois (manter pendente)"}
           </Button>
         </DialogFooter>

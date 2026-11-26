@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
-import { serverJsonResponse } from "../_shared/http.ts";
+import { serverJsonResponse } from "../_shared/live-variant-b/http.ts";
 
 const SESSION = /^anjolav-([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 
@@ -57,3 +57,4 @@ Deno.serve(async (req) => {
   if (updateError) return serverJsonResponse({ error: "Falha ao atualizar envio" }, 500);
   return serverJsonResponse({ success: true });
 });
+

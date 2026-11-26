@@ -1,0 +1,84 @@
+/* Regras compartilhadas para o conteúdo acompanhar a janela sem cortar módulos. */
+:where(.admin-app-shell, .pdv-app-shell, .admin-app-main, .admin-app-content, .pdv-layout-main) {
+  min-width: 0;
+}
+
+.admin-app-shell,
+.pdv-app-shell {
+  min-height: 100dvh;
+}
+
+.admin-app-content,
+.pdv-layout-main--workspace .page-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-app-main :where(.content-panel, .surface-panel, .page-toolbar, .page-shell),
+.pdv-layout-main--workspace :where(.content-panel, .surface-panel, .page-toolbar, .page-shell) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.page-toolbar {
+  flex-wrap: wrap;
+}
+
+.page-toolbar > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.page-tabs-list {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.admin-app-main :where(.grid, .flex) > *,
+.pdv-layout-main--workspace .page-shell :where(.grid, .flex) > * {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .admin-app-main {
+    padding: 12px;
+  }
+
+  .admin-app-main .page-title {
+    font-size: clamp(1.5rem, 7vw, 2rem);
+  }
+
+  .admin-app-main :where(input, textarea, select, [role="combobox"]),
+  .pdv-layout-main--workspace :where(input, textarea, select, [role="combobox"]) {
+    max-width: 100%;
+  }
+
+  .admin-app-main form :where(.grid.grid-cols-2, .grid.grid-cols-3, .grid.grid-cols-4, .grid.grid-cols-5, .grid.grid-cols-6),
+  .pdv-layout-main--workspace form :where(.grid.grid-cols-2, .grid.grid-cols-3, .grid.grid-cols-4, .grid.grid-cols-5, .grid.grid-cols-6) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-app-main :where(.page-toolbar, .surface-panel, .content-panel),
+  .pdv-layout-main--workspace :where(.page-toolbar, .surface-panel, .content-panel) {
+    scroll-margin-top: 72px;
+  }
+}
+
+/* Em janelas baixas, o fluxo do PDV cresce e rola; não comprime os cartões. */
+@media (max-height: 760px) and (min-width: 761px) {
+  .pdv-cashier-page,
+  .pdv-roll-workbench {
+    height: auto !important;
+    min-height: 0 !important;
+    grid-template-rows: auto auto;
+  }
+
+  .pdv-roll-workbench .pdv-cashier-grid,
+  .pdv-roll-workbench .pdv-primary-column,
+  .pdv-roll-workbench .pdv-right-column {
+    min-height: 0;
+    align-content: start;
+  }
+}

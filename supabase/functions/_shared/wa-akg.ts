@@ -46,20 +46,49 @@ export async function waAkgRequest(
     ...init,
     redirect: "error",
     signal: AbortSignal.timeout(20_000),
-    headers: {
-      "X-API-Key": apiKey,
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
+    headers: (() => {
+      const headers = new Headers(init.headers);
+      headers.set("X-API-Key", apiKey);
+      if (!headers.has("Content-Type") && !(init.body instanceof FormData)) {
+        headers.set("Content-Type", "application/json");
+      }
+      return headers;
+    })(),
   });
   const body = await response.json().catch(() => ({})) as Record<string, unknown>;
   return { response, body };
 }
 
 export type WaAkgSendOutcome =
-  | { state: "accepted"; messageId: string }
-  | { state: "rejected"; code: string }
-  | { state: "uncertain"; code: string };
+  | { state: "accepted"; messageId?: string }
+  | { state: "rejected"; code: string; hint?: string }
+  | { state: "uncertain"; code: string; hint?: string };
+
+export type WaAkgMediaType = "image" | "document";
+
+function safeProviderHint(body: Record<string, unknown>): string | undefined {
+  const nestedError = body.error && typeof body.error === "object"
+    ? body.error as Record<string, unknown>
+    : undefined;
+  const raw = typeof body.message === "string"
+    ? body.message
+    : typeof body.error === "string"
+      ? body.error
+      : typeof nestedError?.message === "string"
+        ? nestedError.message
+        : undefined;
+  if (!raw) return undefined;
+
+  const safe = raw
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/\b[0-9a-f]{8}-[0-9a-f-]{27,}\b/gi, "[id]")
+    .replace(/\+?\d[\d\s().-]{7,}\d/g, "[telefone]")
+    .replace(/(api[-_ ]?key|authorization)\s*[:=]\s*\S+/gi, "$1=[redigido]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+  return safe || undefined;
+}
 
 // WA-AKG does not document an idempotency header for /send. Once a request
 // might have reached it, only reconciliation can permit another attempt.
@@ -94,3 +123,57 @@ export async function sendWaAkgText(
     return { state: "uncertain", code: "NETWORK_OR_TIMEOUT" };
   }
 }
+
+export async function sendWaAkgMedia(
+  baseUrl: URL,
+  apiKey: string,
+  sessionId: string,
+  phone: string,
+  file: Uint8Array,
+  filename: string,
+  mimeType: string,
+  caption: string,
+  mediaType: WaAkgMediaType = "document",
+): Promise<WaAkgSendOutcome> {
+  const jid = `${phone}@s.whatsapp.net`;
+  try {
+    const form = new FormData();
+    form.append("file", new File([Uint8Array.from(file)], filename, { type: mimeType }), filename);
+    form.append("type", mediaType);
+    if (caption) form.append("caption", caption);
+    const { response, body } = await waAkgRequest(
+      baseUrl,
+      apiKey,
+      `messages/${encodeURIComponent(sessionId)}/${encodeURIComponent(jid)}/media`,
+      { method: "POST", body: form },
+    );
+    if (response.ok && body.status === true) {
+      const data = body.data as Record<string, unknown> | undefined;
+      const key = data?.key as Record<string, unknown> | undefined;
+      const providerId = key?.id || data?.messageId || data?.id;
+      return {
+        state: "accepted",
+        ...(typeof providerId === "string" && providerId.length > 0 && providerId.length <= 256
+          ? { messageId: providerId }
+          : {}),
+      };
+    }
+    if (response.ok) {
+      return { state: "uncertain", code: "PROVIDER_ACK_INVALID", hint: safeProviderHint(body) };
+    }
+    if ([400, 401, 403, 404, 422, 429].includes(response.status)) {
+      return { state: "rejected", code: `HTTP_${response.status}`, hint: safeProviderHint(body) };
+    }
+    return { state: "uncertain", code: `HTTP_${response.status}`, hint: safeProviderHint(body) };
+  } catch {
+    return { state: "uncertain", code: "NETWORK_OR_TIMEOUT" };
+  }
+}
+
+export function isWaAkgMediaUploadFailure(outcome: WaAkgSendOutcome): boolean {
+  return outcome.state !== "accepted"
+    && outcome.code === "HTTP_500"
+    && /(?:media upload failed on all hosts|failed to send media)/i.test(outcome.hint || "");
+}
+
+

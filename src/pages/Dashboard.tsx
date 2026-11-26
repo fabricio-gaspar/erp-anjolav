@@ -29,7 +29,7 @@ import {
   startOfMonth,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { CaixaResumoCard } from "@/components/dashboard/CaixaResumoCard";
 import { DailySchedule } from "@/components/dashboard/DailySchedule";
@@ -51,12 +51,14 @@ import { useWorkspace, type WorkspaceArea } from "@/contexts/WorkspaceContext";
 import { useCaixaAberto } from "@/hooks/useCaixa";
 import { useContasPagar } from "@/hooks/useContasPagar";
 import { useFaturas } from "@/hooks/useFaturas";
+import { useCentralPendingRolSummary } from "@/hooks/usePendingRolQueue";
 import {
   useAgendaDia,
   useMetricasProducao,
   useResumoProcessamento,
 } from "@/hooks/useHistoricoProducao";
 import { useTemPermissaoModulo } from "@/hooks/usePermissoesUsuario";
+import { useStockDirectory } from "@/hooks/useStockDirectory";
 import { resolverEstadoDashboard } from "@/lib/dashboardState";
 import { invalidateDashboardQueries } from "@/lib/queryDefaults";
 import { cn } from "@/lib/utils";
@@ -74,8 +76,8 @@ const etapaLabels: Record<string, string> = {
 
 const areaLabels: Record<WorkspaceArea, { title: string; subtitle: string }> = {
   central: {
-    title: "Painel Administrativo",
-    subtitle: "Visão consolidada da empresa, das operações e dos acessos autorizados.",
+    title: "Visão geral",
+    subtitle: "Situação da empresa, operações e pendências de hoje.",
   },
   industrial: {
     title: "Meu dia",
@@ -110,6 +112,8 @@ interface DashboardAttention {
   value: string | number;
   icon: LucideIcon;
   tone: "critical" | "warning" | "info";
+  href: string;
+  actionLabel: string;
 }
 
 interface ProcessingOrder {
@@ -190,6 +194,8 @@ const AdministrativeDashboard = () => {
   const contasEnabled = activeArea === "central" && temContasPagar;
   const caixaEnabled = activeArea !== "industrial" && temCaixa;
   const resumoEnabled = !isAdministrativeDashboard && (temOrdens || temProducao);
+  const stockAlertsEnabled = isAdministrativeDashboard && temProdutos;
+  const billingQueueEnabled = isAdministrativeDashboard && temFinanceiro;
   const hoje = startOfDay(new Date());
   const inicioMes = format(startOfMonth(hoje), "yyyy-MM-dd");
   const fimMes = format(endOfMonth(hoje), "yyyy-MM-dd");
@@ -225,6 +231,19 @@ const AdministrativeDashboard = () => {
     isLoading: isLoadingFaturas,
     error: faturasError,
   } = useFaturas(inicioMes, fimMes, temFinanceiro, true);
+  const {
+    data: stockDirectory,
+    isLoading: isLoadingStock,
+    isError: stockError,
+  } = useStockDirectory({
+    page: 1,
+    pageSize: 1,
+    search: "",
+    category: "all",
+    status: "active",
+    enabled: stockAlertsEnabled,
+  });
+  const pendingRolSummary = useCentralPendingRolSummary(inicioMes, fimMes, billingQueueEnabled);
 
   const { loadingSources, failedSources } = resolverEstadoDashboard([
     {
@@ -262,6 +281,18 @@ const AdministrativeDashboard = () => {
       enabled: temFinanceiro,
       isLoading: isLoadingFaturas,
       hasError: Boolean(faturasError),
+    },
+    {
+      label: "estoque",
+      enabled: stockAlertsEnabled,
+      isLoading: isLoadingStock,
+      hasError: stockError,
+    },
+    {
+      label: "ROLs a faturar",
+      enabled: billingQueueEnabled,
+      isLoading: pendingRolSummary.isLoading,
+      hasError: pendingRolSummary.isError,
     },
   ]);
 
@@ -334,10 +365,10 @@ const AdministrativeDashboard = () => {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const openOrdersSummary = ordersPath
-    ? () => navigate(`${ordersPath}?status=abertas`)
+    ? () => navigate(`${ordersPath}?situacao=nao_entregue`)
     : () => scrollToSection("dashboard-production");
   const openOverdueOrders = ordersPath
-    ? () => navigate(`${ordersPath}?prazo=atrasado`)
+    ? () => navigate(`${ordersPath}?situacao=nao_entregue`)
     : () => scrollToSection("dashboard-production");
   const openAgendaSummary = activeArea === "central"
     ? () => scrollToSection("dashboard-agenda")
@@ -661,6 +692,8 @@ const AdministrativeDashboard = () => {
               description: "ROLs com prazo anterior a hoje precisam de revisão operacional.",
               icon: AlertCircle,
               tone: "critical" as const,
+              href: "/admin/operacoes/ordens",
+              actionLabel: "Revisar ROLs",
             }]
           : []),
         ...(temFinanceiro
@@ -674,6 +707,8 @@ const AdministrativeDashboard = () => {
               description: "Faturas pendentes após o vencimento exigem acompanhamento financeiro.",
               icon: Banknote,
               tone: "critical" as const,
+              href: "/admin/financeiro?tab=receber",
+              actionLabel: "Ver recebimentos",
             }]
           : []),
         ...(contasEnabled
@@ -687,6 +722,8 @@ const AdministrativeDashboard = () => {
               description: "Títulos pendentes após o vencimento exigem acompanhamento financeiro.",
               icon: Banknote,
               tone: "warning" as const,
+              href: "/admin/financeiro?tab=pagar",
+              actionLabel: "Ver pagamentos",
             }]
           : []),
         ...(temAgenda
@@ -700,6 +737,8 @@ const AdministrativeDashboard = () => {
               description: "Coletas, entregas e pedidos prontos que ainda aguardam execução.",
               icon: CalendarDays,
               tone: "info" as const,
+              href: "/admin/operacoes/agenda",
+              actionLabel: "Abrir agenda",
             }]
           : []),
         ...(caixaEnabled
@@ -713,6 +752,53 @@ const AdministrativeDashboard = () => {
               description: "Não há sessão de caixa aberta para a operação atual.",
               icon: ShoppingCart,
               tone: "warning" as const,
+              href: "/admin/financeiro/caixas",
+              actionLabel: "Ver caixa",
+            }]
+          : []),
+        ...(stockAlertsEnabled
+        && !stockError
+        && !isLoadingStock
+        && (stockDirectory?.summary.zeroCount ?? 0) > 0
+          ? [{
+              id: "stock-zero",
+              title: "Insumos sem saldo",
+              value: stockDirectory?.summary.zeroCount ?? 0,
+              description: "Insumos ativos sem quantidade disponível podem interromper a operação.",
+              icon: Package,
+              tone: "critical" as const,
+              href: "/admin/estoque?situacao=zero",
+              actionLabel: "Ver zerados",
+            }]
+          : []),
+        ...(stockAlertsEnabled
+        && !stockError
+        && !isLoadingStock
+        && (stockDirectory?.summary.lowCount ?? 0) > 0
+          ? [{
+              id: "stock-low",
+              title: "Estoque abaixo do mínimo",
+              value: stockDirectory?.summary.lowCount ?? 0,
+              description: "Há insumos ativos que precisam de reposição programada.",
+              icon: Package,
+              tone: "warning" as const,
+              href: "/admin/estoque?situacao=low",
+              actionLabel: "Ver estoque baixo",
+            }]
+          : []),
+        ...(billingQueueEnabled
+        && !pendingRolSummary.isError
+        && !pendingRolSummary.isLoading
+        && (pendingRolSummary.data?.quantidade ?? 0) > 0
+          ? [{
+              id: "pending-rol-billing",
+              title: "ROLs a faturar neste mês",
+              value: pendingRolSummary.data?.quantidade ?? 0,
+              description: `${pendingRolSummary.data?.clientes ?? 0} clientes · ${formatCurrency(pendingRolSummary.data?.valor_total ?? 0)} a faturar.`,
+              icon: FileText,
+              tone: "warning" as const,
+              href: "/admin/financeiro/lancamentos?tab=periodo",
+              actionLabel: "Conferir faturamento",
             }]
           : []),
       ]
@@ -1003,29 +1089,36 @@ const AdministrativeDashboard = () => {
                       <article
                         key={item.id}
                         className={cn(
-                          "flex items-start gap-3 rounded-xl border p-3",
+                          "rounded-xl border transition-colors hover:border-primary/35 hover:bg-muted/35",
                           item.tone === "critical" && "border-destructive/25 bg-destructive/[0.04]",
                           item.tone === "warning" && "border-warning/30 bg-warning/[0.05]",
                           item.tone === "info" && "border-primary/20 bg-primary/[0.04]",
                         )}
                       >
-                        <div
-                          className={cn(
-                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                            item.tone === "critical" && "bg-destructive/10 text-destructive",
-                            item.tone === "warning" && "bg-warning/10 text-warning",
-                            item.tone === "info" && "bg-primary/10 text-primary",
-                          )}
+                        <Link
+                          to={item.href}
+                          className="flex h-full items-start gap-3 rounded-xl p-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          aria-label={`${item.title}: ${item.value}. ${item.actionLabel}`}
                         >
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
-                            <span className="shrink-0 text-lg font-bold leading-none text-foreground">{item.value}</span>
+                          <div
+                            className={cn(
+                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                              item.tone === "critical" && "bg-destructive/10 text-destructive",
+                              item.tone === "warning" && "bg-warning/10 text-warning",
+                              item.tone === "info" && "bg-primary/10 text-primary",
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
                           </div>
-                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
-                        </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
+                              <span className="shrink-0 text-lg font-bold leading-none text-foreground">{item.value}</span>
+                            </div>
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+                            <span className="mt-2 inline-block text-xs font-semibold text-primary">{item.actionLabel} →</span>
+                          </div>
+                        </Link>
                       </article>
                     );
                   })}
@@ -1036,7 +1129,7 @@ const AdministrativeDashboard = () => {
                     ? "Os alertas serão completados quando as fontes indisponíveis forem atualizadas."
                     : loadingSources.length > 0
                       ? "Atualizando os dados para verificar pendências."
-                      : "Nenhuma pendência crítica foi identificada nas fontes disponíveis."}
+                      : "Nenhuma pendência operacional ou financeira exige atenção agora."}
                 </div>
               )}
             </section>

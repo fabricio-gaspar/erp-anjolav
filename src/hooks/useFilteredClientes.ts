@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { Cliente } from "./useClientes";
+import { clientClassificationValuesForArea } from "@/lib/operations";
 
 export const useFilteredClientes = () => {
   const { activeArea } = useWorkspace();
@@ -23,9 +24,9 @@ export const useFilteredClientes = () => {
 
       // Filter by classification based on current workspace
       if (activeArea === "industrial") {
-        query = query.eq("classificacao", "industrial");
+        query = query.in("classificacao", clientClassificationValuesForArea("industrial"));
       } else if (activeArea === "residencial") {
-        query = query.eq("classificacao", "residencial");
+        query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
       }
 
       const { data, error } = await query;

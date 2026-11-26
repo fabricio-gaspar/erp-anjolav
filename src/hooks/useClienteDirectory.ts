@@ -8,6 +8,7 @@ import {
   type ClientDirectoryStatus,
 } from "@/lib/clientDirectory";
 import type { Cliente } from "./useClientes";
+import { clientClassificationValuesForArea } from "@/lib/operations";
 
 interface UseClienteDirectoryOptions {
   page: number;
@@ -55,7 +56,7 @@ export function useClienteDirectory({ page, pageSize, search, status }: UseClien
         .range(range.from, range.to);
 
       if (activeArea === "industrial" || activeArea === "residencial") {
-        query = query.eq("classificacao", activeArea);
+        query = query.in("classificacao", clientClassificationValuesForArea(activeArea));
       }
       if (status !== "all") query = query.eq("ativo", status === "active");
       if (searchFilter) query = query.or(searchFilter);

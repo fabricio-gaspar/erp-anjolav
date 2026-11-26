@@ -32,17 +32,17 @@ export default function OrdensServico() {
 
   return (
     <AppLayout 
-      title="Pedidos"
-      subtitle={`Atendimento, produção e entrega - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}
+      title="ROLs"
+      subtitle={activeArea === "central" ? "Atendimento, produção e entrega dos ROLs" : `Atendimento, produção e entrega · ${activeArea === "residencial" ? "Doméstico" : "Industrial"}`}
     >
       <div className="page-shell">
         <PageHeader
           eyebrow="Pedidos e serviços"
-          title="Pedidos"
+          title="ROLs"
           description="Acompanhe operação, pagamento, qualidade, logística e histórico em uma única ficha"
           actions={(
             <Button onClick={handleNovaOS} className="w-full gap-2 font-bold sm:w-auto">
-              <Plus className="h-4 w-4" />Novo pedido
+              <Plus className="h-4 w-4" />Novo ROL
             </Button>
           )}
         />

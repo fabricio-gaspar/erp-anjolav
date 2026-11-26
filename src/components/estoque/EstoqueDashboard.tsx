@@ -1,26 +1,29 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, Ban, DollarSign, Boxes } from "lucide-react";
+import { AlertTriangle, Ban, DollarSign, Boxes, PackageOpen } from "lucide-react";
 
 interface Props {
   activeCount?: number;
   lowCount?: number;
   zeroCount?: number;
   totalValue?: number;
+  totalUnits?: number;
   isLoading?: boolean;
 }
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const quantity = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 3 });
 
-export function EstoqueDashboard({ activeCount, lowCount, zeroCount, totalValue, isLoading = false }: Props) {
+export function EstoqueDashboard({ activeCount, lowCount, zeroCount, totalValue, totalUnits, isLoading = false }: Props) {
   const cards = [
     { label: "Insumos ativos", value: activeCount, icon: Boxes, color: "text-primary", compactValue: false },
+    { label: "Unidades disponíveis", value: totalUnits == null ? undefined : quantity.format(totalUnits), icon: PackageOpen, color: "text-cyan-700 dark:text-cyan-300", compactValue: true },
     { label: "Abaixo do mínimo", value: lowCount, icon: AlertTriangle, color: "text-amber-700 dark:text-amber-300", compactValue: false },
     { label: "Saldo zerado", value: zeroCount, icon: Ban, color: "text-destructive", compactValue: false },
     { label: "Valor em estoque", value: totalValue == null ? undefined : money.format(totalValue), icon: DollarSign, color: "text-emerald-600", compactValue: true },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Resumo do estoque ativo">
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-5" aria-label="Resumo do estoque ativo">
       {cards.map((c) => (
         <Card key={c.label} className="min-w-0 shadow-none">
           <CardContent className="flex min-w-0 items-center gap-3 p-3 sm:p-4">

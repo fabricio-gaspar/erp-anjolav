@@ -28,3 +28,4 @@ export function isValidCnpj(value: string): boolean {
 export function isValidCpfCnpj(value: string): boolean {
   return value.length === 11 ? isValidCpf(value) : isValidCnpj(value);
 }
+

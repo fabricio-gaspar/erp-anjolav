@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Download, RefreshCw, TrendingUp, TrendingDown, Wallet, Users } from "lucide-react";
 import { useRelatorioMensal, type SetorRelatorio } from "@/hooks/useRelatorioMensal";
 import { formatNumberToCurrency } from "@/lib/currencyUtils";
+import { downloadCsv } from "@/lib/csvExport";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -37,61 +38,54 @@ const RelatorioMensal = () => {
 
   const exportCSV = () => {
     if (!data) return;
-    const lines: string[] = [];
-    lines.push(`Relatório Mensal — ${format(mesRef, "MMMM 'de' yyyy", { locale: ptBR })}`);
-    lines.push(`Setor: ${setor}`);
-    lines.push("");
-    lines.push("RECEITAS");
-    lines.push(`Faturas Pagas;${data.receitasFaturasCount};R$ ${formatNumberToCurrency(data.receitasFaturas)}`);
-    lines.push(`Vendas Loja (Caixa);${data.receitasLojaCount};R$ ${formatNumberToCurrency(data.receitasLoja)}`);
-    lines.push(`Total Receitas;;R$ ${formatNumberToCurrency(data.receitasTotais)}`);
-    lines.push("");
-    lines.push("DESPESAS");
-    lines.push(`Salários da Folha;;R$ ${formatNumberToCurrency(data.despesasFolha)}`);
-    lines.push(`Benefícios da Folha;;R$ ${formatNumberToCurrency(data.despesasBeneficiosExtras)}`);
-    lines.push(`Produtos / Insumos;;R$ ${formatNumberToCurrency(data.despesasProdutos)}`);
-    lines.push(`Contas Mensais;;R$ ${formatNumberToCurrency(data.despesasContasMensais)}`);
-    lines.push(`Impostos;;R$ ${formatNumberToCurrency(data.despesasImpostos)}`);
-    lines.push(`Outras;;R$ ${formatNumberToCurrency(data.despesasOutras)}`);
-    lines.push(`Total Despesas;;R$ ${formatNumberToCurrency(data.despesasTotais)}`);
-    lines.push("");
-    lines.push(`LUCRO LÍQUIDO;;R$ ${formatNumberToCurrency(data.lucro)}`);
-    lines.push(`MARGEM;;${data.margem.toFixed(2)}%`);
+    const rows: string[][] = [
+      [`Setor: ${setor}`],
+      [],
+      ["RECEITAS"],
+      ["Faturas Pagas", String(data.receitasFaturasCount), `R$ ${formatNumberToCurrency(data.receitasFaturas)}`],
+      ["Vendas PDV (caixa)", String(data.receitasLojaCount), `R$ ${formatNumberToCurrency(data.receitasLoja)}`],
+      ["Total Receitas", "", `R$ ${formatNumberToCurrency(data.receitasTotais)}`],
+      [],
+      ["DESPESAS"],
+      ["Salários da Folha", "", `R$ ${formatNumberToCurrency(data.despesasFolha)}`],
+      ["Benefícios da Folha", "", `R$ ${formatNumberToCurrency(data.despesasBeneficiosExtras)}`],
+      ["Produtos / Insumos", "", `R$ ${formatNumberToCurrency(data.despesasProdutos)}`],
+      ["Contas Mensais", "", `R$ ${formatNumberToCurrency(data.despesasContasMensais)}`],
+      ["Impostos", "", `R$ ${formatNumberToCurrency(data.despesasImpostos)}`],
+      ["Outras", "", `R$ ${formatNumberToCurrency(data.despesasOutras)}`],
+      ["Total Despesas", "", `R$ ${formatNumberToCurrency(data.despesasTotais)}`],
+      [],
+    ];
+    if (setor === "todos") {
+      rows.push(["DIFERENÇA GERENCIAL", "", `R$ ${formatNumberToCurrency(data.lucro)}`]);
+      rows.push(["MARGEM GERENCIAL", "", `${data.margem.toFixed(2)}%`]);
+    }
 
-    lines.push("");
-    lines.push("DETALHE FOLHA");
-    lines.push("Funcionário;Cargo;Salário Base;Benefícios;Descontos;Líquido;Valor Operacional");
+    rows.push([], ["DETALHE FOLHA"]);
+    rows.push(["Funcionário", "Cargo", "Salário Base", "Benefícios", "Descontos", "Líquido", "Valor Operacional"]);
     data.folhaItens.forEach((f) => {
-      lines.push(
-        `${f.funcionario};${f.cargo};${formatNumberToCurrency(f.salario)};${formatNumberToCurrency(f.beneficios)};${formatNumberToCurrency(f.descontos)};${formatNumberToCurrency(f.liquido)};${formatNumberToCurrency(f.custoTotal)}`,
-      );
+      rows.push([f.funcionario, f.cargo, formatNumberToCurrency(f.salario), formatNumberToCurrency(f.beneficios), formatNumberToCurrency(f.descontos), formatNumberToCurrency(f.liquido), formatNumberToCurrency(f.custoTotal)]);
     });
 
-    lines.push("");
-    lines.push("DETALHE CONTAS A PAGAR");
-    lines.push("Descrição;Fornecedor;Categoria;Valor;Vencimento;Status");
+    rows.push([], ["DETALHE CONTAS A PAGAR"]);
+    rows.push(["Descrição", "Fornecedor", "Categoria", "Valor", "Vencimento", "Status"]);
     data.contasItens.forEach((c) => {
-      lines.push(
-        `${c.descricao};${c.fornecedor};${c.categoria};${formatNumberToCurrency(c.valor)};${c.vencimento};${c.status}`,
-      );
+      rows.push([c.descricao, c.fornecedor, c.categoria, formatNumberToCurrency(c.valor), c.vencimento, c.status]);
     });
 
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `relatorio-mensal-${mes}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(`relatorio-mensal-${mes}.csv`, rows, Array.from({ length: 7 }, (_, index) => ({
+      header: index === 0 ? `Resultado mensal — ${format(mesRef, "MMMM 'de' yyyy", { locale: ptBR })}` : "",
+      value: (row: string[]) => row[index] ?? "",
+    })));
   };
 
   return (
-    <AppLayout title="Relatório Mensal" subtitle="Despesas, faturamento e lucro do mês">
+    <AppLayout title="Resultado mensal" subtitle="Receitas, despesas e resultado do mês">
       <div className="page-shell">
         <PageHeader
           eyebrow="Inteligência financeira"
-          title="Relatório Mensal"
-          description="Despesas, faturamento, resultado e margem do período"
+          title="Resultado mensal"
+          description="Confira receitas, despesas, resultado e margem do mês selecionado"
           actions={(
             <Button variant="outline" onClick={exportCSV} disabled={!data} className="w-full gap-2 sm:w-auto">
               <Download className="h-4 w-4" />Exportar CSV
@@ -99,6 +93,7 @@ const RelatorioMensal = () => {
           )}
         />
         <div className="content-panel space-y-4">
+        <p className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">As receitas consideram faturas recebidas e vendas no caixa; as despesas, contas por vencimento e folha por competência. A diferença é gerencial e não representa lucro contábil.</p>
         <Card className="p-4">
           <div className="flex flex-wrap items-end gap-3">
             <div>
@@ -112,12 +107,14 @@ const RelatorioMensal = () => {
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="industrial">Industrial</SelectItem>
-                  <SelectItem value="loja">Loja</SelectItem>
+                  <SelectItem value="loja">Doméstico</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </Card>
+
+        {setor !== "todos" && <p className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">As receitas correspondem à operação selecionada. A folha e as contas são compartilhadas pela empresa e não podem ser atribuídas a uma operação; por isso, não calculamos resultado ou margem por setor.</p>}
 
         {isLoading ? (
           <div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto" /></div>
@@ -155,17 +152,17 @@ const RelatorioMensal = () => {
                 </div>
                 <div className="text-2xl font-black mt-1">R$ {formatNumberToCurrency(data.despesasTotais)}</div>
               </Card>
-              <Card className={`p-4 ${data.lucro >= 0 ? "bg-blue-50 dark:bg-blue-950/20" : "bg-red-50 dark:bg-red-950/20"}`}>
+              {setor === "todos" && <Card className={`p-4 ${data.lucro >= 0 ? "bg-blue-50 dark:bg-blue-950/20" : "bg-red-50 dark:bg-red-950/20"}`}>
                 <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
                   <Wallet className="w-4 h-4" />
-                  <span className="text-xs font-medium">{data.lucro >= 0 ? "LUCRO" : "PREJUÍZO"}</span>
+                  <span className="text-xs font-medium">DIFERENÇA GERENCIAL</span>
                 </div>
-                <div className="text-2xl font-black mt-1">R$ {formatNumberToCurrency(Math.abs(data.lucro))}</div>
-              </Card>
-              <Card className="p-4">
+                <div className="text-2xl font-black mt-1">R$ {formatNumberToCurrency(data.lucro)}</div>
+              </Card>}
+              {setor === "todos" && <Card className="p-4">
                 <div className="text-xs font-medium text-muted-foreground">MARGEM</div>
                 <div className="text-2xl font-black mt-1">{data.margem.toFixed(2)}%</div>
-              </Card>
+              </Card>}
             </div>
 
             {/* Receitas */}
@@ -186,7 +183,7 @@ const RelatorioMensal = () => {
                     <TableCell className="text-right">R$ {formatNumberToCurrency(data.receitasFaturas)}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell>Vendas Loja (Caixa)</TableCell>
+                    <TableCell>Vendas PDV (caixa)</TableCell>
                     <TableCell className="text-center">{data.receitasLojaCount}</TableCell>
                     <TableCell className="text-right">R$ {formatNumberToCurrency(data.receitasLoja)}</TableCell>
                   </TableRow>
@@ -336,7 +333,7 @@ const RelatorioMensal = () => {
               </Card>
             )}
 
-            <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10">
+            {setor === "todos" && <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10">
               <h3 className="font-semibold mb-3">Resultado Final</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span>Faturamento</span><span className="font-mono">R$ {formatNumberToCurrency(data.receitasTotais)}</span></div>
@@ -347,7 +344,7 @@ const RelatorioMensal = () => {
                 <div className="flex justify-between text-destructive"><span>(-) Outras Despesas</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasOutras)}</span></div>
                 <div className="flex justify-between text-destructive"><span>(-) Benefícios da folha</span><span className="font-mono">R$ {formatNumberToCurrency(data.despesasBeneficiosExtras)}</span></div>
                 <div className="border-t-2 border-primary pt-2 mt-2 flex justify-between text-lg font-black">
-                  <span>= Lucro Líquido</span>
+                  <span>= Diferença gerencial</span>
                   <span className={`font-mono ${data.lucro >= 0 ? "text-emerald-600" : "text-destructive"}`}>R$ {formatNumberToCurrency(data.lucro)}</span>
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
@@ -355,7 +352,7 @@ const RelatorioMensal = () => {
                   <span className="font-mono">{data.margem.toFixed(2)}%</span>
                 </div>
               </div>
-            </Card>
+            </Card>}
           </>
         )}
         </div>

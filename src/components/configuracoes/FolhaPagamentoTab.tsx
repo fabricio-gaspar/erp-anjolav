@@ -84,6 +84,7 @@ export function FolhaPagamentoTab() {
   const folhas = empregadorFiltro === "todos"
     ? folhasAll
     : folhasAll.filter((f) => f.funcionario?.empregador_cnpj === empregadorFiltro);
+  const folhasNoTotal = folhas.filter((f) => f.status !== "cancelado");
 
   // Carrega benefícios de TODAS as folhas para totalizar
   const { data: todosBeneficios = [] } = useFolhaBeneficiosByFolha(folhas.map((f) => f.id));
@@ -91,17 +92,17 @@ export function FolhaPagamentoTab() {
   const beneficiosPorFolha = useMemo(() => {
     const m = new Map<string, number>();
     todosBeneficios.forEach((b) => {
-      if (!b.beneficio_id) return;
+      if (!b.ativo || b.tipo !== "beneficio") return;
       m.set(b.folha_id, (m.get(b.folha_id) || 0) + Number(b.valor || 0));
     });
     return m;
   }, [todosBeneficios]);
 
-  const totalSalarios = folhas.reduce(
+  const totalSalarios = folhasNoTotal.reduce(
     (s, f) => s + Number(f.salario_base || 0),
     0,
   );
-  const totalBeneficios = folhas.reduce((s, f) => s + (beneficiosPorFolha.get(f.id) || 0), 0);
+  const totalBeneficios = folhasNoTotal.reduce((s, f) => s + (beneficiosPorFolha.get(f.id) || 0), 0);
   const totalCusto = empregadorFiltro === "todos"
     ? Number(resumo?.valor_operacional ?? 0)
     : totalSalarios + totalBeneficios;

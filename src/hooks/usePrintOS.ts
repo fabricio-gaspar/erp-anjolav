@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import {
   printROLFromOS,
+  printROLDisponibilidadeFromOS,
   printEtiquetaFromOS,
   printMultipleEtiquetas,
   fetchROLConfig,
@@ -68,6 +69,34 @@ export function usePrintOS(ordemServicoId?: string) {
     } catch (error) {
       console.error("Print Etiqueta error:", error);
       toast({ title: "Erro", description: "Erro ao imprimir etiqueta", variant: "destructive" });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [ordemServicoId, toast]);
+
+  const printROLDisponibilidade = useCallback(async (osId?: string) => {
+    const targetId = osId || ordemServicoId;
+    if (!targetId) {
+      toast({ title: "Erro", description: "ID do ROL não informado", variant: "destructive" });
+      return false;
+    }
+
+    setIsLoading(true);
+    try {
+      const printWindow = reservePrintWindow('width=400,height=600,noopener,noreferrer');
+      if (!printWindow) {
+        toast({ title: "Impressão bloqueada", description: "Permita janelas pop-up para este sistema e tente novamente.", variant: "destructive" });
+        return false;
+      }
+      const success = await printROLDisponibilidadeFromOS(targetId, printWindow);
+      if (!success) {
+        toast({ title: "ROL ainda não liberado", description: "Salve a localização de todas as peças antes de imprimir o ROL disponível.", variant: "destructive" });
+      }
+      return success;
+    } catch (error) {
+      console.error("Print ROL availability error:", error);
+      toast({ title: "Erro", description: "Erro ao imprimir ROL disponível", variant: "destructive" });
       return false;
     } finally {
       setIsLoading(false);
@@ -147,6 +176,7 @@ export function usePrintOS(ordemServicoId?: string) {
 
   return {
     printROL,
+    printROLDisponibilidade,
     printEtiqueta,
     printEtiquetas,
     getPreviewROL,

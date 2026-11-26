@@ -1,11 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export interface ConfiguracaoGeral {
   id: string;
   nome_empresa: string | null;
   cor_primaria: string | null;
+  pdv_template_theme: string;
   logo_url: string | null;
   pix_tipo_chave: string | null;
   pix_chave: string | null;
@@ -17,6 +19,12 @@ export interface ConfiguracaoGeral {
   template_boleto: string | null;
   template_transferencia: string | null;
   whatsapp_numero: string | null;
+  faturamento_limite_rols: number;
+  faturamento_relatorios_ativo: boolean;
+  faturamento_nfse_ativo: boolean;
+  faturamento_boleto_ativo: boolean;
+  faturamento_email_ativo: boolean;
+  faturamento_whatsapp_ativo: boolean;
   // Campos de endereço da empresa
   endereco_logradouro: string | null;
   endereco_numero: string | null;
@@ -35,10 +43,12 @@ export type ConfiguracaoGeralUpdate = Partial<Omit<ConfiguracaoGeral, "id" | "cr
 
 export function useConfiguracoesGerais(enabled = true) {
   const queryClient = useQueryClient();
+  const { activeTenant } = useAuth();
+  const tenantId = activeTenant?.id ?? null;
 
   const { data: configuracao, isLoading, error } = useQuery({
-    queryKey: ["configuracoes_gerais"],
-    enabled,
+    queryKey: ["configuracoes_gerais", tenantId],
+    enabled: enabled && Boolean(tenantId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("configuracoes_gerais")

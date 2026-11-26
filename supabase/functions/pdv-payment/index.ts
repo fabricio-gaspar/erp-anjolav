@@ -1,9 +1,403 @@
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
-import { requireAdmin, requireModule } from "../_shared/auth.ts";
-import { isValidCpfCnpj } from "../_shared/br-document.ts";
-import { handlePreflight, jsonResponse, readJsonBody, requireJsonPost } from "../_shared/http.ts";
+import { createClient, type SupabaseClient, type User } from "https://esm.sh/@supabase/supabase-js@2.90.1";
 
-type ManualMethod = "DINHEIRO" | "CARTAO_CREDITO" | "CARTAO_DEBITO";
+// Auth, HTTP and document-validation helpers are bundled with this deployment unit.
+const LOCAL_ORIGINS = new Set([
+  "http://localhost:5173",
+  "http://localhost:8080",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:8080",
+  "https://anjolav-erp.fabriciogasparr.chatgpt.site",
+]);
+
+function configuredOrigins(): Set<string> {
+  const configured = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  return new Set([...LOCAL_ORIGINS, ...configured]);
+}
+
+export function isOriginAllowed(req: Request): boolean {
+  const origin = req.headers.get("origin");
+  return !origin || configuredOrigins().has(origin);
+}
+
+export function corsHeaders(req: Request): HeadersInit {
+  const origin = req.headers.get("origin");
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "600",
+    "Cache-Control": "no-store",
+    "Referrer-Policy": "no-referrer",
+    "Vary": "Origin",
+    "X-Content-Type-Options": "nosniff",
+  };
+
+  if (origin && configuredOrigins().has(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+
+  return headers;
+}
+
+export function jsonResponse(
+  req: Request,
+  body: Record<string, unknown>,
+  status = 200,
+): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders(req),
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
+}
+
+export function handlePreflight(req: Request): Response | null {
+  if (req.method !== "OPTIONS") return null;
+  if (!isOriginAllowed(req)) return jsonResponse(req, { error: "Origem não autorizada" }, 403);
+  return new Response(null, { status: 204, headers: corsHeaders(req) });
+}
+
+export function requireJsonPost(req: Request): Response | null {
+  if (!isOriginAllowed(req)) return jsonResponse(req, { error: "Origem não autorizada" }, 403);
+  if (req.method !== "POST") return jsonResponse(req, { error: "Método não permitido" }, 405);
+
+  const contentType = req.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.includes("application/json")) {
+    return jsonResponse(req, { error: "Content-Type deve ser application/json" }, 415);
+  }
+
+  return null;
+}
+
+export function serverJsonResponse(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+      "Content-Type": "application/json; charset=utf-8",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+export type JsonBodyResult =
+  | { ok: true; value: unknown }
+  | { ok: false; response: Response };
+
+async function readBodyBytes(req: Request, maxBytes: number): Promise<Uint8Array | null> {
+  const declaredLength = Number(req.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) return null;
+  if (!req.body) return new Uint8Array();
+
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+
+    totalBytes += value.byteLength;
+    if (totalBytes > maxBytes) {
+      await reader.cancel("request body too large").catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const combined = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return combined;
+}
+
+async function parseJsonBody(
+  req: Request,
+  maxBytes: number,
+  response: (body: Record<string, unknown>, status: number) => Response,
+): Promise<JsonBodyResult> {
+  const bytes = await readBodyBytes(req, maxBytes);
+  if (!bytes) {
+    return { ok: false, response: response({ error: "Requisição muito grande" }, 413) };
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(new TextDecoder().decode(bytes)) };
+  } catch {
+    return { ok: false, response: response({ error: "JSON inválido" }, 400) };
+  }
+}
+
+export function readJsonBody(req: Request, maxBytes = 65_536): Promise<JsonBodyResult> {
+  return parseJsonBody(req, maxBytes, (body, status) => jsonResponse(req, body, status));
+}
+
+export function readServerJsonBody(req: Request, maxBytes = 65_536): Promise<JsonBodyResult> {
+  return parseJsonBody(req, maxBytes, serverJsonResponse);
+}
+
+type Authorized = { ok: true; user: User; tenantId: string; aal: "aal1" | "aal2" };
+type Rejected = { ok: false; response: Response };
+export type AuthorizationResult = Authorized | Rejected;
+
+function bearerToken(req: Request): string | null {
+  const header = req.headers.get("authorization");
+  const match = header?.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+function authenticatorAssuranceLevel(token: string): "aal1" | "aal2" {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return "aal1";
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const claims = JSON.parse(atob(padded)) as { aal?: unknown };
+    return claims.aal === "aal2" ? "aal2" : "aal1";
+  } catch {
+    return "aal1";
+  }
+}
+
+export async function requireUser(
+  req: Request,
+  supabase: SupabaseClient,
+): Promise<AuthorizationResult> {
+  const token = bearerToken(req);
+  if (!token) return { ok: false, response: jsonResponse(req, { error: "Não autorizado" }, 401) };
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) {
+    return { ok: false, response: jsonResponse(req, { error: "Não autorizado" }, 401) };
+  }
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("tenant_memberships")
+    .select("tenant_id, tenant:tenants!inner(status)")
+    .eq("user_id", data.user.id)
+    .eq("enabled", true)
+    .eq("is_active", true)
+    .eq("tenant.status", "active")
+    .maybeSingle();
+  if (membershipError) {
+    console.error("Falha ao validar empresa ativa", { userId: data.user.id });
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a empresa ativa" }, 500),
+    };
+  }
+  if (!membership?.tenant_id) {
+    return { ok: false, response: jsonResponse(req, { error: "Usuário sem empresa ativa" }, 403) };
+  }
+
+  return {
+    ok: true,
+    user: data.user,
+    tenantId: membership.tenant_id,
+    aal: authenticatorAssuranceLevel(token),
+  };
+}
+
+export async function requireAdmin(
+  req: Request,
+  supabase: SupabaseClient,
+): Promise<AuthorizationResult> {
+  const authorization = await requireUser(req, supabase);
+  if (!authorization.ok) return authorization;
+
+  const { data: membership, error } = await supabase
+    .from("tenant_memberships")
+    .select("id")
+    .eq("tenant_id", authorization.tenantId)
+    .eq("user_id", authorization.user.id)
+    .in("role", ["owner", "admin"])
+    .maybeSingle();
+
+  if (error) {
+    console.error("Falha ao validar perfil administrativo", { userId: authorization.user.id });
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
+    };
+  }
+
+  if (!membership) {
+    return { ok: false, response: jsonResponse(req, { error: "Acesso negado" }, 403) };
+  }
+
+  const { data: activeEmployee, error: employeeError } = await supabase
+    .from("funcionarios")
+    .select("id")
+    .eq("tenant_id", authorization.tenantId)
+    .eq("user_id", authorization.user.id)
+    .eq("ativo", true)
+    .maybeSingle();
+  if (employeeError) {
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
+    };
+  }
+  if (!activeEmployee) {
+    return { ok: false, response: jsonResponse(req, { error: "Acesso negado" }, 403) };
+  }
+
+  const { data: securitySettings, error: securityError } = await supabase
+    .from("tenant_security_settings")
+    .select("require_mfa_for_admins")
+    .eq("tenant_id", authorization.tenantId)
+    .maybeSingle();
+  if (securityError) {
+    console.error("Falha ao validar a política de MFA", { userId: authorization.user.id });
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
+    };
+  }
+  if (securitySettings?.require_mfa_for_admins && authorization.aal !== "aal2") {
+    return {
+      ok: false,
+      response: jsonResponse(
+        req,
+        { error: "Confirme sua autenticação em duas etapas", code: "MFA_REQUIRED" },
+        403,
+      ),
+    };
+  }
+
+  return authorization;
+}
+
+export async function requirePlatformAdmin(
+  req: Request,
+  supabase: SupabaseClient,
+): Promise<AuthorizationResult> {
+  const authorization = await requireUser(req, supabase);
+  if (!authorization.ok) return authorization;
+
+  const { data: administrator, error } = await supabase
+    .from("platform_administrators")
+    .select("user_id")
+    .eq("user_id", authorization.user.id)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Falha ao validar administrador da plataforma", { userId: authorization.user.id });
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
+    };
+  }
+
+  if (!administrator) {
+    return { ok: false, response: jsonResponse(req, { error: "Acesso negado" }, 403) };
+  }
+
+  return authorization;
+}
+
+export async function requireModule(
+  req: Request,
+  supabase: SupabaseClient,
+  moduleKey: string,
+): Promise<AuthorizationResult> {
+  const authorization = await requireUser(req, supabase);
+  if (!authorization.ok) return authorization;
+
+  const { data: employee, error: employeeError } = await supabase
+    .from("funcionarios")
+    .select("id, ativo")
+    .eq("tenant_id", authorization.tenantId)
+    .eq("user_id", authorization.user.id)
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (employeeError) {
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
+    };
+  }
+  if (!employee) return { ok: false, response: jsonResponse(req, { error: "Acesso negado" }, 403) };
+
+  const { data: adminMembership, error: roleError } = await supabase
+    .from("tenant_memberships")
+    .select("id")
+    .eq("tenant_id", authorization.tenantId)
+    .eq("user_id", authorization.user.id)
+    .in("role", ["owner", "admin"])
+    .maybeSingle();
+  if (roleError) {
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
+    };
+  }
+  if (adminMembership) return authorization;
+
+  const { data: permission, error: permissionError } = await supabase
+    .from("modulo_permissoes")
+    .select("tem_acesso")
+    .eq("tenant_id", authorization.tenantId)
+    .eq("funcionario_id", employee.id)
+    .eq("modulo_key", moduleKey)
+    .eq("tem_acesso", true)
+    .maybeSingle();
+
+  if (permissionError) {
+    return {
+      ok: false,
+      response: jsonResponse(req, { error: "Não foi possível validar a autorização" }, 500),
+    };
+  }
+
+  if (!permission) return { ok: false, response: jsonResponse(req, { error: "Acesso negado" }, 403) };
+  return authorization;
+}
+
+function hasRepeatedDigits(value: string): boolean {
+  return /^(\d)\1+$/.test(value);
+}
+
+function digitFor(value: string, factors: number[]): number {
+  const sum = factors.reduce(
+    (total, factor, index) => total + Number(value[index]) * factor,
+    0,
+  );
+  const remainder = sum % 11;
+  return remainder < 2 ? 0 : 11 - remainder;
+}
+
+export function isValidCpf(value: string): boolean {
+  if (!/^\d{11}$/.test(value) || hasRepeatedDigits(value)) return false;
+  const first = digitFor(value, [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const second = digitFor(value, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return value.endsWith(`${first}${second}`);
+}
+
+export function isValidCnpj(value: string): boolean {
+  if (!/^\d{14}$/.test(value) || hasRepeatedDigits(value)) return false;
+  const first = digitFor(value, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const second = digitFor(value, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return value.endsWith(`${first}${second}`);
+}
+
+export function isValidCpfCnpj(value: string): boolean {
+  return value.length === 11 ? isValidCpf(value) : isValidCnpj(value);
+}
+
+type ManualMethod = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO";
 type PaymentMoment = "ENTRADA" | "RETIRADA";
 
 interface ManualPaymentInput {
@@ -37,12 +431,13 @@ interface SaleInput {
   driverId?: string;
   vehicleId?: string;
   items: SaleItemInput[];
-  payment: ManualPaymentInput | { method: "PIX" } | null;
+  payment: ManualPaymentInput | ManualPaymentInput[] | null;
   idempotencyKey: string;
   intakeDate: string | null;
   notes: string | null;
   receiptMode: "balcao" | "coleta";
   deliveryMode: "balcao" | "entrega";
+  deliveryFee: number;
   addressSnapshot: Record<string, string>;
   capacityOverride: boolean;
 }
@@ -132,10 +527,12 @@ function validateManualPayment(raw: unknown, requireAmount: boolean): ManualPaym
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new RequestError("Pagamento inválido");
   const input = raw as Record<string, unknown>;
   const method = input.method;
-  if (method !== "DINHEIRO" && method !== "CARTAO_CREDITO" && method !== "CARTAO_DEBITO") {
+  if (method !== "DINHEIRO" && method !== "PIX" && method !== "CARTAO_CREDITO" && method !== "CARTAO_DEBITO") {
     throw new RequestError("Método de pagamento inválido");
   }
-  const amount = requireAmount ? money(input.amount, "Valor") : undefined;
+  const amount = input.amount == null
+    ? (requireAmount ? money(input.amount, "Valor") : undefined)
+    : money(input.amount, "Valor");
   const installments = Number(input.installments ?? 1);
   if (!Number.isInteger(installments) || installments < 1 || installments > 24) {
     throw new RequestError("Parcelamento inválido");
@@ -148,9 +545,6 @@ function validateManualPayment(raw: unknown, requireAmount: boolean): ManualPaym
   const authorizationCode = boundedText(input.authorizationCode, 100);
   if (method.startsWith("CARTAO_")) {
     if (brand && !CARD_BRANDS.has(brand)) throw new RequestError("Bandeira do cartão inválida");
-    if (!nsu && !authorizationCode) {
-      throw new RequestError("Informe o NSU ou o código de autorização da maquininha");
-    }
   }
   const amountReceived = method === "DINHEIRO"
     ? money(input.amountReceived, "Valor recebido")
@@ -204,12 +598,13 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
   });
 
   let payment: SaleInput["payment"] = null;
-  if (raw.payment !== null && raw.payment !== undefined) {
-    if (!raw.payment || typeof raw.payment !== "object" || Array.isArray(raw.payment)) {
-      throw new RequestError("Pagamento inválido");
+  if (Array.isArray(raw.payment)) {
+    if (raw.payment.length < 2 || raw.payment.length > 4) {
+      throw new RequestError("Informe entre duas e quatro formas de pagamento");
     }
-    const method = (raw.payment as Record<string, unknown>).method;
-    payment = method === "PIX" ? { method: "PIX" } : validateManualPayment(raw.payment, false);
+    payment = raw.payment.map((item) => validateManualPayment(item, true));
+  } else if (raw.payment !== null && raw.payment !== undefined) {
+    payment = validateManualPayment(raw.payment, false);
   }
   if (payment && !cashRegisterId) throw new RequestError("Abra um caixa para receber o pagamento");
   const intakeDate = raw.intakeDate == null
@@ -234,6 +629,10 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
   if (deliveryMode !== "balcao" && deliveryMode !== "entrega") {
     throw new RequestError("Modalidade de entrega inválida");
   }
+  const deliveryFee = money(raw.deliveryFee ?? 0, "Taxa de entrega", true);
+  if (deliveryFee > 0 && deliveryMode !== "entrega") {
+    throw new RequestError("A taxa de entrega só pode ser usada em atendimentos delivery");
+  }
   const addressSource = raw.addressSnapshot == null ? {} : raw.addressSnapshot;
   if (!addressSource || typeof addressSource !== "object" || Array.isArray(addressSource)) {
     throw new RequestError("Endereço do atendimento inválido");
@@ -257,6 +656,14 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
       return [[key, key === "uf" ? value.toUpperCase() : value]];
     }),
   );
+  for (const [key, minimum, maximum] of [["latitude", -90, 90], ["longitude", -180, 180]] as const) {
+    if (addressInput[key] == null || addressInput[key] === "") continue;
+    const coordinate = Number(addressInput[key]);
+    if (!Number.isFinite(coordinate) || coordinate < minimum || coordinate > maximum) {
+      throw new RequestError("Coordenadas do endereço inválidas");
+    }
+    addressSnapshot[key] = String(coordinate);
+  }
   if ((receiptMode === "coleta" || deliveryMode === "entrega") &&
       (!addressSnapshot.logradouro || !addressSnapshot.cidade || !addressSnapshot.uf)) {
     throw new RequestError("Informe um endereço completo para coleta ou entrega");
@@ -278,6 +685,7 @@ function validateSale(raw: Record<string, unknown>): SaleInput {
     notes,
     receiptMode,
     deliveryMode,
+    deliveryFee,
     addressSnapshot,
     capacityOverride: raw.capacityOverride === true,
   };
@@ -302,11 +710,12 @@ async function getCustomerLoyaltySummary(
   supabase: SupabaseClient,
   tenantId: string,
   clientId: string,
+  area: PdvArea,
 ) {
   const [{ data: config, error: configError }, { data: entries, error: entriesError }] = await Promise.all([
     supabase
       .from("fidelidade_configuracoes")
-      .select("ativo, valor_por_ponto, pontos_minimos_resgate")
+      .select("ativo, ativo_domestico, ativo_industrial, valor_por_ponto, pontos_minimos_resgate")
       .eq("tenant_id", tenantId)
       .maybeSingle(),
     supabase
@@ -323,9 +732,12 @@ async function getCustomerLoyaltySummary(
     (entries ?? []).reduce((total, entry) => total + Number(entry.pontos ?? 0), 0),
   );
   const valorPorPonto = Number(config?.valor_por_ponto ?? 0);
+  const programaAtivo = config?.ativo === true && (area === "industrial"
+    ? config.ativo_industrial === true
+    : config.ativo_domestico === true);
 
   return {
-    programaAtivo: config?.ativo === true,
+    programaAtivo,
     saldoPontos,
     valorSaldo: Math.round(saldoPontos * valorPorPonto * 100) / 100,
     pontosGanhosNestaOrdem: 0,
@@ -335,6 +747,11 @@ async function getCustomerLoyaltySummary(
 }
 
 type PdvArea = "industrial" | "residencial";
+function normalizePdvArea(area: unknown): PdvArea | null {
+  if (area === "industrial") return "industrial";
+  if (area === "domestico" || area === "residencial") return "residencial";
+  return null;
+}
 interface PdvScope {
   tenantId: string;
   areas: Set<PdvArea>;
@@ -356,16 +773,19 @@ async function loadPdvScope(supabase: SupabaseClient, tenantId: string, userId: 
     areas.add("residencial");
   } else {
     for (const grant of grants.data ?? []) {
-      if (grant.area === "industrial" || grant.area === "residencial") areas.add(grant.area);
+      const area = normalizePdvArea(grant.area);
+      if (area) areas.add(area);
     }
   }
   return { tenantId, areas };
 }
 
-function assertArea(scope: PdvScope, area: unknown): void {
-  if ((area !== "industrial" && area !== "residencial") || !scope.areas.has(area)) {
+function assertArea(scope: PdvScope, area: unknown): PdvArea {
+  const normalized = normalizePdvArea(area);
+  if (!normalized || !scope.areas.has(normalized)) {
     throw new RequestError("Sem permissão para o setor deste atendimento", 403);
   }
+  return normalized;
 }
 
 async function assertScopedClient(supabase: SupabaseClient, scope: PdvScope, clientId: string) {
@@ -380,11 +800,16 @@ async function assertScopedClient(supabase: SupabaseClient, scope: PdvScope, cli
 
 async function assertScopedOrder(supabase: SupabaseClient, scope: PdvScope, orderId: string) {
   const { data, error } = await supabase.from("ordens_servico")
-    .select("id, numero, cliente_id, valor_total, valor_pago, status, origem, condicao_pagamento")
+    .select("id, numero, cliente_id, valor_total, valor_pago, status, origem, operation_type, condicao_pagamento")
     .eq("tenant_id", scope.tenantId).eq("id", orderId).maybeSingle();
   if (error) throw error;
   if (!data) throw new RequestError("OS fora da empresa ativa", 403);
-  assertArea(scope, data.origem === "loja" ? "residencial" : data.origem);
+  const area = data.operation_type === "industrial"
+    ? "industrial"
+    : data.operation_type === "domestico"
+      ? "residencial"
+      : data.origem === "loja" ? "residencial" : data.origem;
+  assertArea(scope, area);
   return data;
 }
 
@@ -505,10 +930,17 @@ async function getOrCreatePix(
   idempotencyKey: string,
   userId: string,
   scope: PdvScope,
+  requestedAmount?: number,
 ) {
   const { tenantId } = scope;
   // Validate before even returning a previous QR or contacting the provider.
   const order = await assertScopedOrderAndCash(supabase, scope, orderId, cashRegisterId);
+  const pendingAmount = Math.round((Number(order.valor_total ?? 0) - Number(order.valor_pago ?? 0)) * 100) / 100;
+  if (pendingAmount <= 0) throw new RequestError("A OS não possui saldo pendente", 409);
+  const amount = requestedAmount == null ? pendingAmount : Math.round(requestedAmount * 100) / 100;
+  if (amount <= 0 || amount > pendingAmount + 0.009) {
+    throw new RequestError("O valor do PIX não pode ultrapassar o saldo pendente da OS", 409);
+  }
   const { data: paymentByKey, error: paymentByKeyError } = await supabase
     .from("pdv_pagamentos")
     .select("id, ordem_servico_id, caixa_id, status, status_provedor, valor, asaas_charge_id, provedor_pagamento_id")
@@ -541,6 +973,9 @@ async function getOrCreatePix(
     if (existingPayment.caixa_id !== cashRegisterId) {
       throw new RequestError("A OS possui um PIX pendente vinculado a outro caixa", 409);
     }
+    if (Math.round(Number(existingPayment.valor) * 100) !== Math.round(amount * 100)) {
+      throw new RequestError("Já existe um PIX pendente para outro valor nesta OS", 409);
+    }
     const { data: charge, error: chargeError } = await supabase
       .from("asaas_charges")
       .select("pix_qr_code, pix_copy_paste")
@@ -558,9 +993,6 @@ async function getOrCreatePix(
       expiresAt: null,
     };
   }
-
-  const amount = Math.round((Number(order.valor_total ?? 0) - Number(order.valor_pago ?? 0)) * 100) / 100;
-  if (amount <= 0) throw new RequestError("A OS não possui saldo pendente", 409);
 
   const { data: client, error: clientError } = await supabase
     .from("clientes")
@@ -799,13 +1231,108 @@ Deno.serve(async (req) => {
     if (!authorization.ok) return authorization.response;
     const scope = await loadPdvScope(supabase, authorization.tenantId, authorization.user.id);
 
-    if (action === "get_capacity") {
+    if (action === "customer_credit_summary") {
       const clientId = requireUuid(raw.clientId, "Cliente");
+      await assertScopedClient(supabase, scope, clientId);
+      const { data, error } = await supabase.rpc("consultar_credito_cliente_pdv", {
+        _tenant_id: scope.tenantId,
+        _cliente_id: clientId,
+        _ator: authorization.user.id,
+      });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, credit: data });
+    }
+
+    if (action === "top_up_customer_credit") {
+      const clientId = requireUuid(raw.clientId, "Cliente");
+      const cashRegisterId = requireUuid(raw.cashRegisterId, "Caixa");
+      const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
+      const payment = validateManualPayment({
+        method: raw.method,
+        amount: raw.amount,
+        amountReceived: raw.amountReceived,
+        installments: raw.method === "CARTAO_CREDITO" ? Number(raw.installments ?? 1) : 1,
+        brand: raw.brand,
+        nsu: raw.nsu,
+        authorizationCode: raw.authorizationCode,
+      }, true);
+      await assertScopedClient(supabase, scope, clientId);
+      await assertScopedCash(supabase, scope.tenantId, cashRegisterId);
+      const { data, error } = await supabase.rpc("adicionar_credito_cliente_pdv", {
+        _tenant_id: scope.tenantId,
+        _cliente_id: clientId,
+        _caixa_id: cashRegisterId,
+        _valor: payment.amount,
+        _valor_recebido: payment.amountReceived ?? payment.amount,
+        _metodo: payment.method,
+        // A maquininha continua sendo representada somente pela forma.
+        // Os marcadores técnicos não são dados do cartão e preservam
+        // compatibilidade com funções legadas que exigem comprovante.
+        _bandeira: payment.method.startsWith("CARTAO_") ? (payment.brand ?? "OUTRA") : null,
+        _nsu: payment.method.startsWith("CARTAO_") ? (payment.nsu ?? "NAO_INFORMADO") : null,
+        _codigo_autorizacao: payment.authorizationCode ?? null,
+        _idempotency_key: idempotencyKey,
+        _ator: authorization.user.id,
+      });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, credit: data });
+    }
+
+    if (action === "subtract_customer_credit") {
+      const clientId = requireUuid(raw.clientId, "Cliente");
+      const cashRegisterId = requireUuid(raw.cashRegisterId, "Caixa");
+      const amount = money(raw.amount, "Valor do abatimento");
+      const reason = requireReason(raw.reason);
+      const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
+      await assertScopedClient(supabase, scope, clientId);
+      await assertScopedCash(supabase, scope.tenantId, cashRegisterId);
+      const { data, error } = await supabase.rpc("abater_credito_cliente_pdv", {
+        _tenant_id: scope.tenantId,
+        _cliente_id: clientId,
+        _caixa_id: cashRegisterId,
+        _valor: amount,
+        _motivo: reason,
+        _idempotency_key: idempotencyKey,
+        _ator: authorization.user.id,
+      });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, credit: data });
+    }
+
+    if (action === "apply_customer_credit") {
+      const orderId = requireUuid(raw.orderId, "ROL");
+      const cashRegisterId = requireUuid(raw.cashRegisterId, "Caixa");
+      const amount = money(raw.amount, "Valor do crédito");
+      const moment: PaymentMoment = raw.moment === "ENTRADA" ? "ENTRADA" : "RETIRADA";
+      const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
+      await assertScopedOrderAndCash(supabase, scope, orderId, cashRegisterId);
+      const { data, error } = await supabase.rpc("aplicar_credito_cliente_pdv", {
+        _tenant_id: scope.tenantId,
+        _ordem_servico_id: orderId,
+        _caixa_id: cashRegisterId,
+        _valor: amount,
+        _momento: moment,
+        _idempotency_key: idempotencyKey,
+        _ator: authorization.user.id,
+      });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, payment: data });
+    }
+
+    if (action === "get_capacity") {
       const deliveryDate = requireIsoDate(raw.deliveryDate, "Data de entrega");
-      const client = await assertScopedClient(supabase, scope, clientId);
+      const clientId = typeof raw.clientId === "string" && raw.clientId.trim()
+        ? requireUuid(raw.clientId, "Cliente")
+        : null;
+      const requestedArea = normalizePdvArea(raw.area);
+      const client = clientId ? await assertScopedClient(supabase, scope, clientId) : null;
+      const area = assertArea(scope, requestedArea ?? client?.classificacao ?? null);
+      if (client && normalizePdvArea(client.classificacao) !== area) {
+        throw new RequestError("Cliente não pertence ao setor selecionado", 409);
+      }
       const { data, error } = await supabase.rpc("consultar_capacidade_pdv", {
         _tenant_id: scope.tenantId,
-        _area: client.classificacao,
+        _area: area,
         _data: deliveryDate,
       });
       if (error) throw error;
@@ -833,17 +1360,19 @@ Deno.serve(async (req) => {
         if (referenceError) throw referenceError;
         if (!reference) throw new RequestError("Motorista ou veículo fora da empresa ativa", 403);
       }
-      const rpcPayment = sale.payment && sale.payment.method !== "PIX"
-        ? {
-            metodo: sale.payment.method,
-            valor_recebido: sale.payment.amountReceived ?? null,
-            parcelas: sale.payment.installments,
-            bandeira: sale.payment.brand ?? null,
-            nsu: sale.payment.nsu ?? null,
-            codigo_autorizacao: sale.payment.authorizationCode ?? null,
-          }
-        : sale.payment?.method === "PIX" ? { metodo: "PIX" } : null;
-      const { data, error } = await supabase.rpc("criar_pedido_atendimento", {
+      const toRpcPayment = (payment: ManualPaymentInput) => ({
+        metodo: payment.method,
+        valor: payment.amount ?? null,
+        valor_recebido: payment.amountReceived ?? null,
+        parcelas: payment.installments,
+        bandeira: payment.method.startsWith("CARTAO_") ? (payment.brand ?? "OUTRA") : null,
+        nsu: payment.method.startsWith("CARTAO_") ? (payment.nsu ?? "NAO_INFORMADO") : null,
+        codigo_autorizacao: payment.authorizationCode ?? null,
+      });
+      const rpcPayment = Array.isArray(sale.payment)
+        ? sale.payment.map(toRpcPayment)
+        : sale.payment ? toRpcPayment(sale.payment) : null;
+      const { data, error } = await supabase.rpc("criar_pedido_atendimento_v2", {
         _cliente_id: sale.clientId,
         _caixa_id: sale.cashRegisterId,
         _data_previsao_entrega: sale.deliveryDate,
@@ -860,47 +1389,17 @@ Deno.serve(async (req) => {
         _observacoes: sale.notes,
         _recebimento_modalidade: sale.receiptMode,
         _entrega_modalidade: sale.deliveryMode,
+        _taxa_entrega: sale.deliveryFee,
         _endereco_snapshot: sale.addressSnapshot,
         _permitir_excecao_capacidade: sale.capacityOverride,
       });
       if (error) throw error;
       const order = data.order as { id: string };
-      let pix = null;
-      let pixError = null;
-      if (sale.payment?.method === "PIX") {
-        try {
-          pix = await getOrCreatePix(
-            supabase,
-            order.id,
-            requireUuid(sale.cashRegisterId, "Caixa"),
-            "ENTRADA",
-            `${sale.idempotencyKey}:pix`,
-            authorization.user.id,
-            scope,
-          );
-        } catch (error: unknown) {
-          pixError = error instanceof Error ? error.message : "Não foi possível gerar o PIX";
-          console.error("A OS foi criada, mas o PIX não foi gerado", { orderId: order.id, message: pixError });
-        }
-      }
-      return jsonResponse(req, { success: true, ...data, pix, pixError });
+      return jsonResponse(req, { success: true, ...data, pix: null, pixError: null });
     }
 
     if (action === "create_pix") {
-      const orderId = requireUuid(raw.orderId, "OS");
-      const cashRegisterId = requireUuid(raw.cashRegisterId, "Caixa");
-      const moment = raw.moment === "ENTRADA" ? "ENTRADA" : "RETIRADA";
-      const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
-      const pix = await getOrCreatePix(
-        supabase,
-        orderId,
-        cashRegisterId,
-        moment,
-        idempotencyKey,
-        authorization.user.id,
-        scope,
-      );
-      return jsonResponse(req, { success: true, pix });
+      throw new RequestError("O Pix deste PDV é registrado após a confirmação na maquininha. QR Code e cobrança online foram desativados.", 409);
     }
 
     if (action === "get_pix_status") {
@@ -916,7 +1415,10 @@ Deno.serve(async (req) => {
 
       const { data: payments, error: paymentsError } = await supabase
         .from("pdv_pagamentos")
-        .select("id, metodo, provedor, momento, status, status_provedor, valor, valor_alocado, valor_nao_alocado, valor_recebido, troco, parcelas, bandeira, nsu, codigo_autorizacao, confirmado_em, cancelado_em, created_at, metadata")
+        // Keep this projection aligned with the production-compatible payment
+        // schema. Allocation is derived below because payments are queried for
+        // one ROL at a time and the legacy table has no allocation columns.
+        .select("id, metodo, provedor, momento, status, status_provedor, valor, valor_recebido, troco, parcelas, bandeira, nsu, codigo_autorizacao, confirmado_em, cancelado_em, created_at, metadata")
         .eq("tenant_id", authorization.tenantId)
         .eq("ordem_servico_id", orderId)
         .order("created_at", { ascending: false });
@@ -926,9 +1428,14 @@ Deno.serve(async (req) => {
         success: true,
         payments: (payments ?? []).map((payment) => ({
           ...payment,
+          // A payment returned for this order is fully allocated to it. Keep
+          // the response contract used by the UI without querying columns
+          // that are not present in the live schema.
+          valor_alocado: Number(payment.valor) || 0,
+          valor_nao_alocado: 0,
           canReverse: canManagePaymentsForUser &&
             PAYMENT_STATUS_FOR_REVERSAL.has(payment.status) &&
-            ["MANUAL", "LEGACY"].includes(payment.provedor) &&
+            (["MANUAL", "LEGACY"].includes(payment.provedor) || payment.provedor === "CREDITO_CLIENTE") &&
             payment.metodo !== "FIDELIDADE",
           canEdit: canManagePaymentsForUser &&
             PAYMENT_STATUS_FOR_REVERSAL.has(payment.status) &&
@@ -952,7 +1459,14 @@ Deno.serve(async (req) => {
       const paymentId = requireUuid(raw.paymentId, "Pagamento");
       const reason = requireReason(raw.reason);
       await assertScopedPayment(supabase, scope, paymentId);
-      const { data, error } = await supabase.rpc("estornar_pagamento_pdv", {
+      const { data: paymentRecord, error: paymentRecordError } = await supabase.from("pdv_pagamentos")
+        .select("metodo, provedor").eq("tenant_id", scope.tenantId).eq("id", paymentId).maybeSingle();
+      if (paymentRecordError) throw paymentRecordError;
+      if (!paymentRecord) throw new RequestError("Pagamento fora da empresa ativa", 403);
+      const rpc = paymentRecord.metodo === "CREDITO_CLIENTE" && paymentRecord.provedor === "CREDITO_CLIENTE"
+        ? "estornar_credito_cliente_pdv"
+        : "estornar_pagamento_pdv";
+      const { data, error } = await supabase.rpc(rpc, {
         _tenant_id: adminAuthorization.tenantId,
         _pagamento_id: paymentId,
         _motivo: reason,
@@ -971,6 +1485,12 @@ Deno.serve(async (req) => {
       const newValue = money(raw.newValue, "Novo valor");
       const newMethod = requireCorrectionMethod(raw.newMethod);
       const order = await assertScopedPayment(supabase, scope, paymentId);
+      const { data: paymentRecord, error: paymentRecordError } = await supabase.from("pdv_pagamentos")
+        .select("metodo").eq("tenant_id", scope.tenantId).eq("id", paymentId).maybeSingle();
+      if (paymentRecordError) throw paymentRecordError;
+      if (paymentRecord?.metodo === "CREDITO_CLIENTE") {
+        throw new RequestError("O crédito aplicado não pode ser alterado. Estorne o pagamento e registre novamente.", 409);
+      }
       assertDirectPayment(order);
       const { data, error } = await supabase.rpc("editar_pagamento_pdv", {
         _tenant_id: adminAuthorization.tenantId,
@@ -998,10 +1518,41 @@ Deno.serve(async (req) => {
         _valor: payment.amount,
         _valor_recebido: payment.amountReceived ?? null,
         _parcelas: payment.installments,
-        _bandeira: payment.brand ?? null,
-        _nsu: payment.nsu ?? null,
+        _bandeira: payment.method.startsWith("CARTAO_") ? (payment.brand ?? "OUTRA") : null,
+        _nsu: payment.method.startsWith("CARTAO_") ? (payment.nsu ?? "NAO_INFORMADO") : null,
         _codigo_autorizacao: payment.authorizationCode ?? null,
         _momento: moment,
+        _idempotency_key: idempotencyKey,
+        _criado_por: authorization.user.id,
+      });
+      if (error) throw error;
+      return jsonResponse(req, { success: true, payment: data });
+    }
+
+    if (action === "record_payments_batch") {
+      const orderId = requireUuid(raw.orderId, "OS");
+      const cashRegisterId = requireUuid(raw.cashRegisterId, "Caixa");
+      const moment: PaymentMoment = raw.moment === "ENTRADA" ? "ENTRADA" : "RETIRADA";
+      const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
+      if (idempotencyKey.length > 180 || !Array.isArray(raw.payments) ||
+          raw.payments.length < 2 || raw.payments.length > 4) {
+        throw new RequestError("Informe entre duas e quatro formas de pagamento");
+      }
+      const payments = raw.payments.map((item) => validateManualPayment(item, true));
+      await assertScopedOrderAndCash(supabase, scope, orderId, cashRegisterId);
+      const { data, error } = await supabase.rpc("registrar_pagamentos_pdv_lote", {
+        _ordem_servico_id: orderId,
+        _caixa_id: cashRegisterId,
+        _momento: moment,
+        _pagamentos: payments.map((payment) => ({
+          metodo: payment.method,
+          valor: payment.amount,
+          valor_recebido: payment.amountReceived ?? null,
+          parcelas: payment.installments,
+          bandeira: payment.method.startsWith("CARTAO_") ? (payment.brand ?? "OUTRA") : null,
+          nsu: payment.method.startsWith("CARTAO_") ? (payment.nsu ?? "NAO_INFORMADO") : null,
+          codigo_autorizacao: payment.authorizationCode ?? null,
+        })),
         _idempotency_key: idempotencyKey,
         _criado_por: authorization.user.id,
       });
@@ -1015,10 +1566,7 @@ Deno.serve(async (req) => {
       const moment: PaymentMoment = raw.moment === "ENTRADA" ? "ENTRADA" : "RETIRADA";
       const idempotencyKey = requireIdempotencyKey(raw.idempotencyKey);
       const points = loyaltyPoints(raw.points);
-      const order = await assertScopedOrderAndCash(supabase, scope, orderId, cashRegisterId);
-      if (order.origem === "industrial") {
-        throw new RequestError("O resgate de fidelidade está disponível somente para atendimentos residenciais", 409);
-      }
+      await assertScopedOrderAndCash(supabase, scope, orderId, cashRegisterId);
       const { data, error } = await supabase.rpc("resgatar_pontos_fidelidade_pdv", {
         _ordem_servico_id: orderId,
         _caixa_id: cashRegisterId,
@@ -1041,9 +1589,13 @@ Deno.serve(async (req) => {
 
     if (action === "loyalty_customer_summary") {
       const clientId = requireUuid(raw.clientId, "Cliente");
-      await assertScopedClient(supabase, scope, clientId);
+      const area = assertArea(scope, raw.area);
+      const client = await assertScopedClient(supabase, scope, clientId);
+      if (normalizePdvArea(client.classificacao) !== area) {
+        throw new RequestError("Cliente não pertence ao setor selecionado", 409);
+      }
 
-      const loyalty = await getCustomerLoyaltySummary(supabase, authorization.tenantId, clientId);
+      const loyalty = await getCustomerLoyaltySummary(supabase, authorization.tenantId, clientId, area);
       return jsonResponse(req, { success: true, loyalty });
     }
 
@@ -1090,7 +1642,13 @@ Deno.serve(async (req) => {
     console.error("Falha no fluxo de pagamento do PDV", { message, status });
     return jsonResponse(
       req,
-      { error: status >= 500 ? "Não foi possível processar o pagamento" : message },
+      {
+        error: status === 503 && message === "Integração PIX não configurada"
+          ? message
+          : status >= 500
+          ? "Não foi possível processar o pagamento"
+          : message,
+      },
       status,
     );
   }

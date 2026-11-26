@@ -9,6 +9,13 @@ type AuthorizedSender = {
   userId: string;
 };
 
+type ServiceSupabaseClient = {
+  auth: {
+    getUser(token?: string): Promise<{ data: { user: { id: string } | null }; error: unknown }>;
+  };
+  from(table: string): any;
+};
+
 const AUTOMATIC_EVENTS = new Set<AutomaticEvent>([
   "rol_entrada",
   "rol_pronto_retirada",
@@ -16,17 +23,100 @@ const AUTOMATIC_EVENTS = new Set<AutomaticEvent>([
 ]);
 
 const DEFAULT_TEMPLATES: Record<AutomaticEvent, string> = {
-  rol_entrada: `Olá, {cliente}! Recebemos seu ROL de entrada nº {numero}.
+  rol_entrada: `*{empresa}*
+{endereco_empresa}
+Telefone: {telefone_empresa} · {email_empresa}
+CNPJ: {cnpj_empresa}
 
-Peças lançadas:
+*AVISO DE ENTRADA · ROL Nº {numero}*
+Entrada: {data_entrada}
+Previsão: {previsao}
+Atendente: {atendente}
+Modalidade: {modalidade}
+Bloco: {bloco}
+{delivery_details}
+
+*DADOS DO CLIENTE*
+Nome: {cliente}
+Cód. cliente: {cliente_codigo}
+Endereço: {cliente_endereco}
+Telefone: {cliente_telefone}
+
+*PEÇAS*
 {itens}
 
 Total de peças: {total_pecas}
+Valor bruto: {valor_bruto}
+Desconto: {desconto}
+Lavagem Expressa: {acrescimo_express}
+Total do ROL: {valor}
+Total recebido: {valor_recebido}
+A pagar: {a_pagar}
+
+Informações para produção: {observacoes}
+Assinatura do cliente: ____________________
+
+{rodape}`,
+  rol_pronto_retirada: `*{empresa}*
+{endereco_empresa}
+Telefone: {telefone_empresa} · {email_empresa}
+CNPJ: {cnpj_empresa}
+
+*AVISO DE DISPONIBILIDADE PARA RETIRADA · ROL Nº {numero}*
+Disponível em: {data_disponibilidade}
+Previsão original: {previsao}
+Atendente: {atendente}
+{delivery_details}
+
+*DADOS DO CLIENTE*
+Nome: {cliente}
+Cód. cliente: {cliente_codigo}
+Endereço: {cliente_endereco}
+Telefone: {cliente_telefone}
+
+*PEÇAS DISPONÍVEIS*
+{itens}
+
+Total de peças: {total_pecas}
+Localização: {localizacao}
+Lavagem Expressa: {acrescimo_express}
 Valor do ROL: {valor}
+Total recebido: {valor_recebido}
+A pagar: {a_pagar}
+
+Apresente este ROL no balcão para retirada.
+
+{rodape}`,
+  rol_pronto_delivery: `*{empresa}*
+{endereco_empresa}
+Telefone: {telefone_empresa} · {email_empresa}
+CNPJ: {cnpj_empresa}
+
+*AVISO DE DISPONIBILIDADE PARA DELIVERY · ROL Nº {numero}*
+Disponível em: {data_disponibilidade}
 Previsão: {previsao}
-Modalidade: {modalidade}`,
-  rol_pronto_retirada: "Olá, {cliente}! Seu ROL nº {numero} está pronto e disponível para retirada. Total: {total_pecas} peça(s).",
-  rol_pronto_delivery: "Olá, {cliente}! Seu ROL nº {numero} está pronto para entrega.\nPrevisão: {previsao}",
+Atendente: {atendente}
+{delivery_details}
+
+*DADOS DO CLIENTE*
+Nome: {cliente}
+Cód. cliente: {cliente_codigo}
+Endereço: {cliente_endereco}
+Telefone: {cliente_telefone}
+
+*PEÇAS PRONTAS*
+{itens}
+
+Total de peças: {total_pecas}
+Localização: {localizacao}
+Lavagem Expressa: {acrescimo_express}
+Valor do ROL: {valor}
+Total recebido: {valor_recebido}
+A pagar: {a_pagar}
+
+O ROL foi encaminhado para Agenda, coletas e rotas.
+
+{rodape}`,
 };
 
 function allowedOrigins() {
@@ -42,6 +132,16 @@ function allowedOrigins() {
     "http://127.0.0.1:8080",
     ...configured,
   ]);
+}
+
+async function idempotencyKeyForRecipient(baseKey: string, phone: string, isPrimary: boolean) {
+  // Keep the primary phone's preexisting key stable so retries after deployment
+  // do not resend ROLs already delivered by the previous version.
+  if (isPrimary) return baseKey;
+  const bytes = new TextEncoder().encode(phone);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const suffix = Array.from(new Uint8Array(digest).slice(0, 8), (value) => value.toString(16).padStart(2, "0")).join("");
+  return `${baseKey}:phone:${suffix}`;
 }
 
 function corsHeaders(req: Request): HeadersInit {
@@ -98,6 +198,37 @@ function formatDate(value: unknown) {
   }).format(date);
 }
 
+function formatDateTime(value: unknown) {
+  if (typeof value !== "string") return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
+}
+
+function addressText(address: Record<string, unknown> | null | undefined) {
+  if (!address) return "";
+  const street = [address.logradouro, address.numero, address.complemento]
+    .map((value) => plainText(value, 100))
+    .filter(Boolean)
+    .join(", ");
+  const locality = [address.bairro, address.cidade, address.uf]
+    .map((value) => plainText(value, 80))
+    .filter(Boolean)
+    .join(" - ");
+  const cep = plainText(address.cep, 20);
+  return [street, locality, cep].filter(Boolean).join(" · ");
+}
+
+function configuredCnpj(value: unknown) {
+  const text = plainText(value, 40);
+  const digits = text.replace(/\D/g, "");
+  return digits.length === 14 && !/^0+$/.test(digits) ? text : "";
+}
+
 function fillTemplate(template: string, variables: Record<string, string>) {
   const withoutMissingLines = template.split("\n").filter((line) =>
     !Object.entries(variables).some(([name, value]) => !value && line.includes(`{${name}}`))
@@ -108,7 +239,7 @@ function fillTemplate(template: string, variables: Record<string, string>) {
   );
 }
 
-async function authorizeSender(req: Request, supabase: ReturnType<typeof createClient>): Promise<AuthorizedSender | null> {
+async function authorizeSender(req: Request, supabase: ServiceSupabaseClient): Promise<AuthorizedSender | null> {
   const token = getBearer(req);
   if (!token) return null;
 
@@ -205,7 +336,7 @@ Deno.serve(async (req) => {
 
     const { data: order, error: orderError } = await supabase
       .from("ordens_servico")
-      .select("id, numero, cliente_id, valor_total, data_previsao_entrega, entrega_modalidade, status, status_logistica")
+      .select("id, numero, cliente_id, atendente_id, created_at, data_retirada, data_previsao_entrega, entrega_modalidade, recebimento_modalidade, valor_total, taxa_entrega, delivery_modelo_snapshot, delivery_distancia_km_snapshot, delivery_taxa_base_snapshot, delivery_taxa_km_snapshot, valor_desconto, valor_pago, valor_acrescimo_express, urgente, percentual_urgencia, pago_na_entrada, observacoes, status, status_logistica")
       .eq("tenant_id", authorization.tenantId)
       .eq("id", orderId)
       .maybeSingle();
@@ -220,12 +351,36 @@ Deno.serve(async (req) => {
 
     const { data: client, error: clientError } = await supabase
       .from("clientes")
-      .select("id, razao_social, nome_fantasia, telefone, ativo, whatsapp_opt_out")
+      .select("id, razao_social, nome_fantasia, telefone, telefone2, ativo, whatsapp_opt_out")
       .eq("tenant_id", authorization.tenantId)
       .eq("id", order.cliente_id)
       .maybeSingle();
     if (clientError) throw clientError;
     if (!client) return json(req, { error: "Cliente indisponível" }, 403);
+
+    const [{ data: address, error: addressError }, { data: employee, error: employeeError }, { data: rolConfig, error: rolConfigError }] = await Promise.all([
+      supabase.from("enderecos_clientes")
+        .select("nome, logradouro, numero, complemento, bairro, cidade, uf, cep")
+        .eq("cliente_id", client.id)
+        .eq("ativo", true)
+        .order("principal", { ascending: false })
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("funcionarios")
+        .select("nome")
+        .eq("tenant_id", authorization.tenantId)
+        .eq("id", order.atendente_id || "00000000-0000-0000-0000-000000000000")
+        .eq("ativo", true)
+        .maybeSingle(),
+      supabase.from("rol_configuracoes")
+        .select("nome_curto, nome_completo, telefone, email, cnpj, endereco, texto_rodape, logo_url, exibir_logo")
+        .eq("tenant_id", authorization.tenantId)
+        .maybeSingle(),
+    ]);
+    if (addressError || employeeError || rolConfigError) {
+      throw addressError ?? employeeError ?? rolConfigError;
+    }
 
     const { data: templateConfig, error: templateError } = await supabase
       .from("notificacoes_config")
@@ -243,22 +398,28 @@ Deno.serve(async (req) => {
 
     const { data: itemRows, error: itemError } = await supabase
       .from("itens_ordem_servico")
-      .select("quantidade, cor_item, marca_item, avarias, observacoes, posicao_prateleira, produto:produtos(nome)")
+      .select("quantidade, preco_unitario, subtotal, cor_item, marca_item, avarias, observacoes, posicao_prateleira, produto:produtos!itens_ordem_servico_produto_id_fkey(nome)")
       .eq("ordem_servico_id", order.id);
     if (itemError) throw itemError;
 
-    const items = (itemRows || []) as Array<{
+    const rawItems = (itemRows || []) as unknown as Array<{
       quantidade: number;
+      preco_unitario: number | null;
+      subtotal: number | null;
       cor_item: string | null;
       marca_item: string | null;
       avarias: string | null;
       observacoes: string | null;
       posicao_prateleira: string | null;
-      produto: { nome: string } | null;
+      produto: { nome: string } | Array<{ nome: string }> | null;
     }>;
+    const items = rawItems.map((item) => ({
+      ...item,
+      produto: Array.isArray(item.produto) ? item.produto[0] ?? null : item.produto,
+    }));
     if (items.length === 0) return json(req, { error: "ROL sem peças persistidas" }, 409);
     const allItemsPositioned = items.length > 0 && items.every((item) => Boolean(plainText(item.posicao_prateleira, 120)));
-    const isReady = order.status === "expedicao" && allItemsPositioned;
+    const isReady = allItemsPositioned;
     if (evento !== "rol_entrada" && !isReady) {
       return json(req, { error: "O ROL só pode avisar o cliente após ficar pronto e ter todas as posições registradas" }, 409);
     }
@@ -271,56 +432,160 @@ Deno.serve(async (req) => {
 
     const itemSummary = items.map((item, index) => {
       const details = [
+        `qtd.: ${formatQuantity(item.quantidade)}`,
+        `unit.: ${formatCurrency(item.preco_unitario) || "não informado"}`,
+        `total: ${formatCurrency(item.subtotal) || "não informado"}`,
         plainText(item.cor_item, 80) && `cor: ${plainText(item.cor_item, 80)}`,
         plainText(item.marca_item, 80) && `marca: ${plainText(item.marca_item, 80)}`,
         plainText(item.avarias, 120) && `avarias: ${plainText(item.avarias, 120)}`,
         plainText(item.observacoes, 160) && `obs.: ${plainText(item.observacoes, 160)}`,
+        evento !== "rol_entrada" && plainText(item.posicao_prateleira, 120) && `local: ${plainText(item.posicao_prateleira, 120)}`,
       ].filter(Boolean).join(" · ");
-      return `${index + 1}. ${formatQuantity(item.quantidade)} × ${plainText(item.produto?.nome || "Peça", 120)}${details ? ` (${details})` : ""}`;
+      return `${index + 1}. ${plainText(item.produto?.nome || "Peça", 120)}\n   ${details}`;
     }).join("\n");
     const totalPieces = items.reduce((total, item) => total + (Number(item.quantidade) || 0), 0);
+    const grossItemsValue = items.reduce((total, item) => total + (Number(item.subtotal) || 0), 0);
+    const localizacao = [...new Set(items.map((item) => plainText(item.posicao_prateleira, 120)).filter(Boolean))].join(" · ");
     const deliveryMode = order.entrega_modalidade === "entrega" ? "Delivery" : "Retirada";
-    const message = fillTemplate(templateConfig?.template || DEFAULT_TEMPLATES[evento as AutomaticEvent], {
+    const valorTotal = Number(order.valor_total ?? 0);
+    const desconto = Number(order.valor_desconto ?? 0);
+    const valorPago = Number(order.valor_pago ?? 0);
+    const eventAt = new Date().toISOString();
+    const expressSurcharge = Math.max(0, Number(order.valor_acrescimo_express ?? 0));
+    const deliveryFee = Math.max(0, Number(order.taxa_entrega ?? 0));
+    const deliveryKm = order.delivery_modelo_snapshot === "km" && order.delivery_distancia_km_snapshot != null
+      ? Math.max(0, Number(order.delivery_distancia_km_snapshot))
+      : null;
+    const deliveryDetails = order.entrega_modalidade === "entrega"
+      ? [
+        `Taxa de delivery: ${formatCurrency(deliveryFee)}`,
+        ...(deliveryKm == null ? [] : [
+          `Distância cobrada: ${formatQuantity(deliveryKm)} km`,
+          `Tarifa: base ${formatCurrency(order.delivery_taxa_base_snapshot)} + ${formatCurrency(order.delivery_taxa_km_snapshot)}/km`,
+        ]),
+      ].join("\n")
+      : "";
+    let message = fillTemplate(templateConfig?.template || DEFAULT_TEMPLATES[evento as AutomaticEvent], {
+      empresa: plainText(rolConfig?.nome_completo || rolConfig?.nome_curto, 160) || "ANJOLAV LAVANDERIA",
+      endereco_empresa: plainText(rolConfig?.endereco, 220),
+      telefone_empresa: plainText(rolConfig?.telefone, 80),
+      email_empresa: plainText(rolConfig?.email, 120),
+      cnpj_empresa: configuredCnpj(rolConfig?.cnpj),
       cliente: plainText(client.nome_fantasia || client.razao_social, 120),
       numero: plainText(order.numero, 80),
+      data_entrada: formatDateTime(order.created_at),
+      data_disponibilidade: formatDateTime(eventAt),
+      atendente: plainText(employee?.nome, 120) || "Atendente do sistema",
+      bloco: "não informado",
+      cliente_codigo: "não cadastrado",
+      cliente_endereco: addressText(address as Record<string, unknown> | null),
+      cliente_telefone: plainText([client.telefone, client.telefone2].filter(Boolean).join(" / "), 80),
       itens: itemSummary,
       total_pecas: formatQuantity(totalPieces),
-      valor: formatCurrency(order.valor_total),
+      valor_bruto: formatCurrency(grossItemsValue),
+      desconto: formatCurrency(desconto),
+      valor: formatCurrency(valorTotal),
+      acrescimo_express: expressSurcharge > 0 ? `+ ${formatCurrency(expressSurcharge)}` : "",
+      valor_recebido: formatCurrency(valorPago),
+      a_pagar: formatCurrency(Math.max(0, valorTotal - valorPago)),
       previsao: formatDate(order.data_previsao_entrega),
       modalidade: deliveryMode,
+      delivery_details: deliveryDetails,
+      localizacao,
+      observacoes: plainText(order.observacoes, 500),
+      rodape: plainText(rolConfig?.texto_rodape, 240) || "AnjoLav · comprovante do ROL",
     }).trim();
+    if (deliveryDetails && !message.includes(deliveryDetails)) message = `${message}\n\n${deliveryDetails}`;
+    if (expressSurcharge > 0 && !/lavagem\s+expressa/i.test(message)) {
+      const expressLine = `Lavagem Expressa: + ${formatCurrency(expressSurcharge)}`;
+      const totalLine = /^(.*(?:Total|Valor)\s+do\s+ROL\s*:.*)$/im;
+      if (totalLine.test(message)) message = message.replace(totalLine, `${expressLine}\n$1`);
+      else message = `${message}\n${expressLine}`;
+    }
     if (!message || message.length > 4_000 || /\{[a-z_]+\}/i.test(message)) {
       return json(req, { error: "A mensagem automática excede o limite de 4.000 caracteres" }, 422);
     }
-    const phone = normalizeBrazilianWhatsApp(client.telefone || "");
-    const blockedCode = !client.ativo ? "CLIENT_INACTIVE"
-      : client.whatsapp_opt_out ? "CLIENT_OPT_OUT"
-      : !phone ? "PHONE_INVALID" : null;
-    const { row, duplicate } = await reserveDelivery(supabase, {
-      tenantId: authorization.tenantId,
-      orderId: order.id,
-      clientId: client.id,
-      phone: phone || "",
-      message,
-      event: evento,
-      idempotencyKey,
-      requestedBy: authorization.userId,
-      blockedCode,
+    const phoneInputs = [
+      { raw: client.telefone || "", slot: "primary" as const },
+      { raw: client.telefone2 || "", slot: "secondary" as const },
+    ].filter((item) => item.raw.trim());
+    const seenPhones = new Set<string>();
+    const recipients = phoneInputs.flatMap((item) => {
+      const phone = normalizeBrazilianWhatsApp(item.raw);
+      if (!phone || seenPhones.has(phone)) return [];
+      seenPhones.add(phone);
+      return [{ phone, slot: item.slot }];
     });
-    if (!duplicate && !blockedCode) {
-      await processReservedDelivery(supabase, row.id, authorization.tenantId);
+    const invalidPhoneCount = new Set(phoneInputs
+      .filter((item) => !normalizeBrazilianWhatsApp(item.raw))
+      .map((item) => item.raw.replace(/\D/g, "")))
+      .size;
+    const clientBlockedCode = !client.ativo ? "CLIENT_INACTIVE"
+      : client.whatsapp_opt_out ? "CLIENT_OPT_OUT" : null;
+    const reserveTargets = recipients.length > 0
+      ? recipients
+      : [{ phone: "", slot: "primary" as const }];
+    const reservations: Array<{
+      row: Awaited<ReturnType<typeof reserveDelivery>>["row"];
+      duplicate: boolean;
+      slot: "primary" | "secondary";
+    }> = [];
+    for (const recipient of reserveTargets) {
+      const recipientKey = recipients.length === 0
+        ? idempotencyKey
+        : await idempotencyKeyForRecipient(idempotencyKey, recipient.phone, recipient.slot === "primary");
+      const { row, duplicate } = await reserveDelivery(supabase, {
+        tenantId: authorization.tenantId,
+        orderId: order.id,
+        clientId: client.id,
+        phone: recipient.phone,
+        message,
+        event: evento,
+        idempotencyKey: recipientKey,
+        requestedBy: authorization.userId,
+        blockedCode: clientBlockedCode || (recipients.length === 0 ? "PHONE_INVALID" : null),
+      });
+      reservations.push({ row, duplicate, slot: recipient.slot });
     }
-    const { data: current, error: statusError } = await supabase.from("mensagens_log")
-      .select("status, last_error_code").eq("tenant_id", authorization.tenantId).eq("id", row.id).single();
-    if (statusError) throw statusError;
+
+    for (const item of reservations) {
+      if (item.row.status === "pendente") {
+        await processReservedDelivery(supabase, item.row.id, authorization.tenantId);
+      }
+    }
+
+    const recipientResults = await Promise.all(reservations.map(async (item) => {
+      const { data: current, error: statusError } = await supabase.from("mensagens_log")
+        .select("status, last_error_code")
+        .eq("tenant_id", authorization.tenantId)
+        .eq("id", item.row.id)
+        .single();
+      if (statusError) throw statusError;
+      return {
+        sent: current.status === "enviado" || current.status === "entregue" || current.status === "lido",
+        idempotent: item.duplicate,
+        reason: current.last_error_code || current.status,
+      };
+    }));
+    const sentCount = recipientResults.filter((item) => item.sent).length;
+    const recipientCount = recipients.length + invalidPhoneCount;
+    const success = recipientCount > 0 && sentCount === recipientCount;
+    const failedCount = Math.max(0, recipientCount - sentCount);
     return json(req, {
-      success: current.status === "enviado" || current.status === "entregue" || current.status === "lido",
-      skipped: Boolean(blockedCode),
-      idempotent: duplicate,
-      reason: current.last_error_code || current.status,
+      success,
+      partial: sentCount > 0 && !success,
+      skipped: Boolean(clientBlockedCode) || recipients.length === 0,
+      idempotent: reservations.length > 0 && reservations.every((item) => item.duplicate),
+      recipient_count: recipientCount,
+      sent_count: sentCount,
+      failed_count: failedCount,
+      reason: recipientResults.find((item) => !item.sent)?.reason
+        || (invalidPhoneCount > 0 ? "PHONE_INVALID" : recipientResults[0]?.reason),
     });
   } catch (error) {
     console.error("Falha na notificação automática do ROL", error instanceof Error ? error.message : "unknown");
     return json(req, { error: "Falha ao processar a notificação automática do ROL" }, 500);
   }
 });
+
+

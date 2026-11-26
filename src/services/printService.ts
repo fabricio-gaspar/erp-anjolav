@@ -1,10 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ROLPreviewConfig } from "@/components/configuracoes/ROLPreview";
-import { generateROLHTMLWithData, buildRolOrderDetails, type PrintOSData, type RolOrderCommercialSnapshot } from "@/lib/rolPrint";
-export { generateROLHTMLWithData, type PrintOSData } from "@/lib/rolPrint";
+import { generateROLHTMLWithData, generateROLDisponibilidadeHTMLWithData, buildRolOrderDetails, type PrintOSData, type RolOrderCommercialSnapshot } from "@/lib/rolPrint";
+export { generateROLHTMLWithData, generateROLDisponibilidadeHTMLWithData, type PrintOSData } from "@/lib/rolPrint";
 import { generateCode128BPattern } from "@/lib/code128";
 import { buildItemScanCode, buildOrderScanCode } from "@/lib/orderScanner";
-import { escapeHtml, openPrintDocument, printDocumentWhenReady, reservePrintWindow, safeHttpsUrl, writePrintDocument } from "@/lib/safePrint";
+import { escapeHtml, openPrintDocument, printDocumentWhenReady, reservePrintWindow, writePrintDocument } from "@/lib/safePrint";
+import { formatPrintQuantity } from "@/lib/printQuantity";
 
 // ===== INTERFACES =====
 
@@ -18,6 +19,7 @@ export interface EtiquetaData {
   data: Date;
   produtoNome?: string;
   quantidade?: number;
+  unidade?: string;
 }
 
 export interface EtiquetaConfig {
@@ -123,7 +125,31 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       quantidade: Number(item.quantidade),
       precoUnitario: Number(item.preco_unitario),
       subtotal: Number(item.subtotal),
+      posicaoPrateleira: item.posicao_prateleira || null,
+      detalhes: item.observacoes || null,
     }));
+
+    const [atendenteResult, enderecoResult] = await Promise.all([
+      ordem.atendente_id
+        ? supabase
+            .from("funcionarios")
+            .select("nome")
+            .eq("id", ordem.atendente_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      ordem.cliente_id
+        ? supabase
+            .from("enderecos_clientes")
+            .select("logradouro, numero, complemento, bairro, cidade, uf, cep")
+            .eq("cliente_id", ordem.cliente_id)
+            .eq("ativo", true)
+            .order("principal", { ascending: false })
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    const atendenteNome = atendenteResult.data?.nome || undefined;
 
     // The new columns are returned by select("*") until generated types catch up.
     const commercialSnapshot = ordem as typeof ordem & RolOrderCommercialSnapshot;
@@ -148,13 +174,16 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
 
     type LoyaltyResponse = PrintOSData["fidelidade"];
     let fidelidade: LoyaltyResponse | null = null;
+    let fidelidadeDisponivel = false;
     try {
       const typedRpc = supabase.rpc.bind(supabase) as unknown as (
         fn: string,
         args: Record<string, unknown>,
       ) => Promise<{ data: LoyaltyResponse | null; error: unknown }>;
       const loyaltyResult = await typedRpc("consultar_fidelidade_rol", { _ordem_servico_id: ordemServicoId });
+      if (loyaltyResult.error) throw new Error("A consulta de fidelidade retornou erro");
       fidelidade = loyaltyResult.data;
+      fidelidadeDisponivel = fidelidade !== null;
     } catch (error) {
       // Loyalty is optional for the ROL. A missing/temporarily unavailable RPC
       // must not prevent printing the OS, customer and item data already loaded.
@@ -166,6 +195,8 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       clienteNome: cliente?.razao_social || "Cliente",
       clienteTelefone: cliente?.telefone || undefined,
       clienteEmail: cliente?.email || undefined,
+      clienteEndereco: enderecoResult.data ?? undefined,
+      atendenteNome,
       itens: itensFormatted,
       ...orderDetails,
       dataEmissao: new Date(ordem.created_at),
@@ -176,6 +207,7 @@ export async function fetchOSPrintData(ordemServicoId: string): Promise<PrintOSD
       bloco,
       posicao,
       fidelidade: fidelidade ?? undefined,
+      fidelidadeDisponivel,
     };
   } catch (error) {
     console.error("Error fetching ROL print data:", error);
@@ -322,7 +354,7 @@ export function generateEtiquetaHTMLWithData(config: EtiquetaConfig, data: Etiqu
       <div class="content">
         <div class="os-number">ROL: ${osNumero}</div>
         <div class="client">${escapeHtml(data.clienteNome)}</div>
-        ${data.produtoNome ? `<div class="produto">${escapeHtml(data.produtoNome)}</div><div class="quantidade">QTD: ${escapeHtml(data.quantidade || 1)} peça(s)</div>` : ''}
+        ${data.produtoNome ? `<div class="produto">${escapeHtml(data.produtoNome)}</div><div class="quantidade">QTD: ${escapeHtml(formatPrintQuantity(data.quantidade || 1, data.unidade))}</div>` : ''}
         
         <div class="barcode">${barcodeSVG}</div>
         <div class="barcode-number">${legendaLeitura}</div>
@@ -361,6 +393,25 @@ export async function printROLFromOS(ordemServicoId: string, reservedWindow?: Wi
   }
 
   const html = generateROLHTMLWithData(config, osData);
+  return openPrintWindow(html, printWindow);
+}
+
+export async function printROLDisponibilidadeFromOS(ordemServicoId: string, reservedWindow?: Window | null): Promise<boolean> {
+  const printWindow = reservedWindow ?? reservePrintWindow('width=400,height=600,noopener,noreferrer');
+  if (!printWindow) return false;
+
+  const [config, osData] = await Promise.all([
+    fetchROLConfig(),
+    fetchOSPrintData(ordemServicoId),
+  ]);
+
+  const ready = Boolean(osData && osData.itens.length > 0 && osData.itens.every((item) => item.posicaoPrateleira?.trim()));
+  if (!config || !osData || !ready) {
+    printWindow.close();
+    return false;
+  }
+
+  const html = generateROLDisponibilidadeHTMLWithData(config, osData);
   return openPrintWindow(html, printWindow);
 }
 
@@ -448,7 +499,7 @@ function generateMultipleItemLabelsHTML(config: EtiquetaConfig, osData: PrintOSD
           <div class="os-number">ROL: ${osNumero}</div>
           <div class="client">${escapeHtml(osData.clienteNome)}</div>
           <div class="produto">${escapeHtml(item.nome)}</div>
-          <div class="quantidade">QTD: ${escapeHtml(item.quantidade)} peça(s)</div>
+          <div class="quantidade">QTD: ${escapeHtml(formatPrintQuantity(item.quantidade, item.unidade))}</div>
           <div class="barcode">${barcodeSVG}</div>
           <div class="barcode-number">${legendaLeitura}</div>
         </div>

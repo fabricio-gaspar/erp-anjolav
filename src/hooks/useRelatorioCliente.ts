@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { differenceInCalendarDays, isValid, parseISO } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 // Kept for the legacy print components while the operational screen consumes
@@ -110,10 +112,22 @@ export interface DemonstrativoIndustrial {
 }
 
 function readStatement(data: unknown): DemonstrativoIndustrial {
-  if (!data || typeof data !== "object" || !("cliente" in data) || !("totais" in data)) {
+  if (!data || typeof data !== "object" || !("cliente" in data) || !("totais" in data)
+    || !("origens" in data) || !Array.isArray(data.origens)
+    || !("servicos" in data) || !Array.isArray(data.servicos)
+    || !("faturas" in data) || !Array.isArray(data.faturas)
+    || !("contratos" in data) || !Array.isArray(data.contratos)) {
     throw new Error("O demonstrativo não retornou um resultado válido");
   }
   return data as DemonstrativoIndustrial;
+}
+
+export function periodoDemonstrativoValido(inicio: string | null, fim: string | null): boolean {
+  if (!inicio || !fim) return false;
+  const dataInicio = parseISO(inicio);
+  const dataFim = parseISO(fim);
+  const dias = differenceInCalendarDays(dataFim, dataInicio);
+  return isValid(dataInicio) && isValid(dataFim) && dias >= 0 && dias <= 366;
 }
 
 export function useRelatorioCliente(
@@ -122,14 +136,15 @@ export function useRelatorioCliente(
   periodoFim: string | null,
   faturaId: string | null = null,
 ) {
-  const hasValidPeriod = Boolean(
-    clienteId && periodoInicio && periodoFim && periodoFim >= periodoInicio,
-  );
+  const { activeTenant, session } = useAuth();
+  const hasValidPeriod = periodoDemonstrativoValido(periodoInicio, periodoFim);
 
   return useQuery({
-    queryKey: ["demonstrativo-industrial", clienteId, periodoInicio, periodoFim, faturaId],
+    queryKey: ["demonstrativo-industrial", session?.user.id, activeTenant?.id,
+      clienteId, periodoInicio, periodoFim, faturaId],
     queryFn: async () => {
-      if (!clienteId || !periodoInicio || !periodoFim) return null;
+      if (!clienteId || !periodoInicio || !periodoFim || !hasValidPeriod
+        || !session?.user.id || !activeTenant?.id) return null;
       const { data, error } = await supabase.rpc("obter_demonstrativo_industrial", {
         _cliente_id: clienteId,
         _periodo_inicio: periodoInicio,
@@ -139,6 +154,7 @@ export function useRelatorioCliente(
       if (error) throw error;
       return readStatement(data);
     },
-    enabled: hasValidPeriod,
+    enabled: Boolean(clienteId && session?.user.id && activeTenant?.id && hasValidPeriod),
+    retry: false,
   });
 }

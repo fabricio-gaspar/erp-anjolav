@@ -4,7 +4,7 @@ import {
   jsonResponse,
   readJsonBody,
   requireJsonPost,
-} from "../_shared/http.ts";
+} from "../_shared/live-variant-b/http.ts";
 
 interface SignInRequest {
   login?: string;
@@ -126,3 +126,4 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { error: "Serviço temporariamente indisponível" }, 503);
   }
 });
+

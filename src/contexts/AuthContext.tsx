@@ -4,6 +4,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { limparCacheFinanceiroAgregado } from "@/lib/financeiroDashboardState";
 import { presentAuthError } from "@/lib/authErrorPresentation";
+import { isOfflineLikeError, OFFLINE_QUERY_CACHE_MAX_AGE_MS } from "@/lib/offlinePolicy";
+import {
+  clearOfflineSessionCache,
+  loadOfflineAuthSnapshot,
+  saveOfflineAuthSnapshot,
+} from "@/lib/offlineStore";
 import { toast } from "sonner";
 
 interface Funcionario {
@@ -94,13 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error("Error fetching funcionario:", error);
-        return null;
+        throw error;
       }
 
       return data;
     } catch (err) {
       console.error("Error in fetchFuncionario:", err);
-      return null;
+      throw err;
     }
   }, []);
 
@@ -159,14 +165,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [normalizeSecurityContext]);
 
   const loadUserContext = useCallback(async (userId: string) => {
-    const [employee, tenants, securityContext] = await Promise.all([
-      fetchFuncionario(userId),
-      fetchTenantContext(),
-      fetchSecurityContext(),
-    ]);
-    setFuncionario(employee);
-    setTenantContext(tenants);
-    setSecurity(securityContext);
+    try {
+      const [employee, tenants, securityContext] = await Promise.all([
+        fetchFuncionario(userId),
+        fetchTenantContext(),
+        fetchSecurityContext(),
+      ]);
+      setFuncionario(employee);
+      setTenantContext(tenants);
+      setSecurity(securityContext);
+      await saveOfflineAuthSnapshot({
+        userId,
+        funcionario: employee,
+        tenantContext: tenants,
+        security: securityContext,
+        cachedAt: new Date().toISOString(),
+      });
+      return;
+    } catch (error) {
+      if (!isOfflineLikeError(error)) throw error;
+      const cached = await loadOfflineAuthSnapshot<Funcionario | null, TenantContext, AuthSecurityContext>(userId);
+      const cachedAt = cached ? Date.parse(cached.cachedAt) : Number.NaN;
+      const activeTenantId = cached?.tenantContext.activeTenantId ?? null;
+      const tenantIsValid = Boolean(
+        activeTenantId && cached?.tenantContext.tenants.some((tenant) => tenant.id === activeTenantId && tenant.active),
+      );
+      if (
+        !cached ||
+        !Number.isFinite(cachedAt) ||
+        Date.now() - cachedAt > OFFLINE_QUERY_CACHE_MAX_AGE_MS ||
+        !tenantIsValid ||
+        cached.security.tenantId !== activeTenantId
+      ) {
+        throw error;
+      }
+      setFuncionario(cached.funcionario);
+      setTenantContext(cached.tenantContext);
+      setSecurity(cached.security);
+    }
   }, [fetchFuncionario, fetchSecurityContext, fetchTenantContext]);
 
   const refreshSecurityContext = useCallback(async () => {
@@ -281,9 +317,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
+      const signedOutUserId = session?.user.id ?? null;
       const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
       queryClient.clear();
+      if (signedOutUserId) await clearOfflineSessionCache(signedOutUserId);
       setFuncionario(null);
       setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
       setSecurity(EMPTY_SECURITY_CONTEXT);
@@ -296,9 +334,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOutAllSessions = async () => {
     try {
+      const signedOutUserId = session?.user.id ?? null;
       const { error } = await supabase.auth.signOut({ scope: "global" });
       if (error) throw error;
       queryClient.clear();
+      if (signedOutUserId) await clearOfflineSessionCache(signedOutUserId);
       setFuncionario(null);
       setTenantContext({ activeTenantId: null, tenants: [], isPlatformAdmin: false });
       setSecurity(EMPTY_SECURITY_CONTEXT);
@@ -332,9 +372,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       limparCacheFinanceiroAgregado(queryClient);
       queryClient.clear();
+      const nextEmployee = await fetchFuncionario(session.user.id);
+      const nextSecurity = await fetchSecurityContext();
       setTenantContext(nextContext);
-      setFuncionario(await fetchFuncionario(session.user.id));
-      setSecurity(await fetchSecurityContext());
+      setFuncionario(nextEmployee);
+      setSecurity(nextSecurity);
+      await saveOfflineAuthSnapshot({
+        userId: session.user.id,
+        funcionario: nextEmployee,
+        tenantContext: nextContext,
+        security: nextSecurity,
+        cachedAt: new Date().toISOString(),
+      });
       toast.success("Empresa alterada com segurança.");
       return { error: null };
     } catch (caught) {
@@ -371,8 +420,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updatePassword = async (password: string) => {
     try {
-      if (password.length < 12 || password.length > 128) {
-        const error = new Error("A senha deve ter entre 12 e 128 caracteres.");
+      if (password.length < 6 || password.length > 128) {
+        const error = new Error("A senha deve ter entre 6 e 128 caracteres.");
         toast.error(error.message);
         return { error };
       }
@@ -422,7 +471,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 // O hook compartilha o contexto no mesmo módulo para manter a API pública existente.
-// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {

@@ -10,8 +10,8 @@ const traduzirErroAuth = (raw: string | undefined | null): string => {
   if (/known to be weak|pwned|leaked|HIBP/i.test(msg)) {
     return "Esta senha é muito fraca ou já apareceu em vazamentos públicos. Escolha uma senha mais forte (combine letras maiúsculas, minúsculas, números e símbolos).";
   }
-  if (/Password should be at least|password.*short|min(imum)? length|menos de 12 caracteres/i.test(msg)) {
-    return "A senha é muito curta. Use no mínimo 12 caracteres.";
+  if (/Password should be at least|password.*short|min(imum)? length|menos de 6 caracteres/i.test(msg)) {
+    return "A senha é muito curta. Use no mínimo 6 caracteres.";
   }
   if (/already registered|already been registered/i.test(msg)) {
     return "Este email já está cadastrado no sistema.";
@@ -189,9 +189,9 @@ export const useCreateFuncionario = () => {
         tenantId: typeof result.tenantId === "string" ? result.tenantId : "",
       } satisfies CreateFuncionarioResult;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       void invalidateEmployeeQueries(queryClient);
-      toast.success("Usuário vinculado e link de ativação gerado.");
+      toast.success(result.accessLink ? "Usuário vinculado e link de ativação gerado." : "Usuário cadastrado com sucesso.");
     },
     onError: (error: Error) => {
       toast.error(error.message || "Erro ao cadastrar funcionário");

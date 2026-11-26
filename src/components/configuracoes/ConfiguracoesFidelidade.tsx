@@ -10,7 +10,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULTS = {
-  ativo: false,
+  ativo_domestico: false,
+  ativo_industrial: false,
   portal_exibir_fidelidade: false,
   valor_minimo_acumulo: 50,
   reais_por_ponto: 1,
@@ -30,12 +31,13 @@ export function ConfiguracoesFidelidade() {
       setLoading(true);
       const { data, error } = await supabase
         .from("fidelidade_configuracoes")
-        .select("ativo, portal_exibir_fidelidade, valor_minimo_acumulo, reais_por_ponto, valor_por_ponto, pontos_minimos_resgate")
+        .select("ativo_domestico, ativo_industrial, portal_exibir_fidelidade, valor_minimo_acumulo, reais_por_ponto, valor_por_ponto, pontos_minimos_resgate")
         .eq("tenant_id", activeTenant.id)
         .maybeSingle();
       if (error) toast.error("Não foi possível carregar as regras de fidelidade");
       if (data) setConfig({
-        ativo: data.ativo,
+        ativo_domestico: data.ativo_domestico,
+        ativo_industrial: data.ativo_industrial,
         portal_exibir_fidelidade: data.portal_exibir_fidelidade,
         valor_minimo_acumulo: Number(data.valor_minimo_acumulo),
         reais_por_ponto: Number(data.reais_por_ponto),
@@ -47,7 +49,7 @@ export function ConfiguracoesFidelidade() {
     })();
   }, [activeTenant]);
 
-  const setNumber = (field: keyof Omit<typeof DEFAULTS, "ativo" | "portal_exibir_fidelidade">, raw: string) => {
+  const setNumber = (field: keyof Pick<typeof DEFAULTS, "valor_minimo_acumulo" | "reais_por_ponto" | "valor_por_ponto" | "pontos_minimos_resgate">, raw: string) => {
     const value = Number(raw);
     setConfig((current) => ({ ...current, [field]: Number.isFinite(value) ? value : 0 }));
   };
@@ -61,6 +63,7 @@ export function ConfiguracoesFidelidade() {
     setSaving(true);
     const { error } = await supabase.from("fidelidade_configuracoes").upsert({
       tenant_id: activeTenant.id,
+      ativo: config.ativo_domestico || config.ativo_industrial,
       ...config,
     }, { onConflict: "tenant_id" });
     setSaving(false);
@@ -77,11 +80,17 @@ export function ConfiguracoesFidelidade() {
     <Card className="max-w-3xl space-y-6 p-6">
       <div className="flex items-start gap-3">
         <div className="rounded-lg bg-primary/10 p-2 text-primary"><Gift className="h-5 w-5" /></div>
-        <div><h2 className="font-semibold">Programa de fidelidade</h2><p className="text-sm text-muted-foreground">Pontos são gerados somente após o pagamento integral do ROL e podem ser usados como desconto no PDV.</p></div>
+        <div><h2 className="font-semibold">Programa de fidelidade</h2><p className="text-sm text-muted-foreground">Ative a fidelidade separadamente para cada operação. Os pontos são creditados após o pagamento integral do ROL.</p></div>
       </div>
-      <div className="flex items-center justify-between rounded-lg border p-4">
-        <div><Label>Ativar programa</Label><p className="text-xs text-muted-foreground">Permanece desativado até você habilitar esta opção.</p></div>
-        <Switch checked={config.ativo} onCheckedChange={(ativo) => setConfig((current) => ({ ...current, ativo }))} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+          <div><Label htmlFor="loyalty-domestic">Doméstico</Label><p className="text-xs text-muted-foreground">Acumular e resgatar pontos no PDV doméstico.</p></div>
+          <Switch id="loyalty-domestic" checked={config.ativo_domestico} onCheckedChange={(ativo_domestico) => setConfig((current) => ({ ...current, ativo_domestico }))} />
+        </div>
+        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+          <div><Label htmlFor="loyalty-industrial">Industrial</Label><p className="text-xs text-muted-foreground">Acumular e resgatar pontos no PDV industrial.</p></div>
+          <Switch id="loyalty-industrial" checked={config.ativo_industrial} onCheckedChange={(ativo_industrial) => setConfig((current) => ({ ...current, ativo_industrial }))} />
+        </div>
       </div>
       <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
         <div>

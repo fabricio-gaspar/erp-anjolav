@@ -145,6 +145,7 @@ export function useLinkLancamentosToFatura() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
       queryClient.invalidateQueries({ queryKey: ["faturas"] });
+      queryClient.invalidateQueries({ queryKey: ["demonstrativo-industrial"] });
     },
   });
 }

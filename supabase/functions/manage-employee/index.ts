@@ -302,7 +302,8 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey) {
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !serviceRoleKey || !anonKey) {
     console.error("Supabase service credentials are not configured");
     return jsonResponse(req, { error: "Serviço temporariamente indisponível" }, 503);
   }
@@ -313,6 +314,13 @@ Deno.serve(async (req) => {
 
   const authorization = await requireAdmin(req, supabase);
   if (!authorization.ok) return authorization.response;
+
+  // Permission writes must carry the caller's JWT so auth.uid() in the audit
+  // trigger identifies the admin and the table's RLS policy still applies.
+  const callerSupabase = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: req.headers.get("authorization") ?? "" } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   try {
     const parsedBody = await readJsonBody(req, 65_536);
@@ -357,11 +365,11 @@ Deno.serve(async (req) => {
       if (accessProfile && !email) {
         return jsonResponse(req, { error: "O email é obrigatório para gerar o link de ativação" }, 400);
       }
-      if (accessProfile && !inviteRedirectTo) {
+      if (accessProfile && !password && !inviteRedirectTo) {
         return jsonResponse(req, { error: "URL de ativação inválida" }, 400);
       }
-      if (!accessProfile && email && (password.length < 12 || password.length > 128)) {
-        return jsonResponse(req, { error: "A senha deve ter entre 12 e 128 caracteres" }, 400);
+      if (email && (password || !accessProfile) && (password.length < 6 || password.length > 128)) {
+        return jsonResponse(req, { error: "A senha deve ter entre 6 e 128 caracteres" }, 400);
       }
       if (rawCpf && (!cpf || !isValidCpf(cpf))) {
         return jsonResponse(req, { error: "CPF inválido" }, 400);
@@ -387,7 +395,7 @@ Deno.serve(async (req) => {
       let createdUserId: string | null = null;
       let accessLink: string | null = null;
       if (email) {
-        if (accessProfile && inviteRedirectTo) {
+        if (accessProfile && inviteRedirectTo && !password) {
           const { data: inviteData, error: inviteError } = await supabase.auth.admin.generateLink({
             type: "invite",
             email,
@@ -489,7 +497,7 @@ Deno.serve(async (req) => {
           );
           const { error: moduleError } = accessProfile === "administracao"
             ? { error: null }
-            : await supabase.from("modulo_permissoes").insert(
+            : await callerSupabase.from("modulo_permissoes").insert(
                 PDV_OPERATIONAL_MODULES.map((moduleKey) => ({
                   tenant_id: authorization.tenantId,
                   funcionario_id: employee.id,
@@ -499,12 +507,17 @@ Deno.serve(async (req) => {
               );
 
           if (areaError || moduleError) {
-            await Promise.all([
+            const [, moduleCleanup] = await Promise.all([
               supabase.from("area_permissoes").delete()
                 .eq("tenant_id", authorization.tenantId).eq("user_id", createdUserId),
-              supabase.from("modulo_permissoes").delete()
+              callerSupabase.from("modulo_permissoes").delete()
                 .eq("tenant_id", authorization.tenantId).eq("funcionario_id", employee.id),
             ]);
+            if (moduleCleanup.error) {
+              // Keep cleanup possible if the caller's token expires mid-request.
+              await supabase.from("modulo_permissoes").delete()
+                .eq("tenant_id", authorization.tenantId).eq("funcionario_id", employee.id);
+            }
             await supabase.from("funcionarios").delete()
               .eq("tenant_id", authorization.tenantId).eq("id", employee.id);
             await supabase.auth.admin.deleteUser(createdUserId);
@@ -1006,7 +1019,7 @@ Deno.serve(async (req) => {
     if (action === "update-password") {
       const userId = typeof body.userId === "string" ? body.userId : "";
       const newPassword = typeof body.newPassword === "string" ? body.newPassword : "";
-      if (!UUID_PATTERN.test(userId) || newPassword.length < 12 || newPassword.length > 128) {
+      if (!UUID_PATTERN.test(userId) || newPassword.length < 6 || newPassword.length > 128) {
         return jsonResponse(req, { error: "Usuário inválido ou senha fora do limite permitido" }, 400);
       }
 

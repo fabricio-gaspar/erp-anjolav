@@ -1,11 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
-import { requirePlatformAdmin } from "../_shared/auth.ts";
+import { requirePlatformAdmin } from "../_shared/live-variant-b/auth.ts";
 import {
   handlePreflight,
   jsonResponse,
   readJsonBody,
   requireJsonPost,
-} from "../_shared/http.ts";
+} from "../_shared/live-variant-b/http.ts";
 
 const SUBSCRIPTION_STATUSES = ["trial", "active", "suspended", "cancelled"] as const;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -267,3 +267,4 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { error: "Não foi possível concluir a operação administrativa" }, 500);
   }
 });
+

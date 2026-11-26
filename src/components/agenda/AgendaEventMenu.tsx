@@ -11,7 +11,7 @@ import { Agendamento } from "@/hooks/useAgendamentos";
 
 interface AgendaEventMenuProps {
   agendamento: Agendamento;
-  onMarkCompleted: (id: string) => void;
+  onMarkCompleted: (agendamento: Agendamento) => void;
   onCancel: (agendamento: Agendamento) => void;
   onReschedule: (agendamento: Agendamento) => void;
   onAssignDriver: (agendamento: Agendamento) => void;
@@ -43,9 +43,9 @@ export function AgendaEventMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
         {!isCompleted && !isCanceled && (
-          <DropdownMenuItem onClick={() => onMarkCompleted(agendamento.id)}>
+          <DropdownMenuItem onClick={() => onMarkCompleted(agendamento)}>
             <CheckCircle className="h-4 w-4 mr-2 text-emerald-500" />
-            Marcar como realizado
+            {agendamento.tipo === "retirada" ? "Confirmar retirada" : "Marcar como realizado"}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={() => onAssignDriver(agendamento)}>

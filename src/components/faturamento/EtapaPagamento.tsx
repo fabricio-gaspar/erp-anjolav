@@ -21,6 +21,7 @@ import { ptBR } from "date-fns/locale";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { useCreateAsaasCharge } from "@/hooks/useAsaas";
 import { useFaturas, calcularVencimento } from "@/hooks/useFaturas";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/faturamentoUtils";
 import { BOLETO_ENABLED } from "@/lib/featureFlags";
@@ -70,11 +71,23 @@ export function EtapaPagamento({
   // Calcular data de vencimento
   const dataVencimento = calcularVencimento(diaFechamento, condicaoPagamento);
 
+  const assertProviderChargeAllowed = async (invoiceId: string) => {
+    const { data, error } = await supabase.from("faturas")
+      .select("valor_pago, status")
+      .eq("id", invoiceId)
+      .single();
+    if (error) throw error;
+    if (data.status === "cancelado" || Number(data.valor_pago || 0) > 0) {
+      throw new Error("Fatura cancelada ou com recebimento manual não aceita nova cobrança Asaas");
+    }
+  };
+
   const handleGenerateBoleto = async () => {
     if (!faturaId) return;
 
     setIsGenerating(true);
     try {
+      await assertProviderChargeAllowed(faturaId);
       const result = await createCharge({
         customer_name: dados.clienteNome,
         customer_cpf_cnpj: dados.clienteDocumento,
@@ -114,6 +127,7 @@ export function EtapaPagamento({
       }
     } catch (error) {
       console.error("Erro ao gerar boleto:", error);
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o boleto");
     } finally {
       setIsGenerating(false);
     }
@@ -124,6 +138,7 @@ export function EtapaPagamento({
 
     setIsGenerating(true);
     try {
+      await assertProviderChargeAllowed(faturaId);
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 3);
 
@@ -162,6 +177,7 @@ export function EtapaPagamento({
       }
     } catch (error) {
       console.error("Erro ao gerar PIX:", error);
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o PIX");
     } finally {
       setIsGenerating(false);
     }

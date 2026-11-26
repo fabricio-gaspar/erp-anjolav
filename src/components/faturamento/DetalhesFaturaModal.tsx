@@ -34,7 +34,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import type { Fatura } from "@/hooks/useFaturas";
+import { getFaturaSaldo, getFaturaStatusPagamento, getFaturaValorRecebido, type Fatura } from "@/hooks/useFaturas";
 import { cn } from "@/lib/utils";
 import { safeHttpsUrl } from "@/lib/safePrint";
 
@@ -77,8 +77,8 @@ export function DetalhesFaturaModal({
   };
 
   const statusConfig = getStatusConfig(fatura.status);
-  const received = Number(fatura.valor_pago || 0);
-  const balance = Math.max(Number(fatura.valor_total) - received, 0);
+  const received = getFaturaValorRecebido(fatura);
+  const balance = getFaturaSaldo(fatura);
   const nfPdfUrl = safeHttpsUrl(fatura.link_pdf_nf);
   const boletoUrl = safeHttpsUrl(fatura.boleto_url);
 
@@ -215,7 +215,7 @@ export function DetalhesFaturaModal({
                       <strong className="text-warning">{formatCurrency(balance)}</strong>
                     </div>
                   </div>
-                  {fatura.status_pagamento === "parcial" && (
+                  {getFaturaStatusPagamento(fatura) === "parcial" && (
                     <StatusBadge variant="info">Recebimento parcial</StatusBadge>
                   )}
                 </div>

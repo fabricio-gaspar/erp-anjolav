@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FunctionsHttpError } from "@supabase/supabase-js";
+import { FunctionsFetchError, FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type {
@@ -8,45 +8,11 @@ import type {
   PdvPixPayment,
   PdvSaleResult,
 } from "@/lib/pdvPayment";
+import type { PdvPaymentMethod } from "@/lib/pdvPayment";
+import type { PdvSaleRequest } from "@/lib/pdvSale";
+import type { PdvArea } from "@/lib/authorization";
 
-interface SaleItem {
-  produto_id: string;
-  quantidade: number;
-  cor_item?: string;
-  marca_item?: string;
-  avarias?: string;
-  posicao_prateleira?: string;
-  observacoes?: string;
-}
-export interface CreatePdvSaleInput {
-  clientId: string;
-  cashRegisterId: string | null;
-  deliveryDate: string;
-  urgent: boolean;
-  urgencyPercentage: number;
-  discountAmount: number;
-  driverId?: string;
-  vehicleId?: string;
-  items: SaleItem[];
-  payment: PdvManualPayment | { method: "PIX" } | null;
-  idempotencyKey: string;
-  intakeDate?: string | null;
-  notes?: string | null;
-  receiptMode?: "balcao" | "coleta";
-  deliveryMode?: "balcao" | "entrega";
-  addressSnapshot?: {
-    cep?: string | null;
-    logradouro?: string | null;
-    numero?: string | null;
-    complemento?: string | null;
-    bairro?: string | null;
-    cidade?: string | null;
-    uf?: string | null;
-    pais?: string | null;
-  };
-  /** Only a profile with commercial-term authority may request this exception. */
-  capacityOverride?: boolean;
-}
+export type CreatePdvSaleInput = PdvSaleRequest;
 
 export interface PdvCapacitySnapshot {
   configured: boolean;
@@ -62,14 +28,64 @@ export interface CreatePdvPixInput {
   cashRegisterId: string;
   moment: PdvPaymentMoment;
   idempotencyKey: string;
+  /** Valor desta cobrança; quando omitido, o backend usa o saldo pendente. */
+  amount?: number;
 }
 
 export interface RecordPdvPaymentInput extends CreatePdvPixInput {
   payment: PdvManualPayment & { amount: number };
 }
 
+export interface RecordPdvPaymentsBatchInput extends Omit<CreatePdvPixInput, "amount"> {
+  payments: Array<PdvManualPayment & { amount: number }>;
+}
+
 export interface RedeemPdvLoyaltyInput extends CreatePdvPixInput {
   points: number;
+}
+
+export interface PdvCustomerCreditTransaction {
+  id: string;
+  tipo: "CREDITO" | "USO" | "ESTORNO" | "AJUSTE_SAIDA";
+  valor: number;
+  saldoApos: number;
+  formaPagamento: string | null;
+  descricao: string;
+  rolId: string | null;
+  criadoEm: string;
+}
+
+export interface PdvCustomerCreditSummary {
+  saldo: number;
+  lancamentos: PdvCustomerCreditTransaction[];
+}
+
+export interface TopUpPdvCustomerCreditInput {
+  clientId: string;
+  cashRegisterId: string;
+  amount: number;
+  amountReceived: number;
+  method: Exclude<PdvPaymentMethod, "PIX" | "CREDITO_CLIENTE">;
+  brand?: string;
+  nsu?: string;
+  authorizationCode?: string;
+  idempotencyKey: string;
+}
+
+export interface ApplyPdvCustomerCreditInput {
+  orderId: string;
+  cashRegisterId: string;
+  moment: PdvPaymentMoment;
+  amount: number;
+  idempotencyKey: string;
+}
+
+export interface SubtractPdvCustomerCreditInput {
+  clientId: string;
+  cashRegisterId: string;
+  amount: number;
+  reason: string;
+  idempotencyKey: string;
 }
 
 export interface PdvLoyaltySummary {
@@ -106,16 +122,30 @@ export interface PdvPaymentSummary {
   reversalUnavailableReason?: string;
 }
 
+export class PdvServiceError extends Error {
+  constructor(message: string, readonly status: number | null = null) {
+    super(message);
+    this.name = "PdvServiceError";
+  }
+}
+
 async function edgeError(error: unknown): Promise<Error> {
+  if (error instanceof FunctionsFetchError) {
+    return new PdvServiceError("Não foi possível comunicar com o serviço do PDV", 503);
+  }
   if (error instanceof FunctionsHttpError) {
+    const status = Number.isFinite(error.context.status) ? error.context.status : null;
     try {
       const body = await error.context.json() as { error?: string };
-      if (body.error) return new Error(body.error);
+      if (body.error) return new PdvServiceError(body.error, status);
     } catch {
       // Mantém a mensagem original quando o corpo não é JSON.
     }
+    return new PdvServiceError(error.message, status);
   }
-  return error instanceof Error ? error : new Error("Não foi possível processar o pagamento");
+  return error instanceof Error
+    ? new PdvServiceError(error.message, null)
+    : new PdvServiceError("Não foi possível processar o pagamento", null);
 }
 
 async function invoke<T>(body: Record<string, unknown>): Promise<T> {
@@ -126,15 +156,21 @@ async function invoke<T>(body: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
+export function createPdvSaleRequest(input: CreatePdvSaleInput): Promise<PdvSaleResult> {
+  return invoke<PdvSaleResult>({ action: "create_sale", ...input });
+}
+
 function useInvalidatePdv() {
   const queryClient = useQueryClient();
   return () => {
     queryClient.invalidateQueries({ queryKey: ["caixa-aberto"] });
     queryClient.invalidateQueries({ queryKey: ["caixa-movimentacoes"] });
     queryClient.invalidateQueries({ queryKey: ["ordens_servico"] });
+    queryClient.invalidateQueries({ queryKey: ["delivery-rols-in-progress"] });
     queryClient.invalidateQueries({ queryKey: ["order-directory"] });
     queryClient.invalidateQueries({ queryKey: ["consulta-os"] });
     queryClient.invalidateQueries({ queryKey: ["pdv-customer-loyalty"] });
+    queryClient.invalidateQueries({ queryKey: ["pdv-customer-credit"] });
     queryClient.invalidateQueries({ queryKey: ["pdv-payments"] });
     queryClient.invalidateQueries({ queryKey: ["vendas-do-dia"] });
     queryClient.invalidateQueries({ queryKey: ["lancamentos"] });
@@ -149,31 +185,33 @@ function useInvalidatePdv() {
  * active tenant and operation before consulting the protected RPC.
  */
 export function usePdvCapacity(
+  area: PdvArea,
   clientId: string | null,
   deliveryDate: string | null,
   enabled = true,
 ) {
   const { activeTenant, session } = useAuth();
   return useQuery({
-    queryKey: ["pdv-capacity", session?.user.id, activeTenant?.id, clientId, deliveryDate],
-    enabled: enabled && Boolean(session?.user.id && activeTenant?.id && clientId && deliveryDate),
+    queryKey: ["pdv-capacity", session?.user.id, activeTenant?.id, area, clientId, deliveryDate],
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id && area && deliveryDate),
     queryFn: async () => {
-      if (!clientId || !deliveryDate) throw new Error("Cliente e data são obrigatórios para consultar capacidade");
+      if (!deliveryDate) throw new Error("Data de entrega é obrigatória para consultar capacidade");
       const result = await invoke<{ success: true; capacity: PdvCapacitySnapshot }>({
         action: "get_capacity",
+        area,
         clientId,
         deliveryDate,
       });
       return result.capacity;
     },
-    staleTime: 10_000,
+    staleTime: 0,
   });
 }
 
 export function useCreatePdvSale() {
   const invalidate = useInvalidatePdv();
   return useMutation({
-    mutationFn: (input: CreatePdvSaleInput) => invoke<PdvSaleResult>({ action: "create_sale", ...input }),
+    mutationFn: createPdvSaleRequest,
     onSuccess: invalidate,
   });
 }
@@ -209,6 +247,20 @@ export function useRecordPdvPayment() {
     mutationFn: async (input: RecordPdvPaymentInput) => {
       const result = await invoke<{ success: true; payment: Record<string, unknown> }>({
         action: "record_payment",
+        ...input,
+      });
+      return result.payment;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useRecordPdvPaymentsBatch() {
+  const invalidate = useInvalidatePdv();
+  return useMutation({
+    mutationFn: async (input: RecordPdvPaymentsBatchInput) => {
+      const result = await invoke<{ success: true; payment: Record<string, unknown> }>({
+        action: "record_payments_batch",
         ...input,
       });
       return result.payment;
@@ -302,17 +354,81 @@ export function usePdvLoyaltySummary(orderId: string | null, enabled = true) {
   });
 }
 
-export function usePdvCustomerLoyaltySummary(clientId: string | null, enabled = true) {
+export function usePdvCustomerLoyaltySummary(
+  clientId: string | null,
+  area: "industrial" | "residencial",
+  enabled = true,
+) {
   return useQuery({
-    queryKey: ["pdv-customer-loyalty", clientId],
+    queryKey: ["pdv-customer-loyalty", clientId, area],
     enabled: Boolean(clientId) && enabled,
     queryFn: async () => {
       const result = await invoke<{ success: true; loyalty: PdvLoyaltySummary }>({
         action: "loyalty_customer_summary",
         clientId,
+        area,
       });
       return result.loyalty;
     },
+  });
+}
+
+export function usePdvCustomerCreditSummary(clientId: string | null, enabled = true) {
+  const { activeTenant, session } = useAuth();
+  return useQuery({
+    queryKey: ["pdv-customer-credit", session?.user.id, activeTenant?.id, clientId],
+    enabled: enabled && Boolean(session?.user.id && activeTenant?.id && clientId),
+    queryFn: async () => {
+      if (!clientId) throw new Error("Selecione um cliente para consultar o crédito");
+      const result = await invoke<{ success: true; credit: PdvCustomerCreditSummary }>({
+        action: "customer_credit_summary",
+        clientId,
+      });
+      return result.credit;
+    },
+    staleTime: 10_000,
+  });
+}
+
+export function useTopUpPdvCustomerCredit() {
+  const invalidate = useInvalidatePdv();
+  return useMutation({
+    mutationFn: async (input: TopUpPdvCustomerCreditInput) => {
+      const result = await invoke<{ success: true; credit: { saldo: number; idempotente: boolean } }>({
+        action: "top_up_customer_credit",
+        ...input,
+      });
+      return result.credit;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useSubtractPdvCustomerCredit() {
+  const invalidate = useInvalidatePdv();
+  return useMutation({
+    mutationFn: async (input: SubtractPdvCustomerCreditInput) => {
+      const result = await invoke<{ success: true; credit: { saldo: number; idempotente: boolean } }>({
+        action: "subtract_customer_credit",
+        ...input,
+      });
+      return result.credit;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useApplyPdvCustomerCredit() {
+  const invalidate = useInvalidatePdv();
+  return useMutation({
+    mutationFn: async (input: ApplyPdvCustomerCreditInput) => {
+      const result = await invoke<{ success: true; payment: Record<string, unknown> }>({
+        action: "apply_customer_credit",
+        ...input,
+      });
+      return result.payment;
+    },
+    onSuccess: invalidate,
   });
 }
 

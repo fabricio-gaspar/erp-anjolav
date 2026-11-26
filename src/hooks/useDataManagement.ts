@@ -21,6 +21,7 @@ export interface DataOverview {
   };
   entities: EntityStats[];
   destructiveEnabled: boolean;
+  canDeleteTestData: boolean;
   lastUpdated: Date;
 }
 
@@ -69,6 +70,25 @@ const entityDefinitions = [
 ] satisfies Array<Omit<EntityStats, "count">>;
 
 const knownTables = new Set(entityDefinitions.map((entity) => entity.table));
+const EXPORT_PAGE_SIZE = 500;
+const EXPORT_MAX_ROWS_PER_TABLE = 100_000;
+
+interface ExportContract {
+  formatVersion: number;
+  scope: string;
+  tables: string[];
+  pageSize: number;
+  maxRowsPerTable: number;
+  exclusions: string[];
+  consistency: string;
+}
+
+export interface PartialExportManifest extends ExportContract {
+  exportedAt: string;
+  recordCounts: Record<string, number>;
+}
+
+export type PartialDataExport = Record<string, unknown> & { __manifest: PartialExportManifest };
 const insertionOrder = [
   "clientes", "produtos", "funcionarios", "veiculos", "motoristas", "fornecedores",
   "estoque_produtos", "enderecos_clientes", "configuracoes_cliente",
@@ -106,6 +126,7 @@ export function useDataManagement() {
       const result = await dataAdminRequest<{
         counts: Record<string, number>;
         destructiveEnabled: boolean;
+        canDeleteTestData: boolean;
       }>({ operation: "stats" });
       const entities = entityDefinitions.map((definition) => ({
         ...definition,
@@ -123,6 +144,7 @@ export function useDataManagement() {
         categories,
         entities,
         destructiveEnabled: result.destructiveEnabled,
+        canDeleteTestData: result.canDeleteTestData,
         lastUpdated: new Date(),
       };
     },
@@ -130,44 +152,87 @@ export function useDataManagement() {
   });
 }
 
-export async function exportEntityData(table: string): Promise<Array<Record<string, unknown>>> {
+export async function exportEntityData(
+  table: string,
+  pageSize = EXPORT_PAGE_SIZE,
+  maxRows = EXPORT_MAX_ROWS_PER_TABLE,
+): Promise<Array<Record<string, unknown>>> {
   if (!knownTables.has(table)) throw new Error("Tabela não autorizada para exportação");
 
   const result: Array<Record<string, unknown>> = [];
-  for (let offset = 0; ; offset += 500) {
-    const page = await dataAdminRequest<Array<Record<string, unknown>>>({
+  let expectedCount: number | null = null;
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await dataAdminRequest<{ rows: Array<Record<string, unknown>>; count: number }>({
       operation: "export-page",
       table,
       offset,
     });
-    result.push(...page);
-    if (page.length < 500) return result;
-    if (result.length >= 100_000) {
-      throw new Error("A exportação excede o limite da interface; utilize pg_dump");
+    if (!Array.isArray(page.rows) || !Number.isInteger(page.count) || page.count < 0 || page.rows.length > pageSize) {
+      throw new Error(`Resposta de exportação inválida para ${table}`);
     }
+    if (page.count > maxRows) throw new Error(`${table} excede ${maxRows} registros; use um backup de banco`);
+    if (expectedCount === null) expectedCount = page.count;
+    if (page.count !== expectedCount || result.length + page.rows.length > expectedCount) {
+      throw new Error(`${table} mudou durante a exportação; tente novamente`);
+    }
+    result.push(...page.rows);
+    if (result.length === expectedCount) return result;
+    if (page.rows.length !== pageSize) throw new Error(`Página incompleta em ${table}; exportação interrompida`);
   }
 }
 
-export async function exportAllData(): Promise<Record<string, Array<Record<string, unknown>>>> {
+export async function exportAllData(): Promise<PartialDataExport> {
+  const contract = await dataAdminRequest<ExportContract>({ operation: "export-manifest" });
+  const expectedTables = [...knownTables].sort();
+  if (
+    contract.formatVersion !== 1 || contract.scope !== "tenant-operational-partial" ||
+    contract.pageSize !== EXPORT_PAGE_SIZE || contract.maxRowsPerTable !== EXPORT_MAX_ROWS_PER_TABLE ||
+    !Array.isArray(contract.tables) || contract.tables.length !== expectedTables.length ||
+    [...contract.tables].sort().some((table, index) => table !== expectedTables[index]) ||
+    !Array.isArray(contract.exclusions) || typeof contract.consistency !== "string"
+  ) {
+    throw new Error("Inventário de exportação divergente entre interface e servidor");
+  }
   const result: Record<string, Array<Record<string, unknown>>> = {};
-  for (const entity of entityDefinitions) result[entity.table] = await exportEntityData(entity.table);
-  return result;
+  const recordCounts: Record<string, number> = {};
+  for (const table of contract.tables) {
+    result[table] = await exportEntityData(table, contract.pageSize, contract.maxRowsPerTable);
+    recordCounts[table] = result[table].length;
+  }
+  return {
+    __manifest: { ...contract, exportedAt: new Date().toISOString(), recordCounts },
+    ...result,
+  };
 }
 
 export async function deleteEntityData(table: string): Promise<number> {
   if (!knownTables.has(table)) throw new Error("Tabela não autorizada para exclusão");
-  const result = await dataAdminRequest<{ deleted: number }>({
-    operation: "delete-table",
-    table,
-    confirmation: `EXCLUIR:${table}`,
-  });
+  const result = await deleteEntitiesData([table]);
+  if (result.errors.length > 0) {
+    throw new Error(`Não foi possível excluir todas as dependências: ${result.errors.join(", ")}`);
+  }
   return result.deleted;
+}
+
+export async function deleteEntitiesData(
+  tables: string[],
+  confirmation = "EXCLUIR SELECIONADOS",
+): Promise<{ deleted: number; errors: string[]; expanded?: string[] }> {
+  const normalized = [...new Set(tables)];
+  if (normalized.length === 0 || normalized.some((table) => !knownTables.has(table))) {
+    throw new Error("Entidade não autorizada para exclusão");
+  }
+  return dataAdminRequest({
+    operation: "delete-tables",
+    tables: normalized,
+    confirmation,
+  });
 }
 
 export async function deleteAllData(): Promise<{ deleted: number; errors: string[] }> {
   return dataAdminRequest({
-    operation: "delete-all",
-    confirmation: "ZERAR DADOS OPERACIONAIS",
+    operation: "delete-test-data",
+    confirmation: "ZERAR DADOS DE TESTE",
   });
 }
 
@@ -208,7 +273,7 @@ export async function importAllData(
     }
   }
 
-  const unknownTables = Object.keys(backupData).filter((table) => !knownTables.has(table));
+  const unknownTables = Object.keys(backupData).filter((table) => table !== "__manifest" && !knownTables.has(table));
   errors.push(...unknownTables);
   return { imported, skipped, errors: [...new Set(errors)] };
 }

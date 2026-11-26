@@ -1,5 +1,5 @@
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -9,12 +9,13 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Eye, FileText, Loader2, Play, Receipt, Clock, DollarSign, TrendingUp,
+  AlertCircle, Eye, FileText, Loader2, Play, Receipt, Clock, DollarSign, TrendingUp,
   ChevronLeft, ChevronRight, Calendar, Filter, MoreHorizontal, CircleDollarSign, Ban, RotateCcw,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useFaturas, type Fatura } from "@/hooks/useFaturas";
+import { getFaturaSaldo, getFaturaStatusPagamento, getFaturaValorRecebido, useFaturas, type Fatura } from "@/hooks/useFaturas";
+import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
 import { FaturamentoModal, type DadosFaturamento, type LancamentoItem as FaturaLancamentoItem } from "@/components/faturamento/FaturamentoModal";
 import { DetalhesFaturaModal } from "@/components/faturamento/DetalhesFaturaModal";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ import { useDadosFaturamentoCompletos } from "@/hooks/useDadosFaturamento";
 import { RegistrarRecebimentoFaturaModal } from "@/components/faturamento/RegistrarRecebimentoFaturaModal";
 import { CancelarFaturaModal } from "@/components/faturamento/CancelarFaturaModal";
 import { RefaturarFaturaModal } from "@/components/faturamento/RefaturarFaturaModal";
+import { clientClassificationMatchesArea } from "@/lib/operations";
 
 const getStatusConfig = (status: string) => {
   switch (status) {
@@ -36,24 +38,22 @@ const getStatusConfig = (status: string) => {
   }
 };
 
-const getEffectivePaymentStatus = (
-  status: Fatura["status_pagamento"] | undefined,
-  workflowStatus: string,
-): Fatura["status_pagamento"] => status
-  ?? (workflowStatus === "pago" ? "pago" : workflowStatus === "cancelado" ? "cancelado" : "pendente");
-
-const getPaymentStatusConfig = (status: Fatura["status_pagamento"] | undefined, workflowStatus: string) => {
-  const effectiveStatus = getEffectivePaymentStatus(status, workflowStatus);
+const getPaymentStatusConfig = (fatura: Fatura) => {
+  const effectiveStatus = getFaturaStatusPagamento(fatura);
   switch (effectiveStatus) {
     case "pago": return { label: "Quitada", variant: "success" as const };
     case "parcial": return { label: "Recebimento parcial", variant: "info" as const };
     case "cancelado": return { label: "Cancelada", variant: "danger" as const };
-    default: return { label: "A receber", variant: "warning" as const };
+    default: return fatura.asaas_charge?.status === "OVERDUE"
+      ? { label: "Cobrança Asaas vencida", variant: "danger" as const }
+      : { label: fatura.asaas_charge_id ? "Aguardando Asaas" : "A receber", variant: "warning" as const };
   }
 };
 
 export function FaturasTab() {
   const { activeArea } = useWorkspace();
+  const { allowed: canManageReceivables } = usePermissaoModulo(["faturamento", "contas_receber"]);
+  const { allowed: canUseCash } = usePermissaoModulo("caixa");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [faturamentoModalOpen, setFaturamentoModalOpen] = useState(false);
   const [wizardDados, setWizardDados] = useState<DadosFaturamento | null>(null);
@@ -70,7 +70,7 @@ export function FaturasTab() {
 
   const periodoInicio = format(startOfMonth(currentDate), "yyyy-MM-dd");
   const periodoFim = format(endOfMonth(currentDate), "yyyy-MM-dd");
-  const { faturas, summary, isLoading } = useFaturas(periodoInicio, periodoFim);
+  const { faturas, summary, isLoading, error, refetch } = useFaturas(periodoInicio, periodoFim);
   
   // Fetch complete client data when continuing a fatura
   const { dados: dadosClienteCompletos } = useDadosFaturamentoCompletos(clienteIdParaContinuar);
@@ -107,13 +107,13 @@ export function FaturasTab() {
   }, [dadosClienteCompletos, activeArea]);
 
   const handleContinuarFatura = (fatura: Fatura) => {
-    if (fatura.cliente?.classificacao !== activeArea) return;
+    if (!clientClassificationMatchesArea(fatura.cliente?.classificacao, activeArea)) return;
     setClienteIdParaContinuar(fatura.cliente_id);
     setFaturaParaContinuar(fatura);
   };
 
   useEffect(() => {
-    if (!faturaParaContinuar || faturamentoModalOpen || dadosClienteCompletos.cliente?.id !== faturaParaContinuar.cliente_id || dadosClienteCompletos.cliente.classificacao !== activeArea) return;
+    if (!faturaParaContinuar || faturamentoModalOpen || dadosClienteCompletos.cliente?.id !== faturaParaContinuar.cliente_id || !clientClassificationMatchesArea(dadosClienteCompletos.cliente.classificacao, activeArea)) return;
     setWizardDados(reconstruirDadosFaturamento(faturaParaContinuar));
     setFaturamentoModalOpen(true);
   }, [faturaParaContinuar, faturamentoModalOpen, dadosClienteCompletos.cliente, activeArea, reconstruirDadosFaturamento]);
@@ -148,9 +148,15 @@ export function FaturasTab() {
 
       {/* Faturas Table */}
       <div className="overflow-hidden rounded-xl border bg-card">
-        <div className="p-4 border-b flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /><div><h3 className="font-semibold">Faturas de {format(currentDate, "MMMM yyyy", { locale: ptBR })}</h3><p className="text-xs text-muted-foreground">Recebimentos são conciliados com os pedidos de origem.</p></div></div>
+        <div className="p-4 border-b flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /><div><h3 className="font-semibold">Faturas de {format(currentDate, "MMMM yyyy", { locale: ptBR })}</h3><p className="text-xs text-muted-foreground">Recebimentos manuais são registrados na fatura e no caixa compartilhado.</p></div></div>
         {isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+        ) : error ? (
+          <div role="alert" className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+            <AlertCircle className="h-9 w-9 text-destructive" aria-hidden="true" />
+            <div><h3 className="font-semibold">Não foi possível carregar as faturas</h3><p className="mt-1 text-sm text-muted-foreground">O erro não será tratado como uma lista vazia.</p></div>
+            <Button variant="outline" onClick={() => void refetch()}>Tentar novamente</Button>
+          </div>
         ) : faturas.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Receipt className="w-12 h-12 mb-4 opacity-50" /><p>Nenhuma fatura neste período</p></div>
         ) : (
@@ -169,11 +175,12 @@ export function FaturasTab() {
             <TableBody>
               {faturas.map(fatura => {
                 const statusConfig = getStatusConfig(fatura.status);
-                const paymentStatus = getEffectivePaymentStatus(fatura.status_pagamento, fatura.status);
-                const paymentStatusConfig = getPaymentStatusConfig(fatura.status_pagamento, fatura.status);
-                const received = Number(fatura.valor_pago || 0);
-                const balance = Math.max(Number(fatura.valor_total) - received, 0);
+                const paymentStatus = getFaturaStatusPagamento(fatura);
+                const paymentStatusConfig = getPaymentStatusConfig(fatura);
+                const received = getFaturaValorRecebido(fatura);
+                const balance = getFaturaSaldo(fatura);
                 const isPaidOrCancelled = paymentStatus === "pago" || paymentStatus === "cancelado";
+                const canReceive = !isPaidOrCancelled && !fatura.asaas_charge_id && canManageReceivables && canUseCash;
                 const canCancel = !isPaidOrCancelled && received <= 0;
                 const canContinue = !isPaidOrCancelled && !fatura.data_envio;
                 const canRebill = paymentStatus === "cancelado"
@@ -209,7 +216,7 @@ export function FaturasTab() {
                     <TableCell className="text-sm text-muted-foreground font-mono">{fatura.numero_nf || "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {!isPaidOrCancelled && (
+                        {canReceive && (
                           <Button size="sm" onClick={() => { setFaturaRecebimento(fatura); setRecebimentoOpen(true); }} className="min-h-9 gap-1"><CircleDollarSign className="w-3.5 h-3.5" />Receber</Button>
                         )}
                         {canContinue && (
@@ -222,7 +229,7 @@ export function FaturasTab() {
                             <DropdownMenuSeparator />
                             {!isPaidOrCancelled && (
                               <>
-                                <DropdownMenuItem onClick={() => { setFaturaRecebimento(fatura); setRecebimentoOpen(true); }}><CircleDollarSign className="w-4 h-4 mr-2" />Registrar recebimento</DropdownMenuItem>
+                                {canReceive && <DropdownMenuItem onClick={() => { setFaturaRecebimento(fatura); setRecebimentoOpen(true); }}><CircleDollarSign className="w-4 h-4 mr-2" />Registrar recebimento</DropdownMenuItem>}
                                 {canCancel && <DropdownMenuItem onClick={() => { setFaturaCancelamento(fatura); setCancelamentoOpen(true); }} className="text-destructive focus:text-destructive"><Ban className="w-4 h-4 mr-2" />Cancelar fatura</DropdownMenuItem>}
                               </>
                             )}
@@ -243,14 +250,15 @@ export function FaturasTab() {
           </div>
         )}
 
-        {!isLoading && faturas.length > 0 && (
+        {!isLoading && !error && faturas.length > 0 && (
           <div className="divide-y md:hidden">
             {faturas.map((fatura) => {
-              const paymentStatus = getEffectivePaymentStatus(fatura.status_pagamento, fatura.status);
-              const paymentStatusConfig = getPaymentStatusConfig(fatura.status_pagamento, fatura.status);
-              const received = Number(fatura.valor_pago || 0);
-              const balance = Math.max(Number(fatura.valor_total) - received, 0);
+              const paymentStatus = getFaturaStatusPagamento(fatura);
+              const paymentStatusConfig = getPaymentStatusConfig(fatura);
+              const received = getFaturaValorRecebido(fatura);
+              const balance = getFaturaSaldo(fatura);
               const isPaidOrCancelled = paymentStatus === "pago" || paymentStatus === "cancelado";
+              const canReceive = !isPaidOrCancelled && !fatura.asaas_charge_id && canManageReceivables && canUseCash;
               const canCancel = !isPaidOrCancelled && received <= 0;
               const canContinue = !isPaidOrCancelled && !fatura.data_envio;
               const canRebill = paymentStatus === "cancelado"
@@ -272,10 +280,10 @@ export function FaturasTab() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Button variant="outline" className="min-h-11" onClick={() => { setFaturaDetalhes(fatura); setDetalhesModalOpen(true); }}><Eye className="mr-2 h-4 w-4" />Detalhes</Button>
-                    {!isPaidOrCancelled ? (
+                    {canReceive ? (
                       <Button className="min-h-11" onClick={() => { setFaturaRecebimento(fatura); setRecebimentoOpen(true); }}><CircleDollarSign className="mr-2 h-4 w-4" />Receber</Button>
                     ) : (
-                      <Button variant="outline" className="min-h-11" disabled>Sem saldo</Button>
+                      <Button variant="outline" className="min-h-11" disabled>{fatura.asaas_charge_id && !isPaidOrCancelled ? "Conciliar no Asaas" : "Sem recebimento manual"}</Button>
                     )}
                     {canContinue && (
                       <Button variant="outline" className="col-span-2 min-h-11" onClick={() => handleContinuarFatura(fatura)}><Play className="mr-2 h-4 w-4" />Continuar faturamento</Button>

@@ -139,7 +139,7 @@ export function ConfiguracoesROL() {
         assinaturaCliente: dbConfig.assinatura_cliente ?? defaultConfig.assinaturaCliente,
         tipoPreco: dbConfig.tipo_preco ?? defaultConfig.tipoPreco,
         linhaDesconto: dbConfig.linha_desconto ?? defaultConfig.linhaDesconto,
-        exibirFidelidade: dbConfig.exibir_fidelidade ?? defaultConfig.exibirFidelidade,
+        exibirFidelidade: true,
         textoRodape: dbConfig.texto_rodape || defaultConfig.textoRodape,
       });
     }
@@ -181,7 +181,7 @@ export function ConfiguracoesROL() {
         assinatura_cliente: config.assinaturaCliente,
         tipo_preco: config.tipoPreco,
         linha_desconto: config.linhaDesconto,
-        exibir_fidelidade: config.exibirFidelidade,
+        exibir_fidelidade: true,
         texto_rodape: config.textoRodape,
       }
     });
@@ -623,15 +623,9 @@ export function ConfiguracoesROL() {
                 onCheckedChange={(checked) => updateLocalConfig("linhaDesconto", checked)}
               />
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm text-primary">Informativo de fidelidade</Label>
-                <p className="text-xs text-muted-foreground">Mostra pontos ganhos e saldo no ROL quando o programa estiver ativo.</p>
-              </div>
-              <Switch
-                checked={config.exibirFidelidade}
-                onCheckedChange={(checked) => updateLocalConfig("exibirFidelidade", checked)}
-              />
+            <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+              <Label className="text-sm text-primary">Informativo de fidelidade sempre ativo</Label>
+              <p className="text-xs text-muted-foreground">O ROL sempre mostra o saldo real de pontos ou informa quando a consulta estiver indisponível.</p>
             </div>
           </div>
 
@@ -645,6 +639,10 @@ export function ConfiguracoesROL() {
           </div>
         </div>
       </Card>
+
+      <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+        Esta prévia controla a impressão do ROL, incluindo papel, logo e código de barras. Os avisos automáticos por WhatsApp usam os modelos textuais em Configurações gerais → Notificações automáticas, com os mesmos dados do ROL.
+      </p>
 
       {/* Footer Actions */}
       <div className="flex justify-between">

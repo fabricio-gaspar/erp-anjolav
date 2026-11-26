@@ -170,11 +170,11 @@
   display: inline-flex;
   align-items: center;
   min-height: 24px;
-  border: 1px solid #087ed0;
+  border: 1px solid var(--pdv-blue);
   border-radius: 6px;
   padding: 1px 9px;
-  color: #056fc1;
-  background: #f4fbff;
+  color: var(--pdv-blue);
+  background: var(--pdv-blue-soft);
   font-size: 12px;
   font-weight: 900;
 }
@@ -255,11 +255,11 @@
 .pdv-client-table { min-width: 760px; }
 
 .pdv-client-table-row--selected {
-  background: #e1f2ff !important;
-  box-shadow: inset 4px 0 0 #087ed0;
+  background: hsl(var(--primary) / .10) !important;
+  box-shadow: inset 4px 0 0 var(--pdv-blue);
 }
 
-.pdv-client-table-row--selected:hover { background: #d8edfc !important; }
+.pdv-client-table-row--selected:hover { background: hsl(var(--primary) / .16) !important; }
 
 .pdv-client-code {
   color: #10233a;
@@ -338,15 +338,15 @@
 
 .pdv-client-form > footer.surface-panel button[type="submit"] {
   order: 2;
-  border-color: #087ed0;
-  background: #087ed0;
+  border-color: var(--pdv-blue);
+  background: var(--pdv-blue);
   color: #fff;
 }
 
 .pdv-client-form > footer.surface-panel button[type="button"] {
   order: 1;
-  border-color: #087ed0;
-  color: #087ed0;
+  border-color: var(--pdv-blue);
+  color: var(--pdv-blue);
   background: #fff;
 }
 
@@ -374,9 +374,9 @@
 
 .pdv-client-registration .page-tab-trigger:last-child { border-right: 0; }
 .pdv-client-registration .page-tab-trigger[data-state="active"] {
-  color: #056fc1;
-  background: #e7f4fe;
-  box-shadow: inset 0 -3px 0 #087ed0;
+  color: var(--pdv-blue);
+  background: var(--pdv-blue-soft);
+  box-shadow: inset 0 -3px 0 var(--pdv-blue);
 }
 
 .pdv-client-registration .page-tab-trigger:disabled {
@@ -485,8 +485,8 @@
 .pdv-client-registration input:focus,
 .pdv-client-registration textarea:focus,
 .pdv-client-registration [role="combobox"]:focus {
-  border-color: #087ed0;
-  box-shadow: 0 0 0 2px rgba(8, 126, 208, .12);
+  border-color: var(--pdv-blue);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / .18);
 }
 
 .pdv-client-registration form > .surface-panel > [class*="border-b"],
@@ -496,7 +496,7 @@
 
 .pdv-client-registration form > div:last-child button[type="submit"] {
   min-width: 160px;
-  background: #087ed0;
+  background: var(--pdv-blue);
 }
 
 .pdv-client-registration .pdv-client-form > :not([hidden]) ~ :not([hidden]) {
@@ -617,8 +617,8 @@
   }
 
   .pdv-client-registration .pdv-client-form__identity fieldset:first-child button[aria-pressed="true"]::before {
-    border-color: #087ed0;
-    background: #087ed0;
+    border-color: var(--pdv-blue);
+    background: var(--pdv-blue);
     box-shadow: inset 0 0 0 4px #fff;
   }
 
@@ -759,4 +759,69 @@
   .pdv-client-registration__heading h1 { font-size: 18px; }
   .pdv-client-form-heading { display: block; padding-inline: 2px; }
   .pdv-client-form-heading span { display: block; margin-top: 2px; }
+}
+
+/* Cadastro de clientes alinhado à paleta global do painel central. */
+.pdv-app-shell .pdv-client-registration {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+}
+.pdv-app-shell .pdv-client-registration__heading {
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+}
+.pdv-app-shell .pdv-client-registration__heading h1,
+.pdv-app-shell .pdv-client-registration .pdv-client-form-heading h2,
+.pdv-app-shell .pdv-client-registration .pdv-client-summary-card h2,
+.pdv-app-shell .pdv-client-registration .pdv-client-summary-identity h3,
+.pdv-app-shell .pdv-client-registration .pdv-client-form label,
+.pdv-app-shell .pdv-client-registration .pdv-client-form legend,
+.pdv-app-shell .pdv-client-registration .pdv-client-form h2,
+.pdv-app-shell .pdv-client-registration .pdv-client-form h3 {
+  color: hsl(var(--foreground));
+}
+.pdv-app-shell .pdv-client-registration .pdv-client-form-heading span,
+.pdv-app-shell .pdv-client-registration .pdv-client-summary-empty,
+.pdv-app-shell .pdv-client-registration .pdv-client-summary-identity p,
+.pdv-app-shell .pdv-client-registration .pdv-client-contact-cell {
+  color: hsl(var(--muted-foreground));
+}
+.pdv-app-shell .pdv-client-registration :is(.surface-panel, .content-panel, .pdv-client-summary-card, .pdv-client-form .surface-panel, .pdv-client-form details.surface-panel, .pdv-client-form > footer.surface-panel) {
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-card);
+}
+.pdv-app-shell .pdv-client-registration :is(.pdv-client-summary-identity, .pdv-client-summary-section) {
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+.pdv-app-shell .pdv-client-registration .pdv-client-summary-section strong,
+.pdv-app-shell .pdv-client-registration .pdv-client-summary-section span svg,
+.pdv-app-shell .pdv-client-registration .pdv-client-summary-identity > svg,
+.pdv-app-shell .pdv-client-registration .pdv-client-code,
+.pdv-app-shell .pdv-client-registration .pdv-client-contact-cell svg {
+  color: hsl(var(--foreground));
+}
+.pdv-app-shell .pdv-client-registration .pdv-client-form input,
+.pdv-app-shell .pdv-client-registration .pdv-client-form textarea,
+.pdv-app-shell .pdv-client-registration .pdv-client-form [role="combobox"] {
+  border-color: hsl(var(--input));
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+}
+.pdv-app-shell .pdv-client-registration :is(.pdv-client-form__identity > div:first-child, .pdv-client-form__contact > div:first-child, .pdv-client-form__details > summary, form > .surface-panel > [class*="border-b"], [role="tabpanel"] .surface-panel > [class*="border-b"]) {
+  background: hsl(var(--muted));
+}
+.pdv-app-shell .pdv-client-registration .page-tabs-list { border-color: hsl(var(--border)); background: hsl(var(--card)); }
+.pdv-app-shell .pdv-client-registration .page-tab-trigger { border-color: hsl(var(--border)); color: hsl(var(--muted-foreground)); }
+.pdv-app-shell .pdv-client-registration .page-tab-trigger[data-state="active"] {
+  color: hsl(var(--primary));
+  background: hsl(var(--accent));
+  box-shadow: inset 0 -3px 0 hsl(var(--primary));
+}
+.pdv-app-shell .pdv-client-registration .page-tab-trigger:disabled { color: hsl(var(--muted-foreground)); background: hsl(var(--muted)); }
+.pdv-app-shell .pdv-client-registration .pdv-client-tab-panel [class*="bg-primary\/5"] {
+  border-color: hsl(var(--primary) / .25);
+  background: hsl(var(--accent));
 }

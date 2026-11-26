@@ -24,6 +24,7 @@ export interface StockMovementDirectoryItem {
   fornecedor_nome: string | null;
   local_origem_codigo: string | null;
   local_destino_codigo: string | null;
+  responsavel_nome: string | null;
 }
 
 export interface StockMovementDirectoryPage {

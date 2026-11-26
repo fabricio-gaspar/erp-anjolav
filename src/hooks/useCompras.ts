@@ -153,6 +153,7 @@ const invalidatePurchasing = (queryClient: ReturnType<typeof useQueryClient>) =>
   queryClient.invalidateQueries({ queryKey: ["stock-location-directory"] });
   queryClient.invalidateQueries({ queryKey: ["stock-location-balance-directory"] });
   queryClient.invalidateQueries({ queryKey: ["estoque_produtos"] });
+  queryClient.invalidateQueries({ queryKey: ["stock-directory"] });
   queryClient.invalidateQueries({ queryKey: ["movimentacoes_estoque"] });
   queryClient.invalidateQueries({ queryKey: ["stock-movement-directory"] });
   queryClient.invalidateQueries({ queryKey: ["contas-pagar"] });

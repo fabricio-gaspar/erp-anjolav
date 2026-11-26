@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,9 +7,10 @@ import { AuthShell } from "@/components/auth/AuthShell";
 import { Loader2, LogIn, Eye, EyeOff, AlertCircle, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { presentAuthError } from "@/lib/authErrorPresentation";
+import { getAfterLoginPath, getLoginArea, getLoginPdvSector } from "@/lib/loginRouting";
 
 const inputClass =
-  "flex h-9 w-full rounded-md border border-input bg-white px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60 md:text-sm";
+  "flex h-9 w-full rounded-md border border-input bg-card px-3 py-2 text-base text-foreground ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-80 md:text-sm";
 
 const Login = () => {
   const [login, setLogin] = useState("");
@@ -24,9 +25,26 @@ const Login = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/";
-
+  const loginArea = getLoginArea(location.pathname);
+  const pdvSector = getLoginPdvSector(location.pathname, location.search, location.state);
+  const sectorName = pdvSector === "domestico" ? "Doméstico" : pdvSector === "industrial" ? "Industrial" : null;
+  const loginBadge = loginArea === "central"
+    ? "Painel administrativo central"
+    : sectorName
+      ? `Painel do PDV · Operação ${sectorName}`
+      : loginArea === "pdv"
+        ? "Painel administrativo do PDV"
+        : "Acesso ao sistema";
+  const loginTitle = loginArea === "central"
+    ? "Acesso ao painel central"
+    : sectorName
+      ? `Acesso ao PDV ${sectorName}`
+      : loginArea === "pdv"
+        ? "Acesso ao painel do PDV"
+        : "Entrar no AnjoLav ERP";
+  const loginSubtitle = sectorName
+    ? `Você está acessando a operação ${sectorName}. Entre com seu login para abrir o painel correspondente.`
+    : "Use seu login ou e-mail corporativo e a senha cadastrada pelo administrador.";
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (typeof e.getModifierState === "function") {
@@ -72,7 +90,8 @@ const Login = () => {
         return;
       }
 
-      navigate(from, { replace: true });
+      // O destino continua protegido pelas permissões do usuário e da empresa.
+      navigate(getAfterLoginPath(loginArea, location.state, location.search), { replace: true });
     } catch (err) {
       console.error("[Login] erro inesperado:", err);
       setFormError("Erro inesperado ao fazer login. Tente novamente.");
@@ -83,9 +102,10 @@ const Login = () => {
 
   return (
     <AuthShell 
-      badge="Acesso ao Sistema" 
-      title="Entrar no AnjoLav ERP" 
-      subtitle="Use seu login ou e-mail corporativo e a senha cadastrada pelo administrador."
+      badge={loginBadge}
+      environmentLabel={loginArea ? loginBadge : undefined}
+      title={loginTitle}
+      subtitle={loginSubtitle}
     >
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         {formError && (
@@ -203,6 +223,15 @@ const Login = () => {
 
         <div className="mt-5 text-center text-xs text-slate-500 font-medium">
           Novos acessos, perfis e permissões são gerenciados pelo administrador do sistema.
+        </div>
+        <div className="border-t border-slate-200 pt-4 text-center text-xs text-slate-600">
+          {loginArea === "central" ? (
+            <>Acessar outro ambiente: <Link className="font-semibold text-primary hover:underline" to="/login/pdv">Painel do PDV</Link></>
+          ) : loginArea === "pdv" ? (
+            <>Acessar outro ambiente: <Link className="font-semibold text-primary hover:underline" to="/login/central">Painel central</Link></>
+          ) : (
+            <>Escolha seu ambiente: <Link className="font-semibold text-primary hover:underline" to="/login/central">Painel central</Link> <span aria-hidden="true"> · </span> <Link className="font-semibold text-primary hover:underline" to="/login/pdv">Painel do PDV</Link></>
+          )}
         </div>
       </form>
     </AuthShell>

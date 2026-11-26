@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Archive, Check, CircleAlert, Loader2, MapPin, Navigation, Pencil, Plus, Search, Star } from "lucide-react";
+import { Check, CircleAlert, Loader2, MapPin, Navigation, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AddressMap } from "@/components/ui/AddressMap";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -26,8 +26,7 @@ import { cn } from "@/lib/utils";
 import {
   buscarCepComFallback,
   calcularDistanciaKm,
-  geocodeEndereco,
-  montarEnderecoCompleto,
+  geocodeEnderecoCliente,
   type BrasilApiCnpjResponse,
 } from "@/services/apiServices";
 
@@ -88,7 +87,7 @@ function formatPostalCode(value: string) {
 }
 
 export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEnderecoProps) => {
-  const { enderecos, isLoading, isError, refetch, saveAddress, archiveAddress } = useEnderecosCliente(clienteId);
+  const { enderecos, isLoading, isError, refetch, saveAddress, deleteAddress } = useEnderecosCliente(clienteId);
   const { configuracao } = useConfiguracoesGerais();
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ClientAddressDraft | null>(null);
@@ -97,21 +96,24 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
   const [isSearchingPostalCode, setIsSearchingPostalCode] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [approximateLocation, setApproximateLocation] = useState(false);
-  const [addressToArchive, setAddressToArchive] = useState<EnderecoCliente | null>(null);
+  const [addressToDelete, setAddressToDelete] = useState<EnderecoCliente | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const activeAddresses = useMemo(() => enderecos.filter((address) => address.ativo), [enderecos]);
   const archivedAddresses = useMemo(() => enderecos.filter((address) => !address.ativo), [enderecos]);
   const companyLatitude = configuracao?.endereco_latitude ?? null;
   const companyLongitude = configuracao?.endereco_longitude ?? null;
-  const hasCompanyCoordinates = companyLatitude !== null && companyLongitude !== null;
-  const distance = draft?.latitude !== null && draft?.longitude !== null && hasCompanyCoordinates
-    ? calcularDistanciaKm(companyLatitude, companyLongitude, draft.latitude, draft.longitude)
+  const hasCompanyCoordinates = Number.isFinite(companyLatitude) && Number.isFinite(companyLongitude);
+  const hasDraftCoordinates = draft !== null
+    && Number.isFinite(draft.latitude)
+    && Number.isFinite(draft.longitude);
+  const distance = hasDraftCoordinates && hasCompanyCoordinates
+    ? calcularDistanciaKm(companyLatitude!, companyLongitude!, draft.latitude!, draft.longitude!)
     : null;
 
   useEffect(() => {
     if (!clienteId || isLoading || dirty) return;
-    const selected = enderecos.find((address) => address.id === selectedAddressId)
+    const selected = enderecos.find((address) => address.id === selectedAddressId && address.ativo)
       ?? enderecos.find((address) => address.ativo && address.principal)
       ?? enderecos.find((address) => address.ativo)
       ?? null;
@@ -197,13 +199,13 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
         neighborhood: result.bairro || current.neighborhood,
         city: result.localidade || current.city,
         state: result.uf || current.state,
-        latitude: result.latitude ?? null,
-        longitude: result.longitude ?? null,
+        latitude: null,
+        longitude: null,
       } : current);
       setFieldErrors((current) => ({ ...current, postalCode: undefined }));
-      setApproximateLocation(result.latitude != null && result.longitude != null);
+      setApproximateLocation(false);
       setDirty(true);
-      toast.success("CEP encontrado. Revise o número e a localização.");
+      toast.success("CEP encontrado. Revise o número e localize o endereço pelo logradouro.");
     } catch (error) {
       console.error("Erro ao buscar CEP:", error);
       setFieldErrors((current) => ({ ...current, postalCode: "Não foi possível consultar o CEP agora." }));
@@ -214,29 +216,35 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
 
   const handleGeocode = async () => {
     if (!draft) return;
-    const fullAddress = montarEnderecoCompleto({
-      logradouro: draft.street,
-      numero: draft.number,
-      bairro: draft.neighborhood,
-      cidade: draft.city,
-      uf: draft.state,
-      cep: draft.postalCode,
-    });
-    if (!draft.street || !draft.city || !draft.state || fullAddress === "Brasil") {
-      setFieldErrors(validateClientAddressDraft(draft).fieldErrors);
+    if (!draft.street.trim() || !draft.city.trim() || !draft.state.trim()) {
+      setFieldErrors((current) => ({ ...current, coordinates: "Preencha rua, cidade e UF antes de localizar o endereço." }));
       return;
     }
     setIsGeocoding(true);
     try {
-      const result = await geocodeEndereco(fullAddress);
+      const result = await geocodeEnderecoCliente({
+        postalCode: draft.postalCode,
+        street: draft.street,
+        number: draft.number,
+        neighborhood: draft.neighborhood,
+        city: draft.city,
+        state: draft.state,
+      });
       if (!result) {
-        toast.warning("Localização não encontrada. O endereço textual pode ser salvo sem mapa.");
+        toast.warning("Não foi possível confirmar esse logradouro no mapa. Posicione o marcador manualmente.");
         return;
       }
       setDraft((current) => current ? { ...current, latitude: result.latitude, longitude: result.longitude } : current);
-      setApproximateLocation(false);
+      setFieldErrors((current) => ({ ...current, coordinates: undefined }));
+      setApproximateLocation(true);
       setDirty(true);
-      toast.success("Localização conferida no mapa.");
+      if (result.postalCodeMismatch) {
+        toast.warning("Mapa localizado pela rua e número. O provedor encontrou um CEP diferente; confira o CEP informado.");
+      } else {
+        toast.success(result.precision === "address"
+          ? "Endereço localizado. Confira e ajuste o marcador, se necessário."
+          : "Logradouro localizado aproximadamente. Confira e ajuste o marcador.");
+      }
     } catch (error) {
       console.error("Erro ao localizar endereço:", error);
       toast.error("Não foi possível localizar o endereço no mapa agora.");
@@ -305,7 +313,7 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
         <Card className="h-fit">
           <CardHeader className="gap-3 pb-4">
             <div className="flex items-start justify-between gap-3">
-              <div><CardTitle className="text-lg">Endereços do cliente</CardTitle><CardDescription className="mt-1">Escolha qual endereço orienta pedidos e logística.</CardDescription></div>
+              <div><CardTitle className="text-lg">Endereços do cliente</CardTitle><CardDescription className="mt-1">Selecione um endereço para editá-lo ou definir o padrão dos pedidos.</CardDescription></div>
               <Button type="button" size="sm" className="min-h-11 gap-2" onClick={startNewAddress}><Plus className="h-4 w-4" /> Novo</Button>
             </div>
           </CardHeader>
@@ -316,14 +324,25 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
                 <p className="mt-1 text-xs text-muted-foreground">O atendimento simples pode continuar sem endereço. Cadastre-o quando houver coleta, entrega ou necessidade fiscal.</p>
               </div>
             )}
-            {activeAddresses.map((address) => (
-              <button type="button" key={address.id} onClick={() => selectAddress(address)} className={cn("w-full rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", selectedAddressId === address.id ? "border-primary bg-primary/[0.04]" : "hover:border-primary/40 hover:bg-muted/30")} aria-pressed={selectedAddressId === address.id}>
-                <span className="flex flex-wrap items-center gap-2"><span className="font-semibold">{address.nome || CLIENT_ADDRESS_TYPE_LABELS[address.tipo]}</span><Badge variant="outline">{CLIENT_ADDRESS_TYPE_LABELS[address.tipo]}</Badge>{address.principal && <Badge className="gap-1"><Star className="h-3 w-3" /> Principal</Badge>}</span>
-                <span className="mt-2 block text-sm leading-5 text-muted-foreground">{formatClientAddress(address)}</span>
-              </button>
-            ))}
+            {activeAddresses.map((address) => {
+              const typeLabel = CLIENT_ADDRESS_TYPE_LABELS[address.tipo];
+              const addressName = address.nome?.trim();
+              const nameMatchesType = addressName?.localeCompare(typeLabel, "pt-BR", { sensitivity: "base" }) === 0;
+              const displayName = addressName && !nameMatchesType
+                ? addressName
+                : `Endereço ${typeLabel.toLocaleLowerCase("pt-BR")}`;
+              return (
+                <div key={address.id} className={cn("flex items-start gap-2 rounded-xl border p-3 transition-colors", selectedAddressId === address.id ? "border-primary bg-primary/[0.04]" : "hover:border-primary/40 hover:bg-muted/30")}>
+                  <button type="button" onClick={() => selectAddress(address)} className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`Editar ${displayName}: ${formatClientAddress(address)}`} aria-pressed={selectedAddressId === address.id}>
+                    <span className="flex flex-wrap items-center gap-2"><span className="font-semibold">{displayName}</span>{addressName && !nameMatchesType && <Badge variant="outline">{typeLabel}</Badge>}{address.principal && <Badge className="gap-1"><Star className="h-3 w-3" /> Padrão</Badge>}</span>
+                    <span className="mt-1 block text-sm leading-5 text-muted-foreground">{formatClientAddress(address)}</span>
+                  </button>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => setAddressToDelete(address)} aria-label={`Excluir definitivamente ${displayName}: ${formatClientAddress(address)}`} title="Excluir endereço definitivamente"><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              );
+            })}
             {archivedAddresses.length > 0 && (
-              <div className="border-t pt-3"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Arquivados</p>{archivedAddresses.map((address) => <button type="button" key={address.id} onClick={() => selectAddress(address)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{address.nome || CLIENT_ADDRESS_TYPE_LABELS[address.tipo]} · {formatClientAddress(address)}</button>)}</div>
+              <div className="space-y-2 border-t pt-3"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Endereços inativos</p>{archivedAddresses.map((address) => <div key={address.id} className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground"><span className="min-w-0 flex-1 truncate">{address.nome || CLIENT_ADDRESS_TYPE_LABELS[address.tipo]} · {formatClientAddress(address)}</span><Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => setAddressToDelete(address)} aria-label="Excluir definitivamente endereço inativo" title="Excluir definitivamente"><Trash2 className="h-4 w-4" /></Button></div>)}</div>
             )}
           </CardContent>
         </Card>
@@ -333,7 +352,6 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
             <CardHeader className="gap-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div><CardTitle className="flex items-center gap-2 text-lg">{draft.id ? <Pencil className="h-4 w-4 text-primary" /> : <Plus className="h-4 w-4 text-primary" />}{draft.id ? "Editar endereço" : "Novo endereço"}</CardTitle><CardDescription className="mt-1">Logradouro, cidade e UF são obrigatórios somente ao salvar um endereço.</CardDescription></div>
-                {draft.id && activeAddresses.some((address) => address.id === draft.id) && <Button type="button" variant="outline" className="min-h-11 gap-2 text-destructive hover:text-destructive" onClick={() => setAddressToArchive(enderecos.find((address) => address.id === draft.id) ?? null)}><Archive className="h-4 w-4" /> Arquivar</Button>}
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -360,8 +378,9 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2 text-base"><MapPin className="h-4 w-4 text-primary" /> Localização no mapa</CardTitle><CardDescription>O endereço textual é autoritativo. O mapa ajuda o planejamento, mas não bloqueia o cadastro quando indisponível.</CardDescription></CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="min-h-11 gap-2" onClick={() => void handleGeocode()} disabled={isGeocoding || !draft.street || !draft.city || !draft.state}>{isGeocoding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}Conferir localização</Button>{distance !== null && <Badge variant="secondary">{distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`} da unidade</Badge>}</div>
-              {approximateLocation && <p className="text-sm text-amber-700" role="status">Localização aproximada pelo CEP. Informe o número e confira o marcador.</p>}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="min-h-11 gap-2" onClick={() => void handleGeocode()} disabled={isGeocoding || !draft.street.trim() || !draft.city.trim() || !draft.state.trim()}>{isGeocoding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Navigation className="h-4 w-4" />}Localizar pelo endereço</Button>{distance !== null && <Badge variant="secondary">{distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`} da unidade</Badge>}</div>
+              {hasDraftCoordinates && !approximateLocation && <p className="text-xs text-muted-foreground">Se esta posição foi salva a partir do CEP, use “Localizar pelo endereço” para conferir rua e número e salve o cadastro.</p>}
+              {approximateLocation && <p className="text-sm text-amber-700" role="status">O mapa foi localizado pelo logradouro e número; confirme o ponto e arraste o marcador se necessário.</p>}
               {fieldErrors.coordinates && <p className="text-sm text-destructive" role="alert">{fieldErrors.coordinates}</p>}
               <AddressMap latitude={draft.latitude} longitude={draft.longitude} companyLatitude={companyLatitude} companyLongitude={companyLongitude} showCompanyMarker={hasCompanyCoordinates} onPositionChange={(latitude, longitude) => { setDraft((current) => current ? { ...current, latitude, longitude } : current); setApproximateLocation(false); setDirty(true); }} draggable height="320px" clientName={draft.name || "Cliente"} companyName="Unidade" distanceKm={distance} />
             </CardContent>
@@ -380,8 +399,8 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
         <div className="flex flex-col gap-3 sm:flex-row"><Button type="button" variant="outline" className="min-h-11 gap-2" onClick={() => void save(false)} disabled={isSaving}>{isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar endereço</Button><Button type="button" className="min-h-11" onClick={() => void save(true)} disabled={isSaving}>Salvar e continuar</Button></div>
       </div>
 
-      <AlertDialog open={Boolean(addressToArchive)} onOpenChange={(open) => !open && setAddressToArchive(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Arquivar este endereço?</AlertDialogTitle><AlertDialogDescription>Ele deixa de ser usado em novos pedidos e rotas. Snapshots já registrados permanecem no histórico. Se for o principal, outro endereço ativo será promovido automaticamente.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={archiveAddress.isPending}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={archiveAddress.isPending} onClick={() => { if (!addressToArchive) return; archiveAddress.mutate(addressToArchive.id, { onSuccess: () => { setAddressToArchive(null); startNewAddress(); } }); }}>{archiveAddress.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Arquivar endereço</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+      <AlertDialog open={Boolean(addressToDelete)} onOpenChange={(open) => !open && setAddressToDelete(null)}>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir este endereço definitivamente?</AlertDialogTitle><AlertDialogDescription>O registro será removido do cadastro e não poderá ser recuperado. Cópias de endereço já gravadas em ROLs e rotas anteriores permanecem nos respectivos históricos. Se este for o endereço padrão, outro endereço ativo será promovido automaticamente.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={deleteAddress.isPending}>Cancelar</AlertDialogCancel><AlertDialogAction disabled={deleteAddress.isPending} onClick={() => { if (!addressToDelete) return; deleteAddress.mutate(addressToDelete.id, { onSuccess: () => { setAddressToDelete(null); setSelectedAddressId(null); setDraft(null); setDirty(false); } }); }}>{deleteAddress.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Excluir definitivamente</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
       </AlertDialog>
     </div>
   );

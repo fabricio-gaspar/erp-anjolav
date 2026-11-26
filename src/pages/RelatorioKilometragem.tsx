@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -14,10 +16,10 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import {
-  Gauge, Download, ChevronDown, ChevronRight, Truck, Route, Calendar,
+  Gauge, Download, ChevronDown, ChevronRight, Truck, Route, Calendar, RefreshCw,
 } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { downloadCsv } from "@/lib/csvExport";
 
 type Periodo = "hoje" | "semana" | "mes" | "personalizado";
 
@@ -59,28 +61,45 @@ interface MotoristaResumo {
   rotas: { data: string; veiculo: string; kmInicial: number; kmFinal: number; kmRodado: number }[];
 }
 
-export default function RelatorioKilometragem() {
+export default function RelatorioKilometragem({ embedded = false }: { embedded?: boolean }) {
+  const { activeTenant, session } = useAuth();
+  const { activeArea } = useWorkspace();
   const [periodo, setPeriodo] = useState<Periodo>("mes");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [expandedMotorista, setExpandedMotorista] = useState<string | null>(null);
+  const [filterMotorista, setFilterMotorista] = useState("todos");
+  const [filterVeiculo, setFilterVeiculo] = useState("todos");
 
   const range = getRange(periodo, customStart, customEnd);
 
-  const { data: rotas, isLoading } = useQuery({
-    queryKey: ["relatorio_km", range.start, range.end],
+  const { data: rotas, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ["relatorio_km", activeTenant?.id, session?.user.id, activeArea, range.start, range.end],
+    enabled: Boolean(activeTenant?.id && session?.user.id),
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!activeTenant?.id || !session?.user.id) {
+        throw new Error("Uma sessão autenticada e uma empresa ativa são obrigatórias para consultar quilometragem");
+      }
+      let query = supabase
         .from("rotas_entrega")
-        .select("id, data, km_inicial, km_final, motorista_id, motorista:motoristas(id, nome), veiculo:veiculos(id, placa, modelo)")
+        .select("id, data, km_inicial, km_final, motorista_id, motorista:motoristas!tenant_fk_35d0beac479f358933c8(id, nome), veiculo:veiculos!tenant_fk_6109a005af5afb9bef53(id, placa, modelo)")
+        .eq("tenant_id", activeTenant.id)
         .eq("status", "concluida")
         .gte("data", range.start)
         .lte("data", range.end)
         .not("km_inicial", "is", null)
-        .not("km_final", "is", null)
-        .order("data", { ascending: true });
-      if (error) throw error;
-      return data as unknown as RotaRow[];
+        .not("km_final", "is", null);
+      if (activeArea !== "central") query = query.eq("operation_type", activeArea === "industrial" ? "industrial" : "domestico");
+      const rows: RotaRow[] = [];
+      const ordered = query.order("data", { ascending: true }).order("id", { ascending: true });
+      for (let offset = 0; offset < 10000; offset += 500) {
+        const { data, error } = await ordered.range(offset, offset + 499);
+        if (error) throw error;
+        const page = (data ?? []) as unknown as RotaRow[];
+        rows.push(...page);
+        if (page.length < 500) return rows;
+      }
+      throw new Error("O relatório atingiu 10.000 rotas. Reduza o período para obter o resultado completo.");
     },
   });
 
@@ -88,6 +107,8 @@ export default function RelatorioKilometragem() {
     if (!rotas) return [];
     const map = new Map<string, MotoristaResumo>();
     for (const r of rotas) {
+      if (filterMotorista !== "todos" && (r.motorista_id || "sem_motorista") !== filterMotorista) continue;
+      if (filterVeiculo !== "todos" && (r.veiculo?.id || "sem_veiculo") !== filterVeiculo) continue;
       const mid = r.motorista_id || "sem_motorista";
       const nome = r.motorista?.nome || "Sem motorista";
       if (!map.has(mid)) {
@@ -106,7 +127,10 @@ export default function RelatorioKilometragem() {
       });
     }
     return Array.from(map.values()).sort((a, b) => b.kmTotal - a.kmTotal);
-  }, [rotas]);
+  }, [rotas, filterMotorista, filterVeiculo]);
+
+  const motoristaOptions = Array.from(new Map((rotas ?? []).map(r => [r.motorista_id || "sem_motorista", r.motorista?.nome || "Sem motorista"])).entries());
+  const veiculoOptions = Array.from(new Map((rotas ?? []).map(r => [r.veiculo?.id || "sem_veiculo", r.veiculo ? `${r.veiculo.modelo} (${r.veiculo.placa})` : "Sem veículo"])).entries());
 
   const totalKm = motoristas.reduce((s, m) => s + m.kmTotal, 0);
   const totalRotas = motoristas.reduce((s, m) => s + m.totalRotas, 0);
@@ -118,34 +142,27 @@ export default function RelatorioKilometragem() {
   }, [range]);
 
   const exportCSV = () => {
-    const lines = ["Motorista,Total Rotas,KM Total,KM Média/Rota"];
-    motoristas.forEach((m) => {
-      lines.push(`"${m.nome}",${m.totalRotas},${m.kmTotal.toFixed(1)},${m.totalRotas > 0 ? (m.kmTotal / m.totalRotas).toFixed(1) : "0"}`);
-    });
-    lines.push("");
-    lines.push(`Total,${totalRotas},${totalKm.toFixed(1)},${totalRotas > 0 ? (totalKm / totalRotas).toFixed(1) : "0"}`);
-    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `quilometragem_${range.start}_${range.end}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const rows = motoristas.flatMap(m => m.rotas.map(r => ({ motorista: m.nome, ...r })));
+    downloadCsv(`quilometragem_${range.start}_${range.end}.csv`, rows, [
+      { header: "Data", value: r => r.data }, { header: "Motorista", value: r => r.motorista },
+      { header: "Veículo", value: r => r.veiculo }, { header: "KM inicial", value: r => r.kmInicial },
+      { header: "KM final", value: r => r.kmFinal }, { header: "KM rodado", value: r => r.kmRodado },
+    ]);
   };
 
-  return (
-    <AppLayout title="Relatório de Quilometragem" subtitle="Desempenho de rotas e motoristas">
+  const content = (
       <div className="page-shell">
         <PageHeader
           eyebrow="Logística e frota"
-          title="Relatório de Quilometragem"
-          description="Acompanhe distâncias, rotas concluídas e desempenho por motorista"
+          title="Relatório de quilometragem"
+          description="Consulte rotas concluídas e quilômetros percorridos por motorista no período"
           actions={(
-            <Button variant="outline" onClick={exportCSV} className="w-full gap-2 sm:w-auto">
+            <Button variant="outline" onClick={exportCSV} disabled={isLoading || isError || !rotas?.length} className="w-full gap-2 sm:w-auto">
               <Download className="h-4 w-4" />Exportar CSV
             </Button>
           )}
         />
+        {activeArea !== "central" && <p className="text-sm text-muted-foreground">Rotas sem operação identificada aparecem somente no consolidado administrativo.</p>}
         {/* Filtros */}
         <div className="page-toolbar flex-wrap items-end">
           <div>
@@ -174,8 +191,26 @@ export default function RelatorioKilometragem() {
               </div>
             </>
           )}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block" htmlFor="km-motorista">Motorista</label>
+            <select id="km-motorista" value={filterMotorista} onChange={e => setFilterMotorista(e.target.value)} className="h-10 w-[190px] rounded-md border bg-background px-3 text-sm"><option value="todos">Todos</option>{motoristaOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block" htmlFor="km-veiculo">Veículo</label>
+            <select id="km-veiculo" value={filterVeiculo} onChange={e => setFilterVeiculo(e.target.value)} className="h-10 w-[190px] rounded-md border bg-background px-3 text-sm"><option value="todos">Todos</option>{veiculoOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
+          </div>
         </div>
 
+        {isError ? (
+          <Card className="p-6 text-center" role="alert">
+            <p className="font-semibold">Não foi possível carregar as rotas</p>
+            <p className="mt-1 text-sm text-muted-foreground">{error instanceof Error && error.message.startsWith("O relatório atingiu") ? error.message : "Tente novamente para consultar o período."}</p>
+            <Button type="button" variant="outline" className="mt-4 gap-2" onClick={() => void refetch()}>
+              <RefreshCw className="h-4 w-4" />Tentar novamente
+            </Button>
+          </Card>
+        ) : (
+        <>
         {/* Cards resumo */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -292,7 +327,9 @@ export default function RelatorioKilometragem() {
             )}
           </CardContent>
         </Card>
+        </>
+        )}
       </div>
-    </AppLayout>
   );
+  return embedded ? content : <AppLayout title="Relatório de quilometragem" subtitle="Distâncias e rotas concluídas por motorista">{content}</AppLayout>;
 }

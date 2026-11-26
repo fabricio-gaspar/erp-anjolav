@@ -72,19 +72,19 @@ export function FuncionarioFolhaInline({ folha, competenciaLabel }: Props) {
 
   const valorMap = useMemo(() => {
     const m = new Map<string, FolhaBeneficio>();
-    valores.forEach((v) => v.beneficio_id && m.set(v.beneficio_id, v));
+    valores.forEach((v) => (v.ativo || folha?.status === "cancelado") && v.tipo === "beneficio" && v.beneficio_id && m.set(v.beneficio_id, v));
     return m;
-  }, [valores]);
+  }, [folha?.status, valores]);
   const beneficiosVisiveis = useMemo(
     () => catalogo.filter((benefit) => benefit.ativo || Number(valorMap.get(benefit.id)?.valor || 0) > 0),
     [catalogo, valorMap],
   );
   const beneficiosLegados = useMemo(() => {
     const catalogIds = new Set(catalogo.map((benefit) => benefit.id));
-    return valores.filter((benefit) => benefit.ativo && (
+    return valores.filter((benefit) => (benefit.ativo || folha?.status === "cancelado") && benefit.tipo === "beneficio" && (
       !benefit.beneficio_id || !catalogIds.has(benefit.beneficio_id)
     ));
-  }, [catalogo, valores]);
+  }, [catalogo, folha?.status, valores]);
 
   if (!folha) {
     return (
@@ -120,7 +120,7 @@ export function FuncionarioFolhaInline({ folha, competenciaLabel }: Props) {
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span>
-            Total a pagar:{" "}
+            {folha.status === "cancelado" ? "Valor histórico:" : "Total a pagar:"}{" "}
             <strong className="tabular-nums text-primary">
               R$ {formatNumberToCurrency(totalPagar)}
             </strong>

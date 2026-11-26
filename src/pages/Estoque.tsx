@@ -12,16 +12,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Archive, ArrowDownToLine, ArrowUpFromLine, ChevronLeft, ChevronRight, Loader2, PackageOpen, Pencil, Plus, RefreshCw, RotateCcw, Search } from "lucide-react";
+import { Archive, ArrowDownToLine, ArrowUpFromLine, ChevronLeft, ChevronRight, Download, Loader2, PackageOpen, Pencil, Plus, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { useEstoque, EstoqueProduto } from "@/hooks/useEstoque";
 import { useStockDirectory } from "@/hooks/useStockDirectory";
 import { useFornecedores } from "@/hooks/useFornecedores";
 import { EstoqueDashboard } from "@/components/estoque/EstoqueDashboard";
 import { EntradaEstoqueModal } from "@/components/estoque/EntradaEstoqueModal";
 import { SaidaEstoqueModal } from "@/components/estoque/SaidaEstoqueModal";
-import { ComprasWorkspace } from "@/components/estoque/ComprasWorkspace";
 import { LocaisEstoqueWorkspace } from "@/components/estoque/LocaisEstoqueWorkspace";
 import { MovimentacoesEstoqueWorkspace } from "@/components/estoque/MovimentacoesEstoqueWorkspace";
+import { ComprasWorkspace } from "@/components/estoque/ComprasWorkspace";
 import { toast } from "sonner";
 import {
   normalizeStockDirectoryCategory,
@@ -32,6 +32,7 @@ import {
   STOCK_DIRECTORY_PAGE_SIZE,
   type StockDirectoryStatus,
 } from "@/lib/stockDirectory";
+import { downloadCsv } from "@/lib/csvExport";
 
 const CATEGORIAS = [
   { value: "quimico", label: "Químico" },
@@ -171,15 +172,30 @@ export default function Estoque() {
     await atualizarProduto.mutateAsync({ id: produto.id, ativo: true });
   };
 
+  const exportCurrentPage = () => {
+    downloadCsv(`estoque-pagina-${page}.csv`, directoryItems, [
+      { header: "Insumo", value: (item) => item.nome },
+      { header: "Categoria", value: (item) => CATEGORIAS.find((category) => category.value === item.categoria)?.label ?? item.categoria },
+      { header: "Quantidade disponível", value: (item) => item.quantidade_atual },
+      { header: "Unidade", value: (item) => item.unidade },
+      { header: "Estoque mínimo", value: (item) => item.quantidade_minima },
+      { header: "Custo unitário", value: (item) => item.preco_custo },
+      { header: "Fornecedor", value: (item) => item.fornecedores?.nome },
+      { header: "Localização", value: (item) => item.localizacao },
+      { header: "Situação", value: (item) => item.ativo ? getStatus(item).label : "Arquivado" },
+    ]);
+  };
+
   return (
-    <AppLayout title="Estoque" subtitle="Controle de insumos e materiais">
+    <AppLayout title="Estoque" subtitle="Saldos, movimentações, insumos e compras">
       <div className="page-shell">
         <PageHeader
-          eyebrow="Gestão de insumos"
-          title="Estoque e Compras"
-          description="Saldos por local, suprimentos, recebimentos e rastreabilidade financeira"
+          eyebrow="Controle de estoque"
+          title="Estoque"
+          description="Consulte saldos, registre movimentações e acompanhe compras de insumos."
           actions={activeTab === "insumos" ? (
             <>
+              <Button variant="outline" onClick={exportCurrentPage} disabled={directoryItems.length === 0} className="w-full gap-2 sm:w-auto"><Download className="h-4 w-4" />Exportar página</Button>
               <Button variant="outline" onClick={() => setModalEntrada(true)} className="w-full gap-2 sm:w-auto"><ArrowDownToLine className="h-4 w-4" />Entrada</Button>
               <Button variant="outline" onClick={() => setModalSaida(true)} className="w-full gap-2 sm:w-auto"><ArrowUpFromLine className="h-4 w-4" />Saída</Button>
               <Button onClick={abrirNovo} className="w-full gap-2 font-bold sm:w-auto"><Plus className="h-4 w-4" />Novo Insumo</Button>
@@ -191,9 +207,9 @@ export default function Estoque() {
           <div className="overflow-x-auto pb-1">
             <TabsList className="page-tabs-list">
               <TabsTrigger value="insumos" className="page-tab-trigger">Insumos</TabsTrigger>
-              <TabsTrigger value="compras" className="page-tab-trigger">Compras</TabsTrigger>
               <TabsTrigger value="locais" className="page-tab-trigger">Locais e saldos</TabsTrigger>
               <TabsTrigger value="movimentacoes" className="page-tab-trigger">Movimentações</TabsTrigger>
+              <TabsTrigger value="compras" className="page-tab-trigger">Compras</TabsTrigger>
             </TabsList>
           </div>
 
@@ -203,6 +219,7 @@ export default function Estoque() {
               lowCount={directory?.summary.lowCount}
               zeroCount={directory?.summary.zeroCount}
               totalValue={directory?.summary.totalValue}
+              totalUnits={directory?.summary.totalUnits}
               isLoading={isLoading}
             />
 
@@ -288,7 +305,7 @@ export default function Estoque() {
                           <TableRow>
                             <TableHead>Insumo</TableHead>
                             <TableHead>Categoria</TableHead>
-                            <TableHead className="text-right">Saldo atual</TableHead>
+                            <TableHead className="text-right">Quantidade disponível</TableHead>
                             <TableHead className="text-right">Mínimo</TableHead>
                             <TableHead className="text-right">Custo unitário</TableHead>
                             <TableHead>Fornecedor / local</TableHead>
@@ -337,7 +354,7 @@ export default function Estoque() {
                               <Badge variant={status.variant} className="shrink-0">{status.label}</Badge>
                             </div>
                             <div className="mt-4 grid grid-cols-2 gap-2">
-                              <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Saldo atual</p><p className="mt-1 font-bold tabular-nums">{quantityFormatter.format(Number(product.quantidade_atual))} {product.unidade}</p></div>
+                              <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Quantidade disponível</p><p className="mt-1 font-bold tabular-nums">{quantityFormatter.format(Number(product.quantidade_atual))} {product.unidade}</p></div>
                               <div className="rounded-lg bg-muted/40 p-3"><p className="text-xs text-muted-foreground">Mínimo</p><p className="mt-1 font-bold tabular-nums">{quantityFormatter.format(Number(product.quantidade_minima))} {product.unidade}</p></div>
                             </div>
                             <div className="mt-3 space-y-1 text-sm text-muted-foreground"><p className="break-words">{product.fornecedores?.nome || "Sem fornecedor"}</p><p className="break-words">{product.localizacao || "Sem local legado"} · {moneyFormatter.format(Number(product.preco_custo))}/un.</p></div>
@@ -369,9 +386,9 @@ export default function Estoque() {
               </CardContent>
             </Card>
           </TabsContent>
-          <TabsContent value="compras" className="mt-0"><ComprasWorkspace /></TabsContent>
           <TabsContent value="locais" className="mt-0"><LocaisEstoqueWorkspace /></TabsContent>
           <TabsContent value="movimentacoes" className="mt-0"><MovimentacoesEstoqueWorkspace /></TabsContent>
+          <TabsContent value="compras" className="mt-0"><ComprasWorkspace /></TabsContent>
         </Tabs>
       </div>
 

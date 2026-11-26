@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
-import { requireAdmin } from "../_shared/auth.ts";
-import { handlePreflight, jsonResponse, readJsonBody, requireJsonPost } from "../_shared/http.ts";
-import { requireAllowlistedHttpsUrl } from "../_shared/safe-url.ts";
+import { requireAdmin } from "../_shared/live-variant-a/auth.ts";
+import { handlePreflight, jsonResponse, readJsonBody, requireJsonPost } from "../_shared/live-variant-a/http.ts";
+import { requireAllowlistedHttpsUrl } from "../_shared/live-variant-a/safe-url.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -107,3 +107,4 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { error: "Falha ao despachar webhook" }, 500);
   }
 });
+

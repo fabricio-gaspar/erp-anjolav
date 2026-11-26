@@ -52,6 +52,8 @@ const TABLES = [
 ] as const;
 
 const TABLE_SET = new Set<string>(TABLES);
+const EXPORT_PAGE_SIZE = 500;
+const EXPORT_MAX_ROWS_PER_TABLE = 100_000;
 const PROTECTED_FROM_DELETION = new Set(["funcionarios", "modulo_permissoes"]);
 const DELETION_ORDER = [
   "notificacoes_enviadas",
@@ -95,13 +97,70 @@ const DELETION_ORDER = [
   "clientes",
 ] as const;
 
-type Operation = "stats" | "export-page" | "import-page" | "delete-table" | "delete-all";
+// Limpeza explícita do tenant atual para bases de teste. Configurações,
+// equipe, permissões, unidades e auditoria ficam preservadas para não bloquear
+// o acesso nem desmontar a operação administrativa.
+const TEST_DATA_DELETION_ORDER = Array.from(new Set([
+  "mensagens_log_eventos",
+  "pdv_cash_operation_requests",
+  "pdv_pagamentos",
+  "pdv_credit_ledger",
+  "fidelidade_lancamentos",
+  "ordem_anexos",
+  "nfse_documentos",
+  "cliente_operacoes",
+  "estoque_saldos",
+  "pdv_capacidades_diarias",
+  "produto_operacoes",
+  ...DELETION_ORDER,
+  "pdv_credit_accounts",
+  "fidelidade_configuracoes",
+])) as string[];
+
+const DELETE_DEPENDENCIES: Record<string, string[]> = {
+  ordens_servico: [
+    "mensagens_log_eventos",
+    "notificacoes_enviadas",
+    "mensagens_log",
+    "historico_producao",
+    "qualidade_movimentos",
+    "lotes_ordens",
+    "paradas_rota",
+    "ordem_anexos",
+    "itens_lancamento",
+    "itens_lancamento_cliente",
+    "itens_ordem_servico",
+    "lancamentos_fatura",
+    "pdv_credit_ledger",
+    "pdv_pagamentos",
+    "caixa_movimentacoes",
+    "fidelidade_lancamentos",
+    "lancamentos",
+    "lancamentos_cliente",
+  ],
+};
+
+function expandDeletionTables(requested: string[]): string[] {
+  const expanded = new Set(requested);
+  const visit = (table: string) => {
+    for (const dependency of DELETE_DEPENDENCIES[table] ?? []) {
+      if (expanded.has(dependency)) continue;
+      expanded.add(dependency);
+      visit(dependency);
+    }
+  };
+  requested.forEach(visit);
+  return TEST_DATA_DELETION_ORDER.filter((table) => expanded.has(table));
+}
+
+type Operation = "stats" | "export-manifest" | "export-page" | "import-page" | "delete-table" | "delete-tables" | "delete-test-data" | "delete-all";
 
 interface DataAdminRequest {
   operation?: Operation;
   table?: string;
   offset?: number;
   records?: Array<Record<string, unknown>>;
+  tables?: string[];
   confirmation?: string;
 }
 
@@ -154,29 +213,55 @@ Deno.serve(async (req) => {
         counts[table] = count ?? 0;
       }
       return jsonResponse(req, {
-        data: { counts, destructiveEnabled: destructiveOperationsEnabled() },
+        data: {
+          counts,
+          destructiveEnabled: destructiveOperationsEnabled(),
+          // requireAdmin já confirmou tenant ativo, funcionário ativo e perfil
+          // owner/admin. A confirmação textual continua obrigatória na interface.
+          canDeleteTestData: true,
+        },
+      });
+    }
+
+    if (body.operation === "export-manifest") {
+      return jsonResponse(req, {
+        data: {
+          formatVersion: 1,
+          scope: "tenant-operational-partial",
+          tables: TABLES,
+          pageSize: EXPORT_PAGE_SIZE,
+          maxRowsPerTable: EXPORT_MAX_ROWS_PER_TABLE,
+          exclusions: [
+            "Outras tabelas public fora desta lista, incluindo compras, PDV e configurações",
+            "auth, Storage (metadados e objetos) e outros schemas",
+          ],
+          consistency: "Leituras sequenciais; não há snapshot transacional entre tabelas",
+        },
       });
     }
 
     if (body.operation === "export-page") {
       if (!validTable(body.table)) return jsonResponse(req, { error: "Tabela inválida" }, 400);
-      const offset = Number.isInteger(body.offset) && Number(body.offset) >= 0
-        ? Number(body.offset)
-        : 0;
-      const { data, error } = await supabase
+      const offset = body.offset ?? 0;
+      if (!Number.isInteger(offset) || offset < 0 || offset > EXPORT_MAX_ROWS_PER_TABLE || offset % EXPORT_PAGE_SIZE !== 0) {
+        return jsonResponse(req, { error: "Página de exportação inválida" }, 400);
+      }
+      const { data, count, error } = await supabase
         .from(body.table)
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("tenant_id", authorization.tenantId)
-        .range(offset, offset + 499)
+        .range(offset, offset + EXPORT_PAGE_SIZE - 1)
         .order("id", { ascending: true });
       if (error) throw error;
-      return jsonResponse(req, { data: data ?? [] });
+      if (count === null) throw new Error("Contagem indisponível");
+      return jsonResponse(req, { data: { rows: data ?? [], count } });
     }
 
-    if (!destructiveOperationsEnabled()) {
+    const deletionOperation = body.operation === "delete-table" || body.operation === "delete-tables" || body.operation === "delete-test-data";
+    if (!destructiveOperationsEnabled() && !deletionOperation) {
       return jsonResponse(
         req,
-        { error: "Operações destrutivas estão desabilitadas neste ambiente" },
+        { error: "Importação e limpeza total estão desabilitadas neste ambiente" },
         403,
       );
     }
@@ -195,7 +280,7 @@ Deno.serve(async (req) => {
       )) {
         return jsonResponse(req, { error: "O lote contém dados de outra empresa" }, 403);
       }
-      const tenantRecords = body.records.map((record) => ({
+      const tenantRecords: Array<Record<string, unknown> & { tenant_id: string }> = body.records.map((record) => ({
         ...record,
         tenant_id: authorization.tenantId,
       }));
@@ -220,20 +305,44 @@ Deno.serve(async (req) => {
     }
 
     if (body.operation === "delete-table") {
-      if (!validTable(body.table) || PROTECTED_FROM_DELETION.has(body.table)) {
-        return jsonResponse(req, { error: "Esta tabela não pode ser apagada por esta interface" }, 400);
+      body.tables = body.table ? [body.table] : [];
+    }
+
+    if (body.operation === "delete-table" || body.operation === "delete-tables") {
+      const requestedTables = Array.isArray(body.tables) ? [...new Set(body.tables)] : [];
+      if (
+        requestedTables.length === 0 ||
+        requestedTables.length > 50 ||
+        requestedTables.some((table) => !validTable(table) || PROTECTED_FROM_DELETION.has(table))
+      ) {
+        return jsonResponse(req, { error: "Uma ou mais entidades não podem ser apagadas por esta interface" }, 400);
       }
-      if (body.confirmation !== `EXCLUIR:${body.table}`) {
+      const expectedConfirmation = body.operation === "delete-table"
+        ? `EXCLUIR:${requestedTables[0]}`
+        : "EXCLUIR SELECIONADOS";
+      if (body.confirmation !== expectedConfirmation) {
         return jsonResponse(req, { error: "Confirmação inválida" }, 400);
       }
 
-      const { count, error } = await supabase
-        .from(body.table)
-        .delete({ count: "exact" })
-        .eq("tenant_id", authorization.tenantId)
-        .not("id", "is", null);
-      if (error) throw error;
-      return jsonResponse(req, { data: { deleted: count ?? 0 } });
+      let deletedTables = 0;
+      const errors: string[] = [];
+      const deletionTables = expandDeletionTables(requestedTables);
+      for (const table of deletionTables) {
+        const { error } = await supabase
+          .from(table)
+          .delete({ count: "exact" })
+          .eq("tenant_id", authorization.tenantId)
+          .not("id", "is", null);
+        if (error) {
+          console.error("Falha ao apagar entidade", { table, errorCode: error.code });
+          errors.push(table);
+        } else {
+          deletedTables += 1;
+        }
+      }
+      return jsonResponse(req, {
+        data: { deleted: deletedTables, errors, requested: requestedTables, expanded: deletionTables },
+      });
     }
 
     if (body.operation === "delete-all") {
@@ -248,6 +357,29 @@ Deno.serve(async (req) => {
           .eq("tenant_id", authorization.tenantId).not("id", "is", null);
         if (error) {
           console.error("Falha ao limpar tabela", { table, errorCode: error.code });
+          errors.push(table);
+        } else {
+          deletedTables += 1;
+        }
+      }
+      return jsonResponse(req, { data: { deleted: deletedTables, errors } });
+    }
+
+    if (body.operation === "delete-test-data") {
+      if (body.confirmation !== "ZERAR DADOS DE TESTE") {
+        return jsonResponse(req, { error: "Confirmação inválida" }, 400);
+      }
+
+      let deletedTables = 0;
+      const errors: string[] = [];
+      for (const table of TEST_DATA_DELETION_ORDER) {
+        const { error } = await supabase
+          .from(table)
+          .delete()
+          .eq("tenant_id", authorization.tenantId)
+          .not("id", "is", null);
+        if (error) {
+          console.error("Falha ao limpar dados de teste", { table, errorCode: error.code });
           errors.push(table);
         } else {
           deletedTables += 1;

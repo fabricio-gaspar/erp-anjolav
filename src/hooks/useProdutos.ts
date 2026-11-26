@@ -4,12 +4,14 @@ import { toast } from "sonner";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAllowedProductUnits } from "@/lib/workspaceScope";
+import type { ClientPriceMode } from "@/lib/clientPricing";
 
 export interface Produto {
   id: string;
   nome: string;
   descricao: string | null;
   preco: number;
+  tabelas_preco: ClientPriceMode[];
   unidade: string | null;
   unidade_negocio: string | null;
   categoria: string | null;
@@ -184,7 +186,7 @@ export interface PrecoEspecialComProduto extends PrecoEspecial {
 
 const EMPTY_PRECOS_ESPECIAIS: PrecoEspecialComProduto[] = [];
 
-export function usePrecosEspeciais(clienteId: string | null) {
+export function usePrecosEspeciais(clienteId: string | null, enabled = true) {
   const queryClient = useQueryClient();
   const { activeTenant, session } = useAuth();
 
@@ -209,7 +211,7 @@ export function usePrecosEspeciais(clienteId: string | null) {
       if (error) throw error;
       return (data ?? []) as PrecoEspecialComProduto[];
     },
-    enabled: Boolean(clienteId && session?.user.id && activeTenant?.id),
+    enabled: enabled && Boolean(clienteId && session?.user.id && activeTenant?.id),
   });
 
   const upsertPrecoEspecial = useMutation({

@@ -2,8 +2,9 @@ import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -26,6 +27,7 @@ import {
   Download,
   Upload,
   AlertTriangle,
+  AlertCircle,
   Trash2,
   LayoutGrid,
   Search,
@@ -37,13 +39,12 @@ import {
   Receipt,
   Factory,
   Filter,
-  Eye,
   CheckCircle2,
   XCircle,
   Loader2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { useDataManagement, exportEntityData, exportAllData, deleteAllData, deleteEntityData, importAllData, EntityStats } from "@/hooks/useDataManagement";
+import { useDataManagement, exportEntityData, exportAllData, deleteAllData, deleteEntityData, deleteEntitiesData, importAllData, EntityStats } from "@/hooks/useDataManagement";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Bomb } from "lucide-react";
@@ -56,8 +57,9 @@ const categoryLabels = {
 };
 
 export function ConfiguracoesDados() {
-  const { data, isLoading, refetch, isRefetching } = useDataManagement();
+  const { data, error, isLoading, refetch, isRefetching } = useDataManagement();
   const destructiveEnabled = data?.destructiveEnabled === true;
+  const canDeleteTestData = data?.canDeleteTestData === true;
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [showEmptyFilter, setShowEmptyFilter] = useState<string>("all");
@@ -70,6 +72,10 @@ export function ConfiguracoesDados() {
   const [isImporting, setIsImporting] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeletingEntity, setIsDeletingEntity] = useState(false);
+  const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleteConfirmText, setBulkDeleteConfirmText] = useState("");
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
   const filteredEntities = useMemo(() => {
     if (!data?.entities) return [];
@@ -89,6 +95,34 @@ export function ConfiguracoesDados() {
       return matchesSearch && matchesCategory && matchesEmpty;
     });
   }, [data?.entities, searchTerm, categoryFilter, showEmptyFilter]);
+
+  const deletableFilteredEntities = filteredEntities.filter((entity) =>
+    entity.count > 0 &&
+    canDeleteTestData &&
+    !["funcionarios", "modulo_permissoes"].includes(entity.table),
+  );
+
+  const selectedEntities = filteredEntities.filter((entity) => selectedTables.has(entity.table));
+
+  const toggleTableSelection = (table: string, checked: boolean) => {
+    setSelectedTables((current) => {
+      const next = new Set(current);
+      if (checked) next.add(table);
+      else next.delete(table);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleTables = (checked: boolean) => {
+    setSelectedTables((current) => {
+      const next = new Set(current);
+      deletableFilteredEntities.forEach((entity) => {
+        if (checked) next.add(entity.table);
+        else next.delete(entity.table);
+      });
+      return next;
+    });
+  };
 
   const handleExportEntity = async (entity: EntityStats) => {
     if (entity.count === 0) {
@@ -115,7 +149,7 @@ export function ConfiguracoesDados() {
 
       toast({
         title: "Exportação concluída",
-        description: `${entity.count} registro(s) de ${entity.name} exportados com sucesso.`,
+        description: `${exportData.length} registro(s) de ${entity.name} exportados com sucesso.`,
       });
     } catch (error) {
       toast({
@@ -172,7 +206,7 @@ export function ConfiguracoesDados() {
 
       toast({
         title: "Exportação CSV concluída",
-        description: `${entity.count} registro(s) exportados.`,
+        description: `${exportData.length} registro(s) exportados.`,
       });
     } catch (error) {
       toast({
@@ -193,19 +227,19 @@ export function ConfiguracoesDados() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `backup_completo_${format(new Date(), "yyyy-MM-dd_HH-mm")}.json`;
+      a.download = `exportacao_parcial_${format(new Date(), "yyyy-MM-dd_HH-mm")}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
       toast({
-        title: "Backup completo exportado",
-        description: `Todos os dados foram exportados com sucesso.`,
+        title: "Exportação parcial concluída",
+        description: `${allData.__manifest.tables.length} tabelas inventariadas. Confira a cobertura e os limites no manifesto do JSON.`,
       });
     } catch (error) {
       toast({
-        title: "Erro no backup",
+        title: "Erro na exportação",
         description: error instanceof Error ? error.message : "Erro desconhecido",
         variant: "destructive",
       });
@@ -227,16 +261,14 @@ export function ConfiguracoesDados() {
         const text = await file.text();
         const backupData = JSON.parse(text);
         
-        // Validar se é um backup válido
-        if (typeof backupData !== 'object' || Array.isArray(backupData)) {
-          throw new Error("Formato de backup inválido. Esperado um objeto JSON.");
+        // Validar o objeto JSON antes de enviar lotes ao servidor.
+        if (!backupData || typeof backupData !== "object" || Array.isArray(backupData)) {
+          throw new Error("Formato inválido. Esperado um objeto JSON.");
         }
 
-        const tableCount = Object.keys(backupData).length;
-        const recordCount = Object.values(backupData).reduce(
-          (sum: number, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
-          0
-        );
+        const tables = Object.entries(backupData).filter((entry): entry is [string, unknown[]] => Array.isArray(entry[1]));
+        const tableCount = tables.length;
+        const recordCount = tables.reduce((sum, [, rows]) => sum + rows.length, 0);
 
         toast({
           title: "Iniciando importação...",
@@ -254,16 +286,16 @@ export function ConfiguracoesDados() {
           });
         } else {
           toast({
-            title: "Backup importado com sucesso!",
+            title: "Importação de dados concluída",
             description: `${result.imported} registros restaurados.`,
           });
         }
 
         refetch();
       } catch (error) {
-        console.error("Erro ao importar backup:", error);
+        console.error("Erro ao importar JSON:", error);
         toast({
-          title: "Erro ao importar backup",
+          title: "Erro ao importar JSON",
           description: error instanceof Error ? error.message : "O arquivo selecionado não é um JSON válido.",
           variant: "destructive",
         });
@@ -312,8 +344,41 @@ export function ConfiguracoesDados() {
     }
   };
 
+  const handleConfirmBulkDelete = async () => {
+    if (bulkDeleteConfirmText.trim().toUpperCase() !== "EXCLUIR SELECIONADOS" || selectedEntities.length === 0) return;
+
+    setIsDeletingBulk(true);
+    try {
+      const result = await deleteEntitiesData(selectedEntities.map((entity) => entity.table));
+      if (result.errors.length > 0) {
+        toast({
+          title: "Exclusão parcial",
+          description: `${result.deleted} entidade(s) processada(s). Falhas: ${result.errors.join(", ")}.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Exclusão em lote concluída",
+          description: `${selectedEntities.length} entidade(s) selecionada(s) e suas dependências foram processadas.`,
+        });
+      }
+      setSelectedTables(new Set());
+      setShowBulkDeleteConfirm(false);
+      setBulkDeleteConfirmText("");
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Erro na exclusão em lote",
+        description: error instanceof Error ? error.message : "Não foi possível concluir a operação administrativa.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingBulk(false);
+    }
+  };
+
   const handleResetSystem = async () => {
-    if (resetConfirmText !== "ZERAR DADOS OPERACIONAIS") return;
+    if (resetConfirmText !== "ZERAR DADOS DE TESTE") return;
 
     setIsResetting(true);
     try {
@@ -327,8 +392,8 @@ export function ConfiguracoesDados() {
         });
       } else {
         toast({
-          title: "Sistema zerado com sucesso",
-          description: "Todos os dados foram removidos. O sistema está pronto para começar do zero.",
+          title: "Dados de teste processados",
+          description: `${result.deleted} tabelas limpas. Configurações e dados protegidos foram preservados.`,
         });
       }
       
@@ -354,13 +419,31 @@ export function ConfiguracoesDados() {
     );
   }
 
+  if (error && !data) {
+    return (
+      <div className="space-y-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Não foi possível carregar os dados</AlertTitle>
+          <AlertDescription>
+            A leitura da base não respondeu. Verifique sua sessão administrativa e tente novamente.
+          </AlertDescription>
+        </Alert>
+        <Button variant="outline" onClick={() => void refetch()} disabled={isRefetching}>
+          <RefreshCcw className={`w-4 h-4 mr-2 ${isRefetching ? "animate-spin" : ""}`} />
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Zona de Perigo Alert */}
       <Alert className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
         <AlertTriangle className="h-4 w-4 text-red-600" />
         <AlertDescription className="text-red-700 dark:text-red-300">
-          <span className="font-semibold">Zona de Perigo:</span> As ações nesta seção são irreversíveis. Recomendamos fazer backup antes de excluir qualquer dado.
+          <span className="font-semibold">Zona de Perigo:</span> As ações nesta seção são irreversíveis. Antes de excluir, obtenha um backup de banco adequado; a exportação parcial abaixo não recupera o sistema inteiro.
         </AlertDescription>
       </Alert>
 
@@ -368,20 +451,25 @@ export function ConfiguracoesDados() {
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Importação e exclusão estão bloqueadas neste ambiente. Essa proteção deve permanecer
-            ativa em produção; backups continuam disponíveis somente para administradores.
+            A importação completa continua bloqueada neste ambiente. A exclusão de uma entidade e a
+            limpeza de dados de teste exigem perfil administrativo, confirmação explícita e ficam
+            limitadas à empresa ativa.
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Backup e Restauração Completa */}
+      {/* Exportação parcial e importação controlada */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-2">
           <Download className="w-5 h-5 text-amber-600" />
-          <h2 className="font-semibold text-amber-600">Backup e Restauração Completa</h2>
+          <h2 className="font-semibold text-amber-600">Exportação parcial de dados</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Exporte ou importe todos os dados do sistema de uma só vez.
+          Exporta as {data?.entities.length ?? 0} tabelas inventariadas da empresa ativa em JSON com manifesto de tabelas,
+          contagens e limites. Não inclui outras tabelas (como compras, PDV e configurações), Auth,
+          arquivos do Storage nem um snapshot transacional. Limite de 100.000 registros por tabela;
+          o arquivo é montado na memória do navegador e a exportação falha se não conseguir ler
+          todos os registros inventariados.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -395,7 +483,7 @@ export function ConfiguracoesDados() {
             ) : (
               <Download className="w-4 h-4 mr-2" />
             )}
-            Exportar Backup Completo
+            Exportar dados inventariados
           </Button>
           <Button
             variant="outline"
@@ -407,22 +495,27 @@ export function ConfiguracoesDados() {
             ) : (
               <Upload className="w-4 h-4 mr-2" />
             )}
-            {isImporting ? "Importando..." : "Importar Backup Completo"}
+            {isImporting ? "Importando..." : "Importar JSON de dados"}
           </Button>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          A importação depende de autorização administrativa e da liberação do ambiente. Ela insere
+          as tabelas aceitas pelo servidor; não restaura o projeto Supabase.
+        </p>
       </Card>
 
-      {/* Zerar Sistema */}
+      {/* Limpeza controlada da base de testes */}
       <Card className="p-6 border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20">
         <div className="flex items-center gap-2 mb-2">
           <Bomb className="w-5 h-5 text-red-600" />
-          <h2 className="font-semibold text-red-600">Zerar Sistema</h2>
+          <h2 className="font-semibold text-red-600">Limpar dados de teste</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Remove os dados operacionais e cadastros de negócio, preservando usuários administrativos
-          e permissões para evitar perda de acesso.
+          Remove os cadastros e movimentos da empresa ativa que foram usados em testes, preservando
+          funcionários, permissões, configurações, unidades e registros de auditoria.
           <span className="block mt-1 text-red-600 font-medium">
-            ⚠️ Esta ação é IRREVERSÍVEL. Faça backup antes de prosseguir.
+            ⚠️ Esta ação é IRREVERSÍVEL. Garanta um backup de banco antes de prosseguir;
+            a exportação parcial desta tela não cobre todos os dados.
           </span>
         </p>
 
@@ -430,10 +523,10 @@ export function ConfiguracoesDados() {
           variant="destructive"
           onClick={() => setShowResetConfirm(true)}
           className="bg-red-600 hover:bg-red-700"
-          disabled={data?.totalRecords === 0 || !destructiveEnabled}
+          disabled={data?.totalRecords === 0 || !canDeleteTestData}
         >
           <Bomb className="w-4 h-4 mr-2" />
-          Zerar Dados Operacionais ({data?.totalRecords || 0} registros inventariados)
+          Limpar dados de teste ({data?.totalRecords || 0} registros inventariados)
         </Button>
       </Card>
 
@@ -559,6 +652,29 @@ export function ConfiguracoesDados() {
           <Badge variant="secondary" className="ml-auto">
             {filteredEntities.length} entidade(s)
           </Badge>
+          <div className="flex w-full items-center justify-between gap-3 border-t pt-3">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Checkbox
+                checked={deletableFilteredEntities.length > 0 && deletableFilteredEntities.every((entity) => selectedTables.has(entity.table))}
+                onCheckedChange={(checked) => toggleAllVisibleTables(checked === true)}
+                disabled={deletableFilteredEntities.length === 0}
+                aria-label="Selecionar todas as entidades visíveis para exclusão"
+              />
+              Selecionar entidades visíveis
+            </label>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setBulkDeleteConfirmText("");
+                setShowBulkDeleteConfirm(true);
+              }}
+              disabled={selectedEntities.length === 0 || isDeletingBulk}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir selecionados ({selectedEntities.length})
+            </Button>
+          </div>
         </div>
 
         {/* Entity Tabs */}
@@ -592,7 +708,13 @@ export function ConfiguracoesDados() {
                         entity.count > 0 ? "border-l-primary" : "border-l-muted-foreground/30"
                       }`}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={selectedTables.has(entity.table)}
+                          onCheckedChange={(checked) => toggleTableSelection(entity.table, checked === true)}
+                          disabled={entity.count === 0 || !canDeleteTestData || ["funcionarios", "modulo_permissoes"].includes(entity.table)}
+                          aria-label={`Selecionar ${entity.name} para exclusão`}
+                        />
                         <div className={`p-2 rounded ${catInfo.color}`}>
                           <catInfo.icon className="w-4 h-4 text-white" />
                         </div>
@@ -649,7 +771,7 @@ export function ConfiguracoesDados() {
                           }}
                           disabled={
                             entity.count === 0 ||
-                            !destructiveEnabled ||
+                            !canDeleteTestData ||
                             ["funcionarios", "modulo_permissoes"].includes(entity.table)
                           }
                           className="text-xs"
@@ -695,7 +817,7 @@ export function ConfiguracoesDados() {
                 Esta ação é IRREVERSÍVEL e pode afetar dados relacionados em outras tabelas.
               </span>
               <span className="block">
-                Recomendamos exportar um backup antes de prosseguir.
+                Garanta um backup de banco antes de prosseguir. A exportação desta tela é parcial.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -718,7 +840,7 @@ export function ConfiguracoesDados() {
               disabled={isDeletingEntity}
             >
               <Download className="w-4 h-4 mr-2" />
-              Exportar Primeiro
+              Exportar esta tabela
             </Button>
             <Button
               variant="destructive"
@@ -737,6 +859,55 @@ export function ConfiguracoesDados() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Bulk delete confirmation dialog */}
+      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={(open) => {
+        setShowBulkDeleteConfirm(open);
+        if (!open) setBulkDeleteConfirmText("");
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Confirmar exclusão em lote
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                Você selecionou <strong>{selectedEntities.length} entidade(s)</strong> para exclusão.
+              </span>
+              <span className="block text-red-600 font-medium">
+                Ao selecionar ROLs, itens, lançamentos e dependências relacionadas também serão removidos para evitar erro de integridade.
+              </span>
+              <span className="block">Funcionários, permissões, configurações e auditoria permanecem protegidos.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+            {selectedEntities.map((entity) => entity.name).join(", ")}
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              Digite <span className="rounded bg-muted px-1 font-mono">EXCLUIR SELECIONADOS</span> para confirmar:
+            </p>
+            <Input
+              value={bulkDeleteConfirmText}
+              onChange={(event) => setBulkDeleteConfirmText(event.target.value.toUpperCase())}
+              placeholder="Digite EXCLUIR SELECIONADOS"
+              className="font-mono"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingBulk}>Cancelar</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={() => void handleConfirmBulkDelete()}
+              disabled={bulkDeleteConfirmText !== "EXCLUIR SELECIONADOS" || isDeletingBulk}
+            >
+              {isDeletingBulk ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Confirmar exclusão
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Reset System Confirmation Dialog */}
       <AlertDialog open={showResetConfirm} onOpenChange={(open) => {
         setShowResetConfirm(open);
@@ -746,32 +917,33 @@ export function ConfiguracoesDados() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <Bomb className="w-5 h-5" />
-              Zerar Dados Operacionais
+              Limpar dados de teste
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
               <p>
-                Você está prestes a excluir os dados operacionais e cadastros de negócio. Usuários
-                administrativos e permissões serão preservados.
+                Você está prestes a excluir os cadastros e movimentos da empresa ativa usados em
+                testes. Funcionários, permissões, configurações, unidades e auditoria serão preservados.
               </p>
               <div className="p-3 bg-red-100 dark:bg-red-950 rounded-lg border border-red-300 dark:border-red-800">
                 <p className="text-red-700 dark:text-red-300 font-medium text-sm">
                   ⚠️ Esta ação é IRREVERSÍVEL!
                 </p>
                 <ul className="text-red-600 dark:text-red-400 text-xs mt-2 space-y-1">
-                  <li>• Todos os clientes serão removidos</li>
-                  <li>• Todos os ROLs serão perdidos</li>
-                  <li>• Todo o histórico financeiro será apagado</li>
-                  <li>• Todos os produtos e preços serão excluídos</li>
+                  <li>• Clientes, produtos e estoques de teste serão removidos</li>
+                  <li>• ROLs, agenda, produção e rotas de teste serão removidos</li>
+                  <li>• Faturas, caixa e movimentos financeiros de teste serão apagados</li>
+                  <li>• Acesso administrativo e configurações serão preservados</li>
                 </ul>
               </div>
+              <p>A exportação parcial desta tela não substitui um backup de banco antes da limpeza.</p>
               <div className="space-y-2">
                 <p className="text-sm font-medium">
-                  Digite <span className="font-mono bg-muted px-1 rounded">ZERAR DADOS OPERACIONAIS</span> para confirmar:
+                  Digite <span className="font-mono bg-muted px-1 rounded">ZERAR DADOS DE TESTE</span> para confirmar:
                 </p>
                 <Input
                   value={resetConfirmText}
                   onChange={(e) => setResetConfirmText(e.target.value.toUpperCase())}
-                  placeholder="Digite ZERAR DADOS OPERACIONAIS"
+                  placeholder="Digite ZERAR DADOS DE TESTE"
                   className="font-mono"
                 />
               </div>
@@ -787,12 +959,12 @@ export function ConfiguracoesDados() {
               className="w-full sm:w-auto"
             >
               <Download className="w-4 h-4 mr-2" />
-              Backup Primeiro
+              Exportar dados inventariados
             </Button>
             <Button
               variant="destructive"
               onClick={handleResetSystem}
-              disabled={resetConfirmText !== "ZERAR DADOS OPERACIONAIS" || isResetting}
+              disabled={resetConfirmText !== "ZERAR DADOS DE TESTE" || isResetting}
               className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
             >
               {isResetting ? (
@@ -800,7 +972,7 @@ export function ConfiguracoesDados() {
               ) : (
                 <Bomb className="w-4 h-4 mr-2" />
               )}
-              Zerar Dados
+              Limpar dados de teste
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

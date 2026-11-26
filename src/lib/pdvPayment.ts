@@ -1,8 +1,8 @@
-export type PdvPaymentMethod = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO";
+export type PdvPaymentMethod = "DINHEIRO" | "PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "CREDITO_CLIENTE";
 export type PdvPaymentMoment = "ENTRADA" | "RETIRADA";
 
 export interface PdvManualPayment {
-  method: Exclude<PdvPaymentMethod, "PIX">;
+  method: Exclude<PdvPaymentMethod, "CREDITO_CLIENTE">;
   amount?: number;
   amountReceived?: number;
   installments: number;
@@ -46,7 +46,7 @@ export const CARD_BRANDS = [
   { value: "OUTRA", label: "Outra" },
 ] as const;
 
-export function createPdvIdempotencyKey(prefix: "sale" | "receipt" | "pix" | "loyalty"): string {
+export function createPdvIdempotencyKey(prefix: "sale" | "receipt" | "pix" | "loyalty" | "credit"): string {
   return `pdv:${prefix}:${crypto.randomUUID()}`;
 }
 

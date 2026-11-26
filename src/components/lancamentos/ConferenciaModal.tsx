@@ -41,6 +41,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useProdutos, usePrecosEspeciais } from "@/hooks/useProdutos";
 import { buildClientPriceCatalog } from "@/lib/clientPricing";
+import { clientClassificationMatchesArea } from "@/lib/operations";
 import { useGerarLancamento, type OSConferencia, type ItemOS } from "@/hooks/useConferenciaProducao";
 import { usePrintOS } from "@/hooks/usePrintOS";
 
@@ -88,7 +89,7 @@ export function ConferenciaModal({ open, onOpenChange, os, onUsarParaLancamento 
       produtos,
       precosEspeciais,
       os.cliente.tabela_preco_tipo,
-      os.cliente.classificacao === "residencial" ? "residencial" : "industrial",
+      clientClassificationMatchesArea(os.cliente.classificacao, "residencial") ? "residencial" : "industrial",
     ).map((produto) => ({
       id: produto.id,
       nome: produto.nome,

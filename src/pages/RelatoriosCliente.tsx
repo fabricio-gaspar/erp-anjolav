@@ -41,6 +41,7 @@ import { useFaturas } from "@/hooks/useFaturas";
 import {
   type DemonstrativoIndustrial,
   type DemonstrativoOrigem,
+  periodoDemonstrativoValido,
   useRelatorioCliente,
 } from "@/hooks/useRelatorioCliente";
 import { openPrintClone } from "@/lib/safePrint";
@@ -204,9 +205,11 @@ export default function RelatoriosCliente() {
     faturas,
     isLoading: invoicesLoading,
     error: invoicesError,
-  } = useFaturas(periodStart, periodEnd, Boolean(selectedClient), true, selectedClient || undefined);
+  } = useFaturas(periodStart, periodEnd,
+    Boolean(selectedClient && periodoDemonstrativoValido(periodStart, periodEnd)),
+    true, selectedClient || undefined);
   const clientInvoices = useMemo(
-    () => faturas.filter((invoice) => invoice.cliente_id === selectedClient),
+    () => faturas.filter((invoice) => invoice.cliente_id === selectedClient && invoice.operation_type === "industrial"),
     [faturas, selectedClient],
   );
   const statementQuery = useRelatorioCliente(
@@ -237,7 +240,7 @@ export default function RelatoriosCliente() {
     if (printWindow) setTimeout(() => printWindow.print(), 250);
   };
 
-  const invalidPeriod = !periodStart || !periodEnd || periodEnd < periodStart;
+  const invalidPeriod = !periodoDemonstrativoValido(periodStart, periodEnd);
 
   return (
     <AppLayout title="Demonstrativos industriais" subtitle="Volumes, serviços, faturamento e saldo pela mesma regra">
@@ -294,7 +297,7 @@ export default function RelatoriosCliente() {
 
         {clientsError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Não foi possível carregar os clientes</AlertTitle><AlertDescription>A consulta falhou; nenhum saldo foi presumido.</AlertDescription></Alert>}
         {invoicesError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Não foi possível carregar as faturas para conciliação</AlertTitle><AlertDescription>O demonstrativo do período continua disponível, mas a seleção de uma fatura específica foi suspensa.</AlertDescription></Alert>}
-        {invalidPeriod && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>Informe um período válido.</AlertDescription></Alert>}
+        {invalidPeriod && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>Informe um período válido de até 366 dias.</AlertDescription></Alert>}
         {statementQuery.isError && <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" /><AlertTitle>Falha ao calcular o demonstrativo</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">

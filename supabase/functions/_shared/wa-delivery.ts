@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
-import { normalizeBrazilianWhatsApp, sendWaAkgText, waAkgBaseUrl, waAkgSessionId } from "./wa-akg.ts";
+import {
+  normalizeBrazilianWhatsApp,
+  sendWaAkgText,
+  type WaAkgSendOutcome,
+  waAkgBaseUrl,
+  waAkgSessionId,
+} from "./wa-akg.ts";
 
 export type DeliveryDraft = {
   tenantId: string;
@@ -13,6 +19,9 @@ export type DeliveryDraft = {
   requestedBy?: string | null;
   manualParentId?: string | null;
   blockedCode?: string | null;
+  mediaStoragePath?: string | null;
+  mediaMimeType?: "image/png" | "application/pdf" | null;
+  mediaKind?: "image" | "document" | null;
 };
 
 type DeliveryRow = {
@@ -23,7 +32,20 @@ type DeliveryRow = {
   cliente_id: string | null;
   telefone: string;
   mensagem: string;
+  evento: string;
+  ordem_servico_id: string | null;
+  media_storage_path: string | null;
+  media_mime_type: string | null;
+  media_kind: string | null;
 };
+
+const DELIVERY_SELECT = "id, status, attempt_count, tenant_id, cliente_id, telefone, mensagem, evento, ordem_servico_id, media_storage_path, media_mime_type, media_kind";
+
+export function buildRolImageFallbackMessage(message: string): string {
+  // WA-AKG can occasionally reject media uploads. The customer should still
+  // receive the configured ROL summary, but never a private Storage URL.
+  return message.slice(0, 4_000).trimEnd();
+}
 
 export async function reserveDelivery(
   supabase: SupabaseClient,
@@ -44,12 +66,15 @@ export async function reserveDelivery(
     idempotency_key: draft.idempotencyKey,
     requested_by: draft.requestedBy ?? null,
     manual_parent_id: draft.manualParentId ?? null,
-  }).select("id, status, attempt_count, tenant_id, cliente_id, telefone, mensagem").single();
+    media_storage_path: draft.mediaStoragePath ?? null,
+    media_mime_type: draft.mediaMimeType ?? null,
+    media_kind: draft.mediaKind ?? null,
+  }).select(DELIVERY_SELECT).single();
   if (!error && data) return { row: data as DeliveryRow, duplicate: false };
   if (error?.code !== "23505") throw error ?? new Error("Não foi possível registrar a notificação");
 
   const { data: duplicate, error: lookupError } = await supabase.from("mensagens_log")
-    .select("id, status, attempt_count, tenant_id, cliente_id, telefone, mensagem")
+    .select(DELIVERY_SELECT)
     .eq("tenant_id", draft.tenantId)
     .eq("idempotency_key", draft.idempotencyKey)
     .maybeSingle();
@@ -63,7 +88,7 @@ export async function processReservedDelivery(
   tenantId: string,
 ): Promise<void> {
   const { data: current, error: readError } = await supabase.from("mensagens_log")
-    .select("id, status, attempt_count, tenant_id, cliente_id, telefone, mensagem")
+    .select(DELIVERY_SELECT)
     .eq("tenant_id", tenantId).eq("id", deliveryId).maybeSingle();
   if (readError) throw readError;
   if (!current || current.status !== "pendente") return;
@@ -78,13 +103,15 @@ export async function processReservedDelivery(
 
   if (current.cliente_id) {
     const { data: client, error: clientError } = await supabase.from("clientes")
-      .select("ativo, whatsapp_opt_out, telefone")
+      .select("ativo, whatsapp_opt_out, telefone, telefone2")
       .eq("tenant_id", tenantId).eq("id", current.cliente_id).maybeSingle();
     if (clientError) throw clientError;
-    const normalized = normalizeBrazilianWhatsApp(client?.telefone || "");
+    const allowedPhones = [client?.telefone, client?.telefone2]
+      .map((phone) => normalizeBrazilianWhatsApp(phone || ""))
+      .filter((phone): phone is string => Boolean(phone));
     const blockedCode = !client?.ativo ? "CLIENT_INACTIVE"
       : client.whatsapp_opt_out ? "CLIENT_OPT_OUT"
-      : normalized !== current.telefone ? "PHONE_CHANGED" : null;
+      : !allowedPhones.includes(current.telefone) ? "PHONE_CHANGED" : null;
     if (blockedCode) {
       const { error } = await supabase.from("mensagens_log")
         .update({ status: "falhou", last_error_code: blockedCode, erro: "Envio bloqueado antes do provedor" })
@@ -132,14 +159,14 @@ export async function processReservedDelivery(
   if (claimError) throw claimError;
   if (!claimed) return;
 
-  const outcome = await sendWaAkgText(
+  const outcome: WaAkgSendOutcome = await sendWaAkgText(
     baseUrl, apiKey, waAkgSessionId(tenantId), current.telefone, current.mensagem,
   );
   const patch = outcome.state === "accepted"
-    ? { status: "enviado", provider_message_id: outcome.messageId, sent_at: new Date().toISOString(), last_error_code: null, erro: null }
+    ? { status: "enviado", provider_message_id: outcome.messageId ?? null, sent_at: new Date().toISOString(), last_error_code: null, erro: null }
     : outcome.state === "rejected"
-      ? { status: "falhou", provider_attempted_at: null, last_error_code: outcome.code, erro: "WA-AKG rejeitou o envio" }
-      : { status: "incerto", last_error_code: outcome.code, erro: "Resultado do envio incerto; concilie antes de reenviar" };
+      ? { status: "falhou", provider_attempted_at: null, last_error_code: outcome.code, erro: outcome.hint ? `WA-AKG rejeitou o envio: ${outcome.hint}` : "WA-AKG rejeitou o envio" }
+      : { status: "incerto", last_error_code: outcome.code, erro: outcome.hint ? `WA-AKG: ${outcome.hint}; concilie antes de reenviar` : "Resultado do envio incerto; concilie antes de reenviar" };
   const { error: updateError } = await supabase.from("mensagens_log")
     .update(patch).eq("tenant_id", tenantId).eq("id", deliveryId).eq("status", "processando");
   if (updateError) {
@@ -148,3 +175,5 @@ export async function processReservedDelivery(
     throw updateError;
   }
 }
+
+

@@ -4,6 +4,8 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CLIENT_PRICE_MODE_LABELS, type ClientPriceMode } from "@/lib/clientPricing";
 import {
   Select,
   SelectContent,
@@ -19,6 +21,7 @@ export interface ProdutoFormData {
   nome: string;
   categoria: string;
   preco: number;
+  tabelas_preco: ClientPriceMode[];
   unidade: string;
   unidade_negocio: string;
   porte: "" | "pequeno" | "medio" | "grande";
@@ -53,6 +56,14 @@ export function ProdutoForm({
   isSaving,
   availableBusinessUnits,
 }: ProdutoFormProps) {
+  const priceUnit = formData.unidade === "metro"
+    ? "m²"
+    : formData.unidade === "kg"
+      ? "kg"
+      : formData.unidade === "unidade"
+        ? "unidade"
+        : "peça";
+
   return (
     <div className="mt-4 space-y-6">
       {/* Seção 1: Identificação */}
@@ -159,14 +170,14 @@ export function ProdutoForm({
               <SelectContent>
                 <SelectItem value="kg">Quilo (Kg)</SelectItem>
                 <SelectItem value="peca">Peça</SelectItem>
-                <SelectItem value="metro">Metro</SelectItem>
+                <SelectItem value="metro">Metro quadrado (m²)</SelectItem>
                 <SelectItem value="unidade">Unidade</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div>
-            <Label htmlFor="product-price" className="text-xs text-muted-foreground">Preço Padrão</Label>
+            <Label htmlFor="product-price" className="text-xs text-muted-foreground">Preço padrão (R$ por {priceUnit})</Label>
             <CurrencyInput
               id="product-price"
               className="mt-1"
@@ -188,6 +199,33 @@ export function ProdutoForm({
               onChange={(e) => onChange({ peso_medio_kg: parseFloat(e.target.value) || 0 })}
             />
           </div>
+        </div>
+        {formData.unidade === "metro" && (
+          <p className="text-xs text-muted-foreground">
+            Tapetes e itens por área: o PDV calcula largura × comprimento em m² e multiplica pelo preço por m². Ex.: 3,25 × 2,75 = 8,9375 m².
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-lg border bg-muted/20 p-4">
+        <Label className="font-semibold">Tabelas de preços</Label>
+        <p className="mt-1 text-xs text-muted-foreground">O preço Padrão é a base. Cesto usa o mesmo preço; clientes na tabela Personalizada podem ter um preço próprio.</p>
+        <div className="mt-3 flex flex-wrap gap-5">
+          {(["padrao", "cesto", "personalizada"] as const).map((mode) => (
+            <label key={mode} className="flex cursor-pointer items-center gap-2 text-sm">
+              <Checkbox
+                checked={mode === "padrao" || formData.tabelas_preco.includes(mode)}
+                disabled={mode === "padrao" || isSaving}
+                onCheckedChange={(checked) => onChange({
+                  tabelas_preco: checked
+                    ? [...formData.tabelas_preco.filter((item) => item !== mode), mode]
+                    : formData.tabelas_preco.filter((item) => item !== mode),
+                })}
+                aria-label={`Vincular produto à tabela ${CLIENT_PRICE_MODE_LABELS[mode]}`}
+              />
+              {CLIENT_PRICE_MODE_LABELS[mode]}
+            </label>
+          ))}
         </div>
       </div>
 

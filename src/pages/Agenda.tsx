@@ -4,11 +4,12 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Package, Truck, Plus, Loader2, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Package, Truck, Plus, Loader2, Eye, EyeOff } from "lucide-react";
 import { format, addDays, startOfWeek, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useAgendamentos, Agendamento, AgendamentoInsert, AgendamentoUpdate } from "@/hooks/useAgendamentos";
 import { useFilteredAgendamentos } from "@/hooks/useFilteredAgendamentos";
+import { useConfirmarRetiradaAgendamento } from "@/hooks/useFluxoProducao";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { AgendaEventCard } from "@/components/agenda/AgendaEventCard";
 import { NovoAgendamentoModal } from "@/components/agenda/NovoAgendamentoModal";
@@ -17,10 +18,11 @@ import { DetalhesAgendamentoModal } from "@/components/agenda/DetalhesAgendament
 import { AtribuirMotoristaModal } from "@/components/agenda/AtribuirMotoristaModal";
 import { ObservacaoModal } from "@/components/agenda/ObservacaoModal";
 import { ReagendarModal } from "@/components/agenda/ReagendarModal";
-import { RouteWorkspace } from "@/components/delivery/RouteWorkspace";
+import { DeliveryWorkspace } from "@/components/delivery/DeliveryWorkspace";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { downloadCsv } from "@/lib/csvExport";
 
-type ViewType = "semanal" | "quinzenal" | "mensal";
+type ViewType = "semanal" | "quinzenal" | "mensal" | "30dias";
 
 const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -28,7 +30,7 @@ export default function Agenda() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeArea } = useWorkspace();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewType, setViewType] = useState<ViewType>("semanal");
+  const [viewType, setViewType] = useState<ViewType>("30dias");
   const [filterRetirada, setFilterRetirada] = useState(searchParams.get("tipo") !== "entrega");
   const [filterEntrega, setFilterEntrega] = useState(searchParams.get("tipo") !== "retirada");
   const [showCanceled, setShowCanceled] = useState(false);
@@ -79,8 +81,9 @@ export default function Agenda() {
   };
 
   const weeksToShow = getWeeksToShow();
-  const startDate = startOfWeek(currentDate, { weekStartsOn: 0 });
-  const endDate = addDays(startDate, weeksToShow * 7 - 1);
+  const startDate = viewType === "30dias" ? currentDate : startOfWeek(currentDate, { weekStartsOn: 0 });
+  const visibleDayCount = viewType === "30dias" ? 30 : weeksToShow * 7;
+  const endDate = addDays(startDate, visibleDayCount - 1);
 
   // Fetch agendamentos from database
   const filtroData = useMemo(() => ({
@@ -92,6 +95,7 @@ export default function Agenda() {
     createAgendamento,
     updateAgendamento,
   } = useAgendamentos();
+  const confirmarRetirada = useConfirmarRetiradaAgendamento();
 
   const { data: agendamentos = [], isLoading } = useFilteredAgendamentos(filtroData);
 
@@ -102,11 +106,11 @@ export default function Agenda() {
   };
 
   const navigatePrevious = () => {
-    setCurrentDate(addDays(currentDate, -7 * weeksToShow));
+    setCurrentDate(addDays(currentDate, -(viewType === "30dias" ? 30 : 7 * weeksToShow)));
   };
 
   const navigateNext = () => {
-    setCurrentDate(addDays(currentDate, 7 * weeksToShow));
+    setCurrentDate(addDays(currentDate, viewType === "30dias" ? 30 : 7 * weeksToShow));
   };
 
   const getEventsForDay = (date: Date) => {
@@ -125,13 +129,37 @@ export default function Agenda() {
 
   const generateCalendarDays = () => {
     const days: Date[] = [];
-    for (let i = 0; i < weeksToShow * 7; i++) {
+    for (let i = 0; i < visibleDayCount; i++) {
       days.push(addDays(startDate, i));
     }
     return days;
   };
 
   const calendarDays = generateCalendarDays();
+  const calendarWeekDays = viewType === "30dias"
+    ? Array.from({ length: 7 }, (_, index) => format(addDays(startDate, index), "EEE", { locale: ptBR }).replace(".", ""))
+    : weekDays;
+
+  const visibleAgendamentos = useMemo(() => agendamentos.filter((agendamento) => {
+    const matchesType = (filterRetirada && agendamento.tipo === "retirada")
+      || (filterEntrega && agendamento.tipo === "entrega");
+    const matchesStatus = (showCanceled || agendamento.status !== "cancelado")
+      && (showCompleted || agendamento.status !== "realizado");
+    return matchesType && matchesStatus;
+  }), [agendamentos, filterEntrega, filterRetirada, showCanceled, showCompleted]);
+
+  const exportAgenda = () => {
+    downloadCsv(`agenda-${format(startDate, "yyyy-MM-dd")}-${format(endDate, "yyyy-MM-dd")}.csv`, visibleAgendamentos, [
+      { header: "Data", value: (item) => item.data },
+      { header: "Horário", value: (item) => item.horario },
+      { header: "Tipo", value: (item) => item.tipo === "retirada" ? "Retirada" : "Entrega" },
+      { header: "Cliente", value: (item) => item.cliente?.razao_social },
+      { header: "Motorista", value: (item) => item.motorista?.nome },
+      { header: "Situação", value: (item) => item.status },
+      { header: "Recorrente", value: (item) => item.recorrente },
+      { header: "Observações", value: (item) => item.observacoes },
+    ]);
+  };
 
   const isFriday = (date: Date) => date.getDay() === 5;
 
@@ -142,8 +170,12 @@ export default function Agenda() {
     });
   };
 
-  const handleMarkCompleted = (id: string) => {
-    updateAgendamento.mutate({ id, status: "realizado" });
+  const handleMarkCompleted = (agendamento: Agendamento) => {
+    if (agendamento.tipo === "retirada") {
+      confirmarRetirada.mutate({ id: agendamento.id, status: agendamento.status });
+    } else {
+      updateAgendamento.mutate({ id: agendamento.id, status: "realizado" });
+    }
   };
 
   const handleCancelAgendamento = (id: string, motivo: string) => {
@@ -201,17 +233,22 @@ export default function Agenda() {
   };
 
   return (
-    <AppLayout title="Agenda" subtitle={`Programação de retiradas e entregas - ${activeArea.charAt(0).toUpperCase() + activeArea.slice(1)}`}>
+    <AppLayout title="Agenda e Delivery" subtitle={activeArea === "central" ? "Agendamentos, coletas, entregas e rotas" : `Agendamentos, coletas, entregas e rotas · ${activeArea === "residencial" ? "Doméstico" : "Industrial"}`}>
       <div className="page-shell">
         <PageHeader
           eyebrow="Logística e agendamentos"
-          title="Agenda Operacional"
-          description="Controle integrado de coletas e entregas planejadas"
+          title="Agenda e Delivery"
+          description="Organize agendamentos, coletas, entregas e rotas por período"
           actions={(
-            <Button onClick={() => setNovoModalOpen(true)} className="w-full gap-2 font-bold sm:w-auto">
-              <Plus className="h-4 w-4" />
-              Novo Agendamento
-            </Button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Button variant="outline" onClick={exportAgenda} disabled={visibleAgendamentos.length === 0} className="gap-2">
+                <Download className="h-4 w-4" />Exportar período
+              </Button>
+              <Button onClick={() => setNovoModalOpen(true)} className="w-full gap-2 font-bold sm:w-auto">
+                <Plus className="h-4 w-4" />
+                Novo Agendamento
+              </Button>
+            </div>
           )}
         />
 
@@ -221,7 +258,7 @@ export default function Agenda() {
               <Package className="h-4 w-4" /> Agenda
             </TabsTrigger>
             <TabsTrigger value="rotas" className="gap-2 py-2.5 font-bold">
-              <Truck className="h-4 w-4" /> Rotas
+              <Truck className="h-4 w-4" /> Delivery
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -327,6 +364,14 @@ export default function Agenda() {
               >
                 Mensal
               </Button>
+              <Button
+                variant={viewType === "30dias" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewType("30dias")}
+                className={`text-xs sm:text-sm px-2 sm:px-3 ${viewType === "30dias" ? "" : "text-muted-foreground"}`}
+              >
+                30 dias
+              </Button>
             </div>
           </div>
         </div>
@@ -335,7 +380,7 @@ export default function Agenda() {
         <div className="bg-card rounded-lg border border-border overflow-hidden overflow-x-auto">
           {/* Header row with day names */}
           <div className="grid grid-cols-7 border-b border-border min-w-[700px]">
-            {weekDays.map((day) => (
+            {calendarWeekDays.map((day) => (
               <div
                 key={day}
                 className="px-4 py-3 text-center text-sm font-medium text-muted-foreground border-r border-border last:border-r-0"
@@ -354,7 +399,7 @@ export default function Agenda() {
 
           {/* Calendar rows */}
           {!isLoading &&
-            Array.from({ length: weeksToShow }).map((_, weekIndex) => (
+            Array.from({ length: Math.ceil(visibleDayCount / 7) }).map((_, weekIndex) => (
               <div key={weekIndex} className="grid grid-cols-7 border-b border-border last:border-b-0 min-w-[700px]">
                 {calendarDays.slice(weekIndex * 7, (weekIndex + 1) * 7).map((date, dayIndex) => {
                   const dayEvents = getEventsForDay(date);
@@ -410,11 +455,7 @@ export default function Agenda() {
         </div>
       </div>
         ) : (
-          <RouteWorkspace
-            date={format(currentDate, "yyyy-MM-dd")}
-            onPreviousDay={() => setCurrentDate(addDays(currentDate, -1))}
-            onNextDay={() => setCurrentDate(addDays(currentDate, 1))}
-          />
+          <DeliveryWorkspace />
         )}
 
       {/* Modals */}

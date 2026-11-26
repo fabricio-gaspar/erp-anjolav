@@ -220,7 +220,7 @@ export function useContratosAluguel() {
       queryClient.invalidateQueries({ queryKey: ["itens-contrato", contratoId] }),
       queryClient.invalidateQueries({ queryKey: ["contrato-operacoes", contratoId] }),
       queryClient.invalidateQueries({ queryKey: ["contratos-ativos"] }),
-      queryClient.invalidateQueries({ queryKey: ["configuracao_pagamento_cliente", clienteId] }),
+      queryClient.invalidateQueries({ queryKey: ["configuracao_pagamento_cliente"] }),
       queryClient.invalidateQueries({ queryKey: ["fechamentos_proximos"] }),
       queryClient.invalidateQueries({ queryKey: ["contas_receber"] }),
       queryClient.invalidateQueries({ queryKey: ["financeiro-agregado"] }),
