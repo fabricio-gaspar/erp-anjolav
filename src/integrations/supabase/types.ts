@@ -5327,6 +5327,10 @@ export type Database = {
           updated_at: string
         }[]
       }
+      consultar_ocupacao_posicoes_pdv: {
+        Args: { _area: string }
+        Returns: { posicao_id: string; itens_ocupando: number }[]
+      }
       salvar_regras_comerciais_pdv: {
         Args: { _area: string; _percentual_urgencia: number; _taxa_entrega_padrao: number }
         Returns: Json

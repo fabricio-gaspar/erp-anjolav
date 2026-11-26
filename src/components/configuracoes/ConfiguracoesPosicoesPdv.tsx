@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, MapPin, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { pdvPositionKey } from "@/lib/pdvPositionKey";
 import {
   useDeletePdvStoragePosition,
   usePdvStoragePositions,
@@ -48,6 +49,16 @@ export function ConfiguracoesPosicoesPdv() {
       .some((value) => value.toLocaleLowerCase("pt-BR").includes(term)));
   }, [positions, search]);
 
+  const duplicatePosition = useMemo(() => {
+    const code = pdvPositionKey(form.codigo);
+    const name = pdvPositionKey(form.nomeExibicao || `${typeLabels[form.tipo]} ${form.codigo}`);
+    if (!code) return null;
+    return positions.find((position) => position.id !== form.id && (
+      (position.tipo === form.tipo && pdvPositionKey(position.codigo) === code)
+      || pdvPositionKey(position.nome_exibicao) === name
+    )) ?? null;
+  }, [form, positions]);
+
   const resetForm = () => setForm(emptyForm);
 
   const editPosition = (position: PdvStoragePosition) => {
@@ -66,6 +77,10 @@ export function ConfiguracoesPosicoesPdv() {
       toast.error("Informe o código da posição.");
       return;
     }
+    if (duplicatePosition) {
+      toast.error(`A posição “${duplicatePosition.nome_exibicao}” já está cadastrada neste setor.`);
+      return;
+    }
     try {
       await save.mutateAsync({
         id: form.id,
@@ -79,7 +94,8 @@ export function ConfiguracoesPosicoesPdv() {
       toast.success(form.id ? "Posição atualizada." : "Posição criada.");
       resetForm();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível salvar a posição.");
+      const message = error instanceof Error ? error.message : "Não foi possível salvar a posição.";
+      toast.error(message.includes("Já existe uma posição") ? "Já existe uma posição com esse código ou nome neste setor." : message);
     }
   };
 
@@ -131,11 +147,12 @@ export function ConfiguracoesPosicoesPdv() {
           <div className="space-y-2"><Label htmlFor="pdv-position-type">Tipo</Label><select id="pdv-position-type" value={form.tipo} onChange={(event) => setForm((current) => ({ ...current, tipo: event.target.value as PdvStoragePositionType }))} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="cabideiro">Cabideiro</option><option value="balcao">Balcão</option><option value="prateleira">Prateleira / apoio</option></select></div>
           <div className="space-y-2"><Label htmlFor="pdv-position-code">Código *</Label><Input id="pdv-position-code" value={form.codigo} onChange={(event) => setForm((current) => ({ ...current, codigo: event.target.value }))} placeholder="Ex.: 001, Vidro B5" /></div>
           <div className="space-y-2"><Label htmlFor="pdv-position-label">Nome exibido</Label><Input id="pdv-position-label" value={form.nomeExibicao} onChange={(event) => setForm((current) => ({ ...current, nomeExibicao: event.target.value }))} placeholder="Ex.: Cabideiro 001" /></div>
+          {duplicatePosition && <div role="alert" className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><p>Já existe neste setor: <strong>{duplicatePosition.nome_exibicao}</strong> ({duplicatePosition.codigo}).</p><Button type="button" variant="outline" size="sm" onClick={() => { editPosition(duplicatePosition); setSearch(duplicatePosition.nome_exibicao); }}>Editar posição existente</Button></div>}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2"><Label htmlFor="pdv-position-order">Ordem</Label><Input id="pdv-position-order" type="number" min="0" value={form.ordem} onChange={(event) => setForm((current) => ({ ...current, ordem: event.target.value }))} /></div>
             <div className="space-y-2"><Label htmlFor="pdv-position-status">Status</Label><select id="pdv-position-status" value={form.ativo ? "ativo" : "inativo"} onChange={(event) => setForm((current) => ({ ...current, ativo: event.target.value === "ativo" }))} className="h-10 w-full rounded-md border bg-background px-3 text-sm"><option value="ativo">Ativa</option><option value="inativo">Inativa</option></select></div>
           </div>
-          <Button className="w-full" onClick={() => void handleSave()} disabled={save.isPending}>{save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : form.id ? <Pencil className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}{form.id ? "Salvar alterações" : "Criar posição"}</Button>
+          <Button className="w-full" onClick={() => void handleSave()} disabled={save.isPending || Boolean(duplicatePosition)}>{save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : form.id ? <Pencil className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}{form.id ? "Salvar alterações" : "Criar posição"}</Button>
         </section>
 
         <section className="min-w-0 space-y-3">

@@ -49,6 +49,24 @@ export function usePdvStoragePositions(area: PdvArea, enabled = true, includeIna
   });
 }
 
+export function usePdvStorageOccupancy(area: PdvArea, enabled = true) {
+  const { activeTenant, session } = useAuth();
+
+  return useQuery({
+    queryKey: ["pdv-storage-occupancy", activeTenant?.id, session?.user.id, area],
+    enabled: enabled && Boolean(activeTenant?.id && session?.user.id),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("consultar_ocupacao_posicoes_pdv", { _area: area });
+      if (error) throw error;
+      return Object.fromEntries((Array.isArray(data) ? data : []).map((row) => {
+        const result = row as { posicao_id: string; itens_ocupando: number };
+        return [result.posicao_id, Number(result.itens_ocupando) || 0];
+      })) as Record<string, number>;
+    },
+    staleTime: 30_000,
+  });
+}
+
 export interface SavePdvStoragePositionInput {
   id?: string | null;
   area: PdvArea;
@@ -78,6 +96,7 @@ export function useSavePdvStoragePosition() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pdv-storage-positions"] });
+      queryClient.invalidateQueries({ queryKey: ["pdv-storage-occupancy"] });
     },
   });
 }
@@ -93,6 +112,7 @@ export function useDeletePdvStoragePosition() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pdv-storage-positions"] });
+      queryClient.invalidateQueries({ queryKey: ["pdv-storage-occupancy"] });
     },
   });
 }

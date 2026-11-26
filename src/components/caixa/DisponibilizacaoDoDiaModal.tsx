@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useItensDisponibilizacaoDia, type DisponibilizacaoFilter, type ItemDisponibilizacaoDia } from "@/hooks/useHistoricoProducao";
-import { usePdvStoragePositions } from "@/hooks/usePdvStoragePositions";
+import { usePdvStorageOccupancy, usePdvStoragePositions } from "@/hooks/usePdvStoragePositions";
+import { pdvPositionKey } from "@/lib/pdvPositionKey";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,10 @@ export function DisponibilizacaoDoDiaModal({ open, onOpenChange, onEnviarDisponi
   const { activeArea } = useWorkspace();
   const positionArea = activeArea === "industrial" ? "industrial" : "residencial";
   const { data: storagePositions = [] } = usePdvStoragePositions(positionArea, open);
+  const { data: storageOccupancy = {}, isError: occupancyError, isLoading: occupancyLoading } = usePdvStorageOccupancy(positionArea, open);
+  const matchedStoragePosition = editingPosition && storagePositions.find((position) =>
+    pdvPositionKey(position.nome_exibicao) === pdvPositionKey(editingPosition.value));
+  const occupiedAtPosition = matchedStoragePosition ? storageOccupancy[matchedStoragePosition.id] ?? 0 : null;
   const queryClient = useQueryClient();
   const invalidRange = Boolean(dateFrom && dateTo && dateFrom > dateTo);
   const { data: allItems = [], isLoading, isError } = useItensDisponibilizacaoDia(
@@ -88,6 +93,7 @@ export function DisponibilizacaoDoDiaModal({ open, onOpenChange, onEnviarDisponi
       if (!result?.orderId) throw new Error("O sistema não confirmou a posição deste item.");
 
       setEditingPosition(null);
+      void queryClient.invalidateQueries({ queryKey: ["pdv-storage-occupancy"] });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["itens-disponibilizacao-dia"] }),
         queryClient.invalidateQueries({ queryKey: ["consulta-os"] }),
@@ -193,6 +199,7 @@ export function DisponibilizacaoDoDiaModal({ open, onOpenChange, onEnviarDisponi
                         </div>
                         {editingPosition?.itemId === item.id ? (
                           <div className="flex w-full min-w-0 items-center gap-1 sm:w-auto sm:max-w-[380px]">
+                            <div className="min-w-0 flex-1">
                             <Input
                               list={`pdv-availability-storage-${positionArea}`}
                               value={editingPosition.value}
@@ -202,6 +209,8 @@ export function DisponibilizacaoDoDiaModal({ open, onOpenChange, onEnviarDisponi
                               className="h-9 min-w-0"
                               autoFocus
                             />
+                            {matchedStoragePosition && <span role="status" className="w-full text-[11px] text-muted-foreground">{occupancyError ? "Ocupação indisponível" : occupancyLoading ? "Consultando ocupação…" : occupiedAtPosition ? `${occupiedAtPosition} item(ns) em ROL ativo nesta posição` : "Sem ROL ativo nesta posição"}</span>}
+                            </div>
                             <Button type="button" size="icon" className="h-9 w-9 shrink-0" aria-label={`Salvar local de ${item.nomeProduto}`} disabled={savingItemId === item.id} onClick={() => void savePosition()}>
                               <Check className="h-4 w-4" />
                             </Button>
@@ -238,7 +247,7 @@ export function DisponibilizacaoDoDiaModal({ open, onOpenChange, onEnviarDisponi
           )}
         </div>
         <datalist id={`pdv-availability-storage-${positionArea}`}>
-          {storagePositions.map((position) => <option key={position.id} value={position.nome_exibicao} />)}
+          {storagePositions.map((position) => <option key={position.id} value={position.nome_exibicao} label={occupancyError ? "Ocupação indisponível" : occupancyLoading ? "Consultando ocupação" : storageOccupancy[position.id] ? `${storageOccupancy[position.id]} item(ns) em ROL ativo` : "Sem ROL ativo"} />)}
         </datalist>
       </DialogContent>
     </Dialog>

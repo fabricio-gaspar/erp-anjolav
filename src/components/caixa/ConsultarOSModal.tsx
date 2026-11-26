@@ -63,7 +63,8 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { usePermissaoModulo } from "@/hooks/usePermissoesUsuario";
-import { usePdvStoragePositions } from "@/hooks/usePdvStoragePositions";
+import { usePdvStorageOccupancy, usePdvStoragePositions } from "@/hooks/usePdvStoragePositions";
+import { pdvPositionKey } from "@/lib/pdvPositionKey";
 import { useFuncionarios } from "@/hooks/useFuncionarios";
 import { orderMonthRange } from "@/lib/orderMonthFilter";
 import {
@@ -397,6 +398,7 @@ export function ConsultarOSModal({
   const { activeArea } = useWorkspace();
   const positionArea = activeArea === "industrial" ? "industrial" : "residencial";
   const { data: storagePositions = [] } = usePdvStoragePositions(positionArea, open);
+  const { data: storageOccupancy = {}, isError: occupancyError, isLoading: occupancyLoading } = usePdvStorageOccupancy(positionArea, open);
   const { allowed: canOperateCaixa } = usePermissaoModulo("caixa");
   const { allowed: canManageOrders } = usePermissaoModulo("ordens");
   const canManageRol = canOperateCaixa || canManageOrders;
@@ -412,6 +414,9 @@ export function ConsultarOSModal({
   const [attendantId, setAttendantId] = useState("todos");
   const [expandedOS, setExpandedOS] = useState<string | null>(null);
   const [editingPosition, setEditingPosition] = useState<EditingPosition | null>(null);
+  const matchedStoragePosition = editingPosition && storagePositions.find((position) =>
+    pdvPositionKey(position.nome_exibicao) === pdvPositionKey(editingPosition.value));
+  const occupiedAtPosition = matchedStoragePosition ? storageOccupancy[matchedStoragePosition.id] ?? 0 : null;
   const [editingOrder, setEditingOrder] = useState<OrdemServicoConsulta | null>(null);
   const [cancelingOrder, setCancelingOrder] = useState<OrdemServicoConsulta | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -592,6 +597,7 @@ export function ConsultarOSModal({
       queryClient.invalidateQueries({ queryKey: ["route-stop-candidates"] });
       queryClient.invalidateQueries({ queryKey: ["delivery-rols-in-progress"] });
       setEditingPosition(null);
+      void queryClient.invalidateQueries({ queryKey: ["pdv-storage-occupancy"] });
 
       if (result.readyForCustomer && result.deliveryQueueUpdated) {
         toast.success("ROL pronto incluído na fila de Entregas e Coletas.");
@@ -1020,17 +1026,20 @@ export function ConsultarOSModal({
                                   {/* Storage position - selected from the operation catalog */}
                                   {isEditing ? (
                                     <div className={cn("flex min-w-0 flex-wrap items-center gap-1 sm:flex-nowrap", defaultConsultation && "pdv-rol-position-cell")}>
+                                      <div className="min-w-48 flex-1">
                                       <Input
                                         list={`pdv-storage-positions-${positionArea}`}
                                         value={editingPosition.value}
                                         onChange={(event) => setEditingPosition({ ...editingPosition, value: event.target.value })}
-                                        className="h-8 min-w-48 flex-1 text-sm"
+                                        className="h-8 w-full text-sm"
                                         placeholder="Escolha ou digite a posição"
                                         aria-label="Local e posição de armazenamento"
                                       />
                                       <datalist id={`pdv-storage-positions-${positionArea}`}>
-                                        {storagePositions.map((position) => <option key={position.id} value={position.nome_exibicao} />)}
+                                        {storagePositions.map((position) => <option key={position.id} value={position.nome_exibicao} label={occupancyError ? "Ocupação indisponível" : occupancyLoading ? "Consultando ocupação" : storageOccupancy[position.id] ? `${storageOccupancy[position.id]} item(ns) em ROL ativo` : "Sem ROL ativo"} />)}
                                       </datalist>
+                                      {matchedStoragePosition && <span role="status" className="w-full text-[11px] text-muted-foreground">{occupancyError ? "Ocupação indisponível" : occupancyLoading ? "Consultando ocupação…" : occupiedAtPosition ? `${occupiedAtPosition} item(ns) em ROL ativo nesta posição` : "Sem ROL ativo nesta posição"}</span>}
+                                      </div>
                                       <Button
                                         size="icon"
                                         variant="ghost"
