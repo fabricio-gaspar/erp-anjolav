@@ -1906,7 +1906,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                 )}
               </div>
 
-              <div className="pdv-items-content">
+              <div className="pdv-items-content" role="region" aria-label="Lista de itens do atendimento" tabIndex={0}>
                 <div className="pdv-mobile-cart" data-testid="pdv-mobile-cart">
                   {cart.length === 0 ? (
                     <div className="pdv-items-empty">

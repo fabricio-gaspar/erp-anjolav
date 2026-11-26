@@ -1486,3 +1486,27 @@
   .pdv-roll-workbench .pdv-product-entry { grid-template-columns: minmax(0, 1fr) 112px; }
   .pdv-roll-workbench .pdv-product-entry > :first-child { grid-column: 1 / -1; }
 }
+
+/* A lista cresce dentro do espaço disponível; os painéis laterais definem a altura. */
+@media (min-width: 1181px) {
+  .pdv-workbench-layout { align-items: stretch; }
+  .pdv-workbench-content { grid-template-rows: minmax(0, 1fr); }
+  .pdv-roll-workbench .pdv-cashier-grid { align-items: stretch; }
+  .pdv-roll-workbench .pdv-primary-column {
+    height: 0;
+    min-height: 100%;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: stretch;
+  }
+  .pdv-roll-workbench .pdv-center-column { min-height: 0; }
+  .pdv-roll-workbench .pdv-items-card {
+    height: 100%;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    align-content: stretch;
+  }
+  .pdv-roll-workbench .pdv-items-content { min-height: 0; overflow: auto; }
+}
+
+@media (max-width: 1180px) {
+  .pdv-roll-workbench .pdv-items-content { max-height: min(45dvh, 360px); overflow: auto; }
+}
