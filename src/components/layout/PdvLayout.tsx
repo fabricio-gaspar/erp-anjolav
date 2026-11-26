@@ -7,6 +7,7 @@ import {
   CloudUpload,
   Clock3,
   Factory,
+  KeyRound,
   LogOut,
   Moon,
   Search,
@@ -21,6 +22,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { ChangeOwnPasswordDialog } from "@/components/auth/ChangeOwnPasswordDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -99,6 +101,7 @@ export function PdvLayout({
   const offlineRuntime = useOfflineRuntime();
   const [now, setNow] = useState(() => new Date());
   const [frontSearch, setFrontSearch] = useState("");
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const operationArea = requestedOperation ?? (activeArea === "industrial" ? "industrial" : "residencial");
   const canUseCash = canAccessRoute(`/${operationArea}/caixa`);
@@ -287,6 +290,10 @@ export function PdvLayout({
                   </>
                 )}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={!offlineRuntime.isOperationalOnline} onSelect={() => setChangePasswordOpen(true)}>
+                  <KeyRound className="mr-2 h-4 w-4" />
+                  Alterar minha senha
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={toggleMode}>
                   {isDark ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
                   {isDark ? "Ativar modo diurno" : "Ativar modo noturno"}
@@ -316,6 +323,8 @@ export function PdvLayout({
       )}>
         {children}
       </main>
+
+      <ChangeOwnPasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
 
     </div>
   );
