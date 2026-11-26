@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeClientName, normalizeClientPhone, validateClientIdentity } from "../src/lib/clientIdentity.ts";
-import { clearAllScopedDrafts, readScopedDraft, scopedDraftKey, writeScopedDraft } from "../src/lib/scopedDraft.ts";
+import { clearAllScopedDrafts, readScopedDraft, restoreDraftDate, scopedDraftKey, writeScopedDraft } from "../src/lib/scopedDraft.ts";
+
+test("restaura a data do rascunho após serialização e usa data segura se estiver inválida", () => {
+  const original = new Date("2026-11-30T15:00:00.000Z");
+  const saved = JSON.parse(JSON.stringify({ deliveryDate: original }));
+  const restored = restoreDraftDate(saved.deliveryDate, new Date("2026-12-01T00:00:00.000Z"));
+  assert.ok(restored instanceof Date);
+  assert.equal(restored.getTime(), original.getTime());
+  const fallback = new Date("2026-12-01T00:00:00.000Z");
+  assert.equal(restoreDraftDate("inválida", fallback), fallback);
+});
 
 test("normaliza telefone brasileiro e rejeita o dígito extra que gerou a duplicata", () => {
   assert.equal(normalizeClientPhone("+55 (11) 99741-2724"), "11997412724");

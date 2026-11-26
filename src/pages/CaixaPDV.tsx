@@ -98,7 +98,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePdvCommercialRules } from "@/hooks/usePdvCommercialRules";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { calculateDeliveryFee, calculateDistanceKm } from "@/lib/deliveryPricing";
-import { clearScopedDraft, readScopedDraft, scopedDraftKey, writeScopedDraft } from "@/lib/scopedDraft";
+import { clearScopedDraft, readScopedDraft, restoreDraftDate, scopedDraftKey, writeScopedDraft } from "@/lib/scopedDraft";
 
 
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -418,8 +418,15 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   const [showFullClientModal, setShowFullClientModal] = useState(false);
   const [showCustomerCreditModal, setShowCustomerCreditModal] = useState(false);
   const [customerCreditMode, setCustomerCreditMode] = useState<"add" | "subtract">("add");
-  const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(() => restoredAttendanceDraft.current?.fulfillment ?? createInitialFulfillment(mode));
-  const [fulfillmentDraft, setFulfillmentDraft] = useState<PdvFulfillmentSettings | null>(restoredAttendanceDraft.current?.fulfillmentDraft ?? null);
+  const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(() => {
+    const initial = createInitialFulfillment(mode);
+    const saved = restoredAttendanceDraft.current?.fulfillment;
+    return saved ? { ...saved, deliveryDate: restoreDraftDate(saved.deliveryDate, initial.deliveryDate) } : initial;
+  });
+  const [fulfillmentDraft, setFulfillmentDraft] = useState<PdvFulfillmentSettings | null>(() => {
+    const saved = restoredAttendanceDraft.current?.fulfillmentDraft;
+    return saved ? { ...saved, deliveryDate: restoreDraftDate(saved.deliveryDate, createInitialFulfillment(mode).deliveryDate) } : null;
+  });
   const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
   const [paymentShortcut, setPaymentShortcut] = useState<PdvPaymentSelection | null>(null);
   

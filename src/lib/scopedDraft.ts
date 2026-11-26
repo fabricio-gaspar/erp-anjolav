@@ -1,6 +1,11 @@
 const DRAFT_PREFIX = "anjolav:draft:v1:";
 const MAX_DRAFT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
+export function restoreDraftDate(value: unknown, fallback: Date): Date {
+  const parsed = value instanceof Date ? value : typeof value === "string" ? new Date(value) : null;
+  return parsed && Number.isFinite(parsed.getTime()) ? parsed : fallback;
+}
+
 export function scopedDraftKey(userId: string | undefined, tenantId: string | undefined, scope: string) {
   return userId && tenantId ? `${DRAFT_PREFIX}${userId}:${tenantId}:${scope}` : null;
 }

@@ -1431,7 +1431,11 @@
 
 .pdv-roll-workbench .pdv-cashier-grid { align-items: start; }
 .pdv-roll-workbench .pdv-items-card { overflow: visible; }
-.pdv-roll-workbench .pdv-items-content { overflow: auto; }
+.pdv-roll-workbench .pdv-items-content {
+  overflow: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
 .pdv-roll-workbench .pdv-items-header { min-height: 48px; padding-block: 6px; }
 .pdv-roll-workbench .pdv-product-entry {
   grid-template-columns: minmax(0, 1fr) 130px 112px;
