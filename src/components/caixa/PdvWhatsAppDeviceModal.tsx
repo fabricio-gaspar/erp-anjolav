@@ -5,6 +5,30 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+
+type RolMessage = {
+  id: string;
+  telefone: string;
+  evento: string;
+  status: string;
+  last_error_code: string | null;
+  created_at: string;
+  ordem: { numero: string; operation_type: string } | null;
+};
+
+const messageStatuses: Record<string, string> = {
+  pendente: "Pendente", processando: "Em envio", enviado: "Enviado ao provedor",
+  entregue: "Entregue", lido: "Lido", falhou: "Falhou",
+  incerto: "Resultado incerto", dead_letter: "Requer atenção",
+};
+const messageEvents: Record<string, string> = {
+  rol_entrada: "Entrada", rol_pronto_retirada: "Disponibilidade para retirada",
+  rol_pronto_delivery: "Disponibilidade para entrega",
+};
 
 interface PdvWhatsAppDeviceModalProps {
   open: boolean;
@@ -25,6 +49,28 @@ function gatewayError(error: unknown, data: GatewayResponse | null, fallback: st
 }
 
 export function PdvWhatsAppDeviceModal({ open, onOpenChange }: PdvWhatsAppDeviceModalProps) {
+  const { activeTenant, user } = useAuth();
+  const { activeArea } = useWorkspace();
+  const operation = activeArea === "industrial" ? "industrial" : activeArea === "residencial" ? "domestico" : null;
+  const history = useQuery({
+    queryKey: ["pdv-whatsapp-history", user?.id, activeTenant?.id, operation],
+    enabled: open && Boolean(user?.id && activeTenant?.id && operation),
+    refetchOnMount: "always",
+    refetchInterval: open ? 30000 : false,
+    queryFn: async (): Promise<RolMessage[]> => {
+      const { data, error } = await (supabase as unknown as SupabaseClient)
+        .from("mensagens_log")
+        .select("id,telefone,evento,status,last_error_code,created_at,ordem:ordens_servico!mensagens_log_ordem_servico_id_fkey!inner(numero,operation_type)")
+        .eq("tenant_id", activeTenant!.id)
+        .in("canal", ["wa-akg", "whatsapp"])
+        .in("evento", Object.keys(messageEvents))
+        .eq("ordem.operation_type", operation!)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as unknown as RolMessage[];
+    },
+  });
   const [connected, setConnected] = useState<boolean | null>(null);
   const [status, setStatus] = useState("desconectado");
   const [qrCode, setQrCode] = useState<string | null>(null);
@@ -164,6 +210,40 @@ export function PdvWhatsAppDeviceModal({ open, onOpenChange }: PdvWhatsAppDevice
               {errorMessage}
             </div>
           )}
+
+          <section aria-labelledby="pdv-whatsapp-history-title" className="space-y-2 border-t pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 id="pdv-whatsapp-history-title" className="text-sm font-semibold">Histórico de avisos</h3>
+              <Button type="button" variant="outline" size="sm" onClick={() => void history.refetch()} disabled={history.isFetching}>
+                <RefreshCw className={history.isFetching ? "mr-1 h-4 w-4 animate-spin" : "mr-1 h-4 w-4"} />Atualizar
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Últimos 50 avisos deste setor. Enviado indica aceitação pelo provedor; entrega e leitura dependem de confirmação.</p>
+            {history.isLoading ? (
+              <p className="py-3 text-sm text-muted-foreground">Carregando histórico…</p>
+            ) : history.isError ? (
+              <p role="alert" className="py-3 text-sm text-destructive">Não foi possível carregar o histórico. Confira sua conexão ou permissão e tente atualizar.</p>
+            ) : !history.data?.length ? (
+              <p className="py-3 text-sm text-muted-foreground">Nenhum aviso registrado neste setor.</p>
+            ) : (
+              <div className="max-h-64 space-y-2 overflow-y-auto" aria-label="Avisos recentes">
+                {history.data.map((message) => (
+                  <div key={message.id} className="rounded-lg border p-3 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <strong>ROL {message.ordem?.numero || "indisponível"}</strong>
+                      <Badge variant={message.status === "falhou" || message.status === "dead_letter" ? "destructive" : "outline"}>
+                        {messageStatuses[message.status] ?? message.status}
+                      </Badge>
+                    </div>
+                    <p className="mt-1">{messageEvents[message.evento] ?? message.evento} · {message.telefone || "Telefone indisponível"}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{new Date(message.created_at).toLocaleString("pt-BR")}</p>
+                    {message.status === "incerto" && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Confira o WhatsApp antes de reenviar para evitar duplicidade.</p>}
+                    {message.last_error_code && message.status !== "incerto" && <p className="mt-1 text-xs text-destructive">Motivo: {message.last_error_code}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
         <DialogFooter data-pdv-dialog-footer className="flex-col gap-2 sm:flex-row">
