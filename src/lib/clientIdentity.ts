@@ -51,7 +51,10 @@ export function normalizeClientDocument(value: string) {
 }
 
 export function normalizeClientPhone(value: string) {
-  return value.replace(/\D/g, "");
+  const digits = value.replace(/\D/g, "");
+  return (digits.length === 12 || digits.length === 13) && digits.startsWith("55")
+    ? digits.slice(2)
+    : digits;
 }
 
 export function normalizeClientEmail(value: string) {
@@ -59,7 +62,12 @@ export function normalizeClientEmail(value: string) {
 }
 
 export function normalizeClientName(value: string) {
-  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
+  return value.trim().replace(/\s+/g, " ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+}
+
+export function hasNameAndPhoneMatch(candidate: ClientDuplicateCandidate) {
+  const reasons = new Set(candidate.matches);
+  return (reasons.has("name") || reasons.has("nome")) && (reasons.has("phone") || reasons.has("telefone"));
 }
 
 export function clientIdentityFingerprint(input: ClientIdentityDraft) {
@@ -89,9 +97,9 @@ export function hasClientDuplicateSignal(input: ClientIdentityDraft) {
 function validatePhone(value: string, label: string) {
   const digits = normalizeClientPhone(value);
   if (!digits) return undefined;
-  return digits.length >= 10 && digits.length <= 15
+  return digits.length === 10 || digits.length === 11
     ? undefined
-    : `${label} deve conter entre 10 e 15 dígitos`;
+    : `${label} deve ter DDD e 10 ou 11 dígitos no total (prefixo +55 opcional)`;
 }
 
 export function validateClientIdentity(

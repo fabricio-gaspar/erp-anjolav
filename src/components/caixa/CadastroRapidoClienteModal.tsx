@@ -9,6 +9,7 @@ import { useReviewClientDuplicates, useSaveClientIdentity } from "@/hooks/useCli
 import {
   CLIENT_DUPLICATE_REASON_LABELS,
   hasClientDuplicateSignal,
+  hasNameAndPhoneMatch,
   validateClientIdentity,
   type ClientClassification,
   type ClientDuplicateCandidate,
@@ -68,7 +69,8 @@ export function CadastroRapidoClienteModal({
   const errors = useMemo(() => validateClientIdentity(draft), [draft]);
   const saving = isSavingClient || isReviewingDuplicates;
   const hasDocumentConflict = candidates.some((candidate) => candidate.documentConflict);
-  const hasBlockingDuplicates = hasDocumentConflict || (candidates.length > 0 && !allowDuplicate);
+  const hasNamePhoneConflict = candidates.some(hasNameAndPhoneMatch);
+  const hasBlockingDuplicates = hasDocumentConflict || hasNamePhoneConflict || (candidates.length > 0 && !allowDuplicate);
 
   const update = <K extends keyof ClientIdentityDraft>(key: K, value: ClientIdentityDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -148,8 +150,8 @@ export function CadastroRapidoClienteModal({
                 </div>
               ))}
             </div>
-            {hasDocumentConflict ? (
-              <p className="text-xs font-medium text-destructive">Este CPF/CNPJ já está cadastrado. Corrija o documento ou use um cadastro ativo da mesma operação.</p>
+            {hasDocumentConflict || hasNamePhoneConflict ? (
+              <p className="text-xs font-medium text-destructive">{hasDocumentConflict ? "Este CPF/CNPJ já está cadastrado." : "Este nome e telefone já estão cadastrados."} Use o cadastro existente ou consulte o administrador.</p>
             ) : (
               <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
                 <input type="checkbox" checked={allowDuplicate} onChange={(event) => setAllowDuplicate(event.target.checked)} className="mt-0.5" />

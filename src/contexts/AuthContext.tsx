@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { limparCacheFinanceiroAgregado } from "@/lib/financeiroDashboardState";
 import { presentAuthError } from "@/lib/authErrorPresentation";
+import { clearAllScopedDrafts } from "@/lib/scopedDraft";
 import { isOfflineLikeError, OFFLINE_QUERY_CACHE_MAX_AGE_MS } from "@/lib/offlinePolicy";
 import {
   clearOfflineSessionCache,
@@ -216,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener BEFORE checking session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, currentSession) => {
+        if (_event === "SIGNED_OUT") clearAllScopedDrafts();
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
 
@@ -320,6 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const signedOutUserId = session?.user.id ?? null;
       const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
+      clearAllScopedDrafts();
       queryClient.clear();
       if (signedOutUserId) await clearOfflineSessionCache(signedOutUserId);
       setFuncionario(null);
@@ -337,6 +340,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const signedOutUserId = session?.user.id ?? null;
       const { error } = await supabase.auth.signOut({ scope: "global" });
       if (error) throw error;
+      clearAllScopedDrafts();
       queryClient.clear();
       if (signedOutUserId) await clearOfflineSessionCache(signedOutUserId);
       setFuncionario(null);

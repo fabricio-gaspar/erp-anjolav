@@ -98,6 +98,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePdvCommercialRules } from "@/hooks/usePdvCommercialRules";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
 import { calculateDeliveryFee, calculateDistanceKm } from "@/lib/deliveryPricing";
+import { clearScopedDraft, readScopedDraft, scopedDraftKey, writeScopedDraft } from "@/lib/scopedDraft";
 
 
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -197,6 +198,19 @@ function readPdvSidebarCollapsed(key: string) {
 interface PdvPaymentSelection {
   pagoAgora: boolean;
   formaPagamento: PdvPaymentMethod | null;
+}
+
+interface PdvAttendanceDraft {
+  searchTerm: string;
+  clientSearch: string;
+  selectedClientId: string | null;
+  cart: CartItem[];
+  quantityDrafts: Record<string, string>;
+  fulfillment: PdvFulfillmentSettings;
+  fulfillmentDraft: PdvFulfillmentSettings | null;
+  appliedDiscount: number;
+  rolNotes: string;
+  quoteValidUntil: string;
 }
 
 const getUnidadeLabel = (unidade: string | null) => {
@@ -386,14 +400,16 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   const clientSearchRef = useRef<HTMLInputElement>(null);
   const barcodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const barcodeBufferRef = useRef("");
+  const attendanceDraftKey = scopedDraftKey(user?.id, activeTenant?.id, `pdv:${area}:${mode}`);
+  const restoredAttendanceDraft = useRef(readScopedDraft<PdvAttendanceDraft>(attendanceDraftKey));
   
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(restoredAttendanceDraft.current?.searchTerm ?? "");
   const [showProductList, setShowProductList] = useState(false);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
+  const [cart, setCart] = useState<CartItem[]>(restoredAttendanceDraft.current?.cart ?? []);
+  const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>(restoredAttendanceDraft.current?.quantityDrafts ?? {});
   const [showContracts, setShowContracts] = useState(false);
-  const [clientSearch, setClientSearch] = useState("");
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [clientSearch, setClientSearch] = useState(restoredAttendanceDraft.current?.clientSearch ?? "");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(restoredAttendanceDraft.current?.selectedClientId ?? null);
   const { data: customerCredit, isLoading: isLoadingCustomerCredit } = usePdvCustomerCreditSummary(
     selectedClientId,
     canOperateCaixa && offlineRuntime.isOperationalOnline,
@@ -402,8 +418,8 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   const [showFullClientModal, setShowFullClientModal] = useState(false);
   const [showCustomerCreditModal, setShowCustomerCreditModal] = useState(false);
   const [customerCreditMode, setCustomerCreditMode] = useState<"add" | "subtract">("add");
-  const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(() => createInitialFulfillment(mode));
-  const [fulfillmentDraft, setFulfillmentDraft] = useState<PdvFulfillmentSettings | null>(null);
+  const [fulfillment, setFulfillment] = useState<PdvFulfillmentSettings>(() => restoredAttendanceDraft.current?.fulfillment ?? createInitialFulfillment(mode));
+  const [fulfillmentDraft, setFulfillmentDraft] = useState<PdvFulfillmentSettings | null>(restoredAttendanceDraft.current?.fulfillmentDraft ?? null);
   const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
   const [paymentShortcut, setPaymentShortcut] = useState<PdvPaymentSelection | null>(null);
   
@@ -414,7 +430,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   // Estados para modais de pagamento e impressão
   const [showPagamentoModal, setShowPagamentoModal] = useState(false);
   const [paymentAdjustmentOnly, setPaymentAdjustmentOnly] = useState(false);
-  const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [appliedDiscount, setAppliedDiscount] = useState(restoredAttendanceDraft.current?.appliedDiscount ?? 0);
   const [showImpressaoModal, setShowImpressaoModal] = useState(false);
   const [osRecemCriada, setOsRecemCriada] = useState<OSRecemCriada | null>(null);
   const [offlineReceipt, setOfflineReceipt] = useState<OfflinePdvReceipt | null>(null);
@@ -443,8 +459,24 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   const [showAjudaAtalhos, setShowAjudaAtalhos] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [discardRequest, setDiscardRequest] = useState<DiscardRequest | null>(null);
-  const [rolNotes, setRolNotes] = useState("");
-  const [quoteValidUntil, setQuoteValidUntil] = useState(() => format(addDays(new Date(), 7), "yyyy-MM-dd"));
+  const [rolNotes, setRolNotes] = useState(restoredAttendanceDraft.current?.rolNotes ?? "");
+  const [quoteValidUntil, setQuoteValidUntil] = useState(() => restoredAttendanceDraft.current?.quoteValidUntil ?? format(addDays(new Date(), 7), "yyyy-MM-dd"));
+
+  useEffect(() => {
+    if (osRecemCriada) {
+      clearScopedDraft(attendanceDraftKey);
+      return;
+    }
+    const value: PdvAttendanceDraft = {
+      searchTerm, clientSearch, selectedClientId, cart, quantityDrafts,
+      fulfillment, fulfillmentDraft, appliedDiscount, rolNotes, quoteValidUntil,
+    };
+    if (searchTerm || clientSearch || selectedClientId || cart.length || rolNotes || fulfillmentDraft) {
+      writeScopedDraft(attendanceDraftKey, value);
+    } else {
+      clearScopedDraft(attendanceDraftKey);
+    }
+  }, [attendanceDraftKey, searchTerm, clientSearch, selectedClientId, cart, quantityDrafts, fulfillment, fulfillmentDraft, appliedDiscount, rolNotes, quoteValidUntil, osRecemCriada]);
 
   useEffect(() => {
     if (!commercialRules) return;
@@ -747,11 +779,13 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   }, []);
 
   const removeFromCart = (id: string) => {
+    clearScopedDraft(attendanceDraftKey ? `${attendanceDraftKey}:item:${id}` : null);
     setCart((prev) => prev.filter((item) => getCartLineKey(item) !== id));
     setQuantityDrafts(prev => { const next = { ...prev }; delete next[id]; return next; });
   };
 
   const clearCart = useCallback(() => {
+    for (const item of cart) clearScopedDraft(attendanceDraftKey ? `${attendanceDraftKey}:item:${getCartLineKey(item)}` : null);
     setCart([]);
     setQuantityDrafts({});
     setFulfillment(createInitialFulfillment(mode));
@@ -761,17 +795,16 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
     setPaymentAdjustmentOnly(false);
     setAppliedDiscount(0);
     setRolNotes("");
-  }, [mode]);
+  }, [attendanceDraftKey, cart, mode]);
 
   const openFulfillmentModal = useCallback((preset: Partial<PdvFulfillmentSettings> = {}) => {
     // As escolhas operacionais ficam em rascunho até o atendente confirmá-las.
-    setFulfillmentDraft({ ...fulfillment, ...preset });
+    setFulfillmentDraft({ ...(fulfillmentDraft ?? fulfillment), ...preset });
     setShowFulfillmentModal(true);
-  }, [fulfillment]);
+  }, [fulfillment, fulfillmentDraft]);
 
   const closeFulfillmentModal = useCallback(() => {
     setShowFulfillmentModal(false);
-    setFulfillmentDraft(null);
   }, []);
 
   const applyFulfillmentChanges = useCallback(() => {
@@ -783,6 +816,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       return;
     }
     setFulfillment(fulfillmentDraft);
+    setFulfillmentDraft(null);
     closeFulfillmentModal();
   }, [closeFulfillmentModal, fulfillmentDraft, fulfillmentDraftCapacity, fulfillmentDraftCapacityError, fulfillmentDraftCapacityLoading, fulfillmentDraftDateKey, offlineRuntime.isOperationalOnline]);
 
@@ -803,9 +837,15 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       title: "Descartar esta venda?",
       description: "Os itens e detalhes lançados no ROL serão removidos. Esta ação não pode ser desfeita.",
       confirmLabel: "Descartar venda",
-      action: clearCart,
+      action: () => {
+        clearCart();
+        setSelectedClientId(null);
+        setClientSearch("");
+        setSearchTerm("");
+        clearScopedDraft(attendanceDraftKey);
+      },
     });
-  }, [cart.length, clearCart, requestDiscard]);
+  }, [attendanceDraftKey, cart.length, clearCart, requestDiscard]);
 
   const editQuantity = (item: CartItem, raw: string) => {
     if (isMeterUnit(item.unidade)) return;
@@ -1219,6 +1259,8 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       });
       toast.success(`${quote.codigo} salvo · ${formatCurrency(Number(quote.valor_total))}`);
       clearCart();
+      setSelectedClientId(null);
+      setClientSearch("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o orçamento");
     }
@@ -1521,6 +1563,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
   const selectorPath = area === "industrial" ? "/pdv/industrial" : "/pdv/domestico";
   const panelPath = area === "industrial" ? "/pdv/painel/industrial" : "/pdv/painel/domestico";
   const quickModuleOptions: PdvShortcutModule[] = [
+    { id: "clientes", title: "Clientes", icon: UserRound, permissionPath: `/${area}/clientes`, path: `${selectorPath}/clientes` },
     { id: "entregar", title: "Entregar pedido", icon: CheckCircle2, permissionPath: `/${area}/ordens`, path: `${selectorPath}/ordens?situacao=a_retirar` },
     { id: "agenda", title: "Agenda", icon: CalendarDays, permissionPath: `/${area}/agenda`, path: `${selectorPath}/agenda` },
     { id: "producao", title: "Produção", icon: Wrench, permissionPath: `/${area}/producao`, path: `${selectorPath}/producao` },
@@ -1567,19 +1610,8 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       </button>
     );
   };
-  const hasUnsavedAttendance = !osRecemCriada && Boolean(selectedClientId || cart.length > 0 || rolNotes.trim());
-
-  const leaveAttendance = (action: () => void, destination: string) => {
-    if (!hasUnsavedAttendance) {
-      action();
-      return;
-    }
-    setDiscardRequest({
-      title: `Sair do atendimento e abrir ${destination}?`,
-      description: "Há dados ainda não salvos neste atendimento. Se continuar, o rascunho será descartado.",
-      confirmLabel: "Sair e continuar",
-      action,
-    });
+  const leaveAttendance = (action: () => void, _destination: string) => {
+    action();
   };
 
   const openQuickModule = (module: PdvShortcutModule) => {
@@ -1588,21 +1620,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
         if (caixaAberto) setShowFecharCaixaModal(true);
         else toast.info("Não há caixa aberto para fechar.");
       };
-      if (hasUnsavedAttendance) {
-        setDiscardRequest({
-          title: "Sair do atendimento e fechar o caixa?",
-          description: "Há dados ainda não salvos neste atendimento. Se continuar, o rascunho será descartado antes de abrir o fechamento.",
-          confirmLabel: "Descartar e continuar",
-          action: () => {
-            clearCart();
-            setSelectedClientId(null);
-            setClientSearch("");
-            openCloseCash();
-          },
-        });
-      } else {
-        openCloseCash();
-      }
+      openCloseCash();
       return;
     }
     if (module.path) {
@@ -1650,6 +1668,12 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
               </Button>
             </div>
             <nav className="pdv-tools-sidebar__nav">
+              {quickModuleOptions.some((module) => module.id === "clientes") && (
+                <section className="pdv-tools-group" aria-label="Cadastros">
+                  <h2><UserRound aria-hidden="true" /><span>Cadastros</span></h2>
+                  {quickModuleOptions.filter((module) => module.id === "clientes").map(renderSidebarModule)}
+                </section>
+              )}
               <section className="pdv-tools-group" aria-label="Consultas e relatórios">
                 <h2><ClipboardList aria-hidden="true" /><span>Consultas e relatórios</span></h2>
                 <button type="button" className="pdv-sidebar-link" aria-label="Consultar ROLs" title="Consultar ROLs" onClick={() => openOrderLookup()}><ClipboardList aria-hidden="true" /><span>Consultar ROLs</span></button>
@@ -1829,7 +1853,7 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
                       ) : filteredProdutos.length === 0 ? (
                         <p className="p-3 text-center text-sm text-muted-foreground">Nenhum produto ou serviço encontrado.</p>
                       ) : (
-                        filteredProdutos.slice(0, 8).map((produto) => {
+                        filteredProdutos.map((produto) => {
                           const preco = getPrecoForProduto(produto);
                           return (
                             <button key={produto.id} type="button" disabled={!catalogReady} onClick={() => addToCart(produto)}>
@@ -2265,8 +2289,11 @@ const PdvAtendimento = ({ mode }: { mode: PdvServiceMode }) => {
       {/* Modal de Detalhes do Item */}
       {selectedCartItem && (
         <ItemDetalhesModal
+          key={getCartLineKey(selectedCartItem)}
+          draftKey={attendanceDraftKey ? `${attendanceDraftKey}:item:${getCartLineKey(selectedCartItem)}` : null}
           open={detalhesModalOpen}
           onOpenChange={setDetalhesModalOpen}
+          onDiscard={() => { setSelectedCartItem(null); setDetalhesModalOpen(false); }}
           itemNome={selectedCartItem.nome}
           quantidade={selectedCartItem.quantidade}
           unidade={selectedCartItem.unidade}

@@ -37,6 +37,8 @@ import { ClienteHistorico } from "@/components/clientes/ClienteHistorico";
 import { useClientes, useClienteById, type Cliente } from "@/hooks/useClientes";
 import { useClienteDirectory } from "@/hooks/useClienteDirectory";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useScopedDirectoryFilters } from "@/hooks/useScopedDirectoryFilters";
+import { clearScopedDraft, scopedDraftKey } from "@/lib/scopedDraft";
 import { useAuth } from "@/contexts/AuthContext";
 import { BrasilApiCnpjResponse } from "@/services/apiServices";
 import {
@@ -77,7 +79,9 @@ const Clientes = () => {
   const [cnpjData, setCnpjData] = useState<BrasilApiCnpjResponse | null>(null);
 
   const { activeArea } = useWorkspace();
-  const { security } = useAuth();
+  const { security, user, activeTenant } = useAuth();
+  const filtersDraftKey = scopedDraftKey(user?.id, activeTenant?.id, `clientes-filtros:${activeArea}`);
+  useScopedDirectoryFilters(filtersDraftKey, searchParams, setSearchParams);
   const { archiveCliente, deleteCliente, updateCliente } = useClientes({ enabled: false });
   const searchTerm = searchParams.get("q") ?? "";
   const deferredSearchTerm = useDeferredValue(searchTerm);
@@ -205,6 +209,7 @@ const Clientes = () => {
       else next.delete("pagina");
     }
     if (updates.query !== undefined || updates.status !== undefined) next.delete("pagina");
+    if (!next.toString()) clearScopedDraft(filtersDraftKey);
     setSearchParams(next, { replace: true });
   };
 

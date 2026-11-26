@@ -351,7 +351,7 @@ export function ProdutoForm({
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button variant="outline" onClick={onCancel}>
           <X className="w-4 h-4 mr-1" />
-          Cancelar
+          Fechar e manter rascunho
         </Button>
         <Button onClick={onSubmit} disabled={isSaving}>
           {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}

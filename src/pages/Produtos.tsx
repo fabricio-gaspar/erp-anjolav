@@ -20,6 +20,9 @@ import { ProdutoForm, ProdutoFormData } from "@/components/produtos/ProdutoForm"
 import { ProdutoStats } from "@/components/produtos/ProdutoStats";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { clearScopedDraft, readScopedDraft, scopedDraftKey, writeScopedDraft } from "@/lib/scopedDraft";
+import { useScopedDirectoryFilters } from "@/hooks/useScopedDirectoryFilters";
 import { getAllowedProductUnits, type BusinessArea } from "@/lib/workspaceScope";
 import {
   buildProductDirectoryCsv,
@@ -79,6 +82,10 @@ const Produtos = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { activeArea } = useWorkspace();
+  const { user, activeTenant } = useAuth();
+  const productDraftKey = scopedDraftKey(user?.id, activeTenant?.id, `catalogo:${activeArea}`);
+  const filtersDraftKey = scopedDraftKey(user?.id, activeTenant?.id, `catalogo-filtros:${activeArea}`);
+  useScopedDirectoryFilters(filtersDraftKey, searchParams, setSearchParams);
   const { createProduto, updateProduto, setProdutoStatus } = useProdutos({ enabled: false });
   const availableBusinessUnits = getAllowedProductUnits(activeArea);
   const searchTerm = searchParams.get("q") ?? "";
@@ -123,6 +130,8 @@ const Produtos = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingProduto, setEditingProduto] = useState<Produto | null>(null);
   const [formData, setFormData] = useState<ProdutoFormData>(() => getNewProductDefaults(activeArea));
+  const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(null);
+  const [productDraftDirty, setProductDraftDirty] = useState(false);
   const [produtoToArchive, setProdutoToArchive] = useState<Produto | null>(null);
   const [showPriceAdjustment, setShowPriceAdjustment] = useState(false);
   const [priceAdjustmentProduct, setPriceAdjustmentProduct] = useState<Produto | null>(null);
@@ -131,23 +140,52 @@ const Produtos = () => {
   const [isApplyingPriceAdjustment, setIsApplyingPriceAdjustment] = useState(false);
 
   useEffect(() => {
+    if (!productDraftKey) return;
+    const saved = readScopedDraft<{ editingProduto: Produto | null; formData: ProdutoFormData; showForm: boolean }>(productDraftKey);
+    if (saved) {
+      setEditingProduto(saved.editingProduto);
+      setFormData(saved.formData);
+      setShowForm(saved.showForm);
+      setProductDraftDirty(true);
+    } else {
+      setEditingProduto(null);
+      setFormData(getNewProductDefaults(activeArea));
+      setShowForm(false);
+      setProductDraftDirty(false);
+    }
+    setLoadedDraftKey(productDraftKey);
+  }, [activeArea, productDraftKey]);
+
+  useEffect(() => {
+    if (!productDraftKey || loadedDraftKey !== productDraftKey) return;
+    if (productDraftDirty) writeScopedDraft(productDraftKey, { editingProduto, formData, showForm });
+    else clearScopedDraft(productDraftKey);
+  }, [productDraftKey, loadedDraftKey, productDraftDirty, editingProduto, formData, showForm]);
+
+  useEffect(() => {
     const openNewProduct = searchParams.get("novo") === "1";
     if (!openNewProduct) return;
-    setEditingProduto(null);
-    setFormData(getNewProductDefaults(activeArea));
+    if (!productDraftDirty || editingProduto) {
+      setEditingProduto(null);
+      setFormData(getNewProductDefaults(activeArea));
+      setProductDraftDirty(false);
+    }
     setShowForm(true);
     const next = new URLSearchParams(searchParams);
     next.delete("novo");
     setSearchParams(next, { replace: true });
-  }, [activeArea, searchParams, setSearchParams]);
+  }, [activeArea, editingProduto, productDraftDirty, searchParams, setSearchParams]);
 
   const resetForm = () => {
+    clearScopedDraft(productDraftKey);
+    setProductDraftDirty(false);
     setFormData(getNewProductDefaults(activeArea));
     setEditingProduto(null);
     setShowForm(false);
   };
 
   const handleFormChange = (data: Partial<ProdutoFormData>) => {
+    setProductDraftDirty(true);
     setFormData(prev => ({ ...prev, ...data }));
   };
 
@@ -197,6 +235,7 @@ const Produtos = () => {
   };
 
   const handleEdit = (produto: Produto) => {
+    setProductDraftDirty(false);
     setEditingProduto(produto);
     setFormData({
       codigo: produto.codigo || "",
@@ -222,6 +261,7 @@ const Produtos = () => {
   };
 
   const handleDuplicate = (produto: Produto) => {
+    setProductDraftDirty(true);
     setEditingProduto(null);
     setFormData({
       codigo: "",
@@ -362,8 +402,9 @@ const Produtos = () => {
       updates.query !== undefined || updates.letter !== undefined || updates.category !== undefined ||
       updates.businessUnit !== undefined || updates.status !== undefined
     ) next.delete("pagina");
+    if (!next.toString()) clearScopedDraft(filtersDraftKey);
     setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [filtersDraftKey, searchParams, setSearchParams]);
 
   const hasFilters = Boolean(
     searchTerm || selectedLetter !== "TODOS" || selectedCategoria !== "all" ||
@@ -411,11 +452,16 @@ const Produtos = () => {
               <Button
                 className="w-full gap-2 font-bold sm:w-auto"
                 onClick={() => {
-                  if (showForm) resetForm();
-                  else setShowForm(true);
+                  if (showForm) setShowForm(false);
+                  else if (productDraftDirty) setShowForm(true);
+                  else {
+                    setEditingProduto(null);
+                    setFormData(getNewProductDefaults(activeArea));
+                    setShowForm(true);
+                  }
                 }}
               >
-                <Plus className="h-4 w-4" />Novo produto ou serviço
+                <Plus className="h-4 w-4" />{showForm ? "Fechar formulário" : productDraftDirty ? "Retomar rascunho" : "Novo produto ou serviço"}
               </Button>
             </>
           )}
@@ -427,14 +473,15 @@ const Produtos = () => {
           <div className="content-panel space-y-5">
             {showForm && (
               <section className="rounded-xl border bg-muted/10 p-4" aria-label={editingProduto ? "Editar produto ou serviço" : "Novo produto ou serviço"}>
-                <h2 className="mb-3 font-semibold text-foreground">
-                  {editingProduto ? "Editar produto ou serviço" : "Novo produto ou serviço"}
-                </h2>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="font-semibold text-foreground">{editingProduto ? "Editar produto ou serviço" : "Novo produto ou serviço"}</h2>
+                  {productDraftDirty && <Button type="button" variant="ghost" size="sm" onClick={resetForm}>Descartar rascunho</Button>}
+                </div>
                 <ProdutoForm
                   formData={formData}
                   onChange={handleFormChange}
                   onSubmit={handleSubmit}
-                  onCancel={resetForm}
+                  onCancel={() => setShowForm(false)}
                   isEditing={!!editingProduto}
                   isSaving={isSaving}
                   availableBusinessUnits={availableBusinessUnits}

@@ -19,6 +19,7 @@ import {
 import { AlertTriangle, Palette, Tag, MessageSquare, Plus, X, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
+import { clearScopedDraft, readScopedDraft, writeScopedDraft } from "@/lib/scopedDraft";
 
 const CORES_PREDEFINIDAS = [
   "Branco",
@@ -72,6 +73,7 @@ interface ItemDetalhes {
 }
 
 interface ItemDetalhesModalProps {
+  draftKey?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   itemNome: string;
@@ -81,6 +83,23 @@ interface ItemDetalhesModalProps {
   unidadePreco: string;
   detalhes: ItemDetalhes;
   onSave: (detalhes: ItemDetalhes) => void;
+  onDiscard?: () => void;
+}
+
+interface ItemWorkingDraft {
+  corSelecionada: string;
+  corOutra: string;
+  marcaSelecionada: string;
+  marcaOutra: string;
+  showMarcaInput: boolean;
+  avarias: string;
+  operacao: string;
+  servicosAdicionais: string[];
+  complemento: string;
+  largura: string;
+  comprimento: string;
+  metragem: string;
+  lacre: string;
 }
 
 const parseMeasurement = (value: string | number | undefined) => {
@@ -106,6 +125,7 @@ const formatCurrency = (value: number) => new Intl.NumberFormat("pt-BR", {
 const isMeterUnit = (unit: string) => ["mt", "m", "metro", "metros", "m²", "m2"].includes(unit.trim().toLowerCase());
 
 export function ItemDetalhesModal({
+  draftKey = null,
   open,
   onOpenChange,
   itemNome,
@@ -115,54 +135,27 @@ export function ItemDetalhesModal({
   unidadePreco,
   detalhes,
   onSave,
+  onDiscard,
 }: ItemDetalhesModalProps) {
   const isMeterItem = isMeterUnit(unidade);
-  const [corSelecionada, setCorSelecionada] = useState(detalhes.cor_item || "");
-  const [corOutra, setCorOutra] = useState("");
-  const [marcaSelecionada, setMarcaSelecionada] = useState(detalhes.marca_item || "");
-  const [marcaOutra, setMarcaOutra] = useState("");
-  const [showMarcaInput, setShowMarcaInput] = useState(false);
-  const [avarias, setAvarias] = useState(detalhes.avarias || "");
-  const [operacao, setOperacao] = useState(detalhes.operacao || "lavagem_passadoria");
-  const [servicosAdicionais, setServicosAdicionais] = useState<string[]>(detalhes.servicos_adicionais || []);
-  const [complemento, setComplemento] = useState(detalhes.complemento || "");
-  const [largura, setLargura] = useState("");
-  const [comprimento, setComprimento] = useState("");
-  const [metragem, setMetragem] = useState("");
-  const [lacre, setLacre] = useState("");
+  const [initialDraft] = useState(() => readScopedDraft<ItemWorkingDraft>(draftKey));
+  const [corSelecionada, setCorSelecionada] = useState(initialDraft?.corSelecionada ?? (detalhes.cor_item && !CORES_PREDEFINIDAS.includes(detalhes.cor_item) ? "Outra" : detalhes.cor_item || ""));
+  const [corOutra, setCorOutra] = useState(initialDraft?.corOutra ?? (detalhes.cor_item && !CORES_PREDEFINIDAS.includes(detalhes.cor_item) ? detalhes.cor_item : ""));
+  const [marcaSelecionada, setMarcaSelecionada] = useState(initialDraft?.marcaSelecionada ?? detalhes.marca_item ?? "");
+  const [marcaOutra, setMarcaOutra] = useState(initialDraft?.marcaOutra ?? (detalhes.marca_item && !MARCAS_PREDEFINIDAS.includes(detalhes.marca_item) ? detalhes.marca_item : ""));
+  const [showMarcaInput, setShowMarcaInput] = useState(initialDraft?.showMarcaInput ?? Boolean(detalhes.marca_item && !MARCAS_PREDEFINIDAS.includes(detalhes.marca_item)));
+  const [avarias, setAvarias] = useState(initialDraft?.avarias ?? detalhes.avarias ?? "");
+  const [operacao, setOperacao] = useState(initialDraft?.operacao ?? detalhes.operacao ?? "lavagem_passadoria");
+  const [servicosAdicionais, setServicosAdicionais] = useState<string[]>(initialDraft?.servicosAdicionais ?? detalhes.servicos_adicionais ?? []);
+  const [complemento, setComplemento] = useState(initialDraft?.complemento ?? detalhes.complemento ?? "");
+  const [largura, setLargura] = useState(initialDraft?.largura ?? formatMeasurement(detalhes.largura_m));
+  const [comprimento, setComprimento] = useState(initialDraft?.comprimento ?? formatMeasurement(detalhes.comprimento_m));
+  const [metragem, setMetragem] = useState(initialDraft?.metragem ?? formatMeasurement(detalhes.metragem_m2, 4));
+  const [lacre, setLacre] = useState(initialDraft?.lacre ?? detalhes.lacre ?? "");
 
   useEffect(() => {
-    if (open) {
-      // Check if color is custom
-      if (detalhes.cor_item && !CORES_PREDEFINIDAS.includes(detalhes.cor_item)) {
-        setCorSelecionada("Outra");
-        setCorOutra(detalhes.cor_item);
-      } else {
-        setCorSelecionada(detalhes.cor_item || "");
-        setCorOutra("");
-      }
-      
-      // Check if brand is custom
-      if (detalhes.marca_item && !MARCAS_PREDEFINIDAS.includes(detalhes.marca_item)) {
-        setMarcaSelecionada(detalhes.marca_item);
-        setMarcaOutra(detalhes.marca_item);
-        setShowMarcaInput(true);
-      } else {
-        setMarcaSelecionada(detalhes.marca_item || "");
-        setMarcaOutra("");
-        setShowMarcaInput(false);
-      }
-      
-      setAvarias(detalhes.avarias || "");
-      setOperacao(detalhes.operacao || "lavagem_passadoria");
-      setServicosAdicionais(detalhes.servicos_adicionais || []);
-      setComplemento(detalhes.complemento || "");
-      setLargura(formatMeasurement(detalhes.largura_m));
-      setComprimento(formatMeasurement(detalhes.comprimento_m));
-      setMetragem(formatMeasurement(detalhes.metragem_m2, 4));
-      setLacre(detalhes.lacre || "");
-    }
-  }, [open, detalhes]);
+    writeScopedDraft(draftKey, { corSelecionada, corOutra, marcaSelecionada, marcaOutra, showMarcaInput, avarias, operacao, servicosAdicionais, complemento, largura, comprimento, metragem, lacre });
+  }, [draftKey, corSelecionada, corOutra, marcaSelecionada, marcaOutra, showMarcaInput, avarias, operacao, servicosAdicionais, complemento, largura, comprimento, metragem, lacre]);
 
   const larguraNumerica = parseMeasurement(largura);
   const comprimentoNumerico = parseMeasurement(comprimento);
@@ -218,6 +211,7 @@ export function ItemDetalhesModal({
         lacre: lacre.trim() || undefined,
       } : {}),
     });
+    clearScopedDraft(draftKey);
     onOpenChange(false);
   };
 
@@ -472,8 +466,11 @@ export function ItemDetalhesModal({
         </div>
 
         <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={() => { clearScopedDraft(draftKey); onDiscard?.(); onOpenChange(false); }}>
+            Descartar alterações
+          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
+            Fechar e manter rascunho
           </Button>
           <Button onClick={handleSave} disabled={isMeterItem && !areaValida}>
             Salvar Detalhes

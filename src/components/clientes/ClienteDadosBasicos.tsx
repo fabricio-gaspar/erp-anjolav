@@ -34,10 +34,13 @@ import {
   useSaveClientIdentity,
 } from "@/hooks/useClientes";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { clearScopedDraft, readScopedDraft, scopedDraftKey, writeScopedDraft } from "@/lib/scopedDraft";
 import { buscarCnpj, type BrasilApiCnpjResponse } from "@/services/apiServices";
 import {
   CLIENT_DUPLICATE_REASON_LABELS,
   clientIdentityFingerprint,
+  hasNameAndPhoneMatch,
   hasClientDuplicateSignal,
   validateClientIdentity,
   type ClientClassification,
@@ -91,6 +94,14 @@ const EMPTY_FORM: FormValues = {
   contato: "",
   observacoes: "",
 };
+
+interface ClientFormDraft {
+  formData: FormValues;
+  personType: ClientPersonType;
+  classification: ClientClassification;
+  classificationConfirmed: boolean;
+  taxRegime: RegimeTributario;
+}
 
 const TAX_REGIMES: Array<{ value: RegimeTributario; label: string }> = [
   { value: "simples_nacional", label: "Simples Nacional" },
@@ -181,6 +192,8 @@ export const ClienteDadosBasicos = ({
 }: ClienteDadosBasicosProps) => {
   const location = useLocation();
   const { activeArea } = useWorkspace();
+  const { user, activeTenant } = useAuth();
+  const formDraftKey = scopedDraftKey(user?.id, activeTenant?.id, `cliente:${activeArea}:${clienteId ?? "novo"}`);
   const isPdvClientWorkspace = location.pathname.startsWith("/pdv/");
   const {
     data: clienteExistente,
@@ -206,6 +219,8 @@ export const ClienteDadosBasicos = ({
   const [regimeTributario, setRegimeTributario] =
     useState<RegimeTributario>("nao_contribuinte");
   const [formData, setFormData] = useState<FormValues>(EMPTY_FORM);
+  const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(null);
+  const [draftDirty, setDraftDirty] = useState(false);
   const [errors, setErrors] = useState<ClientIdentityErrors>({});
   const [isSearchingCnpj, setIsSearchingCnpj] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(isPdvClientWorkspace);
@@ -228,14 +243,12 @@ export const ClienteDadosBasicos = ({
 
   useEffect(() => {
     if (!clienteExistente) return;
-    setTipoPessoa(clienteExistente.tipo_pessoa);
-    setClassificacao(normalizeClientClassification(clienteExistente.classificacao) ?? "domestico");
-    setClassificationConfirmed(true);
-    setRegimeTributario(
-      (clienteExistente.regime_tributario as RegimeTributario | null) ??
-        "nao_contribuinte",
-    );
-    setFormData({
+    const saved = readScopedDraft<ClientFormDraft>(formDraftKey);
+    setTipoPessoa(saved?.personType ?? clienteExistente.tipo_pessoa);
+    setClassificacao(saved?.classification ?? normalizeClientClassification(clienteExistente.classificacao) ?? "domestico");
+    setClassificationConfirmed(saved?.classificationConfirmed ?? true);
+    setRegimeTributario(saved?.taxRegime ?? (clienteExistente.regime_tributario as RegimeTributario | null) ?? "nao_contribuinte");
+    setFormData(saved?.formData ?? {
       cpf_cnpj: clienteExistente.cpf_cnpj ?? "",
       razao_social: clienteExistente.razao_social ?? "",
       nome_fantasia: clienteExistente.nome_fantasia ?? "",
@@ -247,27 +260,39 @@ export const ClienteDadosBasicos = ({
       contato: clienteExistente.contato ?? "",
       observacoes: clienteExistente.observacoes ?? "",
     });
+    setDraftDirty(Boolean(saved));
+    setLoadedDraftKey(formDraftKey);
     setErrors({});
     setReviewedFingerprint(null);
     setDuplicateCandidates([]);
     setAcknowledgedReview(null);
-  }, [clienteExistente]);
+  }, [clienteExistente, formDraftKey]);
 
   useEffect(() => {
     if (clienteId) return;
-    setTipoPessoa("cnpj");
-    setClassificacao(
-      activeArea === "industrial" ? "industrial" : "domestico",
-    );
-    setClassificationConfirmed(activeArea !== "central");
-    setRegimeTributario("nao_contribuinte");
-    setFormData(EMPTY_FORM);
+    const saved = readScopedDraft<ClientFormDraft>(formDraftKey);
+    setTipoPessoa(saved?.personType ?? "cnpj");
+    setClassificacao(saved?.classification ?? (activeArea === "industrial" ? "industrial" : "domestico"));
+    setClassificationConfirmed(saved?.classificationConfirmed ?? activeArea !== "central");
+    setRegimeTributario(saved?.taxRegime ?? "nao_contribuinte");
+    setFormData(saved?.formData ?? EMPTY_FORM);
+    setDraftDirty(Boolean(saved));
+    setLoadedDraftKey(formDraftKey);
     setErrors({});
     setReviewedFingerprint(null);
     setDuplicateCandidates([]);
     setAcknowledgedReview(null);
     resetDuplicateReview();
-  }, [activeArea, clienteId, resetDuplicateReview]);
+  }, [activeArea, clienteId, formDraftKey, resetDuplicateReview]);
+
+  useEffect(() => {
+    if (!formDraftKey || loadedDraftKey !== formDraftKey) return;
+    if (!draftDirty) {
+      clearScopedDraft(formDraftKey);
+      return;
+    }
+    writeScopedDraft(formDraftKey, { formData, personType: tipoPessoa, classification: classificacao, classificationConfirmed, taxRegime: regimeTributario } satisfies ClientFormDraft);
+  }, [formDraftKey, loadedDraftKey, draftDirty, formData, tipoPessoa, classificacao, classificationConfirmed, regimeTributario]);
 
   const effectiveClassification: ClientClassification =
     activeArea === "central" ? classificacao : normalizeClientClassification(activeArea) ?? classificacao;
@@ -305,6 +330,8 @@ export const ClienteDadosBasicos = ({
   const documentConflict = currentCandidates.find(
     (candidate) => candidate.documentConflict,
   );
+  const namePhoneConflict = currentCandidates.find(hasNameAndPhoneMatch);
+  const blockingConflict = Boolean(documentConflict || namePhoneConflict);
   const reviewAcknowledged =
     currentCandidates.length === 0 ||
     acknowledgedReview === currentReviewSignature;
@@ -312,6 +339,7 @@ export const ClienteDadosBasicos = ({
     saveIdentity.isPending || isReviewPending || isSearchingCnpj;
 
   const handleChange = (field: keyof FormValues, value: string) => {
+    setDraftDirty(true);
     setFormData((previous) => ({ ...previous, [field]: value }));
     const identityFieldMap: Partial<
       Record<keyof FormValues, keyof ClientIdentityErrors>
@@ -342,14 +370,39 @@ export const ClienteDadosBasicos = ({
   const changePersonType = (nextType: ClientPersonType) => {
     if (nextType === tipoPessoa) return;
     setTipoPessoa(nextType);
+    setDraftDirty(true);
     setFormData((previous) => ({ ...previous, cpf_cnpj: "" }));
     setErrors((previous) => ({ ...previous, document: undefined }));
     clearDuplicateReview();
   };
 
   const changeClassification = (nextClassification: ClientClassification) => {
+    setDraftDirty(true);
     setClassificacao(nextClassification);
     setClassificationConfirmed(true);
+    clearDuplicateReview();
+  };
+
+  const discardDraft = () => {
+    clearScopedDraft(formDraftKey);
+    setDraftDirty(false);
+    setFormData(clienteExistente ? {
+      cpf_cnpj: clienteExistente.cpf_cnpj ?? "",
+      razao_social: clienteExistente.razao_social ?? "",
+      nome_fantasia: clienteExistente.nome_fantasia ?? "",
+      email: clienteExistente.email ?? "",
+      telefone: clienteExistente.telefone ?? "",
+      inscricao_estadual: clienteExistente.inscricao_estadual ?? "",
+      inscricao_municipal: clienteExistente.inscricao_municipal ?? "",
+      telefone2: clienteExistente.telefone2 ?? "",
+      contato: clienteExistente.contato ?? "",
+      observacoes: clienteExistente.observacoes ?? "",
+    } : EMPTY_FORM);
+    setTipoPessoa(clienteExistente?.tipo_pessoa ?? "cnpj");
+    setClassificacao(normalizeClientClassification(clienteExistente?.classificacao) ?? (activeArea === "industrial" ? "industrial" : "domestico"));
+    setClassificationConfirmed(Boolean(clienteExistente) || activeArea !== "central");
+    setRegimeTributario((clienteExistente?.regime_tributario as RegimeTributario | null) ?? "nao_contribuinte");
+    setErrors({});
     clearDuplicateReview();
   };
 
@@ -410,6 +463,7 @@ export const ClienteDadosBasicos = ({
         telefone: data.ddd_telefone_1 || previous.telefone,
         telefone2: data.ddd_telefone_2 || previous.telefone2,
       }));
+      setDraftDirty(true);
       if (data.opcao_pelo_mei) setRegimeTributario("mei");
       else if (data.opcao_pelo_simples) setRegimeTributario("simples_nacional");
       else setRegimeTributario("normal");
@@ -447,9 +501,9 @@ export const ClienteDadosBasicos = ({
       return;
     }
 
-    const conflict = candidates.find((candidate) => candidate.documentConflict);
+    const conflict = candidates.find((candidate) => candidate.documentConflict || hasNameAndPhoneMatch(candidate));
     if (conflict) {
-      toast.error("Este CPF/CNPJ já pertence a outro cliente");
+      toast.error(conflict.documentConflict ? "Este CPF/CNPJ já pertence a outro cliente" : "Este nome e telefone já pertencem a outro cliente. Abra o cadastro existente.");
       return;
     }
 
@@ -461,6 +515,8 @@ export const ClienteDadosBasicos = ({
 
     try {
       const savedClient = await saveIdentity.mutateAsync(snapshot);
+      clearScopedDraft(formDraftKey);
+      setDraftDirty(false);
       onClienteSaved(savedClient.id);
       if (goNext) onNext();
       else onSaved?.(savedClient.id);
@@ -819,7 +875,7 @@ export const ClienteDadosBasicos = ({
         <section
           className={cn(
             "pdv-client-form__message surface-panel border-l-4 p-4 sm:p-5",
-            documentConflict ? "border-l-destructive" : "border-l-amber-500",
+            blockingConflict ? "border-l-destructive" : "border-l-amber-500",
           )}
           data-testid="duplicate-review"
           aria-live="polite"
@@ -857,18 +913,18 @@ export const ClienteDadosBasicos = ({
                 <AlertTriangle
                   className={cn(
                     "mt-0.5 h-5 w-5 shrink-0",
-                    documentConflict ? "text-destructive" : "text-amber-600",
+                    blockingConflict ? "text-destructive" : "text-amber-600",
                   )}
                   aria-hidden="true"
                 />
                 <div>
                   <h3 className="font-semibold text-foreground">
-                    {documentConflict
-                      ? "CPF/CNPJ já cadastrado"
+                    {blockingConflict
+                      ? documentConflict ? "CPF/CNPJ já cadastrado" : "Nome e telefone já cadastrados"
                       : `${currentCandidates.length} cadastro${currentCandidates.length > 1 ? "s" : ""} semelhante${currentCandidates.length > 1 ? "s" : ""}`}
                   </h3>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    {documentConflict
+                    {blockingConflict
                       ? "Abra o cadastro existente para evitar históricos separados para o mesmo cliente."
                       : "Compare os dados abaixo antes de criar um novo cadastro."}
                   </p>
@@ -931,7 +987,7 @@ export const ClienteDadosBasicos = ({
                   </article>
                 ))}
               </div>
-              {!documentConflict && (
+              {!blockingConflict && (
                 <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                   <Checkbox
                     id="duplicate-review-confirmation"
@@ -998,7 +1054,7 @@ export const ClienteDadosBasicos = ({
                   }
                   className="h-11 min-w-0 whitespace-normal px-3 text-center leading-tight"
                   aria-pressed={regimeTributario === regime.value}
-                  onClick={() => setRegimeTributario(regime.value)}
+                  onClick={() => { setRegimeTributario(regime.value); setDraftDirty(true); }}
                   disabled={isBusy}
                 >
                   {regime.label}
@@ -1113,11 +1169,16 @@ export const ClienteDadosBasicos = ({
             : "Endereço e demais configurações vêm nas próximas etapas."}
         </p>
         <div className="grid gap-2 sm:flex sm:justify-end">
+          {draftDirty && (
+            <Button type="button" variant="ghost" className="h-11" onClick={discardDraft} disabled={isBusy}>
+              Descartar rascunho
+            </Button>
+          )}
           <Button
             type="submit"
             variant="outline"
             className="h-11 sm:min-w-40"
-            disabled={isBusy || Boolean(documentConflict)}
+            disabled={isBusy || blockingConflict}
           >
             {saveIdentity.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1130,7 +1191,7 @@ export const ClienteDadosBasicos = ({
             type="button"
             className="h-11 sm:min-w-44"
             onClick={() => void handleSave(true)}
-            disabled={isBusy || Boolean(documentConflict)}
+            disabled={isBusy || blockingConflict}
           >
             Salvar e continuar
             {isBusy ? (
