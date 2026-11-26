@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,11 +16,24 @@ import { useClientes } from "@/hooks/useClientes";
 import { useMotoristas } from "@/hooks/useMotoristas";
 import { AgendamentoInsert } from "@/hooks/useAgendamentos";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+import { clearScopedDraft, readScopedDraft, scopedDraftKey, writeScopedDraft } from "@/lib/scopedDraft";
+
+type AgendamentoDraft = {
+  clienteId: string;
+  tipo: "retirada" | "entrega";
+  data: string;
+  horario: string;
+  recorrente: boolean;
+  frequencia: string;
+  motoristaId: string;
+  observacoes: string;
+};
 
 interface NovoAgendamentoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (agendamento: AgendamentoInsert) => void;
+  onSave: (agendamento: AgendamentoInsert) => Promise<void>;
   defaultDate?: Date;
 }
 
@@ -30,19 +43,48 @@ export function NovoAgendamentoModal({
   onSave,
   defaultDate,
 }: NovoAgendamentoModalProps) {
-  const { clientes, isLoading: loadingClientes } = useClientes();
-  const { motoristasAtivos, isLoading: loadingMotoristas } = useMotoristas();
+  const { clientes } = useClientes();
+  const { motoristasAtivos } = useMotoristas();
+  const { user, activeTenant } = useAuth();
+  const draftKey = scopedDraftKey(user?.id, activeTenant?.id, "agenda:novo-agendamento");
+  const restored = useRef(readScopedDraft<AgendamentoDraft>(draftKey));
+  const loadedDraftKey = useRef(draftKey);
 
-  const [clienteId, setClienteId] = useState("");
-  const [tipo, setTipo] = useState<"retirada" | "entrega">("retirada");
-  const [data, setData] = useState(defaultDate ? format(defaultDate, "yyyy-MM-dd") : "");
-  const [horario, setHorario] = useState("");
-  const [recorrente, setRecorrente] = useState(false);
-  const [frequencia, setFrequencia] = useState("unico");
-  const [motoristaId, setMotoristaId] = useState("");
-  const [observacoes, setObservacoes] = useState("");
+  const [clienteId, setClienteId] = useState(restored.current?.clienteId ?? "");
+  const [tipo, setTipo] = useState<"retirada" | "entrega">(restored.current?.tipo ?? "retirada");
+  const [data, setData] = useState(restored.current?.data ?? (defaultDate ? format(defaultDate, "yyyy-MM-dd") : ""));
+  const [horario, setHorario] = useState(restored.current?.horario ?? "");
+  const [recorrente, setRecorrente] = useState(restored.current?.recorrente ?? false);
+  const [frequencia, setFrequencia] = useState(restored.current?.frequencia ?? "unico");
+  const [motoristaId, setMotoristaId] = useState(restored.current?.motoristaId ?? "");
+  const [observacoes, setObservacoes] = useState(restored.current?.observacoes ?? "");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (loadedDraftKey.current !== draftKey) return;
+    if (!open) return;
+    if (clienteId || tipo !== "retirada" || horario || recorrente || frequencia !== "unico" || motoristaId || observacoes || (data && data !== (defaultDate ? format(defaultDate, "yyyy-MM-dd") : ""))) {
+      writeScopedDraft<AgendamentoDraft>(draftKey, { clienteId, tipo, data, horario, recorrente, frequencia, motoristaId, observacoes });
+    } else {
+      clearScopedDraft(draftKey);
+    }
+  }, [open, draftKey, clienteId, tipo, data, horario, recorrente, frequencia, motoristaId, observacoes, defaultDate]);
+
+  useEffect(() => {
+    if (loadedDraftKey.current === draftKey) return;
+    const saved = readScopedDraft<AgendamentoDraft>(draftKey);
+    setClienteId(saved?.clienteId ?? "");
+    setTipo(saved?.tipo ?? "retirada");
+    setData(saved?.data ?? (defaultDate ? format(defaultDate, "yyyy-MM-dd") : ""));
+    setHorario(saved?.horario ?? "");
+    setRecorrente(saved?.recorrente ?? false);
+    setFrequencia(saved?.frequencia ?? "unico");
+    setMotoristaId(saved?.motoristaId ?? "");
+    setObservacoes(saved?.observacoes ?? "");
+    loadedDraftKey.current = draftKey;
+  }, [draftKey, defaultDate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!clienteId || !data) {
@@ -61,8 +103,16 @@ export function NovoAgendamentoModal({
       status: "agendado",
     };
 
-    onSave(agendamento);
-    resetForm();
+    setIsSaving(true);
+    try {
+      await onSave(agendamento);
+      clearScopedDraft(draftKey);
+      resetForm();
+    } catch {
+      // O formulário e o rascunho permanecem disponíveis para nova tentativa.
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetForm = () => {
@@ -192,10 +242,10 @@ export function NovoAgendamentoModal({
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
+            <Button type="button" variant="outline" onClick={() => { clearScopedDraft(draftKey); resetForm(); onOpenChange(false); }}>
+              Descartar
             </Button>
-            <Button type="submit" disabled={!clienteId || !data}>
+            <Button type="submit" disabled={!clienteId || !data || isSaving}>
               Criar Agendamento
             </Button>
           </div>

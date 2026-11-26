@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, CircleAlert, Loader2, MapPin, Navigation, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AddressMap } from "@/components/ui/AddressMap";
@@ -13,6 +13,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useEnderecosCliente, type EnderecoCliente } from "@/hooks/useClientes";
 import { useConfiguracoesGerais } from "@/hooks/useConfiguracoesGerais";
+import { useAuth } from "@/contexts/AuthContext";
+import { clearScopedDraft, readScopedDraft, scopedDraftKey, writeScopedDraft } from "@/lib/scopedDraft";
 import {
   CLIENT_ADDRESS_TYPES,
   CLIENT_ADDRESS_TYPE_LABELS,
@@ -89,15 +91,25 @@ function formatPostalCode(value: string) {
 export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEnderecoProps) => {
   const { enderecos, isLoading, isError, refetch, saveAddress, deleteAddress } = useEnderecosCliente(clienteId);
   const { configuracao } = useConfiguracoesGerais();
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<ClientAddressDraft | null>(null);
+  const { user, activeTenant } = useAuth();
+  const draftKey = scopedDraftKey(user?.id, activeTenant?.id, `cliente:endereco:${clienteId ?? "novo"}`);
+  const restored = useRef(readScopedDraft<{ selectedAddressId: string | null; draft: ClientAddressDraft }>(draftKey));
+  const loadedDraftKey = useRef(draftKey);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(restored.current?.selectedAddressId ?? null);
+  const [draft, setDraft] = useState<ClientAddressDraft | null>(restored.current?.draft ?? null);
   const [fieldErrors, setFieldErrors] = useState<AddressFieldErrors>({});
-  const [dirty, setDirty] = useState(false);
+  const [dirty, setDirty] = useState(Boolean(restored.current));
   const [isSearchingPostalCode, setIsSearchingPostalCode] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [approximateLocation, setApproximateLocation] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<EnderecoCliente | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (loadedDraftKey.current !== draftKey) return;
+    if (clienteId && dirty && draft) writeScopedDraft(draftKey, { selectedAddressId, draft });
+    else clearScopedDraft(draftKey);
+  }, [clienteId, draftKey, selectedAddressId, draft, dirty]);
 
   const activeAddresses = useMemo(() => enderecos.filter((address) => address.ativo), [enderecos]);
   const archivedAddresses = useMemo(() => enderecos.filter((address) => !address.ativo), [enderecos]);
@@ -127,15 +139,18 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
   }, [clienteId, cnpjData, dirty, enderecos, isLoading, selectedAddressId]);
 
   useEffect(() => {
-    setSelectedAddressId(null);
-    setDraft(clienteId ? createEmptyDraft(clienteId, cnpjData) : null);
+    const saved = readScopedDraft<{ selectedAddressId: string | null; draft: ClientAddressDraft }>(draftKey);
+    loadedDraftKey.current = draftKey;
+    setSelectedAddressId(saved?.selectedAddressId ?? null);
+    setDraft(saved?.draft ?? (clienteId ? createEmptyDraft(clienteId, cnpjData) : null));
     setFieldErrors({});
-    setDirty(false);
+    setDirty(Boolean(saved));
     setApproximateLocation(false);
     setSaveError(null);
-  }, [clienteId, cnpjData]);
+  }, [clienteId, cnpjData, draftKey]);
 
   const selectAddress = (address: EnderecoCliente) => {
+    clearScopedDraft(draftKey);
     setSelectedAddressId(address.id);
     setDraft(addressToDraft(address));
     setFieldErrors({});
@@ -146,6 +161,7 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
 
   const startNewAddress = () => {
     if (!clienteId) return;
+    clearScopedDraft(draftKey);
     setSelectedAddressId(null);
     setDraft({
       ...createEmptyDraft(clienteId),
@@ -270,6 +286,7 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
       setDraft(addressToDraft(saved));
       setFieldErrors({});
       setDirty(false);
+      clearScopedDraft(draftKey);
       if (continueAfterSave) onNext();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Não foi possível salvar o endereço agora.");
@@ -396,7 +413,11 @@ export const ClienteEndereco = ({ clienteId, onNext, cnpjData }: ClienteEndereco
       )}
       <div className="flex flex-col-reverse gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
         <Button type="button" variant="ghost" className="min-h-11" onClick={onNext} disabled={isSaving}>{activeAddresses.length === 0 ? "Continuar sem endereço" : "Continuar sem alterar"}</Button>
-        <div className="flex flex-col gap-3 sm:flex-row"><Button type="button" variant="outline" className="min-h-11 gap-2" onClick={() => void save(false)} disabled={isSaving}>{isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar endereço</Button><Button type="button" className="min-h-11" onClick={() => void save(true)} disabled={isSaving}>Salvar e continuar</Button></div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {dirty && <Button type="button" variant="ghost" className="min-h-11" onClick={() => { clearScopedDraft(draftKey); setDirty(false); setFieldErrors({}); setSaveError(null); }} disabled={isSaving}>Descartar alterações</Button>}
+          <Button type="button" variant="outline" className="min-h-11 gap-2" onClick={() => void save(false)} disabled={isSaving}>{isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Salvar endereço</Button>
+          <Button type="button" className="min-h-11" onClick={() => void save(true)} disabled={isSaving}>Salvar e continuar</Button>
+        </div>
       </div>
 
       <AlertDialog open={Boolean(addressToDelete)} onOpenChange={(open) => !open && setAddressToDelete(null)}>

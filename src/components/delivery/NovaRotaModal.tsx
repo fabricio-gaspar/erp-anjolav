@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -37,6 +37,17 @@ import { useMotoristas } from "@/hooks/useMotoristas";
 import { useVeiculos } from "@/hooks/useVeiculos";
 import { useRotasEntregaMutations } from "@/hooks/useRotasEntrega";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { clearScopedDraft, readScopedDraft, scopedDraftKey, writeScopedDraft } from "@/lib/scopedDraft";
+
+type RouteDraft = {
+  date: string;
+  motoristaId: string;
+  veiculoId: string;
+  kmInicial: string;
+  observacoes: string;
+  operationType: "domestico" | "industrial" | "";
+};
 
 interface NovaRotaModalProps {
   open: boolean;
@@ -55,25 +66,56 @@ export function NovaRotaModal({
   const { veiculosAtivos, isLoading: isLoadingVeiculos } = useVeiculos();
   const { createRota } = useRotasEntregaMutations();
   const { activeArea } = useWorkspace();
+  const { user, activeTenant } = useAuth();
+  const draftKey = scopedDraftKey(user?.id, activeTenant?.id, `delivery:nova-rota:${activeArea}`);
+  const restored = useRef(readScopedDraft<RouteDraft>(draftKey));
+  const loadedDraftKey = useRef(draftKey);
+  const initialOperationType = activeArea === "central" ? "" : activeArea === "industrial" ? "industrial" : "domestico";
 
-  const [data, setData] = useState<Date>(new Date());
-  const [motoristaId, setMotoristaId] = useState<string>("");
-  const [veiculoId, setVeiculoId] = useState<string>("");
-  const [kmInicial, setKmInicial] = useState<string>("");
-  const [observacoes, setObservacoes] = useState<string>("");
-  const [operationType, setOperationType] = useState<"domestico" | "industrial" | "">("");
+  const [data, setData] = useState<Date>(() => restored.current?.date ? new Date(`${restored.current.date}T12:00:00`) : defaultDate ? new Date(`${defaultDate}T12:00:00`) : new Date());
+  const [motoristaId, setMotoristaId] = useState<string>(restored.current?.motoristaId ?? "");
+  const [veiculoId, setVeiculoId] = useState<string>(restored.current?.veiculoId ?? "");
+  const [kmInicial, setKmInicial] = useState<string>(restored.current?.kmInicial ?? "");
+  const [observacoes, setObservacoes] = useState<string>(restored.current?.observacoes ?? "");
+  const [operationType, setOperationType] = useState<"domestico" | "industrial" | "">(restored.current?.operationType ?? initialOperationType);
 
-  // Reset form when modal opens
   useEffect(() => {
-    if (open) {
-      setData(defaultDate ? new Date(`${defaultDate}T12:00:00`) : new Date());
-      setMotoristaId("");
-      setVeiculoId("");
-      setKmInicial("");
-      setObservacoes("");
-      setOperationType(activeArea === "central" ? "" : activeArea === "industrial" ? "industrial" : "domestico");
+    if (!open && !readScopedDraft<RouteDraft>(draftKey) && defaultDate) setData(new Date(`${defaultDate}T12:00:00`));
+  }, [defaultDate, draftKey, open]);
+
+  useEffect(() => {
+    if (loadedDraftKey.current !== draftKey) return;
+    if (!open) return;
+    if (motoristaId || veiculoId || kmInicial || observacoes || operationType !== initialOperationType || format(data, "yyyy-MM-dd") !== (defaultDate ?? format(new Date(), "yyyy-MM-dd"))) {
+      writeScopedDraft<RouteDraft>(draftKey, { date: format(data, "yyyy-MM-dd"), motoristaId, veiculoId, kmInicial, observacoes, operationType });
+    } else {
+      clearScopedDraft(draftKey);
     }
-  }, [activeArea, defaultDate, open]);
+  }, [open, draftKey, data, motoristaId, veiculoId, kmInicial, observacoes, operationType, initialOperationType, defaultDate]);
+
+  useEffect(() => {
+    if (loadedDraftKey.current === draftKey) return;
+    const saved = readScopedDraft<RouteDraft>(draftKey);
+    restored.current = saved;
+    setData(saved?.date ? new Date(`${saved.date}T12:00:00`) : defaultDate ? new Date(`${defaultDate}T12:00:00`) : new Date());
+    setMotoristaId(saved?.motoristaId ?? "");
+    setVeiculoId(saved?.veiculoId ?? "");
+    setKmInicial(saved?.kmInicial ?? "");
+    setObservacoes(saved?.observacoes ?? "");
+    setOperationType(saved?.operationType ?? initialOperationType);
+    loadedDraftKey.current = draftKey;
+  }, [draftKey, defaultDate, initialOperationType]);
+
+  const discardDraft = () => {
+    clearScopedDraft(draftKey);
+    restored.current = null;
+    setData(defaultDate ? new Date(`${defaultDate}T12:00:00`) : new Date());
+    setMotoristaId("");
+    setVeiculoId("");
+    setKmInicial("");
+    setObservacoes("");
+    setOperationType(initialOperationType);
+  };
 
   const handleSubmit = async () => {
     if (!operationType) return;
@@ -86,6 +128,7 @@ export function NovaRotaModal({
       observacoes: observacoes || null,
     });
 
+    discardDraft();
     onOpenChange(false);
     onSuccess?.(result.routeId);
   };
@@ -231,10 +274,10 @@ export function NovaRotaModal({
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => { discardDraft(); onOpenChange(false); }}
             disabled={isLoading}
           >
-            Cancelar
+            Descartar
           </Button>
           <Button onClick={handleSubmit} disabled={isLoading || data < startOfDay(new Date()) || !motoristaId || !veiculoId || !operationType}>
             {isLoading ? (

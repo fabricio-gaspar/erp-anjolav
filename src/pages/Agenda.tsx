@@ -164,10 +164,9 @@ export default function Agenda() {
   const isFriday = (date: Date) => date.getDay() === 5;
 
   // Handlers
-  const handleCreateAgendamento = (agendamento: AgendamentoInsert) => {
-    createAgendamento.mutate(agendamento, {
-      onSuccess: () => setNovoModalOpen(false),
-    });
+  const handleCreateAgendamento = async (agendamento: AgendamentoInsert) => {
+    await createAgendamento.mutateAsync(agendamento);
+    setNovoModalOpen(false);
   };
 
   const handleMarkCompleted = (agendamento: Agendamento) => {
