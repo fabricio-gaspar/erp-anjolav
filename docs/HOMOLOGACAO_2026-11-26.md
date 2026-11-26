@@ -17,6 +17,7 @@ integração externa e procedimento de recuperação.
 | Folha, contratos e retirada | Comandos ausentes reconstruídos com restrições de empresa e permissões | Testes SQL com `ROLLBACK`: contrato industrial, folha e confirmação de retirada repetida |
 | Faturamento | Recebimento manual de fatura parcial/total, registro em caixa e contas a receber; Asaas e recebimento manual mutuamente exclusivos | `test/fat05-manual-invoice-receipts.integration.sql` passou contra a base conectada, com reversão integral |
 | Demonstrativo Industrial | Consulta por cliente/período/fatura; referência incompatível a campo de cancelamento removida | Consulta autenticada com cliente existente; cenário transacional de fatura quitada passou |
+| Fidelidade | Acúmulo Doméstico com mínimo configurado e crédito único por ROL quitado; resgate com idempotência | Teste transacional: R$ 48 quitados em dinheiro e Pix geraram 4 pontos; repetição não duplicou. Em outro teste, 10 pontos temporários permitiram resgatar 5 (R$ 0,50), repetição não duplicou pagamento nem débito, e resgate de zero foi rejeitado. Ambos os testes foram revertidos por `ROLLBACK` |
 | Permissões | Auditoria das alterações de permissões de módulo | Teste SQL transacional com trilha de auditoria |
 | Fiscal e WhatsApp | Autorização fiscal por área ajustada; títulos padrão dos avisos corrigidos; envio em texto mantido | 7 testes locais do conteúdo e avisos de entrada/disponibilidade aceitos pelo WA-AKG no destinatário autorizado; entrega/leitura não confirmadas |
 | Exportação de dados | Interface passou a informar o escopo parcial e o manifesto da exportação | Testes locais de paginação e limites passaram; não equivale a backup restaurável |
@@ -30,14 +31,18 @@ integração externa e procedimento de recuperação.
   ficaram ignoradas por exigirem contas fictícias de homologação e seus dados.
 - Isolamento RLS: operador Doméstico consultou apenas clientes Domésticos;
   operador Industrial consultou apenas clientes Industriais; usuário sem vínculo
-  não consultou clientes/ROLs. Não houve dados de teste remanescentes do segundo
-  tenant criado em transação.
+  não consultou clientes/ROLs. Um administrador de segundo tenant criado em
+  transação viu seu cliente de teste e zero clientes do tenant original; o
+  `ROLLBACK` removeu todos os dados temporários.
 - Um ROL Doméstico de teste foi persistido com item, valor e posição. Os dois
   avisos em texto foram aceitos pelo provedor; não houve confirmação de entrega
   ou leitura. O ROL de teste segue com saldo pendente e deve ser identificado
   como teste na operação.
 - Testes de fatura, contratos, folha e agendamento usaram transações revertidas.
   Não geraram cobrança externa nem nota fiscal.
+- No resgate de fidelidade, o `ROLLBACK` deixou zero lançamentos e pagamentos
+  de homologação. A experiência de resgate pela interface ainda precisa de
+  validação com contas de teste autenticadas.
 
 ## Pendências para o aceite comercial
 
@@ -46,7 +51,8 @@ integração externa e procedimento de recuperação.
    recuperação e executar ensaio de restore em projeto isolado.
 2. **Jornadas autenticadas:** executar os quatro testes E2E ignorados com
    contas fictícias de administrador e operadores e concluir os cenários
-   Industrial, produção, estoque, fidelidade, cancelamento, entrega e baixa.
+   Industrial, produção, estoque, resgate de fidelidade pela interface,
+   cancelamento, entrega e baixa.
 3. **Provedores e equipamentos:** NFS-e e boleto estão intencionalmente
    desabilitados até configuração e homologação; validar e-mail, webhooks,
    impressoras físicas, WhatsApp entregue e recuperação de falhas. Não marcar
